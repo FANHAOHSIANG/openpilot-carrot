@@ -737,8 +737,8 @@ class CarState(CarStateBase):
     trailer_signals = []
 
     # cp_cam.vl_all 내에 트레일러 메시지 키가 존재하는지 안전 검사
-    if "TRAILER_STATUS_C0" in cp_cam.vl_all:
-        trailer_signals = cp_cam.vl_all["TRAILER_STATUS_C0"].get("TRAILER_CONNECTED", [])
+    if "TRAILER_STATUS" in cp_cam.vl_all:
+        trailer_signals = cp_cam.vl_all["TRAILER_STATUS"].get("TRAILER_CONNECTED", [])
 
     # 이번 주기(프레임)에 데이터가 들어왔는지 확인
     if len(trailer_signals) > 0:
@@ -768,13 +768,13 @@ class CarState(CarStateBase):
       ]
 
     cam_msgs = [
-      ("TRAILER_STATUS_C0", 10)
+      ("TRAILER_STATUS", 50)
     ]
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, CanBus(CP).ECAN),
-      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_msgs, CanBus(CP).CAM),
-      Bus.alt: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).ACAN),
+      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).CAM),
+      Bus.alt: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_msgs, CanBus(CP).ACAN),
     }
 
   def get_can_parsers(self, CP):
