@@ -648,8 +648,16 @@ def _suppress_trailer_lfa_cluster_warnings(values, CS):
     return
 
   # Keep the vehicle's native trailer mode active. Only suppress the cluster
-  # driver-assistance warning fields that would hide/block openpilot lateral UI.
+  # driver-assistance warning popup fields that would hide/block openpilot lateral UI.
   for key in ("FAULT_LFA", "FAULT_HDA", "FAULT_DAS"):
+    if key in values:
+      values[key] = 0
+
+  for key in ("ALERTS_2", "ALERTS_3", "ALERTS_5"):
+    if key in values:
+      values[key] = 0
+
+  for key in ("SOUNDS_2", "SOUNDS_3", "SOUNDS_4"):
     if key in values:
       values[key] = 0
 
@@ -793,6 +801,8 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           values["ALERTS_5"] = 0
 
         # curvature 표시(0x161쪽 기존 로직 유지)
+        _suppress_trailer_lfa_cluster_warnings(values, CS)
+
         curvature = round(CS.out.steeringAngleDeg / 3)
         values["LANELINE_CURVATURE"] = (min(abs(curvature), 15) + (-1 if curvature < 0 else 0)) if lat_active else 0
         values["LANELINE_CURVATURE_DIRECTION"] = 1 if curvature < 0 and lat_active else 0
