@@ -169,6 +169,7 @@ class CarState(CarStateBase):
     # trailer detection
     self.trailer_connected = False
     self.trailer_timeout_cnt = 0
+    self.trailer_connected_prev = False
 
   def monitor_fingerprint(self, can_parsers, canfd):
     if self.controls_ready_count <= READY_COUNT_OK:
@@ -731,31 +732,17 @@ class CarState(CarStateBase):
 
     self.paddle_button_prev = paddle_button
 
-    # ------------------------------------------------------------
-    # 💡 [정석] Bus 130(cp_cam) 타임아웃 감지 및 KeyError 방지 로직
-    # ------------------------------------------------------------
-    trailer_signals = []
-
-    # cp_cam.vl_all 내에 트레일러 메시지 키가 존재하는지 안전 검사
-    if "TRAILER_STATUS" in cp_cam.vl_all:
-        trailer_signals = cp_cam.vl_all["TRAILER_STATUS"].get("TRAILER_CONNECTED", [])
-
-    # 이번 주기(프레임)에 데이터가 들어왔는지 확인
-    if len(trailer_signals) > 0:
-        self.trailer_timeout_cnt = 0
-        # 가장 최근에 들어온 패킷의 신호가 1인지 확인
-        self.trailer_connected = (trailer_signals[-1] == 1)
+    if self.CP.carFingerprint == CAR.HYUNDAI_IONIQ_9 and "TRAILER_STATUS" in cp.vl:
+      self.trailer_timeout_cnt = 0
+      self.trailer_connected = cp.vl["TRAILER_STATUS"]["TRAILER_CONNECTED"] != 0
     else:
-        # 데이터가 들어오지 않음 -> 트레일러 해제 상태 혹은 일시적 드롭
-        self.trailer_timeout_cnt += 1
+      self.trailer_timeout_cnt += 1
+      if self.trailer_timeout_cnt > 50:
+        self.trailer_connected = False
 
-        # 초당 100번 실행되므로, 0.5초(50프레임) 동안 신호가 없으면 확실한 해제로 판정
-        if self.trailer_timeout_cnt > 50:
-            self.trailer_connected = False
-
-    # 📝 실시간 모니터링 로그 (해제되어 패킷이 0개가 되어도 크래시 없이 무조건 실행됨)
-    print(f"[TRAILER_DEBUG] 연결: {self.trailer_connected} | 타임아웃 카운트: {self.trailer_timeout_cnt} | 패킷수: {len(trailer_signals)}")
-    # ------------------------------------------------------------
+    if self.trailer_connected != self.trailer_connected_prev:
+      print(f"[TRAILER_DEBUG] connected={self.trailer_connected} timeout={self.trailer_timeout_cnt}")
+      self.trailer_connected_prev = self.trailer_connected
 
     return ret
 
@@ -767,14 +754,15 @@ class CarState(CarStateBase):
         ("CRUISE_BUTTONS", 50)
       ]
 
-    cam_msgs = [
-      ("TRAILER_STATUS", 50)
-    ]
+    if CP.carFingerprint == CAR.HYUNDAI_IONIQ_9:
+      msgs += [
+        ("TRAILER_STATUS", 5),
+      ]
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, CanBus(CP).ECAN),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).CAM),
-      Bus.alt: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_msgs, CanBus(CP).ACAN),
+      Bus.alt: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CanBus(CP).ACAN),
     }
 
   def get_can_parsers(self, CP):
