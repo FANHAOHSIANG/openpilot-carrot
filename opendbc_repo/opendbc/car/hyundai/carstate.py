@@ -170,6 +170,7 @@ class CarState(CarStateBase):
     self.trailer_connected = False
     self.trailer_timeout_cnt = 0
     self.trailer_connected_prev = False
+    self.trailer_status = None
 
   def monitor_fingerprint(self, can_parsers, canfd):
     if self.controls_ready_count <= READY_COUNT_OK:
@@ -261,6 +262,7 @@ class CarState(CarStateBase):
           add_and_cache(self.cp, "DOORS_SEATBELTS", "doors_seatbelts")
         elif self.controls_ready_count == 126:
           add_and_cache(self.cp, "CRUISE_BUTTONS_ALT2", "cruise_buttons_alt2", ignore_counter = True)
+          add_and_cache(self.cp, "TRAILER_STATUS", "trailer_status", ignore_counter = True)
 
 
 
@@ -543,6 +545,18 @@ class CarState(CarStateBase):
     else:
       ret.steeringAngleDeg = cp.vl["STEERING_SENSORS"]["STEERING_ANGLE"] * -1
 
+    if self.trailer_status is not None:
+      self.trailer_timeout_cnt = 0
+      self.trailer_connected = self.trailer_status["TRAILER_CONNECTED"] != 0
+    else:
+      self.trailer_timeout_cnt += 1
+      if self.trailer_timeout_cnt > 50:
+        self.trailer_connected = False
+
+    if self.trailer_connected != self.trailer_connected_prev:
+      print(f"[TRAILER_DEBUG] connected={self.trailer_connected} timeout={self.trailer_timeout_cnt}")
+      self.trailer_connected_prev = self.trailer_connected
+
     ret.steeringTorque = cp.vl["MDPS"]["STEERING_COL_TORQUE"]
     ret.steeringTorqueEps = cp.vl["MDPS"]["STEERING_OUT_TORQUE"]
     ret.steeringPressed = self.update_steering_pressed(abs(ret.steeringTorque) > self.params.STEER_THRESHOLD, 5)
@@ -732,18 +746,6 @@ class CarState(CarStateBase):
 
     self.paddle_button_prev = paddle_button
 
-    if self.CP.carFingerprint == CAR.HYUNDAI_IONIQ_9 and "TRAILER_STATUS" in cp.vl:
-      self.trailer_timeout_cnt = 0
-      self.trailer_connected = cp.vl["TRAILER_STATUS"]["TRAILER_CONNECTED"] != 0
-    else:
-      self.trailer_timeout_cnt += 1
-      if self.trailer_timeout_cnt > 50:
-        self.trailer_connected = False
-
-    if self.trailer_connected != self.trailer_connected_prev:
-      print(f"[TRAILER_DEBUG] connected={self.trailer_connected} timeout={self.trailer_timeout_cnt}")
-      self.trailer_connected_prev = self.trailer_connected
-
     return ret
 
   def get_can_parsers_canfd(self, CP):
@@ -752,11 +754,6 @@ class CarState(CarStateBase):
       # TODO: this can be removed once we add dynamic support to vl_all
       msgs += [
         ("CRUISE_BUTTONS", 50)
-      ]
-
-    if CP.carFingerprint == CAR.HYUNDAI_IONIQ_9:
-      msgs += [
-        ("TRAILER_STATUS", 5),
       ]
 
     return {

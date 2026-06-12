@@ -643,6 +643,16 @@ def _apply_radar_blink(values, radar_pairs, frame, *,
     values[det_key] = 2 - blink
     values[dist_key] = min_dist
 
+def _suppress_trailer_lfa_cluster_warnings(values, CS):
+  if not getattr(CS, "trailer_connected", False):
+    return
+
+  # Keep the vehicle's native trailer mode active. Only suppress the cluster
+  # driver-assistance warning fields that would hide/block openpilot lateral UI.
+  for key in ("FAULT_LFA", "FAULT_HDA", "FAULT_DAS"):
+    if key in values:
+      values[key] = 0
+
 def _make_ccnc_values(values, CS, lat_active, frame, hud_control,
                      lane_line=True, corner_radar=True,
                      desire=0,
@@ -871,6 +881,8 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         if canfd_debug > 0:
           values["FAULT_LSS"] = 0
           values["FAULT_DAS"] = 0
+
+        _suppress_trailer_lfa_cluster_warnings(values, CS)
 
         ret.append(packer.make_can_msg("CCNC_0x162", CAN.ECAN, values))
 
