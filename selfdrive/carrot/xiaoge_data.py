@@ -292,22 +292,71 @@ class XiaogeDataBroadcaster:
 
         print("TCP server shutdown complete")
 
+    def collect_signal_state(self, carState) -> Dict[str, Any]:
+        """收集方向燈 / 倒車 / 雙黃燈 / 盲區等狀態，供外部穩定消費。"""
+        left_blinker = bool(getattr(carState, 'leftBlinker', False))
+        right_blinker = bool(getattr(carState, 'rightBlinker', False))
+        blind_left = bool(getattr(carState, 'leftBlindspot', False))
+        blind_right = bool(getattr(carState, 'rightBlindspot', False))
+
+        gear_shifter = str(getattr(carState, 'gearShifter', 'unknown'))
+        gear_lower = gear_shifter.lower()
+        reverse = 'reverse' in gear_lower
+
+        # 雙黃燈：兩個方向燈同時亮時視為 hazard
+        hazard = left_blinker and right_blinker
+
+        # 方便接收端直接用數字判斷：0=none, 1=left, 2=right, 3=hazard
+        if hazard:
+            turn_signal_state = 3
+        elif left_blinker:
+            turn_signal_state = 1
+        elif right_blinker:
+            turn_signal_state = 2
+        else:
+            turn_signal_state = 0
+
+        state = {
+            'leftBlinker': left_blinker,
+            'rightBlinker': right_blinker,
+            'hazard': hazard,
+            'turnSignalState': turn_signal_state,
+            'reverse': reverse,
+            'leftBlindspot': blind_left,
+            'rightBlindspot': blind_right,
+            'blindspot': blind_left or blind_right,
+            'gearShifter': gear_shifter,
+        }
+
+        # 狀態變更時印出一行，方便你確認真的有收到變化
+        if state != getattr(self, '_last_signal_state', None):
+            print(
+                "SignalState changed: "
+                f"L={int(left_blinker)} R={int(right_blinker)} H={int(hazard)} "
+                f"REV={int(reverse)} BL={int(blind_left or blind_right)} gear={gear_shifter}"
+            )
+            self._last_signal_state = state.copy()
+
+        return state
+
     def collect_car_state(self, carState) -> Dict[str, Any]:
-        """收集本车状态数据 - 简化版（只保留超车决策必需字段）
+        """收集本車狀態數據 - 簡化版（只保留超車決策必需字段）
         """
-        # 数据验证：确保 vEgo 为有效值
+        # 數據驗證：確保 vEgo 為有效值
         vEgo = float(carState.vEgo)
         if vEgo < 0:
             print(f"Warning: Invalid vEgo value: {vEgo}, using 0.0")
             vEgo = 0.0
 
-        return {
-            'vEgo': vEgo,  # 实际速度
-            'steeringAngleDeg': float(carState.steeringAngleDeg),  # 方向盘角度
-            'leftLatDist': float(carState.leftLatDist),  # 车道距离（返回原车道）
-            'leftBlindspot': bool(carState.leftBlindspot) if hasattr(carState, 'leftBlindspot') else False,  # 左盲区
-            'rightBlindspot': bool(carState.rightBlindspot) if hasattr(carState, 'rightBlindspot') else False,  # 右盲区
+        data = {
+            'vEgo': vEgo,  # 實際速度
+            'steeringAngleDeg': float(carState.steeringAngleDeg),  # 方向盤角度
+            'leftLatDist': float(carState.leftLatDist),  # 車道距離（返回原車道）
+            'leftBlindspot': bool(carState.leftBlindspot) if hasattr(carState, 'leftBlindspot') else False,  # 左盲區
+            'rightBlindspot': bool(carState.rightBlindspot) if hasattr(carState, 'rightBlindspot') else False,  # 右盲區
         }
+        data.update(self.collect_signal_state(carState))
+        return data
 
     def _update_lane_cache(self, modelV2):
         """更新车道线数据缓存，避免重复计算"""
