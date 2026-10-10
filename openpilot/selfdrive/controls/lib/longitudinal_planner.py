@@ -8,6 +8,7 @@ from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.controls.lib.longcontrol import LongCtrlState
+from openpilot.selfdrive.controls.lib.carrot_dec import CarrotDEC
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import LongitudinalMpc, N
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import T_IDXS as T_IDXS_MPC
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N, get_accel_from_plan, is_volkswagen_meb
@@ -83,6 +84,9 @@ class LongitudinalPlanner:
     self.v_cruise_kph = 0.0
 
     self.params = Params()
+    self.dec = CarrotDEC()
+    self.dec_enabled = self.params.get_bool("CarrotDEC")
+    self.dec_last_log = None
     self.coasting = CruiseCoastingPlan()
     self.coasting_percent = 0
     self.coasting_param_time = 1.0
@@ -126,6 +130,7 @@ class LongitudinalPlanner:
     if self.coasting_param_time >= 1.0:
       self.coasting_param_time = 0.0
       self.coasting_percent = coasting_percent(self.params.get_int('CruiseCoastingPercent'))
+      self.dec_enabled = self.params.get_bool("CarrotDEC")
     self.mpc.mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
 
     if len(sm['carControl'].orientationNED) == 3:
@@ -154,6 +159,29 @@ class LongitudinalPlanner:
     reset_state = long_control_off if self.CP.openpilotLongitudinalControl else not sm['selfdriveState'].enabled
     # PCM cruise speed may be updated a few cycles later, check if initialized
     reset_state = reset_state or not v_cruise_initialized or carrot.soft_hold_active
+
+    dec_decision = self.dec.update(
+      enabled=self.dec_enabled,
+      experimental=sm['selfdriveState'].experimentalMode,
+      original_mode=self.mpc.mode,
+      valid=sm.all_checks(service_list=['carState', 'controlsState', 'selfdriveState', 'radarState', 'modelV2']),
+      engaged=self.CP.openpilotLongitudinalControl and not reset_state,
+      override=sm['carState'].gasPressed or sm['carState'].brakePressed,
+      carrot_state=carrot.xState.name,
+      soft_hold=carrot.soft_hold_active,
+      speed=v_ego,
+      model_accel=sm['modelV2'].action.desiredAcceleration,
+      model_stop=sm['modelV2'].action.shouldStop,
+      trajectory_speeds=sm['modelV2'].velocity.x,
+      trajectory_times=ModelConstants.T_IDXS,
+      dt=self.dt,
+    )
+    self.mpc.mode = carrot.mode = dec_decision.mode
+    # Log only mode/enable changes, not every changing reason or model frame.
+    dec_log = (self.dec_enabled, sm['selfdriveState'].experimentalMode, dec_decision.mode)
+    if dec_log != self.dec_last_log:
+      cloudlog.info(f"carrot_dec enabled={self.dec_enabled} mode={dec_decision.mode} reason={dec_decision.reason}")
+      self.dec_last_log = dec_log
 
     # No change cost when user is controlling the speed, or when standstill
     prev_accel_constraint = not (reset_state or sm['carState'].standstill)

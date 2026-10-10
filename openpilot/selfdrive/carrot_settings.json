@@ -299,7 +299,8 @@
                   "zh": "驾驶模式",
                   "params": [
                     "MyDrivingMode",
-                    "MyDrivingModeAuto"
+                    "MyDrivingModeAuto",
+                    "CarrotDEC"
                   ]
                 },
                 {
@@ -627,6 +628,23 @@
     }
   ],
   "params": [
+    {
+      "group": "가속설정",
+      "name": "CarrotDEC",
+      "title": "동적 실험 모드 (DEC)",
+      "descr": "끔: 기존 carrot-wip 동작. 켬: 실험 모드에서 일반 순항은 ACC, 확인된 모델 감속은 blended로 전환합니다. 정지/강한 감속은 즉시 전환하고 2초간 감속 요구가 없으면 ACC로 복귀합니다. Carrot 정지 제약은 ACC로 유지합니다. 입력이 유효하지 않으면 기존 모드를 유지합니다. 실차 검증 전 실험 기능입니다.",
+      "egroup": "ACCEL",
+      "etitle": "Dynamic Experimental Control (DEC)",
+      "edescr": "Off: retain carrot-wip experimental behavior. On: requires Experimental Mode; use ACC for ordinary cruise, enter blended for confirmed model slowing or immediate stop/strong braking, and return after 2 seconds clear. Carrot stop constraints remain in ACC. Invalid inputs retain the original mode. Experimental; not vehicle validated.",
+      "cgroup": "加速设置",
+      "ctitle": "動態實驗模式 (DEC)",
+      "cdescr": "關閉：保留原 carrot-wip 行為。開啟：需啟用實驗模式；一般巡航用 ACC，確認模型減速後切入 blended，模型要求停車或強減速時立即切入，連續 2 秒無減速需求後返回 ACC。Carrot 停車約束以 ACC 保留。輸入無效時沿用原模式。尚未實車驗證的實驗功能。",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1,
+      "risk": "high"
+    },
     {
       "group": "조향일반",
       "name": "PathOffset",

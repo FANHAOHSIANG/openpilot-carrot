@@ -387,3 +387,11 @@ Experimental DM switches to standard monitoring for 20 seconds only when moving 
 7. Restore the previous value or baseline profile immediately if the result is worse or unclear.
 
 See the Wiki [Tuning introduction](https://github.com/ajouatom/openpilot/wiki/Guide-Tuning) for the recommended steering and longitudinal adjustment order.
+
+## Dynamic Experimental Control (DEC) — experimental branch
+
+`CarrotDEC` is off by default. Enable **Experimental Mode** on the device and **Carrot Web → Settings → Driving → Cruise & Gap → Accel Profile → Drive Mode → Dynamic Experimental Control (DEC)** to use it. Turning DEC off restores the existing carrot-wip mode selection.
+
+Ordinary cruise uses ACC. A model acceleration of −0.5 m/s² or less, or a near-term model speed drop, must persist for 0.25 seconds to enter blended. Model `shouldStop`, acceleration of −1.5 m/s² or less, and Carrot preparation states enter immediately. Two seconds without a slowdown request return to ACC. Carrot stop/hold states retain ACC's stop obstacle. Invalid inputs or driver override retain the original mode and reset DEC history.
+
+DEC selects the planner mode; it does not smooth braking commands or guarantee traffic-light stopping. Logs record `carrot_dec` mode changes. These thresholds and vehicle behavior have not been validated in driving.

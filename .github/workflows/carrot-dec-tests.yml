@@ -1,0 +1,29 @@
+name: Carrot DEC focused tests
+on:
+  push:
+    branches: [carrotpilot-dec]
+  pull_request:
+    paths:
+      - 'openpilot/selfdrive/controls/lib/carrot_dec.py'
+      - 'openpilot/selfdrive/controls/lib/longitudinal_planner.py'
+      - 'openpilot/selfdrive/controls/tests/test_carrot_dec.py'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - 'openpilot/common/params_keys.h'
+      - '.github/workflows/carrot-dec-tests.yml'
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: DEC unit and planner-block integration tests
+        run: python openpilot/selfdrive/controls/tests/test_carrot_dec.py
+      - name: Planner syntax
+        run: python -m py_compile openpilot/selfdrive/controls/lib/carrot_dec.py openpilot/selfdrive/controls/lib/longitudinal_planner.py

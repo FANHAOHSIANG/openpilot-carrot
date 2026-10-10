@@ -39,6 +39,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"DriverTooDistracted", {CLEAR_ON_MANAGER_START | CLEAR_ON_IGNITION_ON, BOOL}},
     {"AlphaLongitudinalEnabled", {PERSISTENT | DEVELOPMENT_ONLY, BOOL}},
     {"ExperimentalMode", {PERSISTENT, BOOL}},
+    {"CarrotDEC", {PERSISTENT, BOOL, "0"}},
     {"ExperimentalModeConfirmed", {PERSISTENT, BOOL}},
     {"FirmwareQueryDone", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, BOOL}},
     {"ForcePowerDown", {PERSISTENT, BOOL}},

@@ -355,3 +355,11 @@ Automatic CAN diagnostic logs are generated only when currently received vehicle
 - Setting ranges/defaults: `openpilot/selfdrive/carrot_settings.json`, `openpilot/common/params_keys.h`
 
 [Back to Understanding Settings](settings.md)
+
+## Dynamic Experimental Control (DEC) — experimental branch
+
+`CarrotDEC` is off by default. Enable **Experimental Mode** on the device and **Carrot Web → Settings → Driving → Cruise & Gap → Accel Profile → Drive Mode → Dynamic Experimental Control (DEC)** to use it. Turning DEC off restores the existing carrot-wip mode selection.
+
+Ordinary cruise uses ACC. A model acceleration of −0.5 m/s² or less, or a near-term model speed drop, must persist for 0.25 seconds to enter blended. Model `shouldStop`, acceleration of −1.5 m/s² or less, and Carrot preparation states enter immediately. Two seconds without a slowdown request return to ACC. Carrot stop/hold states retain ACC's stop obstacle. Invalid inputs or driver override retain the original mode and reset DEC history.
+
+DEC selects the planner mode; it does not smooth braking commands or guarantee traffic-light stopping. Logs record `carrot_dec` mode changes. These thresholds and vehicle behavior have not been validated in driving.
