@@ -9,6 +9,8 @@ import numpy as np
 
 from openpilot.selfdrive.modeld.jetlink.link import ClientConnection, SPEC, FAULT, state
 from openpilot.selfdrive.modeld.jetlink.prepare import WarpPreparation
+from openpilot.selfdrive.modeld.jetlink.parked import ENABLE as PARKED_ENABLE, SERVICES, MAX_AGE as PARKED_MAX_AGE, stationary_disabled
+from openpilot.common.jetlink_peer import may_provision
 from openpilot.selfdrive.modeld.jetlink.contracts import model_name, parse_outputs
 
 MODEL_STATUS = Path('/dev/shm/carrot-jetlink-model.json')
@@ -137,20 +139,36 @@ class JoiningModel:
     self.error = ''
     self.small_runs = 0
     self.last_slow_log = 0.
+    self.parked_switch = False
+    self.parked_small_runs = 0
+    self.parked_native_at = 0.
+    self.parked_status = False
 
   def update(self, sm, metadata):
     self.source_sof = metadata.timestamp_sof if self.phase_enabled else 0
     now = time.monotonic()
-    self.join_allowed = may_join(now, {k: sm[k] for k in ('carState', 'selfdriveState', 'carControl')},
-                                {k: sm.valid[k] and sm.alive[k] for k in ('carState', 'selfdriveState', 'carControl')}, sm.recv_time)
-    if now >= self.next_status:
-      self.ready = state().get('state') == 'ready'
+    messages = {k: sm[k] for k in SERVICES}
+    valid = {k: bool(sm.valid[k] and sm.alive[k]) for k in SERVICES}
+    enabled = PARKED_ENABLE.is_file()
+    remote_state = state() if enabled or self.parked_status or now >= self.next_status else {}
+    peer = remote_state.get('peer') or {}
+    mode = remote_state.get('transport', 'usb')
+    self.parked_switch = bool(enabled and peer.get('protocol') == 3
+                              and may_provision(peer, mode)
+                              and stationary_disabled(now, messages, valid, sm.recv_time))
+    self.join_allowed = (not self.parked_switch and may_join(now, messages, valid, sm.recv_time)
+                         and (not enabled or stationary_disabled(now, messages, valid, sm.recv_time, require_park=False)))
+    if now >= self.next_status or self.parked_switch != self.parked_status:
+      self.ready = remote_state.get('state') == 'ready'
       record = {'active': self.active, 'ready': self.ready, 'model': model_name(self.spec), 'sha256': self.spec.sha256,
-                'error': self.error, 'updated': now}
+                'error': self.error, 'updated': now,
+                'parked_switch_ready': (self.parked_switch and self.parked_small_runs >= 3 and not self.active
+                                        and 0 <= now - self.parked_native_at < PARKED_MAX_AGE)}
       tmp = MODEL_STATUS.with_suffix('.tmp')
       tmp.write_text(json.dumps(record))
       os.replace(tmp, MODEL_STATUS)
-      self.next_status = now + 1
+      self.next_status = now + (.1 if self.parked_switch else 1)
+      self.parked_status = self.parked_switch
 
   def _reset_small(self):
     if hasattr(self.small, 'reset'):
@@ -166,6 +184,29 @@ class JoiningModel:
 
   def run(self, bufs, transforms, inputs, prepare_only):
     from openpilot.common.swaglog import cloudlog
+    if self.parked_switch:
+      # End remote inference first, reset native recurrence, then acknowledge
+      # three completed native outputs. The daemon cannot release HELLO early.
+      if self.connection is not None:
+        self.connection.close()
+        self.connection = None
+      if self.client is not None:
+        self.client.close()
+        self.client = None
+      if self.active:
+        self._reset_small()
+        self.parked_small_runs = 0
+        self.parked_native_at = 0.
+      self.active = False
+      self.reset = True
+      result = self.small.run(bufs, transforms, inputs, prepare_only)
+      if result is not None:
+        self.small_runs += 1
+        self.parked_small_runs += 1
+        self.parked_native_at = time.monotonic()
+      return result
+    self.parked_small_runs = 0
+    self.parked_native_at = 0.
     if self.preparation is not None and not self.ready:
       self.preparation.close()
       self.preparation = None
@@ -263,3 +304,4 @@ class JoiningModel:
       # Execute the native fallback before allowing an external-model join.
       self.small_runs += 1
     return result
+

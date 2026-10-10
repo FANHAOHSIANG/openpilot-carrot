@@ -395,3 +395,11 @@ See the Wiki [Tuning introduction](https://github.com/ajouatom/openpilot/wiki/Gu
 Ordinary cruise uses ACC. A model acceleration of −0.5 m/s² or less, or a near-term model speed drop, must persist for 0.25 seconds to enter blended. Model `shouldStop`, acceleration of −1.5 m/s² or less, and Carrot preparation states enter immediately. Two seconds without a slowdown request return to ACC. Carrot stop/hold states retain ACC's stop obstacle. Invalid inputs or driver override retain the original mode and reset DEC history.
 
 DEC selects the planner mode; it does not smooth braking commands or guarantee traffic-light stopping. Logs record `carrot_dec` mode changes. These thresholds and vehicle behavior have not been validated in driving.
+
+## Parked model switching — DEC experimental branch
+
+This branch includes the opt-in Protocol 3 parked-switch overlay. It is separate from `CarrotDEC` and is off by default. Use a compatible Mac JetLink 0.8.5/Protocol 3 host. While genuinely offroad, run `python3 /data/openpilot/openpilot/tools/jetlink/configure_parked_switch.py --enable`, then reboot while remaining offroad. Disable it with the same command using `--disable`. Do not run the older standalone patch installer on this integrated branch.
+
+While enabled, fresh valid P-gear/stationary/controls-disabled telemetry pauses external inference even when no model change is requested. After at least three native outputs and a two-second parked hold, the App may select another validated model. Loss of these conditions revokes approval. Remain stationary with controls disabled when selecting D to reconnect; confirm external inference before engaging assistance. No IsOnroad/IsOffroad values are changed. This remains unvalidated on C4, Ioniq 5 and TURZX hardware.
+
+See [integrated parked-switch procedure](../../parked_model_switch_dec_20261011.md) for checks, configuration and limitations.

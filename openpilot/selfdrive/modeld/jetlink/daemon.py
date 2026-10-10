@@ -16,6 +16,7 @@ from openpilot.selfdrive.modeld.jetlink import VENDOR
 from openpilot.selfdrive.modeld.jetlink.link import (SOCKET, STATUS, REQUEST, REPLY, PacketReader, send, send_parts)
 from openpilot.selfdrive.modeld.jetlink.phase import Publisher as PhasePublisher
 from openpilot.selfdrive.modeld.jetlink.mac import prepare, PreparationDeferred
+from openpilot.selfdrive.modeld.jetlink.parked import ParkedWindow
 from openpilot.selfdrive.modeld.jetlink.compat import ProtocolChoice
 from openpilot.selfdrive.modeld.jetlink.mobile import transport_mode, setup_gadget, MobileCable, AutoTransport, MobileLinkError
 from openpilot.selfdrive.modeld.jetlink.contracts import model_name
@@ -33,6 +34,7 @@ SESSION_MODE = 'usb'
 ACTIVE_UDC = None
 SESSION_DETACHED = False
 log = logging.getLogger('carrot.jetlink')
+PARKED_WINDOW = ParkedWindow()
 sys.path.insert(0, str(VENDOR.parents[1] / 'tools/jetlink'))
 from hud_protocol import Publisher, HUD_CAPABILITY, HUD_MESSAGE
 from hud_navi import CAPABILITY as NAVI_CAPABILITY, MESSAGE as NAVI_MESSAGE
@@ -189,6 +191,11 @@ def serve_local(listener, client, peer, wifi=None):
       publisher.close()
 
 
+def setup_allowed(params, peer):
+  offroad = params.get_bool('IsOffroad') and not params.get_bool('IsOnroad')
+  return offroad or (peer.get('protocol') == 3 and may_provision(peer, session_mode()) and PARKED_WINDOW())
+
+
 def _serve_local(listener, client, peer, publisher, phase, wifi=None):
   from openpilot.common.params import Params
   from openpilot.common.runtime_diagnostics import RuntimeDiagnostics
@@ -202,7 +209,7 @@ def _serve_local(listener, client, peer, publisher, phase, wifi=None):
   requested = True
   follows_app = peer.get('protocol') == 3 and may_provision(peer, session_mode())
   while host_attached():
-    if follows_app and requested and params.get_bool('IsOffroad') and not params.get_bool('IsOnroad'):
+    if follows_app and requested and setup_allowed(params, peer):
       # The App's Use Model must not compete with our old ENGINE_REQ.
       # HELLO clears that request without dropping the physical cable.
       fresh_peer = client.hello()
@@ -482,7 +489,7 @@ def main():
             last_progress = time.monotonic()
 
         peer = wait_for_selection(client, peer, progress)
-        prepare(client, peer, lambda current=params: current.get_bool('IsOffroad') and not current.get_bool('IsOnroad'),
+        prepare(client, peer, lambda current=params, current_peer=peer: setup_allowed(current, current_peer),
                 host_attached, progress, mode=session_mode())
         spec = client.spec
         if spec is None:
@@ -595,7 +602,7 @@ def wait_for_selection(client, peer, progress):
   while peer.get('loaded') is None:
     if not host_attached():
       raise PreparationDeferred('Jetlink host disconnected before App model preparation')
-    progress('app-selection', None, 'With ignition off, select Use Model in the Jetlink App')
+    progress('app-selection', None, 'Select Use Model with ignition off, or while the parked-switch native fallback is ready')
     time.sleep(1)
     current = client.state()
     if not isinstance(current, dict) or 'loaded' not in current:
@@ -617,3 +624,4 @@ def greet(client, protocol, timeout=None):
 
 if __name__ == '__main__':
   main()
+

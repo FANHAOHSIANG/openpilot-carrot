@@ -1,4 +1,4 @@
-name: Carrot DEC focused tests
+name: Carrot DEC and parked-switch focused tests
 on:
   push:
     branches: [carrotpilot-dec]
@@ -9,6 +9,9 @@ on:
       - 'openpilot/selfdrive/controls/tests/test_carrot_dec.py'
       - 'openpilot/selfdrive/carrot_settings.json'
       - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/modeld/jetlink/**'
+      - 'openpilot/selfdrive/modeld/tests/test_parked_switch*.py'
+      - 'openpilot/tools/jetlink/configure_parked_switch.py'
       - '.github/workflows/carrot-dec-tests.yml'
 permissions:
   contents: read
@@ -27,3 +30,9 @@ jobs:
         run: python openpilot/selfdrive/controls/tests/test_carrot_dec.py
       - name: Planner syntax
         run: python -m py_compile openpilot/selfdrive/controls/lib/carrot_dec.py openpilot/selfdrive/controls/lib/longitudinal_planner.py
+      - name: Parked model handoff and approval tests
+        run: python openpilot/selfdrive/modeld/tests/test_parked_switch.py
+      - name: Offroad opt-in configuration tests
+        run: python openpilot/selfdrive/modeld/tests/test_parked_switch_config.py
+      - name: Parked-switch syntax
+        run: python -m py_compile openpilot/selfdrive/modeld/jetlink/daemon.py openpilot/selfdrive/modeld/jetlink/mac.py openpilot/selfdrive/modeld/jetlink/model.py openpilot/selfdrive/modeld/jetlink/parked.py openpilot/tools/jetlink/configure_parked_switch.py

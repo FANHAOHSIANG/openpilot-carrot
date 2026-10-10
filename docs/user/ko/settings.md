@@ -426,3 +426,11 @@ Carrot Vision에는 `carrot_settings.json` 카탈로그와 별도로 **AR 표시
 일반 순항은 ACC를 사용합니다. 모델 가속도 −0.5 m/s² 이하 또는 가까운 미래의 모델 속도 감소가 0.25초 지속되면 blended로 전환합니다. 모델 `shouldStop`, −1.5 m/s² 이하 감속 및 Carrot 출발 준비 상태는 즉시 전환합니다. 감속 요구가 2초간 없으면 ACC로 복귀합니다. Carrot 정지·홀드 상태는 ACC의 정지 장애물을 유지합니다. 입력 무효 또는 운전자 페달 조작 시 기존 모드를 유지하고 DEC 이력을 초기화합니다.
 
 DEC는 계획 모드를 선택하며 제동 명령을 평활화하거나 신호 정지를 보장하지 않습니다. 로그에 `carrot_dec` 모드 변경을 기록합니다. 임계값과 실차 동작은 주행 검증 전입니다.
+
+## 정차 중 모델 변경 — DEC 실험 브랜치
+
+이 브랜치에는 Protocol 3 정차 변경 오버레이가 포함됩니다. `CarrotDEC`와 별개이며 기본값은 꺼짐입니다. 호환 Mac JetLink 0.8.5/Protocol 3 호스트를 사용합니다. 실제 offroad에서 `python3 /data/openpilot/openpilot/tools/jetlink/configure_parked_switch.py --enable`을 실행하고 offroad를 유지한 채 재부팅합니다. 같은 명령의 `--disable`로 끕니다. 통합 브랜치에 기존 독립 패치 설치기를 다시 실행하지 않습니다.
+
+켜면 모델 변경을 요청하지 않아도 신선하고 유효한 P단·정지·제어 비활성 데이터가 외부 추론을 일시 중지합니다. 최소 3회 내장 출력과 2초 정차 확인 후 App에서 검증된 다른 모델을 선택할 수 있습니다. 조건이 사라지면 승인을 취소합니다. D단으로 재연결할 때도 정지와 제어 비활성을 유지하고 외부 추론을 확인한 뒤 보조 주행을 켭니다. IsOnroad/IsOffroad는 변경하지 않습니다. C4, Ioniq 5 및 TURZX 실기 검증 전입니다.
+
+확인·설정·제한은 [통합 정차 변경 절차](../../parked_model_switch_dec_20261011.md)를 참고합니다.

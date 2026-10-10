@@ -27,7 +27,7 @@ def require_setup(offroad, connected):
   if not connected():
     raise PreparationDeferred('Jetlink host disconnected; waiting for reconnection')
   if not offroad():
-    raise PreparationDeferred('Jetlink model setup requires ignition off')
+    raise PreparationDeferred('Jetlink model setup requires ignition off or a validated parked-switch window')
 
 
 def model_file(offroad, connected, progress, cache=CACHE):
@@ -137,7 +137,7 @@ def prepare(client, peer, offroad, connected, progress, cache=CACHE, mode='usb')
     approved = approved_spec(cache)
     needs_approval = approved.sha256 != selected if approved is not None else selected != SPEC.sha256
     if needs_approval and not offroad():
-      raise PreparationDeferred('A different Jetlink App model must be approved with ignition off')
+      raise PreparationDeferred('A different Jetlink App model must be approved with ignition off or a validated parked-switch window')
   else:
     approved = None
     needs_approval = False
@@ -200,3 +200,4 @@ def prepare(client, peer, offroad, connected, progress, cache=CACHE, mode='usb')
     client.t = original
     client.progress_cb = None
     client._should_stop = lambda: False
+
