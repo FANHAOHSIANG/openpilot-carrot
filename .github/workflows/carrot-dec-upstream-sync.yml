@@ -1,0 +1,74 @@
+name: Sync official carrot-wip into Carrot DEC
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [carrot-wip]
+    paths:
+      - '.github/workflows/carrot-dec-upstream-sync.yml'
+      - 'tools/dec_sync/**'
+permissions:
+  contents: write
+concurrency:
+  group: carrot-dec-upstream-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.repository == 'FANHAOHSIANG/openpilot-carrot' && github.ref == 'refs/heads/carrot-wip'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+    steps:
+      - name: Load trusted sync helper from default branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: tools/dec_sync
+          path: sync-helper
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check sync failure handling
+        run: python sync-helper/tools/dec_sync/test_sync.py
+      - name: Load downstream history
+        uses: actions/checkout@v4
+        with:
+          ref: carrotpilot-dec
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          path: candidate
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /openpilot/common/
+            /openpilot/selfdrive/controls/lib/
+            /openpilot/selfdrive/controls/tests/
+            /openpilot/selfdrive/modeld/jetlink/
+            /openpilot/selfdrive/modeld/tests/
+            /openpilot/tools/jetlink/
+            /openpilot/selfdrive/carrot_settings.json
+      - name: Merge and validate candidate
+        id: prepare
+        working-directory: candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python ../sync-helper/tools/dec_sync/sync.py
+      - name: Publish tested fast-forward only
+        if: steps.prepare.outputs.ready == 'true'
+        working-directory: candidate
+        env:
+          GH_PUSH_TOKEN: ${{ github.token }}
+          EXPECTED_BASE: ${{ steps.prepare.outputs.base }}
+          EXPECTED_CANDIDATE: ${{ steps.prepare.outputs.candidate }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE"
+          header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_PUSH_TOKEN" | base64 -w0)"
+          current=$(git -c "http.https://github.com/.extraheader=$header" ls-remote origin refs/heads/carrotpilot-dec | cut -f1)
+          test "$current" = "$EXPECTED_BASE" || { echo 'Downstream changed during validation; retry next run.'; exit 1; }
+          git -c "http.https://github.com/.extraheader=$header" push origin HEAD:refs/heads/carrotpilot-dec
+          echo 'Published tested merge to carrotpilot-dec.' >> "$GITHUB_STEP_SUMMARY"
