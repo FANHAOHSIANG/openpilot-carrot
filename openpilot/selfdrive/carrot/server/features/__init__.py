@@ -8,6 +8,7 @@ from . import (
   egpu_model,
   intro,
   mapbox_tokens,
+  map_hud,
   params,
   screenrecord,
   settings,
@@ -35,6 +36,7 @@ def register_all(app: web.Application) -> None:
   static.register(app)
   intro.register(app)
   carrot_navi.register(app)
+  map_hud.register(app)
   stream.register(app)
   support_terminal.register(app)
   ws.register(app)

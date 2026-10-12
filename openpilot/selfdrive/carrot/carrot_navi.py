@@ -804,6 +804,40 @@ class CarrotNaviReceiver:
     self._state_changed.clear()
     return changed
 
+  def record_projection_frame(self, session_id: str, frame: tuple[bytes, int, int] | None) -> bool:
+    """Display-only JPEG source; never changes navigation/control state."""
+    with self._lock:
+      if not session_id or session_id != self._session_id or self._control_connections <= 0:
+        return False
+      key = "render:map_main"
+      previous = self._records.get(key)
+      bridge_peer = "cp-map-hud"
+      if previous is not None and previous.peer != bridge_peer:
+        if frame is None or time.monotonic_ns() - previous.received_mono_ns < 3_000_000_000:
+          return False
+      if frame is None and (previous is None or previous.peer != bridge_peer or not previous.present):
+        return False
+      payload, width, height = frame if frame is not None else (None, 0, 0)
+      if payload is not None and (len(payload) > 128 * 1024 or not 0 < width <= 800 or not 0 < height <= 480):
+        raise ValueError("projection frame exceeds display budget")
+      record = ItemRecord(
+        kind="render", name="map_main", schema_version=1, stream_handle=0,
+        manifest_revision=int((self._manifest or {}).get("revision", 0)),
+        sequence=(previous.sequence + 1 if previous else 1),
+        source_timestamp_ms=now_ms(), sent_at_ms=None, present=frame is not None,
+        value=None, payload=payload, message_type=1 if frame is not None else 4,
+        format_or_reason=2 if frame is not None else 10, flags=0,
+        width=width, height=height, reason=None if frame is not None else "projection_unavailable",
+        peer=bridge_peer, received_at_ms=now_ms(), received_mono_ns=time.monotonic_ns(),
+      )
+      self._records[key] = record
+      self._binary_configs.pop(key, None)
+      self._binary_keyframes.pop(key, None)
+      self._media_generation += 1
+      self._media_updates.append(record)
+      self._state_changed.set()
+      return True
+
   def drain_media_updates(self) -> list[ItemRecord]:
     with self._lock:
       updates = list(self._media_updates)
@@ -1298,12 +1332,16 @@ def main() -> None:
   advertise_ip = args.advertise_ip or (args.host if args.host not in ("", "0.0.0.0", "::") else None)
   beacon = None if args.no_beacon else CarrotNaviDiscoveryBeacon(advertise_ip)
   publisher = None
+  map_bridge = None
   if not args.no_cereal:
     try:
       from openpilot.selfdrive.carrot.carrot_navi_cereal import CarrotNaviCerealPublisher
 
       publisher = CarrotNaviCerealPublisher(receiver)
       publisher.start()
+      from openpilot.selfdrive.carrot.map_hud import MapHudBridge
+      map_bridge = MapHudBridge(receiver)
+      map_bridge.start()
     except Exception as exc:
       receiver.record_cereal_publish(f"publisher unavailable: {exc}")
       print(f"[carrot_navi] cereal publisher unavailable: {exc}")
@@ -1321,6 +1359,8 @@ def main() -> None:
   try:
     run_receiver_app(receiver, args.host, args.port, map_config_reader=read_map_config)
   finally:
+    if map_bridge is not None:
+      map_bridge.stop()
     if beacon is not None:
       beacon.stop()
     if publisher is not None:

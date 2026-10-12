@@ -189,3 +189,13 @@ bump ...` 구조라서, 적용 가능한 primary camera 또는 section이 있으
 - 두 브랜치 모두 receiver가 advertised stale timeout만으로 control item을 자동 expire하지는 않는다.
   연결과 item presence가 유지되면 2 Hz cereal heartbeat가 계속되고, SDI/TBT 거리는 차량 이동량만큼
   로컬 차감된다.
+
+## 2026-10-12 CPdazi Map HUD experiment
+
+The `carrot-wip-map-hud` feature branch adds an opt-in, display-only JPEG
+projection bridge. A currently connected Navi v2 session owns the outgoing
+`render:map_main` media. It does not add or alter JSON vehicle, route, speed,
+SDI or traffic-control inputs and does not synthesize `route.polyline`. The
+7713/7714 deceleration behavior compared above is unchanged. Focused tests in
+`test_map_hud.py` cover session rejection, native-media priority, expiry and
+unchanged navigation snapshots.

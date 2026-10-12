@@ -270,3 +270,20 @@ def test_live_alert_reports_startup_wait_after_five_seconds(monkeypatch) -> None
     status=0,
     alert_type="clusterSelfdriveStartup",
   )
+
+
+def test_navi_v2_debug_does_not_report_waiting_for_legacy_post():
+  source = object.__new__(OpenpilotLiveSource)
+  source._refresh_debug_params = lambda: None
+  source._held_navi_traffic_light_at = lambda _now: None
+  source._cached_navi_debug = None
+  source._current_carrot_navi = lambda _now: SimpleNamespace(
+    current=SimpleNamespace(main_text="Turn left", road_name="Road", distance_m=35),
+    route=SimpleNamespace(polyline=(), remaining_distance_m=497, remaining_time_s=65),
+  )
+  debug = source._navi_debug_info()
+  assert debug.title == "NAVI v2"
+  assert "Turn left  35m" in debug.lines
+  assert "Remaining: 497m / 65s" in debug.lines
+  assert "Route coordinates not provided by app" in debug.lines
+  assert not any("Waiting" in line for line in debug.lines)

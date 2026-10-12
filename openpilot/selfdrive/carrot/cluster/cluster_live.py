@@ -851,6 +851,16 @@ class OpenpilotLiveSource:
     def _navi_debug_info(self) -> NaviDebugInfo | None:
         self._refresh_debug_params()
         traffic_light = self._held_navi_traffic_light_at(time.monotonic())
+        navi = self._current_carrot_navi(time.monotonic())
+        if navi is not None:
+            route_count = len(navi.route.polyline) if navi.route is not None else 0
+            lines = ["Navi v2 connected (7714)"]
+            if navi.current is not None:
+                lines.append(f"{navi.current.main_text or navi.current.road_name}  {navi.current.distance_m}m")
+            if navi.route is not None:
+                lines.append(f"Remaining: {navi.route.remaining_distance_m}m / {navi.route.remaining_time_s}s")
+            lines.append(f"Route points: {route_count}" if route_count else "Route coordinates not provided by app")
+            return NaviDebugInfo(title="NAVI v2", lines=tuple(lines), traffic_light=traffic_light)
         if self._cached_navi_debug is not None:
             return replace(
                 self._cached_navi_debug,
@@ -858,7 +868,7 @@ class OpenpilotLiveSource:
                 guidance_image=self._cached_navi_image,
             )
         route_count = len(self._nav_route_coords)
-        lines = (f"Route points: {route_count}", "Waiting for POST /api/navi/{appVersion}")
+        lines = (f"Route points: {route_count}", "Waiting for Navi v2 (7714) or legacy POST (7713)")
         return NaviDebugInfo(
             title="NAVI receiver",
             lines=lines,
