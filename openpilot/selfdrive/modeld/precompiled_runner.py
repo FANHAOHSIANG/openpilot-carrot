@@ -12,6 +12,7 @@ import numpy as np
 
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.modeld.parse_model_outputs import Parser
+from openpilot.selfdrive.modeld.egpu_worker_progress import worker_snapshot
 
 
 class PrecompiledModelState:
@@ -31,7 +32,7 @@ class PrecompiledModelState:
       worker = Path(__file__).with_name('precompiled_worker.py')
       self.process = subprocess.Popen([sys.executable, str(worker), str(pkl_path), self.file.name, str(cam_w), str(cam_h)],
                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=0)
-      info = json.loads(self._receive(38))
+      info = json.loads(self._receive(110))
       self.shared = mmap.mmap(self.file.fileno(), info['size'])
       for name, spec in info['layout'].items():
         self.views[name] = np.ndarray(spec['shape'], np.dtype(spec['dtype']), buffer=self.shared, offset=spec['offset'])
@@ -52,7 +53,9 @@ class PrecompiledModelState:
     with selectors.DefaultSelector() as selector:
       selector.register(self.process.stdout, selectors.EVENT_READ)
       if not selector.select(timeout):
-        raise TimeoutError('precompiled eGPU worker timed out')
+        error = TimeoutError('precompiled eGPU worker timed out')
+        error.worker_diagnostics = worker_snapshot(Path(self.file.name + '.progress'), self.process.pid)
+        raise error
     value = self.process.stdout.readline()
     if not value:
       raise RuntimeError(f'precompiled eGPU worker exited ({self.process.poll()})')
@@ -87,10 +90,13 @@ class PrecompiledModelState:
         from openpilot.selfdrive.modeld.precompiled_model import record_failure
         record_failure(self.pkl_path, exc, 'inference')
       raise
-    self.views['prev_feat'][:] = result[self.output_slices['hidden_state']]
+    if 'prev_feat' in self.views:
+      self.views['prev_feat'][:] = result[self.output_slices['hidden_state']]
+    # Generic ONNX artifacts advance all recurrent state inside their graph.
     # The fused graph advances image and policy history together, including dropped-frame catch-up.
-    if prepare_only:
-      return None
+    # It also produces a complete current-frame policy: publishing it avoids
+    # an extra output gap after a dropped camera frame. The split backend still
+    # uses prepare_only to catch up its image history without policy inference.
     outputs = self.parser.parse_outputs({k: result[np.newaxis, section] for k, section in self.output_slices.items()})
     if os.getenv('SEND_RAW_PRED'):
       outputs['raw_pred'] = result
@@ -115,6 +121,7 @@ class PrecompiledModelState:
       self.shared = None
     self.file.close()
     Path(self.file.name).unlink(missing_ok=True)
+    Path(self.file.name + '.progress').unlink(missing_ok=True)
 
   def __del__(self):
     if getattr(self, 'process', None) is not None:
@@ -148,4 +155,10 @@ def smoke_test(path: Path, camera_sizes=((1928, 1208), (1344, 760)), runs=5):
 
 
 if __name__ == '__main__':
-  print(json.dumps(smoke_test(Path(sys.argv[1])), indent=2))
+  import argparse
+  parser = argparse.ArgumentParser(description='Validate a precompiled model on selected camera resolutions')
+  parser.add_argument('path', type=Path)
+  parser.add_argument('--camera', action='append', choices=('1928x1208', '1344x760'))
+  args = parser.parse_args()
+  sizes = tuple(tuple(map(int, size.split('x'))) for size in (args.camera or ('1928x1208', '1344x760')))
+  print(json.dumps(smoke_test(args.path, camera_sizes=sizes), indent=2))

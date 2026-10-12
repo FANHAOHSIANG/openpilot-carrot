@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import errno
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,8 @@ import time
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from openpilot.selfdrive.modeld.big_model import active_manifest, model_cache_dir
+from openpilot.selfdrive.modeld.big_model import active_manifest, model_cache_dir, model_path
+from openpilot.selfdrive.modeld.precompiled_artifact import SERIALIZATIONS
 
 PROTOCOL = 1
 MAX_CATALOG = 64 * 1024
@@ -26,9 +28,14 @@ def sha256(path: Path) -> str:
 
 
 def validate_catalog(value: dict, model_sha: str, catalog_url: str) -> dict:
-  if value.get('protocol') != PROTOCOL or value.get('onnx_sha256') != model_sha:
+  generic = value.get('format') == 'comma-generic-onnx'
+  serialization = value.get('serialization', 'oob-v1')
+  if serialization not in SERIALIZATIONS or (serialization != 'oob-v1' and not generic):
+    raise ValueError('unsupported precompiled serialization')
+  identity = 'model_sha256' if generic else 'onnx_sha256'
+  if value.get('protocol') != PROTOCOL or value.get(identity) != model_sha:
     raise ValueError('precompiled model does not match the selected ONNX/protocol')
-  if value.get('format') != 'comma-run-model' or value.get('gpu_arch') != 'gfx1200':
+  if value.get('format') not in ('comma-run-model', 'comma-generic-onnx') or value.get('gpu_arch') != 'gfx1200':
     raise ValueError('unsupported precompiled model format/GPU')
   if value.get('frame_skip') != 4 or value.get('camera_resolutions') != [[1928, 1208], [1344, 760]]:
     raise ValueError('incompatible precompiled model inputs')
@@ -41,6 +48,8 @@ def validate_catalog(value: dict, model_sha: str, catalog_url: str) -> dict:
     artifact['url'] = urljoin(catalog_url, artifact['url'])
     if urlparse(artifact['url']).scheme != 'https' or urlparse(artifact['url']).netloc != urlparse(catalog_url).netloc:
       raise ValueError('artifact must use the model server HTTPS origin')
+  if generic and value['pickle']['sha256'] != model_sha:
+    raise ValueError('generic artifact must match the selected model hash')
   return value
 
 
@@ -59,7 +68,7 @@ def download(artifact: dict, target: Path, progress=None) -> None:
     partial.unlink()
     offset = 0
   if shutil.disk_usage(target.parent).free < artifact['size'] - offset + 256 * 1024**2:
-    raise OSError('insufficient storage for precompiled model')
+    raise OSError(errno.ENOSPC, 'insufficient storage for precompiled model')
   headers = {'Accept-Encoding': 'identity', 'User-Agent': 'carrot-precompiled/1'}
   if offset:
     headers['Range'] = f'bytes={offset}-'
@@ -82,7 +91,7 @@ def download(artifact: dict, target: Path, progress=None) -> None:
       f.flush()
       os.fsync(f.fileno())
   if offset != artifact['size']:
-    raise OSError('incomplete precompiled artifact')
+    raise ConnectionError('incomplete precompiled artifact')
   if sha256(partial) != artifact['sha256']:
     partial.unlink()
     raise ValueError('precompiled artifact hash mismatch')
@@ -104,11 +113,58 @@ def installed(model=None, cache_dir: Path | None = None) -> Path | None:
     runtime = root / ('runtime-' + value['runtime']['sha256'][:16])
     if value.get('runtime_directory') != runtime.name:
       return None
-    if not (runtime / 'model_runtime.py').is_file() or not (runtime / 'tinygrad' / '__init__.py').is_file():
+    entry = 'examples/openpilot/compile_warp.py' if value['format'] == 'comma-generic-onnx' else 'model_runtime.py'
+    if not (runtime / entry).is_file() or not (runtime / 'tinygrad' / '__init__.py').is_file():
       return None
     return root / 'model.pkl'
   except (OSError, ValueError, KeyError, TypeError):
     return None
+
+
+def gpu_bootloader_timeout(detail: str, phase: str) -> bool:
+  # Worker exceptions cross the process boundary as RuntimeError(traceback),
+  # losing their original TimeoutError type. Match the AMD PSP bootloader's
+  # terminal exception, not arbitrary model/serialization errors mentioning time.
+  return (phase in ('load', 'boot_validation') and
+          re.search(r'^TimeoutError: BL not ready\. Timed out after [0-9]+ ms, condition not met: [0-9]+ != [0-9]+\Z',
+                    detail.rstrip(), re.MULTILINE) is not None)
+
+
+def gpu_transport_failure(detail: str) -> bool:
+  """Recognize terminal USB transport errors, never a model-file I/O error.
+
+  The worker and boot validator serialize exceptions as text. Match the actual
+  libusb operation and error, including hot-unplug, across either boundary.
+  These do not establish artifact corruption and must not blacklist its hash.
+  """
+  return re.search(
+    r'^(?:RuntimeError: )?(?:libusb_(?:control_transfer|bulk_transfer|interrupt_transfer|open|claim_interface)|' +
+    r'bulk (?:OUT|IN) 0x[0-9a-f]+ failed): ' +
+    r'(?:No such device \(it may have been disconnected\)|Input/Output Error|Operation timed out|' +
+    r'Pipe error|Resource busy|System call interrupted(?: \(perhaps due to signal\))?)\Z',
+    detail.rstrip(), re.MULTILINE | re.IGNORECASE) is not None
+
+
+def retry_usb_rejection(root: Path, pickle_sha256: str) -> bool:
+  """Migrate old USB-I/O/PSP startup misclassification after a device reboot.
+
+  This grants another verified load attempt, never a validation receipt.
+  Missing/mismatched diagnostics and actual model errors remain rejected.
+  """
+  from openpilot.selfdrive.modeld.egpu_worker_progress import boot_identity
+  try:
+    failure = json.loads((root / 'last_failure.json').read_text())
+    current_boot = boot_identity()
+    return (isinstance(failure, dict) and failure.get('rejected') is True and
+            failure.get('pickle_sha256') == pickle_sha256 and
+            failure.get('phase') in ('load', 'boot_validation') and
+            isinstance(failure.get('boot_id'), str) and bool(failure['boot_id']) and
+            bool(current_boot) and failure['boot_id'] != current_boot and
+            isinstance(failure.get('error'), str) and
+            (gpu_transport_failure(failure['error']) or
+             gpu_bootloader_timeout(failure['error'], failure['phase'])))
+  except (OSError, ValueError, TypeError):
+    return False
 
 
 def ensure_precompiled(model=None, cache_dir: Path | None = None, progress=None) -> Path | None:
@@ -129,9 +185,20 @@ def ensure_precompiled(model=None, cache_dir: Path | None = None, progress=None)
   value = validate_catalog(json.loads(data), model.sha256, catalog_url)
   # A runtime rejected on this device must use the local compiler until the artifact changes.
   if (root / 'rejected').exists() and (root / 'rejected').read_text() == value['pickle']['sha256']:
-    return None
+    if not retry_usb_rejection(root, value['pickle']['sha256']):
+      return None
+    (root / 'boot_validation.json').unlink(missing_ok=True)
+    print('Retrying model rejected by an earlier-boot GPU initialization failure; revalidating artifacts.')
   root.mkdir(parents=True, exist_ok=True)
-  download(value['pickle'], root / 'model.pkl', progress)
+  target = root / 'model.pkl'
+  if value['format'] == 'comma-generic-onnx' and not target.exists():
+    source = model_path(model, cache_dir or model_cache_dir())
+    if source.is_file() and source.stat().st_size == value['pickle']['size'] and sha256(source) == model.sha256:
+      try:
+        os.link(source, target)
+      except OSError:
+        shutil.copyfile(source, target)
+  download(value['pickle'], target, progress)
   download(value['runtime'], root / 'runtime.tar.gz')
   runtime = root / ('runtime-' + value['runtime']['sha256'][:16])
   if not runtime.exists():
@@ -156,19 +223,26 @@ def ensure_precompiled(model=None, cache_dir: Path | None = None, progress=None)
 
 
 def reject(path: Path) -> None:
+  (path.parent / 'boot_validation.json').unlink(missing_ok=True)
   value = json.loads((path.parent / 'installed.json').read_text())
   (path.parent / 'rejected').write_text(value['pickle']['sha256'])
 
 
 def record_failure(path: Path, error: BaseException | str, phase: str) -> bool:
   """Keep transient device failures retryable; persist why an artifact was rejected."""
+  (path.parent / 'boot_validation.json').unlink(missing_ok=True)
   from openpilot.selfdrive.modeld.helpers import usbgpu_pcie_not_ready
   detail = str(error)
   transient = (usbgpu_pcie_not_ready(error) or isinstance(error, (TimeoutError, BrokenPipeError)) or
+               gpu_transport_failure(detail) or
+               gpu_bootloader_timeout(detail, phase) or
                'precompiled eGPU worker timed out' in detail or 'precompiled eGPU worker exited' in detail)
   value = json.loads((path.parent / 'installed.json').read_text())
+  from openpilot.selfdrive.modeld.egpu_worker_progress import boot_identity
   failure = {'time': time.time(), 'phase': phase, 'rejected': not transient,  # noqa: TID251 - correlate persisted failures with boot logs
-             'pickle_sha256': value['pickle']['sha256'], 'error': detail[-16384:]}
+             'pickle_sha256': value['pickle']['sha256'], 'error': detail[-16384:], 'boot_id': boot_identity()}
+  if isinstance(worker := getattr(error, 'worker_diagnostics', None), dict):
+    failure['worker'] = worker
   target = path.parent / 'last_failure.json'
   temporary = target.with_suffix('.json.tmp')
   temporary.write_text(json.dumps(failure, indent=2))

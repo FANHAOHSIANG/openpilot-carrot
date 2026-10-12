@@ -279,6 +279,10 @@ SConscript([
 if arch == "larch64":
   SConscript(['openpilot/system/camerad/SConscript'])
 
+# Passive camera timing checks do not require the device-only camerad target.
+if GetOption('extras'):
+  SConscript(['openpilot/system/camerad/test/SConscript'])
+
 # Build selfdrive
 SConscript([
   'openpilot/selfdrive/pandad/SConscript',
@@ -287,7 +291,10 @@ SConscript([
   'openpilot/selfdrive/locationd/SConscript',
   'openpilot/selfdrive/modeld/SConscript',
   'openpilot/selfdrive/ui/SConscript',
+  'openpilot/system/ui/lib/native/SConscript',
   'openpilot/selfdrive/carrot/realtime/SConscript',
+  'openpilot/selfdrive/carrot/radar_motion/SConscript',
+  'opendbc_repo/opendbc/can/SConscript',
 ])
 
 # Build tools

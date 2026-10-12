@@ -86,6 +86,17 @@ class WikiSettingsGeneratorTest(unittest.TestCase):
       generated_at=STAMP,
     )
     self.assertEqual(len(result.generated_settings), 185)
+    self.assertNotIn("SteerHandoverMode", result.index["settings"])
+    self.assertIn("SignalAssistMode", result.index["settings"])
+    self.assertIn("CruiseCoastingPercent", result.index["settings"])
+    self.assertIn("RadarTrackFlip", result.index["settings"])
+    self.assertIn("DriverMonitoringEnabled", result.index["settings"])
+    self.assertNotIn("DriverMonitoringSessionDisabled", result.index["settings"])
+    self.assertIn("DriverMonitoringMode", result.index["settings"])
+    self.assertIn("CarrotVisionEnabled", result.index["settings"])
+    for retired in ("ClusterHudPriority", "ClusterHudCoreMode", "ClusterHudLiveFps", "CanfdStopRetry", "DisableDM",
+                    "CarrotYouTubeLive", "CarrotYouTubeQuality", "CarrotYouTubeTimestamp"):
+      self.assertNotIn(retired, result.index["settings"])
     self.assertEqual(result.index["review"], {"current": 0, "needs_review": 185})
     self.assertEqual(result.index["locales"], ["ko", "en", "zh"])
     self.assertEqual(len(result.pages), (185 * 3) + 2)

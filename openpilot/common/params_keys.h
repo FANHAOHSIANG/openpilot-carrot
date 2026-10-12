@@ -90,6 +90,9 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ObdMultiplexingEnabled", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, BOOL}},
     {"Offroad_CarUnrecognized", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, JSON}},
     {"Offroad_CarrotAutoUpdateFailed", {PERSISTENT, JSON}},
+    // Retired manual wait: clear saved holds when the updated manager starts.
+    {"JetsonLegacyUpdatePending", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"Offroad_JetsonLegacyUpdate", {CLEAR_ON_MANAGER_START, JSON}},
     {"Offroad_ConnectivityNeeded", {CLEAR_ON_MANAGER_START, JSON}},
     {"Offroad_ConnectivityNeededPrompt", {CLEAR_ON_MANAGER_START, JSON}},
     {"Offroad_ExcessiveActuation", {CLEAR_ON_MANAGER_START, JSON}},
@@ -102,6 +105,9 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"Offroad_UpdateFailed", {CLEAR_ON_MANAGER_START, JSON}},
     {"Offroad_DriverMonitoringUncertain", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, JSON}},
     {"OnroadCycleRequested", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"ImpactDashcamNotice", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, JSON}},
+    {"ImpactDashcamFeedback", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, JSON}},
+    {"ImpactDashcamReboot", {CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION, BOOL}},
     {"OpenpilotEnabledToggle", {PERSISTENT, BOOL, "1"}},
     {"PandaHeartbeatLost", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION, BOOL}},
     {"PandaSomResetTriggered", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION, BOOL}},
@@ -195,13 +201,11 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ClusterHudOrientation", {PERSISTENT, INT, "0"}},
     {"ClusterHudMirror", {PERSISTENT, INT, "0"}},
     {"ClusterHudEncoder", {PERSISTENT, INT, "0"}},
-    {"ClusterHudCoreMode", {PERSISTENT, INT, "0"}},
-    {"ClusterHudPriority", {PERSISTENT, INT, "10"}},
+    {"ClusterHudPriority", {PERSISTENT, INT, "10"}},  // Retired: ignored; HUD always uses SCHED_OTHER.
     {"ClusterHudTheme", {PERSISTENT, INT, "0"}},
     {"ClusterNaviMapTheme", {PERSISTENT, INT, "1"}},
     {"ClusterNaviMapType", {PERSISTENT, INT, "0"}},
     {"ClusterNaviMapFps", {PERSISTENT, INT, "1"}},
-    {"ClusterHudLiveFps", {PERSISTENT, INT, "1"}},
     {"ClusterHudScreenMode", {PERSISTENT, INT, "0"}},
     {"ClusterHudPanelLayout", {PERSISTENT, INT, "0"}},
     {"ClusterHudCameraViewMode", {PERSISTENT, INT, "0"}},
@@ -209,15 +213,13 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ClusterHudRadarDisplay", {PERSISTENT, INT, "0"}},
     {"ClusterHudRadarSourceColor", {PERSISTENT, INT, "0"}},
     {"RecordRoadCam", {PERSISTENT, INT, "0"}},
-    {"CarrotYouTubeLive", {PERSISTENT, INT, "0"}},
-    {"CarrotYouTubeQuality", {PERSISTENT, INT, "0"}},
-    {"CarrotYouTubeTimestamp", {PERSISTENT, INT, "0"}},
     {"HDPuse", {PERSISTENT, INT, "0"}},
 
     {"AutoCruiseControl", {PERSISTENT, INT, "0"}},
     {"SoftHoldOnCancel", {PERSISTENT, BOOL, "0"}},
     {"CruiseEcoControl", {PERSISTENT, INT, "2"}},
     {"CarrotCruiseDecel", {PERSISTENT, INT, "-1"}},
+    {"CruiseCoastingPercent", {PERSISTENT, INT, "0"}},
     {"CarrotCruiseAtcDecel", {PERSISTENT, INT, "-1"}},
 
     {"AutoGasTokSpeed", {PERSISTENT, INT, "0"}},
@@ -256,6 +258,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"AutoRoadSpeedAdjust", {PERSISTENT, INT, "50"}},
 
     {"StopDistanceCarrot", {PERSISTENT, INT, "550"}},
+    {"StoppingAccel", {PERSISTENT, INT, "-50"}},
     {"CruiseButtonMode", {PERSISTENT, INT, "0"}},
     {"CancelButtonMode", {PERSISTENT, INT, "0"}},
     {"LfaButtonMode", {PERSISTENT, INT, "0"}},
@@ -276,6 +279,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"MyDrivingMode", {PERSISTENT, INT, "3"}},
     {"MyDrivingModeAuto", {PERSISTENT, INT, "0"}},
     {"TrafficLightDetectMode", {PERSISTENT, INT, "2"}},
+    {"SignalAssistMode", {PERSISTENT, INT, "0"}},
 
     {"SteerActuatorDelay", {PERSISTENT, INT, "0"}},
     {"LatSmoothSec", {PERSISTENT, INT, "13"}},
@@ -297,21 +301,23 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"VEgoStopping", {PERSISTENT, INT, "50"}},
 
     {"EnableRadarTracks", {PERSISTENT, INT, "0"}},
+    {"RadarTrackFlip", {PERSISTENT, BOOL, "0"}},
     {"RadarLatFactor", {PERSISTENT, INT, "0"}},
     {"EnableCornerRadar", {PERSISTENT, INT, "0"}},
 
     {"EnableRadarTracksResult", {PERSISTENT | CLEAR_ON_MANAGER_START, INT}},
     {"CanParserResult", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION, STRING}},
+    {"HyundaiCameraSccHint", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION, BOOL}},
 
     {"HotspotOnBoot", {PERSISTENT, INT, "0"}},
     {"SoftwareMenu", {PERSISTENT, INT, "1"}},
 
     {"HyundaiCameraSCC", {PERSISTENT, INT, "0"}},
+    {"HyundaiCanfdClusterDirectTx", {PERSISTENT, BOOL, "0"}},
     {"FingerPrints", {PERSISTENT | CLEAR_ON_MANAGER_START, STRING}},
     {"IsLdwsCar", {PERSISTENT, INT, "0"}},
     {"CanfdHDA2", {PERSISTENT, INT, "0"}},
     {"CanfdDebug", {PERSISTENT, INT, "0"}},
-    {"CanfdStopRetry", {PERSISTENT, BOOL, "0"}},
 
     {"SoundVolumeAdjust", {PERSISTENT, INT, "100"}},
     {"SoundVolumeAdjustEngage", {PERSISTENT, INT, "10"}},
@@ -371,8 +377,13 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
 
     {"SpeedFromPCM", {PERSISTENT, INT, "2"}},
     {"MaxTimeOffroadMin", {PERSISTENT, INT, "60"}},
+    {"TeslaWakeOnCAN", {PERSISTENT, BOOL, "1"}},
 
-    {"DisableDM", {PERSISTENT, INT, "0"}},
+    {"DisableDM", {PERSISTENT, INT, "0"}},  // retired; read only for one-time streaming migration
+    {"DriverMonitoringEnabled", {PERSISTENT, BOOL, "1"}},
+    {"DriverMonitoringSessionDisabled", {CLEAR_ON_MANAGER_START | CLEAR_ON_IGNITION_ON, BOOL}},
+    {"DriverMonitoringMode", {PERSISTENT, INT, "0"}},
+    {"CarrotVisionEnabled", {PERSISTENT, BOOL, "0"}},
     {"MuteDoor", {PERSISTENT, INT, "0"}},
     {"MuteSeatbelt", {PERSISTENT, INT, "0"}},
 
@@ -401,7 +412,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ShareData", {PERSISTENT, INT, "0"}},
     {"OnnxLaneThreshold", {PERSISTENT, INT, "25"}},
     {"OnnxLaneIntervalMs", {PERSISTENT, INT, "400"}},
-    {"OnnxBsdThreshold", {PERSISTENT, INT, "45"}},
+    {"OnnxBsdThreshold", {PERSISTENT, INT, "94"}},
     {"OnnxBsdSmoothingMs", {PERSISTENT, INT, "200"}},
     {"OnnxBsdIntervalMs", {PERSISTENT, INT, "250"}},
 };

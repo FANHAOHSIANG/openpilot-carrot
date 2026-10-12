@@ -177,7 +177,8 @@ def test_longitudinal_pid_defaults_match_registry(params):
     "LongTuningKpV", "LongTuningKiV", "LongTuningKf",
   )) == (100, 0, 100)
   for name in ("LongTuningKpV", "LongTuningKiV", "LongTuningKf"):
-    assert by_name[name]["hidden_brands"] == ["hyundai"]
+    assert by_name[name]["hidden_brands"] == ["hyundai", "toyota"]
+    assert "Toyota/Lexus" in by_name[name]["edescr"]
     assert "현대·기아·제네시스" in by_name[name]["descr"]
     assert "hidden and ignored" in by_name[name]["edescr"]
 
@@ -190,13 +191,14 @@ def test_longitudinal_pid_defaults_match_registry(params):
     assert f'{{"{name}", {{PERSISTENT, INT, "{default}"}}}}' in params_keys
 
 
-def test_hyundai_catalog_hides_longitudinal_pid_settings(settings):
+@pytest.mark.parametrize("brand", ["hyundai", "toyota"])
+def test_fixed_tuning_catalog_hides_longitudinal_pid_settings(settings, brand):
   groups, by_name, groups_list = group_index(settings)
   categories = build_menu_categories(settings, by_name)
   hidden = {"LongTuningKpV", "LongTuningKiV", "LongTuningKf"}
 
   filtered_groups, filtered_groups_list, filtered_categories, hidden_names = filter_settings_catalog_for_brand(
-    groups, groups_list, categories, "hyundai",
+    groups, groups_list, categories, brand,
   )
   visible_names = {item["name"] for items in filtered_groups.values() for item in items}
   menu_names = {
@@ -211,7 +213,8 @@ def test_hyundai_catalog_hides_longitudinal_pid_settings(settings):
   assert hidden.isdisjoint(visible_names)
   assert hidden.isdisjoint(menu_names)
   assert all(
-    group["count"] == sum(1 for item in filtered_groups[group["group"]] if not item.get("detail_parent"))
+    group["count"] == sum(1 for item in filtered_groups[group["group"]]
+                          if not item.get("detail_parent") and not item.get("search_only"))
     for group in filtered_groups_list
   )
 
@@ -220,7 +223,7 @@ def test_other_brands_keep_longitudinal_pid_settings(settings):
   groups, by_name, groups_list = group_index(settings)
   categories = build_menu_categories(settings, by_name)
   filtered_groups, _filtered_groups_list, _filtered_categories, hidden_names = filter_settings_catalog_for_brand(
-    groups, groups_list, categories, "toyota",
+    groups, groups_list, categories, "gm",
   )
   visible_names = {item["name"] for items in filtered_groups.values() for item in items}
 
@@ -276,6 +279,38 @@ def test_wide_camera_fallback_setting_is_exposed(settings, params):
 
   params_keys = PARAMS_KEYS_PATH.read_text(encoding="utf-8")
   assert '{"UseWideCamera", {PERSISTENT, BOOL, "1"}}' in params_keys
+
+
+def test_driver_monitoring_setting_is_default_on_search_only_and_session_state_is_internal(settings, params):
+  by_name = {p["name"]: p for p in params}
+  enabled = by_name["DriverMonitoringEnabled"]
+  assert (enabled["min"], enabled["max"], enabled["default"]) == (0, 1, 1)
+  assert enabled["control"] == "toggle"
+  assert enabled["risk"] == "high"
+  assert enabled["search_only"] is True
+  assert "DM 카메라" in enabled["descr"] and "법규" in enabled["descr"]
+  assert "DM camera" in enabled["edescr"] and "laws" in enabled["edescr"]
+  assert "DriverMonitoringSessionDisabled" not in by_name
+
+  vehicle = next(category for category in settings["menu"] if category["id"] == "VEHICLE")
+  driver_monitoring = next(group for group in vehicle["groups"] if group["id"] == "VEH_DM")
+  assert driver_monitoring["params"][:2] == ["DriverMonitoringEnabled", "DriverMonitoringMode"]
+
+  groups, indexed, _ = group_index(settings)
+  categories = build_menu_categories(settings, indexed)
+  driver_monitoring_view = next(
+    group for category in categories for group in category["groups"] if group["id"] == "VEH_DM"
+  )
+  assert "DriverMonitoringEnabled" in driver_monitoring_view["sections"][0]["items"]
+  assert driver_monitoring_view["count"] == sum(
+    1 for name in driver_monitoring["params"]
+    if not indexed[name].get("detail_parent") and not indexed[name].get("search_only")
+  )
+  assert enabled in groups[enabled["group"]]
+
+  params_keys = PARAMS_KEYS_PATH.read_text(encoding="utf-8")
+  assert '{"DriverMonitoringEnabled", {PERSISTENT, BOOL, "1"}}' in params_keys
+  assert '{"DriverMonitoringSessionDisabled", {CLEAR_ON_MANAGER_START | CLEAR_ON_IGNITION_ON, BOOL}}' in params_keys
 
 
 def test_vehicle_navi_can_control_exposes_route_filter_modes(settings, params):
@@ -391,7 +426,6 @@ def test_external_hud_brightness_and_orientation_use_catalog_controls(settings, 
   ]
   assert screen["params"] == [
     "ClusterHudEncoder",
-    "ClusterHudLiveFps",
     "ClusterHudScreenMode",
     "ClusterHudPanelLayout",
     "ClusterHudCameraViewMode",
@@ -442,6 +476,7 @@ def test_carrot_radar_is_fixed_without_mode_or_sensitivity(settings, params):
   radar = next(group for group in vehicle["groups"] if group["id"] == "VEH_RADAR")
   assert radar["params"] == [
     "EnableRadarTracks",
+    "RadarTrackFlip",
     "EnableCornerRadar",
   ]
 

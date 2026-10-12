@@ -47,6 +47,12 @@ The button-test catalog default of `0` is even below the displayed minimum. Do n
 
 This table describes a short press during normal driving with cruise already active.
 
+On Volkswagen, the separate `SET` button sets the current cluster speed. `RES` restores the saved pre-braking speed when available, otherwise retaining the existing set speed; if no set speed has been initialized, it uses current speed. Existing minimum and maximum set-speed limits still apply.
+
+Separate `SET`/`RES` buttons act once on release, whether tapped or held. The button mode, speed units, and long-press setting below apply to the separate `+`/`-` buttons; when speed comes from stock SCC, the stock set speed takes precedence.
+
+Manual engagement with openpilot longitudinal control is still requested when the physical `SET` or `RES` button is released. The standalone `+`/`-` buttons do not gain an engagement action.
+
 | Value | Short RES/+ | Short SET/- |
 |---:|---|---|
 | `0` normal | Next `CruiseSpeedUnitBasic` grid point | Previous `CruiseSpeedUnitBasic` grid point |
@@ -160,6 +166,10 @@ Scope and exclusions:
 
 > [!WARNING]
 > Values that are too large can flood button messages or make stock SCC miss inputs. Values that are too small can slow or prevent synchronization. Keep the initial Params values `8 / 30 / 1` if there is no problem.
+
+### Toyota/Lexus stock set speed
+
+With `SpeedFromPCM=3`, stock SET/RES speed becomes Carrot's base target. Mode `1` also uses stock set speed; `0` and `2` retain the existing Carrot speed selection. This setting does not switch between stock ACC and openpilot longitudinal control or enable/disable radar. With openpilot longitudinal control, lead, curve, and camera deceleration can lower the target further.
 
 <a id="speed-presets"></a>
 ## 4. Speed presets

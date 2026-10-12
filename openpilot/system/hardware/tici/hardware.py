@@ -87,7 +87,8 @@ class Tici(HardwareBase):
     return get_device_type()
 
   def reboot(self, reason=None):
-    subprocess.check_output(["sudo", "reboot"])
+    from openpilot.common.reboot import reboot_device
+    reboot_device()
 
   def uninstall(self):
     Path("/data/__system_reset__").touch()
@@ -330,7 +331,7 @@ class Tici(HardwareBase):
     # GPU, modeld core
     affine_irq(7, "kgsl-3d0")
 
-    # camerad core
+    # Match camerad/main.cc: restore the AGNOS-isolated camera core.
     camera_irqs = ("a5", "cci", "cpas_camnoc", "cpas-cdm", "csid", "ife", "csid-lite", "ife-lite")
     for n in camera_irqs:
       affine_irq(6, n)

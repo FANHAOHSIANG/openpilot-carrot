@@ -19,7 +19,9 @@ WEB_DRIVE_LAYOUT_MODES = {"split", "area_1", "area_2"}
 WEB_AUTO_UPDATE_REBOOT_MODES = {"off", "park", "disengaged"}
 
 # Existing settings files created before the drive-layout keys were persisted
-# should retain the former split layout. Fresh installs use WEB_SETTINGS_SPEC.
+# should retain the former split layout. Fresh installs use WEB_SETTINGS_SPEC
+# (currently the same values; the explicit block stays so a future default
+# change cannot silently move existing devices).
 LEGACY_DRIVE_LAYOUT_DEFAULTS = {
   "carrot_navi_horizontal_mode": "split",
   "carrot_navi_horizontal_area_1": "vision",
@@ -363,11 +365,19 @@ def _normalize_carrot_navi_vertical_split_ratio(value: Any) -> str:
   return _normalize_drive_split_ratio(value, 0.5)
 
 
+def _normalize_web_sound_volume(value: Any) -> str:
+  try:
+    volume = float(value)
+  except (TypeError, ValueError):
+    volume = 1.0
+  return f"{min(1.0, max(0.0, volume)):.2f}"
+
+
 class _Field:
   """One web setting. Type/default and ordinary validation live here. Drive
   content choices and pair normalization are derived from the source catalog."""
 
-  __slots__ = ("key", "type", "default", "choices", "normalize", "requires_capability")
+  __slots__ = ("key", "type", "default", "choices", "normalize", "requires_capability", "hidden")
 
   def __init__(
     self,
@@ -377,6 +387,7 @@ class _Field:
     choices: Optional[set] = None,
     normalize: Optional[Callable[[Any], Any]] = None,
     requires_capability: Optional[str] = None,
+    hidden: bool = False,
   ) -> None:
     if requires_capability is not None and not is_known_web_capability(requires_capability):
       raise ValueError(f"unknown web capability for {key}: {requires_capability}")
@@ -386,6 +397,7 @@ class _Field:
     self.choices = choices
     self.normalize = normalize
     self.requires_capability = requires_capability
+    self.hidden = hidden
 
   def coerce(self, value: Any) -> Any:
     if self.type == "bool":
@@ -405,6 +417,11 @@ WEB_SETTINGS_SPEC: List[_Field] = [
   _Field("auto_update_reboot", "enum", "off", choices=WEB_AUTO_UPDATE_REBOOT_MODES),
   _Field("start_page", "enum", "last", choices=WEB_PRIMARY_PAGES),
   _Field("mini_hud_enabled", "bool", False),
+  # Drive-page web sound state, persisted on the device so it survives browser
+  # restarts and access-address (origin) changes. Hidden from the settings
+  # page schema; the drive sound dialog is the UI for it.
+  _Field("web_sound_enabled", "bool", False, hidden=True),
+  _Field("web_sound_volume", "str", "1.00", normalize=_normalize_web_sound_volume, hidden=True),
   _Field("web_language", "str", "", normalize=_normalize_language),
   _Field("web_lab_enabled", "bool", False),
   _Field("vision_fullscreen_default", "bool", False),
@@ -414,13 +431,16 @@ WEB_SETTINGS_SPEC: List[_Field] = [
   _Field("vision_display_mode", "enum", "normal", choices={"fit", "normal", "crop"}),
   _Field("replay_hud_visible", "bool", False),
   _Field("replay_insights_tab", "enum", "events", choices=WEB_REPLAY_INSIGHTS_TABS),
+  # Fresh installs show Carrot Vision full screen in both orientations: area 1
+  # is the visible area in the default "area_1" mode, and navigation waits in
+  # area 2 for the split modes.
   _Field("carrot_navi_horizontal_mode", "enum", "area_1", choices=WEB_DRIVE_LAYOUT_MODES),
-  _Field("carrot_navi_horizontal_area_1", "enum", "navigation"),
-  _Field("carrot_navi_horizontal_area_2", "enum", "vision"),
+  _Field("carrot_navi_horizontal_area_1", "enum", "vision"),
+  _Field("carrot_navi_horizontal_area_2", "enum", "navigation"),
   _Field("carrot_navi_split_ratio", "str", "0.70", normalize=_normalize_carrot_navi_split_ratio),
   _Field("carrot_navi_vertical_mode", "enum", "area_1", choices=WEB_DRIVE_LAYOUT_MODES),
-  _Field("carrot_navi_vertical_area_1", "enum", "navigation"),
-  _Field("carrot_navi_vertical_area_2", "enum", "vision"),
+  _Field("carrot_navi_vertical_area_1", "enum", "vision"),
+  _Field("carrot_navi_vertical_area_2", "enum", "navigation"),
   _Field("carrot_navi_vertical_split_ratio", "str", "0.50", normalize=_normalize_carrot_navi_vertical_split_ratio),
   _Field("kmap_enabled", "bool", False),
   _Field("kmap_url", "str", "https://jominki354.github.io/kmap/", normalize=_normalize_kmap_url),
@@ -476,6 +496,8 @@ def web_settings_client_spec() -> List[Dict[str, Any]]:
   spec: List[Dict[str, Any]] = []
   catalog_choices = [descriptor["id"] for descriptor in load_drive_content_catalog()["contents"]]
   for field in WEB_SETTINGS_SPEC:
+    if field.hidden:
+      continue
     entry: Dict[str, Any] = {"key": field.key, "type": field.type, "default": field.default}
     if field.requires_capability:
       entry["requiresCapability"] = field.requires_capability
