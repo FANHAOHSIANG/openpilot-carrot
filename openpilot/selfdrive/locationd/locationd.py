@@ -317,7 +317,8 @@ def print_live_pose_invalid_reasons(inputs_valid, sensors_valid, input_reasons, 
   if not sensors_valid:
     reasons.append("sensors_valid=False: " + ("; ".join(sensor_reasons) if sensor_reasons else "unknown"))
 
-  print("[locationd] livePose invalid - " + " | ".join(reasons), flush=True)
+  # Preserve the existing throttle, and retain the reason in route logs too.
+  cloudlog.warning("[locationd] livePose invalid - " + " | ".join(reasons))
   return cur_time
 
 

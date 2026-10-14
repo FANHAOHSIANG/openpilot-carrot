@@ -1,0 +1,22 @@
+name: Mac navigation fixes
+on:
+  push:
+    branches: [carrot-nav-fixed]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  navigation-and-auxiliary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest numpy pycapnp pillow opencv-python-headless==4.13.0.92
+      - name: Check serialization, idle workload, inference and diagnostics
+        env:
+          PYTHONPATH: .:opendbc_repo
+        run: |
+          python -m pytest -c /dev/null --noconftest -q tools/fan_nav_tests openpilot/selfdrive/carrot/tests/test_xiaoge_inference.py openpilot/selfdrive/carrot/tests/test_xiaoge_nv12.py
+          python -m compileall -q openpilot/selfdrive/navd/navd.py openpilot/selfdrive/carrot/xiaoge openpilot/selfdrive/carrot/xiaoge_data.py openpilot/selfdrive/locationd/locationd.py

@@ -1,0 +1,102 @@
+diff --git a/openpilot/selfdrive/carrot/xiaoge/lane_inference.py b/openpilot/selfdrive/carrot/xiaoge/lane_inference.py
+index e50195c..6237506 100644
+--- a/openpilot/selfdrive/carrot/xiaoge/lane_inference.py
++++ b/openpilot/selfdrive/carrot/xiaoge/lane_inference.py
+@@ -218,7 +218,9 @@ class LaneInference:
+         right_p = int(np.clip((boxes_right[k_idx] / INPUT_SIZE) * PROTO_SIZE, 0, PROTO_SIZE - 1))
+         bottom_p = int(np.clip((boxes_bottom[k_idx] / INPUT_SIZE) * PROTO_SIZE, 0, PROTO_SIZE - 1))
+ 
+-        if right_p <= left_p or bottom_p <= top_p:
++        # No pixel in this crop can reach the required lower half. Skip the
++        # mask contraction without changing candidate selection or thresholds.
++        if right_p <= left_p or bottom_p <= top_p or bottom_p < PROTO_SIZE // 2:
+           continue
+ 
+         # Compute mask within bounding box crop
+diff --git a/openpilot/selfdrive/carrot/xiaoge/v_asm_server.py b/openpilot/selfdrive/carrot/xiaoge/v_asm_server.py
+index 96e4499..b7508d1 100644
+--- a/openpilot/selfdrive/carrot/xiaoge/v_asm_server.py
++++ b/openpilot/selfdrive/carrot/xiaoge/v_asm_server.py
+@@ -3,6 +3,7 @@
+ 
+ import argparse
+ import json
++import os
+ import sys
+ import threading
+ import time
+@@ -583,7 +584,6 @@ class VASMService:
+           continue
+         now = time.monotonic()
+         self._refresh_settings_from_params()
+-        frame = nv12_y_plane(buffer.data, buffer.width, buffer.height, buffer.stride)
+         with self.lock:
+           self.last_road_frame_at = now
+           self.lane_camera_error = ""
+@@ -599,6 +599,7 @@ class VASMService:
+           lane_threshold = self.lane_threshold
+         t0 = time.monotonic()
+         cpu0 = time.thread_time()
++        frame = nv12_y_plane(buffer.data, buffer.width, buffer.height, buffer.stride)
+         res = self.lane_inference.infer(
+           frame, buffer.width, buffer.height, conf_thresh=lane_threshold
+         )
+@@ -730,7 +731,10 @@ def create_server(host: str = HOST, port: int = PORT, model_path: Path = DEFAULT
+   if sys.platform == "linux":
+     from openpilot.common.realtime import set_core_affinity
+     set_core_affinity([0, 1, 2, 3])
+-  cv2.setNumThreads(2)
++    # This caller and its child camera/inference workers are auxiliary work.
++    # Keep existing lower priorities; do not change driving/DM/control threads.
++    os.setpriority(os.PRIO_PROCESS, 0, max(15, os.getpriority(os.PRIO_PROCESS, 0)))
++  cv2.setNumThreads(1)
+   service = VASMService(model_path)
+   Handler.service = service
+   server = ThreadingHTTPServer((host, port), Handler)
+diff --git a/openpilot/selfdrive/carrot/xiaoge_data.py b/openpilot/selfdrive/carrot/xiaoge_data.py
+index e3de616..ae37fe7 100644
+--- a/openpilot/selfdrive/carrot/xiaoge_data.py
++++ b/openpilot/selfdrive/carrot/xiaoge_data.py
+@@ -262,6 +262,14 @@ class XiaogeDataBroadcaster:
+     try:
+       while self.server_running:
+         self.sm.update(0)
++        with self.clients_lock:
++          has_clients = bool(self.clients)
++        if not has_clients:
++          # Keep subscriptions/liveness current, but do not serialize an unused
++          # full model snapshot. A new client gets fresh state on the next tick.
++          self.sequence += 1
++          rk.keep_time()
++          continue
+         data: dict[str, Any] = {}
+         if self.sm.alive["carState"]:
+           data["carState"] = self.collect_car_state(self.sm["carState"])
+diff --git a/openpilot/selfdrive/locationd/locationd.py b/openpilot/selfdrive/locationd/locationd.py
+index b5e302c..71f12c4 100755
+--- a/openpilot/selfdrive/locationd/locationd.py
++++ b/openpilot/selfdrive/locationd/locationd.py
+@@ -317,7 +317,8 @@ def print_live_pose_invalid_reasons(inputs_valid, sensors_valid, input_reasons,
+   if not sensors_valid:
+     reasons.append("sensors_valid=False: " + ("; ".join(sensor_reasons) if sensor_reasons else "unknown"))
+ 
+-  print("[locationd] livePose invalid - " + " | ".join(reasons), flush=True)
++  # Preserve the existing throttle, and retain the reason in route logs too.
++  cloudlog.warning("[locationd] livePose invalid - " + " | ".join(reasons))
+   return cur_time
+ 
+ 
+diff --git a/openpilot/selfdrive/navd/navd.py b/openpilot/selfdrive/navd/navd.py
+index 6e86db7..908e659 100644
+--- a/openpilot/selfdrive/navd/navd.py
++++ b/openpilot/selfdrive/navd/navd.py
+@@ -294,7 +294,8 @@ class RouteEngine:
+       instruction = parse_banner_instructions(step_i['bannerInstructions'], distance_to_maneuver)
+       if instruction is None:
+         continue
+-      maneuver = {'distance': distance_to_maneuver}
++      # np.cumsum returns NumPy scalars; pycapnp requires native Python floats.
++      maneuver = {'distance': float(distance_to_maneuver)}
+       if 'maneuverType' in instruction:
+         maneuver['type'] = instruction['maneuverType']
+       if 'maneuverModifier' in instruction:

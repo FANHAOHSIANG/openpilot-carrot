@@ -262,6 +262,14 @@ class XiaogeDataBroadcaster:
     try:
       while self.server_running:
         self.sm.update(0)
+        with self.clients_lock:
+          has_clients = bool(self.clients)
+        if not has_clients:
+          # Keep subscriptions/liveness current, but do not serialize an unused
+          # full model snapshot. A new client gets fresh state on the next tick.
+          self.sequence += 1
+          rk.keep_time()
+          continue
         data: dict[str, Any] = {}
         if self.sm.alive["carState"]:
           data["carState"] = self.collect_car_state(self.sm["carState"])

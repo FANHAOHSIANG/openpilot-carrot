@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import sys
 import threading
 import time
@@ -583,7 +584,6 @@ class VASMService:
           continue
         now = time.monotonic()
         self._refresh_settings_from_params()
-        frame = nv12_y_plane(buffer.data, buffer.width, buffer.height, buffer.stride)
         with self.lock:
           self.last_road_frame_at = now
           self.lane_camera_error = ""
@@ -599,6 +599,7 @@ class VASMService:
           lane_threshold = self.lane_threshold
         t0 = time.monotonic()
         cpu0 = time.thread_time()
+        frame = nv12_y_plane(buffer.data, buffer.width, buffer.height, buffer.stride)
         res = self.lane_inference.infer(
           frame, buffer.width, buffer.height, conf_thresh=lane_threshold
         )
@@ -730,7 +731,10 @@ def create_server(host: str = HOST, port: int = PORT, model_path: Path = DEFAULT
   if sys.platform == "linux":
     from openpilot.common.realtime import set_core_affinity
     set_core_affinity([0, 1, 2, 3])
-  cv2.setNumThreads(2)
+    # This caller and its child camera/inference workers are auxiliary work.
+    # Keep existing lower priorities; do not change driving/DM/control threads.
+    os.setpriority(os.PRIO_PROCESS, 0, max(15, os.getpriority(os.PRIO_PROCESS, 0)))
+  cv2.setNumThreads(1)
   service = VASMService(model_path)
   Handler.service = service
   server = ThreadingHTTPServer((host, port), Handler)

@@ -218,7 +218,9 @@ class LaneInference:
         right_p = int(np.clip((boxes_right[k_idx] / INPUT_SIZE) * PROTO_SIZE, 0, PROTO_SIZE - 1))
         bottom_p = int(np.clip((boxes_bottom[k_idx] / INPUT_SIZE) * PROTO_SIZE, 0, PROTO_SIZE - 1))
 
-        if right_p <= left_p or bottom_p <= top_p:
+        # No pixel in this crop can reach the required lower half. Skip the
+        # mask contraction without changing candidate selection or thresholds.
+        if right_p <= left_p or bottom_p <= top_p or bottom_p < PROTO_SIZE // 2:
           continue
 
         # Compute mask within bounding box crop
