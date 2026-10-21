@@ -26,6 +26,7 @@ DEFAULT_H264_SLICE_MAX_BYTES = 4096
 DEFAULT_H264_ENCODER_ALIGN = 16
 DEFAULT_H264_RATE_CONTROL = "vbr-cfr"
 
+
 NATIVE_INPUT_FORMATS = {
     "auto": 0,
     "nv12": 2,
@@ -185,14 +186,15 @@ def _h264_start_code_len(data: bytes, index: int) -> int:
 def _h264_start_codes(data: bytes) -> list[tuple[int, int]]:
     positions: list[tuple[int, int]] = []
     index = 0
-    while index + 3 <= len(data):
-        start_len = _h264_start_code_len(data, index)
-        if start_len:
-            positions.append((index, start_len))
-            index += start_len
-        else:
-            index += 1
-    return positions
+    while True:
+        found = data.find(b"\x00\x00\x01", index)
+        if found < 0:
+            return positions
+        # A four-byte prefix contains the three-byte one at offset one.
+        # Do not borrow a byte from a prefix already consumed above.
+        start = found - 1 if found > index and data[found - 1] == 0 else found
+        positions.append((start, found + 3 - start))
+        index = found + 3
 
 
 def _h264_nals(data: bytes) -> list[tuple[int, int, int]]:
@@ -788,6 +790,7 @@ class H264UsbPipeline:
         self._sps_patch_cache: tuple[bytes, bytes] | None = None
         self.chunk_size = 0
         self._chunks_sent = 0
+        self._chunks_completed = 0
         self._proc: subprocess.Popen[bytes] | None = None
         self._stdout_thread: threading.Thread | None = None
         self._stderr_thread: threading.Thread | None = None
@@ -891,6 +894,7 @@ class H264UsbPipeline:
         self._set_native_slice_max_bytes(lib, handle)
         self._set_native_rate_control(lib, handle)
         self._set_native_realtime_priority(lib, handle)
+        self._set_native_qp_range(lib, handle)
 
         if lib.cluster_h264_encoder_bridge_open(handle) != 0:
             raise RuntimeError(self._native_error_text("native H264 encoder open failed"))
@@ -1953,6 +1957,19 @@ class H264UsbPipeline:
         if set_slice_max(handle, self.slice_max_bytes) != 0:
             raise RuntimeError(self._native_error_text("native H264 slice max-byte setup failed"))
 
+    def _set_native_qp_range(self, lib: ctypes.CDLL, handle: int) -> None:
+        limits = getattr(self.usb_display, "h264_qp_range", None)
+        if limits is None:
+            return
+        try:
+            setter = lib.cluster_h264_encoder_bridge_set_qp_range
+        except AttributeError as exc:
+            raise RuntimeError("Display H264 QP limits require rebuilding the native HUD encoder") from exc
+        setter.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+        setter.restype = ctypes.c_int
+        if setter(handle, *limits) != 0:
+            raise RuntimeError(self._native_error_text("native H264 QP range setup failed"))
+
     def _set_native_rate_control(self, lib: ctypes.CDLL, handle: int) -> None:
         try:
             set_rate_control = lib.cluster_h264_encoder_bridge_set_rate_control
@@ -2062,7 +2079,32 @@ class H264UsbPipeline:
         if packet_queue is None or not chunks:
             return
 
+        if self._closing:
+            return
+
         incoming = _NativeAccessUnit(tuple(chunks), codec_config, keyframe)
+        if getattr(self.usb_display, "h264_preserve_reference_frames", False):
+            # Backpressure the HUD encoder while TCP catches up. A 250ms queue
+            # wait is not evidence of a disconnected link; restarting here turns
+            # a short network stall into a complete display shutdown. Keep the
+            # same three slots and reference order. Only expire a sender that
+            # makes no progress; a large paced frame may take more than 3s.
+            deadline = time.monotonic() + 3.0
+            completed = self._chunks_completed
+            while not self._closing:
+                self.check_error()
+                try:
+                    packet_queue.put(incoming, timeout=0.05)
+                    self._record_h264_queue_depth(packet_queue.qsize())
+                    return
+                except queue.Full:
+                    if self._chunks_completed != completed:
+                        completed = self._chunks_completed
+                        deadline = time.monotonic() + 3.0
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("Display disconnected; reconnect required") from ConnectionError(
+                            "H264 reference queue stalled for 3s; restart stream")
+            return
         dropped: list[_NativeAccessUnit] = []
         with self._packet_queue_lock:
             pending: list[_NativeAccessUnit] = []
@@ -2223,10 +2265,17 @@ class H264UsbPipeline:
         try:
             chunk_size = max(1, self.chunk_size)
             while True:
-                item = packet_queue.get()
+                if self._closing:
+                    return
+                try:
+                    item = packet_queue.get(timeout=0.25)
+                except queue.Empty:
+                    continue
                 if item is None:
                     return
                 for chunk in item.chunks:
+                    if self._closing:
+                        return
                     self._send_h264_chunk(chunk, chunk_size, source="native")
         except BaseException as exc:
             with self._condition:
@@ -2258,6 +2307,7 @@ class H264UsbPipeline:
             wait_for_ack=self.wait_for_ack,
             require_ack_response=not self.soft_ack,
         )
+        self._chunks_completed += 1
         elapsed_ms = (time.perf_counter() - profile_stage) * 1000.0
         self._add_sample_value("usb_h264.send_chunk", elapsed_ms)
         self._record_h264_send(source, len(chunk), elapsed_ms)
