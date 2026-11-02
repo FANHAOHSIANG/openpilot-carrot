@@ -26,6 +26,48 @@ def raw(address, counter, change=None):
 
 
 class IdentityTests(unittest.TestCase):
+  def test_device_accepts_typed_string_and_legacy_bytes(self):
+    self.assertTrue(m.device_matches(m.DEVICE))
+    self.assertTrue(m.device_matches(m.DEVICE.encode()))
+    for value in (None, True, 123, 'wrong', b'wrong', b'\xff', m.DEVICE+' '):
+      with self.subTest(value=value):
+        self.assertFalse(m.device_matches(value))
+
+  def test_typed_boolean_snapshot_preserves_missing_false_and_true(self):
+    import tempfile
+    with tempfile.TemporaryDirectory() as root:
+      class Params:
+        def get(self, key):
+          raise AssertionError('Typed get must not be treated as raw bytes')
+        def get_param_path(self, key):
+          return root+'/'+key
+      Path(root, 'IsOnroad').write_bytes(b'1')
+      Path(root, 'FirmwareQueryDone').write_bytes(b'0')
+      saved = m.snapshot_parameters(Params())
+      self.assertEqual(saved['IsOnroad'], '31')
+      self.assertEqual(saved['FirmwareQueryDone'], '30')
+      self.assertIsNone(saved['ControlsReady'])
+      Path(root, 'ControlsReady').write_bytes(b'garbage')
+      with self.assertRaises(RuntimeError):
+        m.snapshot_parameters(Params())
+
+  def test_boolean_restore_uses_native_typed_writer(self):
+    events = []
+    class Params:
+      def put_bool(self, key, value):
+        self.assert_bool(value)
+        events.append((key, value))
+      def assert_bool(self, value):
+        if type(value) is not bool:
+          raise AssertionError('Wrong parameter type')
+      def remove(self, key): events.append((key, None))
+    p = Params()
+    for value in ('31', '30', None):
+      m.restore_parameter(p, 'IsOnroad', value)
+    self.assertEqual(events, [('IsOnroad', True), ('IsOnroad', False), ('IsOnroad', None)])
+    with self.assertRaises(ValueError):
+      m.restore_parameter(p, 'IsOnroad', 'bad')
+
   def test_fixed_read_only_tx_contract(self):
     for service in (0x10, 0x11, 0x14, 0x27, 0x28, 0x2e, 0x2f, 0x31, 0x34, 0x3e):
       with self.subTest(service=service), self.assertRaises(ValueError):
