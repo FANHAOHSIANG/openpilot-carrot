@@ -418,7 +418,9 @@ def recover(snapshot, pipe_fd, ready_fd=None):
   Path(snapshot['result']).write_text(json.dumps(result))
 
 
-def execute(v, params, original, processes):
+def execute(v, params, original, processes, requests=READS):
+  if not requests or any(request not in READS for request in requests):
+    raise ValueError('Only fixed identity/DTC reads are permitted')
   import tempfile
   work = Path(tempfile.mkdtemp(prefix='spas-identity-', dir='/data'))
   os.chmod(work, 0o700)
@@ -434,12 +436,13 @@ def execute(v, params, original, processes):
                            pass_fds=(read_fd, ready_write), stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
   os.close(read_fd)
   os.close(ready_write)
-  results = []
+  results, active_request, phase = [], None, 'recovery_startup'
   try:
     ready, _, _ = select.select([ready_read], [], [], 5.)
     if not ready or os.read(ready_read, 1) != b'R' or watch.poll() is not None:
       raise RuntimeError('Recovery process did not become ready; vehicle untouched')
     emit({'recovery_directory': str(work), 'diagnostic_target': hex(TARGET), 'bus': 0})
+    phase = 'pause_normal_sender'
     send_signal(processes['manager'], signal.SIGSTOP)
     send_signal(processes['controls'], signal.SIGSTOP)
     send_signal(processes['card'], signal.SIGINT)
@@ -452,25 +455,40 @@ def execute(v, params, original, processes):
       time.sleep(.02)
     # Register restoration before touching the startup handshake. Keep pandad.
     params.put_bool('IsOnroad', False)
+    phase = 'wait_no_output'
     wait_mode(v, 'noOutput', 0)
     params.put_bool('FirmwareQueryDone', False)
     params.put_bool('ControlsReady', False)
     params.put_bool('ObdMultiplexingEnabled', False)
     params.put_bool('IsOnroad', True)
+    phase = 'wait_diagnostic_mode'
     baseline = wait_mode(v, 'elm327', 1)
     v.pub = v.messaging.pub_sock('sendcan')
     time.sleep(.15)
-    for request in READS:
+    for request in requests:
+      phase, active_request = 'read', request.hex()
       result = v.query(request, baseline)
       results.append(result)
       emit(result)
       (work / 'reads.json').write_text(json.dumps(results, indent=2))
+      phase, active_request = 'between_reads', None
+      if request == requests[-1]:
+        break  # Restore immediately after the last bounded response.
       until = time.monotonic()+.1
       while time.monotonic() < until:
         v.pump()
         v.assert_guard(('elm327', 1), baseline)
         time.sleep(.01)
     (work / 'reads.json').write_text(json.dumps(results, indent=2))
+  except BaseException as exc:
+    # Capture before recovery changes the mode and before paused telemetry is
+    # refreshed. Stale normal services are expected during this diagnostic;
+    # raw park inputs and live pandad telemetry remain the active guards.
+    failure = {'diagnostic_stopped': str(exc), 'phase': phase, 'active_request': active_request,
+               'completed_reads': results, 'context': v.report(('elm327', 1))}
+    emit(failure)
+    (work / 'failure.json').write_text(json.dumps(failure, indent=2))
+    raise
   finally:
     if v.pub is not None:
       del v.pub
@@ -498,6 +516,7 @@ def main():
   parser.add_argument('--check', action='store_true', help='Passive preflight only (default)')
   parser.add_argument('--execute', action='store_true', help='Run fixed identity/DTC reads after guarded temporary diagnostic-mode transition')
   parser.add_argument('--parked-ready', action='store_true', help='Operator confirms P, parking brake, READY and no driving during this procedure')
+  parser.add_argument('--dtc-only', action='store_true', help='Read only DTC status (1902ff); skip identity requests already obtained')
   args = parser.parse_args()
   if args.check and args.execute:
     parser.error('--check and --execute are mutually exclusive')
@@ -508,10 +527,11 @@ def main():
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     v, params = Vehicle(), Params()
     original, processes = preflight(v, params)
-    emit({'preflight': True, 'original_safety': original, 'queries': [r.hex() for r in READS],
+    requests = (READS[-1],) if args.dtc_only else READS
+    emit({'preflight': True, 'original_safety': original, 'queries': [r.hex() for r in requests],
           'execute': args.execute, 'vehicle_validation': 'NOT YET PERFORMED'})
     if args.execute:
-      execute(v, params, original, processes)
+      execute(v, params, original, processes, requests)
   return 0
 
 
