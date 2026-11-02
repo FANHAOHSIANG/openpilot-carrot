@@ -121,17 +121,49 @@ class IdentityTests(unittest.TestCase):
         g.observe(addr, raw(addr, 1), 1+i*.01)
     self.assertFalse(g.ready(1.2))
 
-  def test_report_exposes_equal_batch_timestamps_without_relaxing_guard(self):
+  def test_advancing_frames_in_one_batch_arm_with_original_freshness_limit(self):
     g = m.ParkGuard()
     for i in range(12):
       for address in (0x35, 0xa0):
         g.observe(address, raw(address, i), 1.)
-    self.assertFalse(g.ready(1.01))
+    self.assertTrue(g.ready(1.01))
     report = g.report(1.01)
     self.assertEqual(report['0x35']['counts']['same_batch_timestamp'], 11)
     self.assertEqual(report['0x35']['counts']['counter_discontinuities'], 0)
-    self.assertEqual(report['0x35']['consecutive'], 1)
+    self.assertEqual(report['0x35']['consecutive'], 12)
+    self.assertFalse(g.ready(1.151))
+    self.assertFalse(g.ready(.999))
     json.dumps(report)
+
+  def test_same_timestamp_with_duplicate_or_skipped_counter_does_not_arm(self):
+    for counters in ([1]*12, list(range(0, 24, 2))):
+      g = m.ParkGuard()
+      for counter in counters:
+        for address in (0x35, 0xa0):
+          g.observe(address, raw(address, counter), 1.)
+      self.assertFalse(g.ready(1.01))
+
+  def test_decreasing_batch_time_breaks_consecutive_count(self):
+    g = m.ParkGuard()
+    for i in range(12):
+      for address in (0x35, 0xa0):
+        g.observe(address, raw(address, i), 2+i*.01)
+    self.assertTrue(g.ready(2.12))
+    for address in (0x35, 0xa0):
+      g.observe(address, raw(address, 12), 2.10)
+    self.assertFalse(g.ready(2.12))
+
+  def test_ten_second_mixed_batches_across_counter_wrap(self):
+    g = m.ParkGuard()
+    for i in range(1000):
+      # Simulate hundreds of paired frames sharing can.logMonoTime, as in
+      # the vehicle report; wall-clock freshness remains bounded throughout.
+      stamp = 1 + (i // 2)*.02
+      for address in (0x35, 0xa0):
+        g.observe(address, raw(address, i % 256), stamp)
+      if i >= 10:
+        self.assertTrue(g.ready(stamp+.01))
+    self.assertEqual(g.report(stamp+.01)['0x35']['counts']['counter_discontinuities'], 0)
 
   def test_report_distinguishes_crc_failure_from_missing_frames(self):
     g = m.ParkGuard()
