@@ -121,6 +121,28 @@ class IdentityTests(unittest.TestCase):
         g.observe(addr, raw(addr, 1), 1+i*.01)
     self.assertFalse(g.ready(1.2))
 
+  def test_report_exposes_equal_batch_timestamps_without_relaxing_guard(self):
+    g = m.ParkGuard()
+    for i in range(12):
+      for address in (0x35, 0xa0):
+        g.observe(address, raw(address, i), 1.)
+    self.assertFalse(g.ready(1.01))
+    report = g.report(1.01)
+    self.assertEqual(report['0x35']['counts']['same_batch_timestamp'], 11)
+    self.assertEqual(report['0x35']['counts']['counter_discontinuities'], 0)
+    self.assertEqual(report['0x35']['consecutive'], 1)
+    json.dumps(report)
+
+  def test_report_distinguishes_crc_failure_from_missing_frames(self):
+    g = m.ParkGuard()
+    d = bytearray(raw(0x35, 1)); d[0] ^= 1
+    g.observe(0x35, bytes(d), 1.)
+    report = g.report(1.01)
+    self.assertEqual(report['0x35']['counts']['invalid_crc'], 1)
+    self.assertNotEqual(report['0x35']['latest']['crc_expected'], report['0x35']['latest']['crc_received'])
+    self.assertEqual(report['0xa0']['counts'], {})
+    self.assertFalse(g.ready(1.01))
+
   def test_gear_pedal_and_any_wheel_cancel(self):
     for addr, change in ((0x35, (24, 1)), (0x35, (5, 1)), (0xa0, (8, 1)), (0xa0, (10, 1)),
                          (0xa0, (12, 1)), (0xa0, (14, 1))):
