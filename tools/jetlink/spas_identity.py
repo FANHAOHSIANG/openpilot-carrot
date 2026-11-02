@@ -157,7 +157,10 @@ class ParkGuard:
     if old:
       stats['same_batch_timestamp'] += stamp == old[0]
       stats['counter_discontinuities'] += data[2] != (old[1]+1) % 256
-    count = min(20, old[2]+1) if old and 0 < stamp-old[0] < .15 and data[2] == (old[1]+1) % 256 else 1
+    # logMonoTime timestamps a received batch, not each physical CAN frame.
+    # Consecutive frames in one batch may share a timestamp; require advancing
+    # OEM counters and a nondecreasing, fresh batch timestamp independently.
+    count = min(20, old[2]+1) if old and 0 <= stamp-old[0] < .15 and data[2] == (old[1]+1) % 256 else 1
     safe = (data[24] & 7 == 0 and data[5] == 0) if address == 0x35 else all(
       int.from_bytes(data[i:i+2], 'little') & 0x3fff == 0 for i in (8, 10, 12, 14))
     self.latest[address].update(safe=safe)
