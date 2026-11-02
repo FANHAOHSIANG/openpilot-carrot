@@ -209,6 +209,8 @@ class IdentityTests(unittest.TestCase):
         class Vehicle:
           pub = None
           messaging = SimpleNamespace(pub_sock=lambda service: Pub())
+          def pump(self): return []
+          def assert_guard(self, *args): return ()
           def query(self, request, baseline):
             events.append(('request', request))
             if fail:
@@ -223,9 +225,10 @@ class IdentityTests(unittest.TestCase):
             events.append('recovery_wait')
             Path(root, 'restoration.json').write_text(json.dumps({'restored': True}))
         v = Vehicle()
-        processes = {key: {'pid': 100+i} for i, key in enumerate(('manager', 'controls', 'card'))}
+        processes = {key: {'pid': 100+i, 'start': 'same'} for i, key in enumerate(('manager', 'controls', 'card'))}
         with patch.object(m, 'process', return_value={'pid': 999, 'start': 'old'}), \
              patch.object(m, 'same_process', return_value=False), patch.object(m, 'send_signal'), \
+             patch.object(m, 'preflight', return_value=(('hyundaiCanfd', 6173), processes)), \
              patch.object(m, 'snapshot_parameters', return_value={k: '31' for k in m.KEYS}), \
              patch.object(tempfile, 'mkdtemp', return_value=root), \
              patch.object(m.subprocess, 'Popen', return_value=Watch()), \
@@ -245,6 +248,51 @@ class IdentityTests(unittest.TestCase):
           failure = json.loads(Path(root, 'failure.json').read_text())
           self.assertEqual(failure['active_request'], '1902ff')
           self.assertEqual(failure['context']['raw_guard'], 'original failing input')
+
+  def test_receive_clock_is_sampled_after_socket_drain(self):
+    from collections import Counter
+    v = object.__new__(m.Vehicle)
+    clock = [1.]
+    v.sm = SimpleNamespace(update=lambda timeout: None)
+    v.sock, v.guard, v.input_stats = None, m.ParkGuard(), Counter()
+    def drain(*args, **kwargs):
+      clock[0] = 1.02  # A batch is produced while the socket drain is running.
+      return [SimpleNamespace(valid=True, logMonoTime=int(1.01e9),
+                              can=[SimpleNamespace(src=0, address=0x35, dat=raw(0x35, 1))])]
+    v.messaging = SimpleNamespace(drain_sock=drain)
+    with patch.object(m.time, 'monotonic', side_effect=lambda: clock[0]):
+      packets = v.pump()
+    self.assertEqual(len(packets), 1)
+    self.assertEqual(v.input_stats['future_batches'], 0)
+
+  def test_receive_clock_still_rejects_actually_future_and_stale_batches(self):
+    from collections import Counter
+    v = object.__new__(m.Vehicle)
+    v.sm = SimpleNamespace(update=lambda timeout: None)
+    v.sock, v.guard, v.input_stats = None, m.ParkGuard(), Counter()
+    v.messaging = SimpleNamespace(drain_sock=lambda *args, **kwargs: [
+      SimpleNamespace(valid=True, logMonoTime=int(stamp*1e9),
+                      can=[SimpleNamespace(src=0, address=0x35, dat=raw(0x35, 1))]) for stamp in (1.1, .8)])
+    with patch.object(m.time, 'monotonic', return_value=1.):
+      self.assertEqual(v.pump(), [])
+    self.assertEqual(v.input_stats['future_batches'], 1)
+    self.assertEqual(v.input_stats['stale_batches'], 1)
+
+  def test_unarmed_recovery_never_changes_parameters_or_processes(self):
+    import tempfile
+    import sys
+    class Params:
+      def put_bool(self, *args): raise AssertionError('Unarmed recovery must not mutate Params')
+    with tempfile.TemporaryDirectory() as root:
+      snapshot = {'armed_file': root+'/not_created', 'result': root+'/result.json'}
+      with patch.dict(sys.modules, {'openpilot.common.params': SimpleNamespace(Params=Params)}), \
+           patch.object(m.select, 'select', return_value=([1], [], [])), \
+           patch.object(m.os, 'read', return_value=b''), patch.object(m, 'send_signal') as sig:
+        m.recover(snapshot, 1)
+      sig.assert_not_called()
+      result = json.loads(Path(snapshot['result']).read_text())
+      self.assertTrue(result['restored'])
+      self.assertFalse(result['vehicle_mutated'])
 
   def test_no_query_retry_on_negative_or_timeout(self):
     class Fake:
