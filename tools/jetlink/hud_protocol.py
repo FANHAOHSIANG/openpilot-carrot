@@ -189,6 +189,13 @@ def encode_snapshot(record):
     record['cameras'] = {}
     data = json.dumps(record, separators=(',', ':')).encode()
   if len(data) > 96 * 1024:
+    # Mode 7 displays the rendered PNG; a large route polyline must not starve
+    # that image. Drop it only when doing so actually lets the PNG fit.
+    if 'nav_map_preview' in record and 'navRoute' in record.get('events', {}):
+      compact = {**record, 'events': {k: v for k, v in record['events'].items() if k != 'navRoute'}}
+      compact_data = json.dumps(compact, separators=(',', ':')).encode()
+      if len(compact_data) <= 96 * 1024:
+        return compact_data
     record.pop('nav_map_preview', None)
     data = json.dumps(record, separators=(',', ':')).encode()
   if len(data) > 96 * 1024:
