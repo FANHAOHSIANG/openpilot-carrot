@@ -214,9 +214,11 @@ class Vehicle:
 
   def pump(self):
     self.sm.update(0)
-    now = time.monotonic()
     packets = []
     for msg in self.messaging.drain_sock(self.sock, wait_for_one=False):
+      # drain_sock can receive batches published after this pump began.
+      # Compare their source time with a clock sampled AFTER reception.
+      now = time.monotonic()
       self.input_stats['batches'] += 1
       stamp = msg.logMonoTime / 1e9
       if not msg.valid or not 0 <= now-stamp < .15:
@@ -376,6 +378,10 @@ def recover(snapshot, pipe_fd, ready_fd=None):
       os.kill(snapshot['owner']['pid'], signal.SIGKILL)
   else:
     os.read(pipe_fd, 1)  # EOF on ordinary finish, exception or parent death.
+  if snapshot.get('armed_file') and not Path(snapshot['armed_file']).exists():
+    Path(snapshot['result']).write_text(json.dumps({'restored': True, 'vehicle_mutated': False,
+                                                   'errors': [], 'next': 'No vehicle state change was started'}))
+    return
   errors = []
   # Let live pandad return to noOutput before restoring the startup handshake.
   try:
@@ -426,6 +432,7 @@ def execute(v, params, original, processes, requests=READS):
   os.chmod(work, 0o700)
   snapshot = {'owner': process(os.getpid()), 'original': original, 'processes': processes,
               'params': snapshot_parameters(params),
+              'armed_file': str(work / 'mutation_started'),
               'result': str(work / 'restoration.json')}
   state = work / 'recovery.json'
   state.write_text(json.dumps(snapshot))
@@ -438,10 +445,23 @@ def execute(v, params, original, processes, requests=READS):
   os.close(ready_write)
   results, active_request, phase = [], None, 'recovery_startup'
   try:
-    ready, _, _ = select.select([ready_read], [], [], 5.)
-    if not ready or os.read(ready_read, 1) != b'R' or watch.poll() is not None:
-      raise RuntimeError('Recovery process did not become ready; vehicle untouched')
+    until = time.monotonic()+5.
+    while True:
+      v.pump()  # Native imports in the recovery child must not age our CAN queue.
+      ready, _, _ = select.select([ready_read], [], [], .02)
+      if ready:
+        if os.read(ready_read, 1) != b'R' or watch.poll() is not None:
+          raise RuntimeError('Recovery process did not become ready; vehicle untouched')
+        break
+      if time.monotonic() >= until or watch.poll() is not None:
+        raise RuntimeError('Recovery process did not become ready; vehicle untouched')
     emit({'recovery_directory': str(work), 'diagnostic_target': hex(TARGET), 'bus': 0})
+    phase = 'revalidate_before_pause'
+    current_safety, current_processes = preflight(v, params)
+    if current_safety != original or any(current_processes[k]['pid'] != processes[k]['pid'] or
+                                         current_processes[k]['start'] != processes[k]['start'] for k in processes):
+      raise RuntimeError('Vehicle safety/process identity changed before pause')
+    Path(snapshot['armed_file']).touch()
     phase = 'pause_normal_sender'
     send_signal(processes['manager'], signal.SIGSTOP)
     send_signal(processes['controls'], signal.SIGSTOP)
@@ -464,7 +484,12 @@ def execute(v, params, original, processes, requests=READS):
     phase = 'wait_diagnostic_mode'
     baseline = wait_mode(v, 'elm327', 1)
     v.pub = v.messaging.pub_sock('sendcan')
-    time.sleep(.15)
+    phase = 'publisher_startup'
+    until = time.monotonic()+.15
+    while time.monotonic() < until:
+      v.pump()
+      v.assert_guard(('elm327', 1), baseline)
+      time.sleep(.01)
     for request in requests:
       phase, active_request = 'read', request.hex()
       result = v.query(request, baseline)
