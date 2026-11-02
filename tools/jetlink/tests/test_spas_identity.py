@@ -191,6 +191,61 @@ class IdentityTests(unittest.TestCase):
       with self.subTest(data=data), self.assertRaises(RuntimeError):
         v.tx(data, ())
 
+  def test_execution_rejects_nonread_plan_before_any_vehicle_interaction(self):
+    for requests in ((), (bytes.fromhex('280301'),), (bytes.fromhex('1003'),)):
+      with self.subTest(requests=requests), patch.object(m, 'process') as proc, self.assertRaises(ValueError):
+        m.execute(None, None, None, None, requests)
+      proc.assert_not_called()
+
+  def test_single_dtc_read_and_guard_failure_both_release_publisher_before_recovery(self):
+    import tempfile
+    for fail in (False, True):
+      with self.subTest(fail=fail), tempfile.TemporaryDirectory() as root:
+        events, outputs = [], []
+        class Pub:
+          def __del__(self): events.append('publisher_released')
+        class Params:
+          def put_bool(self, key, value): events.append(('param', key, value))
+        class Vehicle:
+          pub = None
+          messaging = SimpleNamespace(pub_sock=lambda service: Pub())
+          def query(self, request, baseline):
+            events.append(('request', request))
+            if fail:
+              raise RuntimeError('raw guard failed')
+            return {'request': request.hex(), 'status': 'positive', 'response': '5902ff'}
+          def report(self, original):
+            events.append('failure_context_captured')
+            return {'raw_guard': 'original failing input'}
+        class Watch:
+          def poll(self): return None
+          def wait(self, timeout):
+            events.append('recovery_wait')
+            Path(root, 'restoration.json').write_text(json.dumps({'restored': True}))
+        v = Vehicle()
+        processes = {key: {'pid': 100+i} for i, key in enumerate(('manager', 'controls', 'card'))}
+        with patch.object(m, 'process', return_value={'pid': 999, 'start': 'old'}), \
+             patch.object(m, 'same_process', return_value=False), patch.object(m, 'send_signal'), \
+             patch.object(m, 'snapshot_parameters', return_value={k: '31' for k in m.KEYS}), \
+             patch.object(tempfile, 'mkdtemp', return_value=root), \
+             patch.object(m.subprocess, 'Popen', return_value=Watch()), \
+             patch.object(m.select, 'select', return_value=([1], [], [])), \
+             patch.object(m.os, 'read', return_value=b'R'), patch.object(m.time, 'sleep'), \
+             patch.object(m, 'wait_mode', return_value=()), patch.object(m, 'emit', side_effect=outputs.append):
+          if fail:
+            with self.assertRaisesRegex(RuntimeError, 'raw guard failed'):
+              m.execute(v, Params(), ('hyundaiCanfd', 6173), processes, (m.READS[-1],))
+          else:
+            m.execute(v, Params(), ('hyundaiCanfd', 6173), processes, (m.READS[-1],))
+        self.assertEqual([event for event in events if isinstance(event, tuple) and event[0] == 'request'],
+                         [('request', bytes.fromhex('1902ff'))])
+        self.assertLess(events.index('publisher_released'), events.index('recovery_wait'))
+        self.assertTrue(outputs[-1]['restored'])
+        if fail:
+          failure = json.loads(Path(root, 'failure.json').read_text())
+          self.assertEqual(failure['active_request'], '1902ff')
+          self.assertEqual(failure['context']['raw_guard'], 'original failing input')
+
   def test_no_query_retry_on_negative_or_timeout(self):
     class Fake:
       def __init__(self, reply):
