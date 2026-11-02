@@ -5,6 +5,7 @@ existing pandad ELM327/1 diagnostic mode. No firmware flash, UDS session change,
 communication control, actuator request, coding, DTC clearing or bus scan.
 """
 import argparse
+from collections import Counter
 import fcntl
 import json
 import math
@@ -125,12 +126,18 @@ class Reply:
 class ParkGuard:
   def __init__(self):
     self.values = {}
+    self.stats = {a: Counter() for a in (0x35, 0xA0)}
+    self.latest = {}
 
   def observe(self, address, data, stamp):
     if address not in (0x35, 0xA0):
       return
+    stats = self.stats[address]
+    stats['received'] += 1
+    self.latest[address] = {'length': len(data)}
     size = 32 if address == 0x35 else 24
     if len(data) != size:
+      stats['wrong_length'] += 1
       self.values.pop(address, None)
       return
     crc = 0
@@ -138,18 +145,38 @@ class ParkGuard:
       crc ^= byte << 8
       for _ in range(8):
         crc = ((crc << 1) ^ (0x1021 if crc & 0x8000 else 0)) & 0xffff
-    if int.from_bytes(data[:2], 'little') != crc ^ {24: 0x819d, 32: 0x9f5b}[size]:
+    expected_crc = crc ^ {24: 0x819d, 32: 0x9f5b}[size]
+    actual_crc = int.from_bytes(data[:2], 'little')
+    self.latest[address].update(counter=data[2], crc_received=hex(actual_crc), crc_expected=hex(expected_crc))
+    if actual_crc != expected_crc:
+      stats['invalid_crc'] += 1
       self.values.pop(address, None)
       return
+    stats['valid_crc'] += 1
     old = self.values.get(address)
+    if old:
+      stats['same_batch_timestamp'] += stamp == old[0]
+      stats['counter_discontinuities'] += data[2] != (old[1]+1) % 256
     count = min(20, old[2]+1) if old and 0 < stamp-old[0] < .15 and data[2] == (old[1]+1) % 256 else 1
     safe = (data[24] & 7 == 0 and data[5] == 0) if address == 0x35 else all(
       int.from_bytes(data[i:i+2], 'little') & 0x3fff == 0 for i in (8, 10, 12, 14))
+    self.latest[address].update(safe=safe)
+    if address == 0x35:
+      self.latest[address].update(raw_gear=data[24] & 7, raw_pedal=data[5])
+    else:
+      self.latest[address]['raw_wheels'] = [int.from_bytes(data[i:i+2], 'little') & 0x3fff for i in (8, 10, 12, 14)]
+    stats['max_consecutive'] = max(stats['max_consecutive'], count)
     self.values[address] = (stamp, data[2], count, safe)
 
   def ready(self, now):
     return all(a in self.values and self.values[a][2] >= 10 and self.values[a][3] and
                0 <= now-self.values[a][0] < .15 for a in (0x35, 0xA0))
+
+  def report(self, now):
+    return {hex(a): {'counts': dict(self.stats[a]), 'latest': self.latest.get(a),
+                     'consecutive': self.values[a][2] if a in self.values else 0,
+                     'age_ms': round((now-self.values[a][0])*1000, 2) if a in self.values else None}
+            for a in (0x35, 0xA0)}
 
 
 def panda_health(sm, model=None, parameter=None):
@@ -180,16 +207,20 @@ class Vehicle:
     self.sm = messaging.SubMaster(['carState', 'carControl', 'selfdriveState', 'pandaStates', 'managerState'])
     self.sock = messaging.sub_sock('can', conflate=False)
     self.guard, self.pub = ParkGuard(), None
+    self.input_stats = Counter()
 
   def pump(self):
     self.sm.update(0)
     now = time.monotonic()
     packets = []
     for msg in self.messaging.drain_sock(self.sock, wait_for_one=False):
+      self.input_stats['batches'] += 1
       stamp = msg.logMonoTime / 1e9
       if not msg.valid or not 0 <= now-stamp < .15:
+        self.input_stats['invalid_batches' if not msg.valid else 'future_batches' if stamp > now else 'stale_batches'] += 1
         continue
       for item in msg.can:
+        self.input_stats['source_' + str(item.src)] += 1
         if item.src == 0:
           data = bytes(item.dat)
           self.guard.observe(item.address, data, stamp)
@@ -203,6 +234,29 @@ class Vehicle:
     if baseline is not None and health != baseline:
       raise RuntimeError('CAN errors/losses or safety rejections changed')
     return health
+
+  def report(self, original):
+    now, sm = time.monotonic(), self.sm
+    services = {k: {'seen': sm.seen[k], 'valid': sm.valid[k],
+                    'age_ms': round((now-sm.recv_time[k])*1000, 2) if sm.seen[k] else None}
+                for k in ('carState', 'carControl', 'selfdriveState', 'pandaStates', 'managerState')}
+    pandas = []
+    for p in sm['pandaStates']:
+      buses = []
+      for i in range(3):
+        c = getattr(p, 'canState' + str(i))
+        buses.append({k: getattr(c, k) for k in ('busOff', 'errorWarning', 'errorPassive', 'transmitErrorCnt',
+                      'receiveErrorCnt', 'totalErrorCnt', 'totalTxLostCnt', 'totalRxLostCnt')})
+      pandas.append({'mode': str(p.safetyModel), 'param': p.safetyParam, 'controlsAllowed': p.controlsAllowed,
+                     'ignitionLine': p.ignitionLine, 'safetyRxChecksInvalid': p.safetyRxChecksInvalid,
+                     'faults': [str(f) for f in p.faults], 'buses': buses})
+    cs, cc, ss = sm['carState'], sm['carControl'], sm['selfdriveState']
+    return {'expected_safety': original, 'services': services, 'can_input': dict(self.input_stats),
+            'raw_guard': self.guard.report(now), 'pandas': pandas,
+            'vehicle': {'gear': str(cs.gearShifter), 'speed': cs.vEgo, 'standstill': cs.standstill,
+                        'canValid': cs.canValid, 'gasPressed': cs.gasPressed,
+                        'leftBlinker': cs.leftBlinker, 'rightBlinker': cs.rightBlinker,
+                        'latActive': cc.latActive, 'longActive': cc.longActive, 'enabled': ss.enabled, 'active': ss.active}}
 
   def tx(self, data, baseline):
     if data not in tuple(packet(r) for r in READS) + (bytes.fromhex('3000050000000000'),):
@@ -254,7 +308,7 @@ def preflight(v, params):
   for key in ('AutoBlinkerControl', 'CanfdBlinkerTest'):
     if params.get_int(key) != 0:
       raise RuntimeError(key + ' must already be 0; this tool never changes indicator settings')
-  stable, until = None, time.monotonic()+10
+  stable, until, reasons = None, time.monotonic()+10, Counter()
   while time.monotonic() < until:
     v.pump()
     try:
@@ -262,7 +316,7 @@ def preflight(v, params):
       now = time.monotonic()
       for key in ('carState', 'carControl', 'selfdriveState', 'managerState'):
         if not v.sm.seen[key] or not v.sm.valid[key] or now-v.sm.recv_time[key] > 1.:
-          raise RuntimeError('Normal vehicle telemetry stale')
+          raise RuntimeError('Normal vehicle telemetry stale/invalid: ' + key)
       cs, cc, ss = v.sm['carState'], v.sm['carControl'], v.sm['selfdriveState']
       if (not cs.canValid or str(cs.gearShifter) != 'park' or not cs.standstill or not math.isfinite(cs.vEgo) or
           abs(cs.vEgo) >= .01 or cs.gasPressed or cs.leftBlinker or cs.rightBlinker or cc.latActive or cc.longActive or ss.enabled or ss.active):
@@ -270,10 +324,13 @@ def preflight(v, params):
       stable = stable or now
       if now-stable >= 3.:
         break
-    except RuntimeError:
+    except RuntimeError as exc:
+      reasons[str(exc)] += 1
       stable = None
     time.sleep(.01)
   else:
+    emit({'preflight_diagnostics': v.report(original), 'failure_reasons': dict(reasons),
+          'vehicle_mutated': False, 'diagnostic_requests_sent': 0})
     raise RuntimeError('Three-second stable parked preflight failed')
   states = {p.name: p for p in v.sm['managerState'].processes if p.running}
   if not all(k in states for k in ('card', 'controlsd', 'pandad')):
