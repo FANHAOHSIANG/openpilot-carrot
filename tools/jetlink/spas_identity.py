@@ -22,6 +22,39 @@ READS = tuple(bytes.fromhex('22' + d) for d in ('f100', 'f110', 'f187', 'f189', 
 KEYS = ('IsOnroad', 'FirmwareQueryDone', 'ControlsReady', 'ObdMultiplexingEnabled', 'ObdMultiplexingChanged')
 
 
+def device_matches(value):
+  if isinstance(value, bytes):
+    try:
+      value = value.decode('ascii')
+    except UnicodeDecodeError:
+      return False
+  return isinstance(value, str) and value == DEVICE
+
+
+def snapshot_parameters(params):
+  # All KEYS are booleans. Read their raw representation to preserve absence,
+  # rather than assuming typed Params.get() returns bytes (it returns bool).
+  saved = {}
+  for key in KEYS:
+    try:
+      raw = Path(params.get_param_path(key)).read_bytes()
+    except FileNotFoundError:
+      raw = None
+    if raw not in (None, b'0', b'1'):
+      raise RuntimeError('Unexpected boolean storage for ' + key)
+    saved[key] = None if raw is None else raw.hex()
+  return saved
+
+
+def restore_parameter(params, key, value):
+  if key not in KEYS or value not in (None, '30', '31'):
+    raise ValueError('Invalid boolean restoration entry')
+  if value is None:
+    params.remove(key)
+  else:
+    params.put_bool(key, value == '31')
+
+
 def emit(value):
   print(json.dumps(value, ensure_ascii=False), flush=True)
 
@@ -209,7 +242,7 @@ class Vehicle:
 
 def preflight(v, params):
   from openpilot.cereal import car
-  if params.get('DongleId') != DEVICE.encode():
+  if not device_matches(params.get('DongleId')):
     raise RuntimeError('This diagnostic is restricted to the reviewed owner device')
   raw = params.get('CarParams')
   if not raw:
@@ -251,7 +284,7 @@ def preflight(v, params):
     raise RuntimeError('Cannot positively identify card manager parent')
   if any(p['state'] in ('T', 't', 'Z') for p in (card, controls, manager)):
     raise RuntimeError('A required process is already stopped/dead')
-  if params.get('IsOnroad') != b'1' or params.get('FirmwareQueryDone') != b'1' or params.get('ControlsReady') != b'1':
+  if not all(params.get_bool(key) for key in ('IsOnroad', 'FirmwareQueryDone', 'ControlsReady')):
     raise RuntimeError('Normal startup safety configuration incomplete')
   return original, {'manager': manager, 'controls': controls, 'card': card}
 
@@ -289,10 +322,8 @@ def recover(snapshot, pipe_fd, ready_fd=None):
     p.put_bool('IsOnroad', False)
     time.sleep(.5)
     for key in KEYS[1:]:
-      value = snapshot['params'][key]
-      p.remove(key) if value is None else p.put(key, bytes.fromhex(value))
-    value = snapshot['params']['IsOnroad']
-    p.remove('IsOnroad') if value is None else p.put('IsOnroad', bytes.fromhex(value))
+      restore_parameter(p, key, snapshot['params'][key])
+    restore_parameter(p, 'IsOnroad', snapshot['params']['IsOnroad'])
   except Exception as e:
     errors.append(str(e))
   for name in ('controls', 'manager'):
@@ -332,7 +363,7 @@ def execute(v, params, original, processes):
   work = Path(tempfile.mkdtemp(prefix='spas-identity-', dir='/data'))
   os.chmod(work, 0o700)
   snapshot = {'owner': process(os.getpid()), 'original': original, 'processes': processes,
-              'params': {k: None if params.get(k) is None else params.get(k).hex() for k in KEYS},
+              'params': snapshot_parameters(params),
               'result': str(work / 'restoration.json')}
   state = work / 'recovery.json'
   state.write_text(json.dumps(snapshot))
