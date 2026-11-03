@@ -262,7 +262,7 @@ Git Pull로 갱신됩니다. 퇴역 모델은 목록에서 제외되고, 사용�
 
 ```bash
 cd /data/openpilot
-python3 -m openpilot.selfdrive.carrot.server.features.google_share
+python3 tools/navigation/pair_google_share.py
 ```
 
 휴대폰의 공유 페이지에 코드를 입력합니다. 새 코드를 만들면 이전 페어링은

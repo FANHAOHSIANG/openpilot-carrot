@@ -264,7 +264,7 @@ After parking, generate a one-use, ten-minute pairing code on C4:
 
 ```bash
 cd /data/openpilot
-python3 -m openpilot.selfdrive.carrot.server.features.google_share
+python3 tools/navigation/pair_google_share.py
 ```
 
 Enter that code on the phone's share page. A new code revokes the previous

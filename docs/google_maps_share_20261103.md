@@ -9,7 +9,7 @@
 
 ```bash
 cd /data/openpilot
-python3 -m openpilot.selfdrive.carrot.server.features.google_share
+python3 tools/navigation/pair_google_share.py
 ```
 
 在手機開啟原本 Carrot Web 相同主機與連接埠的 `/navigation/share`。
