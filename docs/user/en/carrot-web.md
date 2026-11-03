@@ -250,3 +250,46 @@ are cleaned up automatically while offroad. A running retired model remains prot
 until the next boot selects the default and delivery switches the installed active model.
 Jetson cleanup waits for an offroad connection and preserves an ONNX used by any available
 model. Only the selected model is loaded into GPU memory.
+
+### Share a Google Maps destination to Carrot
+
+Open `/navigation/share` on the same Carrot Web host and port. This imports a
+**destination**, not the Google Maps route or live turn-by-turn session. Carrot
+calculates its own route using its existing navigation setup; the resulting
+route can differ from Google Maps. A working Mapbox key, current position and
+active navigation services are still required. Existing HUD mode 7 displays the
+Carrot route once the map is ready.
+
+After parking, generate a one-use, ten-minute pairing code on C4:
+
+```bash
+cd /data/openpilot
+python3 tools/navigation/pair_google_share.py
+```
+
+Enter that code on the phone's share page. A new code revokes the previous
+pairing. The browser stores the paired credential; the shortcut does not need
+it. Do not share the code or expose Carrot Web directly to the internet.
+
+Paste a Google Maps place link and select **解析地點** (Resolve place). The page
+shows the destination name and coordinates. Select **確認，傳送到 Carrot**
+(Confirm and send) only after checking them. If a link provides only a name,
+search the proposed text and choose the correct candidate. Camera-center
+coordinates and ambiguous route overviews are not used as the destination.
+Some short links may fail to expand; paste a full place URL or search an address
+instead. Resolving a link never changes the saved destination automatically.
+
+For an iPhone share-sheet Shortcut:
+
+1. Enable **Show in Share Sheet** and accept URLs/text.
+2. Add **URL Encode** for the Shortcut Input (use the first URL if several are shared).
+3. Add a **Text** action containing your normal Carrot Web base URL followed by
+   `/navigation/share#url=` and the encoded input.
+4. Add **Open URLs** using that text. Name the shortcut “Send to Carrot”.
+
+From Google Maps, share a single place to the shortcut, then resolve and confirm
+it on the Carrot page. Use the same browser and Carrot host/port as during
+pairing. If automatic opening is inconvenient, copying and pasting the share
+link into the same page performs the identical import. The shipped share page
+currently uses Traditional Chinese labels. This does not require reinstalling
+the Mac HUD App and does not import Google's route into the driving model.

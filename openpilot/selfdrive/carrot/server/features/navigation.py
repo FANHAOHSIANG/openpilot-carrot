@@ -110,6 +110,8 @@ async def preview(request):
 
 
 def register(app):
+  from . import google_share
+  google_share.register(app)
   app[SEARCH_STATE] = SearchState()
   app.router.add_get('/navigation', page)
   app.router.add_get('/api/navigation/search', search)
