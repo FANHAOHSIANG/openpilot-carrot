@@ -112,6 +112,7 @@ class JetlinkClient:
     self._allow_request_chunks = allow_request_chunks
     self._allow_output_projection = allow_output_projection
     self._projection_negotiated = False
+    self._mac_n16_transport = False
     self._projection_spec = None
     self._projection_spec_ok = False
     # The IPC consumer opts in separately for each request. Raw/old consumers
@@ -245,6 +246,7 @@ class JetlinkClient:
       if hasattr(type(layer), '_send_bounded_request'):
         layer.request_chunks_enabled = False
     self._projection_negotiated = False
+    self._mac_n16_transport = False
     self._projection_spec = None
     self._projection_spec_ok = False
     self.project_output = False
@@ -256,6 +258,8 @@ class JetlinkClient:
       client[deferred_map.CAPABILITY] = deferred_map.descriptor()
     if version == 2 and self._allow_output_projection:
       client[projection.CAPABILITY] = projection.descriptor()
+    if version == 3 and self._allow_output_projection:
+      client[projection.MAC_CAPABILITY] = projection.descriptor()
     if version == 3:
       link = self._link_info()
       if link:
@@ -274,8 +278,12 @@ class JetlinkClient:
     if selected != version:
       raise LinkError(f"server selected protocol {selected!r}, transport speaks protocol {version}")
     self._stateful_v2 = selected == 2 and response.get('stateful_v2') is True
-    self._projection_negotiated = (self._allow_output_projection and self._stateful_v2 and
-                                  projection.matches(response.get(projection.CAPABILITY)))
+    self._mac_n16_transport = (self._allow_output_projection and selected == 3 and
+                               response.get('carrot_host') == 'mac' and
+                               projection.matches(response.get(projection.MAC_CAPABILITY)))
+    self._projection_negotiated = (self._mac_n16_transport or
+                                  (self._allow_output_projection and self._stateful_v2 and
+                                   projection.matches(response.get(projection.CAPABILITY))))
     from jetlink.packed_codec import CAPABILITY
     self._nav_u8 = self._stateful_v2 and response.get(CAPABILITY) is True
     self._deferred_map = self._nav_u8 and deferred_map.matches(response.get(deferred_map.CAPABILITY))
@@ -467,10 +475,10 @@ class JetlinkClient:
     seq = self._next_seq()
     flags = (P.Flag.RESET_QUEUES if reset else 0) | (P.Flag.WANT_STATE if want_state else 0)
     if self.project_output:
-      if version != 2 or not self.output_projection_available:
+      if not self.output_projection_available or not (version == 2 or self._mac_n16_transport):
         raise LinkError('driving-output projection was not negotiated for this model')
       flags |= projection.FLAG
-    if version == 3:
+    if version == 3 and not self.project_output:
       flags |= P.Flag.WANT_HIDDEN
     try:
       self._infer_started = time.monotonic()
@@ -487,7 +495,9 @@ class JetlinkClient:
         self.last_map_used = self.map_sender.used
       else:
         self.map_sender = None
-      if nav_metadata is None and version == 2 and self._nav_u8 and 'nav_map' in self.spec.packed_shapes:
+      compact_map = ((version == 2 and self._nav_u8) or
+                     (version == 3 and self._mac_n16_transport and self.output_projection_available))
+      if nav_metadata is None and compact_map and 'nav_map' in self.spec.packed_shapes:
         from jetlink.packed_codec import encode, FLAG
         packed, compressed = encode(packed, self.spec)
         if compressed:

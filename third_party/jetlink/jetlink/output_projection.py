@@ -8,6 +8,8 @@ import json
 
 CAPABILITY = 'carrot_n16_driving_output_v1'
 IPC_CAPABILITY = 'carrot_n16_driving_output_ipc_v1'
+# Protocol 3 opts into both lossless map bytes and the existing driving prefix.
+MAC_CAPABILITY = 'carrot_mac_n16_transport_v1'
 FLAG = 1 << 5
 IPC_FLAG = 1 << 1  # bit zero of the local request remains RESET_QUEUES
 COUNT = 2066
