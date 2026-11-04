@@ -1,29 +1,13 @@
 """Mapbox search/destination UI and the shared nav-model preview."""
-import asyncio
 import json
 import math
-from dataclasses import dataclass, field
 from pathlib import Path
-import time
 
-import aiohttp
 from aiohttp import web
 
 from ..config import WEB_DIR
 from ..services.params import get_param_value, set_param_value
 from openpilot.selfdrive.navigation.preview import PREVIEW_PATH, WEB_DEMAND_PATH, preview_fresh, preview_reason
-
-MAX_RESPONSE = 1024 * 1024
-
-
-@dataclass
-class SearchState:
-  lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-  next_request: float = 0.
-
-
-SEARCH_STATE = web.AppKey('navigation_search', SearchState)
-
 
 def destination(value):
   if not isinstance(value, dict):
@@ -39,37 +23,8 @@ async def page(request):
 
 
 async def search(request):
-  query = request.query.get('q', '').strip()
-  if not 2 <= len(query) <= 200:
-    return web.json_response({'error': 'Enter 2–200 characters.'}, status=400)
-  token = str(get_param_value('MapboxPublicKey', '') or '').strip()
-  if not token:
-    return web.json_response({'error': 'Set the Mapbox Public key in Settings → Network.'}, status=409)
-  state = request.app[SEARCH_STATE]
-  if state.lock.locked() or time.monotonic() < state.next_request:
-    return web.json_response({'error': 'Please wait before searching again.'}, status=429)
-  async with state.lock:
-    state.next_request = time.monotonic() + 1.
-    try:
-      params = {'q': query, 'access_token': token, 'limit': '5', 'autocomplete': 'false', 'permanent': 'true'}
-      async with request.app['http'].get('https://api.mapbox.com/search/geocode/v6/forward', params=params,
-                                         timeout=aiohttp.ClientTimeout(total=8)) as response:
-        if response.status != 200:
-          return web.json_response({'error': f'Mapbox search failed (HTTP {response.status}).'}, status=502)
-        body = bytearray()
-        async for chunk in response.content.iter_chunked(65536):
-          body.extend(chunk)
-          if len(body) > MAX_RESPONSE:
-            raise ValueError('oversized response')
-        results = []
-        for feature in json.loads(body).get('features', [])[:5]:
-          lon, lat = feature['geometry']['coordinates'][:2]
-          properties = feature.get('properties', {})
-          results.append(destination({'latitude': lat, 'longitude': lon,
-                                      'place_name': properties.get('full_address') or properties.get('name') or query}))
-        return web.json_response({'results': results})
-    except (aiohttp.ClientError, TimeoutError, ValueError, KeyError, TypeError, IndexError, AttributeError):
-      return web.json_response({'error': 'Mapbox search is unavailable.'}, status=502)
+  # Keep old clients from accidentally issuing billable geocoding requests.
+  return web.json_response({'error': '地址搜尋已停用，避免永久地理編碼費用。請直接輸入經緯度，或分享含座標的 Google Maps 連結。'}, status=410)
 
 
 async def get_destination(request):
@@ -112,7 +67,6 @@ async def preview(request):
 def register(app):
   from . import google_share
   google_share.register(app)
-  app[SEARCH_STATE] = SearchState()
   app.router.add_get('/navigation', page)
   app.router.add_get('/api/navigation/search', search)
   app.router.add_get('/api/navigation/destination', get_destination)

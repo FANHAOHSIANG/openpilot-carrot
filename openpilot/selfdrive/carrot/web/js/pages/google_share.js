@@ -47,24 +47,7 @@
       status("正在解析 Google Maps 地點…");
       const result = await api("resolve", {url: $("shared").value.trim()});
       if (result.destination) choose(result.destination);
-      else { $("query").value = result.query; status("連結只有地名，請按「搜尋候選地點」並選擇正確結果。"); }
-    });
-  });
-  $("searchForm").addEventListener("submit", event => {
-    event.preventDefault();
-    task(async () => {
-      clearPreview();
-      if (!token) throw new Error("請先配對手機。");
-      const response = await fetch(`/api/navigation/search?q=${encodeURIComponent($("query").value.trim())}`, {cache: "no-store"});
-      const value = await response.json();
-      if (!response.ok) throw new Error(value.error || `HTTP ${response.status}`);
-      for (const place of value.results) {
-        const row = document.createElement("li"), button = document.createElement("button");
-        button.textContent = place.place_name;
-        button.addEventListener("click", () => choose(place));
-        row.append(button); $("results").append(row);
-      }
-      status(value.results.length ? "請選擇正確的候選地點。" : "找不到地點，請輸入更完整地址。");
+      else { status("連結只有地名，未進行付費搜尋。請改分享含座標的地點，或到導航頁直接輸入緯度、經度。"); }
     });
   });
   $("confirm").addEventListener("click", () => task(async () => {
