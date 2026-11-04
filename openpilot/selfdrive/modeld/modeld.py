@@ -276,7 +276,11 @@ def main(demo=False):
 
   main_wide_camera = vipc_client_main_stream == VisionStreamType.VISION_STREAM_WIDE_ROAD
   vipc_client_main = VisionIpcClient("camerad", vipc_client_main_stream, True)
-  vipc_client_extra = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False)
+  # Keep both IPC camera streams on their latest available frame. With a
+  # non-conflated extra stream, an old wide frame can remain queued while the
+  # main stream skips ahead after a >50 ms inference. The existing bounded SOF
+  # pairing check still rejects stale/mismatched exposures (no validity bypass).
+  vipc_client_extra = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, True)
   cloudlog.warning(f"vision stream set up, use_wide_camera: {use_wide_camera}, main_wide_camera: {main_wide_camera}, use_extra_client: {use_extra_client}")
 
   while not vipc_client_main.connect(False):
