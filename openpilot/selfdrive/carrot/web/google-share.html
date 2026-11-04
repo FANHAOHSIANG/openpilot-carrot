@@ -6,4 +6,5 @@
 <ul id="results"></ul><div id="preview" hidden><h3>確認目的地</h3><p id="place"></p><p id="coords"></p><button id="confirm">確認，傳送到 Carrot</button></div></section>
 <details><summary>設定 iPhone「傳送到 Carrot」捷徑</summary><ol><li>新增捷徑，開啟「在分享表單中顯示」，接收 URL 與文字。</li><li>加入「URL 編碼」，輸入使用「捷徑輸入」。若有多個項目，先取第一個 URL。</li><li>加入「文字」，先貼上下方網址，再接上「URL 編碼」的結果變數。</li><li>加入「打開 URL」，輸入使用上一步的文字。</li></ol><input id="shortcutBase" readonly aria-label="捷徑網址前綴"><p>Google Maps → 分享地點 → 傳送到 Carrot。請在本頁解析並確認；此頁也能直接貼上複製的連結。</p></details><p id="status" role="status"></p><p><a href="/navigation">查看 Carrot 路線與地圖</a></p><button id="forget">清除此手機的配對</button>
 <p class="note">只在能開啟 Carrot 網頁的網路使用。請勿將 Carrot 網頁直接公開到網際網路。</p>
-<script src="/js/pages/google_share.js" defer></script></body></html>
+<script>document.getElementById("shortcutBase").value = location.origin + "/navigation/share#url=";</script>
+<script src="/js/pages/google_share.js?v=coordinates-20261104" defer></script></body></html>
