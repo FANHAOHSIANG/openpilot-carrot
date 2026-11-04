@@ -1,7 +1,5 @@
 import asyncio
 import json
-from contextlib import asynccontextmanager
-from types import SimpleNamespace as NS
 
 import pytest
 from aiohttp import web
@@ -26,7 +24,7 @@ def test_destination_lifecycle_and_validation(monkeypatch):
       assert (await response.json())['destination']['latitude'] == 37.
       for payload in ([], {}, {'latitude': 91, 'longitude': 127}, {'latitude': None, 'longitude': 0}):
         assert (await client.post('/api/navigation/destination', json=payload)).status == 400
-      assert (await client.get('/api/navigation/search?q=Seoul')).status == 409
+      assert (await client.get('/api/navigation/search?q=Seoul')).status == 410
       assert (await client.delete('/api/navigation/destination')).status == 200
       assert values['NavDestination'] == ''
   asyncio.run(run())
@@ -67,27 +65,15 @@ def test_missing_preview_explains_service_state(monkeypatch, tmp_path, onroad, r
   assert demand.exists()
 
 
-def test_search_reads_fragmented_response_and_keeps_token_server_side(monkeypatch):
-  monkeypatch.setattr(navigation, 'get_param_value', lambda key, default: 'pk.private-test')
-  payload = json.dumps({'features': [{'geometry': {'coordinates': [127., 37.]},
-                                     'properties': {'full_address': 'Test destination'}}]}).encode()
-  async def chunks(_):
-    for i in range(0, len(payload), 7):
-      yield payload[i:i + 7]
-  @asynccontextmanager
-  async def get(url, **kwargs):
-    assert url == 'https://api.mapbox.com/search/geocode/v6/forward'
-    assert kwargs['params']['access_token'] == 'pk.private-test'
-    assert kwargs['params']['permanent'] == 'true'
-    yield NS(status=200, content=NS(iter_chunked=chunks))
+def test_search_is_disabled_without_outbound_requests(monkeypatch):
+  def unexpected(*args, **kwargs):
+    raise AssertionError('Disabled search must never access a token or HTTP client')
+  monkeypatch.setattr(navigation, 'get_param_value', unexpected)
   async def run():
     app = web.Application()
-    app['http'] = NS(get=get)
     navigation.register(app)
     async with TestClient(TestServer(app)) as client:
-      response = await client.get('/api/navigation/search?q=Seoul')
-      body = await response.text()
-      assert response.status == 200 and 'pk.private-test' not in body
-      assert json.loads(body)['results'][0]['latitude'] == 37.
-      assert (await client.get('/api/navigation/search?q=Seoul')).status == 429
+      for query in ('Seoul', '24.8,121.0', ''):
+        response = await client.get('/api/navigation/search', params={'q': query})
+        assert response.status == 410
   asyncio.run(run())

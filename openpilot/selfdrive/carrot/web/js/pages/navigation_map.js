@@ -4,10 +4,10 @@
   const ko = (localStorage.getItem("language") || navigator.language || "ko").startsWith("ko");
   const tr = (k, e) => ko ? k : e;
   $("title").textContent = tr("Carrot 내비게이션", "Carrot Navigation");
-  $("searchTitle").textContent = tr("목적지 검색", "Find a destination");
-  $("search").textContent = tr("검색", "Search");
-  $("clear").textContent = tr("Mapbox 목적지 취소", "Clear Mapbox destination");
-  $("note").textContent = tr("키 등록 후 목적지를 검색하고 선택하세요. 경로 지도는 차량의 주행 화면이 켜져 있고 현재 위치와 안내 경로가 있을 때 표시됩니다. 외부 내비 안내가 우선이며, 연결이 끝나면 Mapbox 목적지를 사용합니다.", "After saving your Public key, search for and select a destination. The route map needs the vehicle's driving screen to be active, a current position and route guidance. External navigation takes priority; your Mapbox destination resumes after it disconnects.");
+  $("searchTitle").textContent = "直接輸入目的地座標 / Destination coordinates";
+  $("search").textContent = "確認座標並傳送 / Send coordinates";
+  $("clear").textContent = "清除目的地 / Clear destination";
+  $("note").textContent = "已停用付費地址搜尋。請輸入緯度、經度並核對位置。直接傳座標不呼叫地理編碼；Mapbox 路線規劃與地圖仍依各自用量計費。";
   async function api(path, options) {
     const response = await fetch(`/api/navigation/${path}`, options);
     const value = await response.json();
@@ -16,22 +16,16 @@
   }
   function current(value) { $("current").textContent = value.destination?.place_name || tr("저장된 목적지 없음", "No saved destination"); }
   $("form").addEventListener("submit", async (event) => {
-    event.preventDefault(); $("search").disabled = true; $("results").replaceChildren();
-    $("status").textContent = tr("검색 중…", "Searching…");
+    event.preventDefault();
+    const latitude = Number($("latitude").value), longitude = Number($("longitude").value);
+    if (!$("latitude").value.trim() || !$("longitude").value.trim() || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 85.05112878 || Math.abs(longitude) > 180) {
+      $("status").textContent = "請輸入有效緯度與經度。"; return;
+    }
+    if (!window.confirm(`確認目的地座標：緯度 ${latitude}，經度 ${longitude}？`)) return;
+    $("search").disabled = true;
     try {
-      const value = await api(`search?q=${encodeURIComponent($("query").value.trim())}`);
-      for (const place of value.results) {
-        const row = document.createElement("li"), button = document.createElement("button");
-        button.textContent = place.place_name;
-        button.addEventListener("click", async () => {
-          button.disabled = true;
-          try { current(await api("destination", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(place)}));
-            $("status").textContent = tr("목적지를 저장했습니다. GPS와 지도 수신을 기다립니다.", "Destination saved. Waiting for GPS and map data.");
-          } catch (error) { $("status").textContent = error.message; }
-          finally { button.disabled = false; }
-        }); row.append(button); $("results").append(row);
-      }
-      $("status").textContent = value.results.length ? tr("목적지를 선택하세요.", "Select a destination.") : tr("검색 결과 없음", "No results.");
+      current(await api("destination", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({latitude, longitude, place_name:`${latitude}, ${longitude}`})}));
+      $("status").textContent = "已傳送座標，等待目前定位與路線。未呼叫地址搜尋；地圖和路線仍依用量計費。";
     } catch (error) { $("status").textContent = error.message; }
     finally { $("search").disabled = false; }
   });
@@ -52,7 +46,7 @@
         const reasons = {
           ready: tr("Nav 모델 지도 · 실시간 경로", "Nav model map · Live route"),
           tiles: tr("지도 데이터를 받지 못했습니다. Mapbox 키와 네트워크를 확인하세요.", "Map data unavailable. Check your Mapbox key and network."),
-          route: tr("아래에서 목적지를 검색·선택하거나 외부 네비의 안내를 시작하세요. 키 등록만으로는 경로 지도가 표시되지 않습니다.", "Search for and select a destination below, or start external navigation guidance. Saving keys alone does not display a route map."),
+          route: tr("아래에서 목적지를 검색·선택하거나 외부 네비의 안내를 시작하세요. 키 등록만으로는 경로 지도가 표시되지 않습니다.", "Enter destination coordinates below, or start external navigation guidance. Saving keys alone does not display a route map."),
           offroad: tr("차량의 주행 화면이 켜지면 경로 지도를 표시합니다. 먼저 아래에서 목적지를 선택하세요.", "The route map is available when the vehicle's driving screen is active. Select a destination below first."),
           waiting: tr("지도 서비스를 기다리는 중입니다. 목적지와 현재 위치를 확인하세요.", "Waiting for the map service. Check your destination and current position."),
           position: tr("현재 GPS 위치를 기다리는 중입니다.", "Waiting for a current GPS position."),
