@@ -17,3 +17,5 @@ C4 的固定金鑰自動啟動方案在 GitHub 獨立測試分支，尚未安裝
 安裝更新：在 Mac 解壓，結束 Xcode，把 CarrotLEDProbe.swift 和 Info.plist 取代到原 Xcode 專案目錄，重新開啟專案並用 Xcode 對 iPhone 執行。只更動 iPhone 程式，不需變更 C4。請勿直接將 GitHub 測試分支併入正在行車的 C4。
 
 0.5.1：僅當實際安裝 App 的 Info.plist 宣告 bluetooth-central 時才啟用藍牙狀態恢復。若 Xcode 使用其他 Info.plist，改為前景連線以避免啟動時例外；要使用背景藍牙，請檢查 Target → Signing & Capabilities → Background Modes 勾選 Uses Bluetooth LE accessories。
+
+0.6：LED 通知訂閱確認後顯示連線狀態、自動送開屏並啟用車況；C4 尚未有有效資料時不應顯示車況。新增清除屏幕（暫停車況及自訂畫面），重新開啟自動顯示車況可恢復。新增 96×16 白色全亮測試。鍵盤工具列有完成，亦可向下滑動收起。字形依實際墨跡高度放大、長文字跑馬燈不壓縮而是整段移動。所有畫面未經 Xcode 編譯及屏幕實機驗證。
