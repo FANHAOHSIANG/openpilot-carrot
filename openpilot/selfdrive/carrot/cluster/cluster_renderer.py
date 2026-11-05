@@ -1029,6 +1029,8 @@ class ClusterUiRenderer:
         self.route_camera_tuning_visible = os.environ.get("CLUSTER_ROUTE_CAMERA_TUNING") == "1"
         self.profile_enabled = os.environ.get("CLUSTER_PROFILE_RENDER") == "1"
         self._profile_samples: list[tuple[str, float]] = []
+        from cluster_henry_layout import HenryLayout
+        self._henry_layout = HenryLayout()
 
     def set_profile_enabled(self, enabled: bool) -> None:
         self.profile_enabled = enabled
@@ -1509,6 +1511,9 @@ class ClusterUiRenderer:
 
     def render(self, state: ClusterUiState, signal_lights: tuple[bool, bool] | None = None) -> None:
         """Draw one frame into the currently active raylib render target."""
+        if self._henry_layout.draw(self, state, locals().get("signal_lights")):
+            self._draw_alert_overlay(getattr(state, "alert", None))
+            return
         if signal_lights is None:
             signal_lights = self._turn_signal_lights(state)
         profile_stage = self._profile_start()
@@ -1525,6 +1530,7 @@ class ClusterUiRenderer:
         draw_indicator(530, 78, 460, self._korean_font or self._font, 24)
         if getattr(self, '_yolo_overlay', None) is not None:
             self._yolo_overlay.draw_status(self, state)
+        self._henry_layout.draw_error(self)
         self._draw_alert_overlay(getattr(state, "alert", None))
         self._profile_add("render.alert", profile_stage)
 

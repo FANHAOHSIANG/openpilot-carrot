@@ -18,7 +18,7 @@
     ]
   },
   "tests": {
-    "passed": 158,
+    "passed": 170,
     "failed": 0,
     "actual_onnx_packet_test": true,
     "mac_epoch_onnx_packet_test": true,
@@ -100,5 +100,24 @@
     ],
     "vehicle_alert_drawn_last": true
   },
-  "mac_installation_executed": false
+  "mac_installation_executed": false,
+  "henry_v2_layout": {
+    "actual_raylib_render_resolution": [
+      1920,
+      462
+    ],
+    "data": "SYNTHETIC ONLY",
+    "scenarios": [
+      "normal",
+      "vehicle_alert",
+      "standby",
+      "expired_yolo",
+      "unlocated_yolo"
+    ],
+    "legacy_mac_renderer_rendered": true,
+    "upgrade_from_v1_restore_tested": true,
+    "launcher_requires_layout_ack": true,
+    "hardware_tested": false,
+    "preview_sha256": "5fd1a7484b05aa6b0fcba9209a3425f3c53229a0b5791cfddbac56caf12b66ea"
+  }
 }

@@ -54,8 +54,16 @@ def patch_renderer(source):
   if '_yolo_overlay' in source:
     if all(s in source for s in ('ObjectOverlay.from_environment()', 'self._yolo_overlay.draw_world(self, scene, state)',
                                  'self._yolo_overlay.draw_status(self, state)')):
+      has_overlay = True
+    else:
+      raise ValueError('發現不同或不完整的 YOLO 修改，保留原檔')
+  else:
+    has_overlay = False
+  if '_henry_layout' in source:
+    if has_overlay and all(s in source for s in ('self._henry_layout = HenryLayout()',
+        'self._henry_layout.draw(self, state', 'self._henry_layout.draw_error(self)')):
       return source
-    raise ValueError('發現不同或不完整的 YOLO 修改，保留原檔')
+    raise ValueError('發現不完整的 Henry 版面修改，保留原檔')
   alerts = [n for n in ast.walk(methods['render']) if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
             and isinstance(n.value.func, ast.Attribute) and n.value.func.attr == '_draw_alert_overlay']
   if len(alerts) != 1 or alerts[0] not in methods['render'].body:
@@ -64,12 +72,23 @@ def patch_renderer(source):
              for n in ast.walk(methods['_render_world'])):
     raise ValueError('HUD 場景介面不同，保留原檔')
   lines = source.splitlines(keepends=True)
-  additions = [(methods['__init__'].end_lineno,
+  additions = [] if has_overlay else [(methods['__init__'].end_lineno,
                 '        from cluster_yolo_overlay import ObjectOverlay\n        self._yolo_overlay = ObjectOverlay.from_environment()\n'),
                (methods['_render_world'].end_lineno,
                 "        if getattr(self, '_yolo_overlay', None) is not None:\n            self._yolo_overlay.draw_world(self, scene, state)\n"),
                (alerts[0].lineno-1,
                 "        if getattr(self, '_yolo_overlay', None) is not None:\n            self._yolo_overlay.draw_status(self, state)\n")]
+  # Upgrade an already installed v1 overlay as well as a clean original renderer.
+  first = methods['render'].body[0]
+  if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+    render_index = first.end_lineno
+  else:
+    render_index = first.lineno - 1
+  additions.extend([(methods['__init__'].end_lineno,
+                     '        from cluster_henry_layout import HenryLayout\n        self._henry_layout = HenryLayout()\n'),
+                    (render_index, '        if self._henry_layout.draw(self, state, locals().get("signal_lights")):\n'
+                     '            self._draw_alert_overlay(getattr(state, "alert", None))\n            return\n'),
+                    (alerts[0].lineno-1, '        self._henry_layout.draw_error(self)\n')])
   for index, text in sorted(additions, reverse=True):
     lines.insert(index, text)
   result = ''.join(lines)
@@ -121,6 +140,9 @@ def install(args):
   overlay_path = root/CLUSTER/'cluster_yolo_overlay.py'
   initial = {renderer_path: renderer_path.read_bytes(),
              overlay_path: overlay_path.read_bytes() if overlay_path.exists() else None}
+  for name in ('cluster_henry_layout.py', 'henry_font.ttf', 'henry_font.codepoints', 'henry_font.OFL.txt'):
+    target = root/CLUSTER/name
+    initial[target] = target.read_bytes() if target.exists() else None
   patched = patch_renderer(initial[renderer_path].decode())
   if not (root/'tools/jetlink/hud_runtime.py').is_file():
     raise ValueError('找不到已安裝的 Mac HUD 時鐘／路徑轉接器 hud_runtime.py')
@@ -153,6 +175,9 @@ def install(args):
                   'torch==2.5.1', 'torchvision==0.20.1', 'ultralytics==8.3.40', 'onnx==1.19.1', 'ml-dtypes==0.5.3'], check=True)
   subprocess.run([str(python), str(source/'tools/jetlink/yolo/prepare_model.py'), str(runtime/'model')], check=True)
   changes = {renderer_path: patched.encode(), overlay_path: (source/CLUSTER/'cluster_yolo_overlay.py').read_bytes()}
+  for target in initial:
+    if target not in changes:
+      changes[target] = (source/CLUSTER/target.name).read_bytes()
   for target, original in initial.items():
     if (target.read_bytes() if target.exists() else None) != original:
       raise ValueError('準備期間 HUD 檔案已改變，未套用補丁')

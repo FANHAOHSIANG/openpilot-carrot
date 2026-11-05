@@ -28,3 +28,9 @@ This adapter does not include Henry's private c4light13 model weights.
 Ultralytics YOLO11 weights and the separate export tooling have their own
 AGPL-3.0 / Enterprise terms: https://www.ultralytics.com/license
 No weights are downloaded by the live worker or bundled with this port.
+Henry-style V2 layout font:
+  A static weight-600 subset derived from Google Fonts Noto Sans TC.
+  Source: https://github.com/google/fonts/tree/main/ofl/notosanstc
+  Original TTF SHA256: 864727d210d54f2537bbe23b3a839436c3992af72de9322af5270897246bd44f
+  Subset family renamed CarrotHUDTrial; SIL Open Font License 1.1.
+  Full copyright and license: openpilot/selfdrive/carrot/cluster/henry_font.OFL.txt

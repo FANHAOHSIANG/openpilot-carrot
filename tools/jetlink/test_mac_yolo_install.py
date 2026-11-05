@@ -54,7 +54,7 @@ def test_existing_mac_navigation_code_is_preserved_and_patch_is_idempotent():
   result = installer.patch_renderer(SOURCE)
   assert installer.patch_renderer(result) == result
   assert "keep the user's local NAV patch" in result
-  assert result.index('self._yolo_overlay.draw_status') < result.index('self._draw_alert_overlay')
+  assert result.index('self._yolo_overlay.draw_status') < result.rindex('self._draw_alert_overlay')
   ast.parse(result)
   assert result.count('ObjectOverlay.from_environment()') == 1
   with pytest.raises(ValueError):
@@ -68,7 +68,7 @@ def test_real_pinned_mac_renderer_patch_when_fixture_is_available():
   original = Path(fixture).read_text()
   patched = installer.patch_renderer(original)
   assert installer.patch_renderer(patched) == patched
-  assert len(patched.splitlines()) == len(original.splitlines()) + 6
+  assert len(patched.splitlines()) == len(original.splitlines()) + 12
   compile(patched, 'mac-cluster-renderer.py', 'exec')
 
 
@@ -80,8 +80,11 @@ def test_install_and_hash_guarded_restore_without_branch_changes(tmp_path, monke
   assert (args.runtime/'Start-YOLO.command').is_file()
   overlay = renderer.with_name('cluster_yolo_overlay.py')
   assert overlay.is_file()
+  layout = renderer.with_name('cluster_henry_layout.py')
+  assert layout.is_file() and renderer.with_name('henry_font.ttf').is_file()
   installer.restore(args.runtime/'config.json')
   assert renderer.read_text() == SOURCE and not overlay.exists()
+  assert not layout.exists() and not renderer.with_name('henry_font.ttf').exists()
   assert json.loads((args.runtime/'config.json').read_text())['installed'] is False
 
 
@@ -158,3 +161,39 @@ def test_stopping_trial_leaves_jetlink_app_running(tmp_path, monkeypatch):
   assert events == [('worker', signal.SIGINT)]
   assert all(k['start_new_session'] for _, k in starts)
   assert starts[0][1]['env']['CARROT_HUD_YOLO_FILE'] == starts[1][1]['env']['CARROT_HUD_YOLO_FILE']
+  assert starts[1][1]['env']['CARROT_HUD_LAYOUT'] == 'henry-v2'
+
+
+def test_upgrade_overlay_v1_to_new_layout_preserves_original_backup(tmp_path, monkeypatch):
+  args, renderer, _ = fake_install(tmp_path, monkeypatch)
+  # The exact three original integration hooks, already installed in v1.
+  old = SOURCE.replace('    def render(self, state):',
+      '        from cluster_yolo_overlay import ObjectOverlay\n        self._yolo_overlay = ObjectOverlay.from_environment()\n    def render(self, state):')
+  old = old.replace('        self._draw_alert_overlay',
+      '        if getattr(self, "_yolo_overlay", None) is not None:\n            self._yolo_overlay.draw_status(self, state)\n        self._draw_alert_overlay')
+  old = old.replace('    def _camera_overlay_content_rect',
+      '        if getattr(self, "_yolo_overlay", None) is not None:\n            self._yolo_overlay.draw_world(self, scene, state)\n    def _camera_overlay_content_rect')
+  renderer.write_text(old)
+  args.runtime.mkdir()
+  backup = args.runtime/'original.py'; backup.write_text(SOURCE)
+  config = args.runtime/'config.json'
+  config.write_text(json.dumps({'installed':True,'root':str(args.root),'changes':[
+    {'target':str(renderer),'backup':str(backup),'installed_sha256':installer.digest(old.encode())}]}))
+  installer.install(args)
+  new = renderer.read_text()
+  assert new.count('ObjectOverlay.from_environment()') == 1
+  assert new.count('self._henry_layout = HenryLayout()') == 1
+  assert installer.patch_renderer(new) == new
+  installer.restore(config)
+  assert renderer.read_text() == SOURCE
+
+
+def test_new_layout_renders_before_original_vehicle_alert():
+  patched = installer.patch_renderer(SOURCE)
+  namespace = {}; exec(patched,namespace)
+  renderer = namespace['ClusterUiRenderer'].__new__(namespace['ClusterUiRenderer'])
+  events = []
+  renderer._henry_layout = NS(draw=lambda *a: events.append('layout') or True)
+  renderer._draw_alert_overlay = lambda alert: events.append(alert)
+  renderer.render(NS(alert='vehicle-alert'))
+  assert events == ['layout','vehicle-alert']

@@ -8,8 +8,12 @@
     "tools/jetlink/yolo/transport.py": "a37c264be4abedc5f0250182e4b7e6d32047854c68b4b8eca46e645ea099f3a1",
     "tools/jetlink/yolo/prepare_model.py": "eb86e4de1e1304b8a9b559f259df4e8cc28ac70c6c76057652c209ea8da340e5",
     "tools/jetlink/yolo/requirements.txt": "9c8293a21bff8f9cb8333db053b3b6c9a3c0cc9dcbfceacced6314b9d8ea593e",
-    "tools/jetlink/yolo/NOTICE": "505e77b647ecb7376f715e2ac08794baafede50282c08cfad3beed396f0bd99f",
-    "tools/jetlink/yolo/install_mac_yolo.py": "544a4414c9889fd56cfe9bf9516b7b1c5450c4ddbb13d727778a7e34aaedf990",
-    "tools/jetlink/yolo/mac_launcher.py": "4b4f69e7cbe3a391550a8607d107be70a14ba72fdcb79d6a4b885f7febae52de"
+    "tools/jetlink/yolo/NOTICE": "48e6978ab395e713db124e7ed2a7ffa1b62991eb5f77728071f11f473cb6287b",
+    "tools/jetlink/yolo/install_mac_yolo.py": "ddda76c9776dfe07c28cca54e9aefc31af409f2dc14afef667f4706c51914e15",
+    "tools/jetlink/yolo/mac_launcher.py": "f628c22168ecac3dabed28ea64941daa05206bd30a9ecdef25364ce6ac1fb738",
+    "openpilot/selfdrive/carrot/cluster/cluster_henry_layout.py": "1b2ecd3cdd546b9089c6ec70d6d98e6a8c5e2dd14526c9e9689ebf63e29d8318",
+    "openpilot/selfdrive/carrot/cluster/henry_font.ttf": "72046e26c60ecae16d4c8f23b0ebdff7457aae48c6c7d885da7938096536b64b",
+    "openpilot/selfdrive/carrot/cluster/henry_font.codepoints": "65b45aa5796b12f63a700144ec859e8677b147c525526eaaa0efed3eee908f38",
+    "openpilot/selfdrive/carrot/cluster/henry_font.OFL.txt": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
   }
 }

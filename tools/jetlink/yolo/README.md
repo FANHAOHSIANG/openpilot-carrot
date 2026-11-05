@@ -6,8 +6,16 @@
 
 將 Henry HCOP 的交通物件分類、分類別 NMS、騎士去重概念移植到
 Carrot 現有 HUD。辨識行人、自行車、汽車、機車、公車、卡車。
-保留原本 Carrot HUD、導航與雷達顯示，增加語意圖示、分類統計、相機模式辨識框。
-這不是 Henry 整張儀表板的外觀重製。
+本次 V2 補上使用者參考圖的寬幅外觀：左右大字速度、中間道路與綠色路徑、
+人／機車／車輛圖示、速限、狀態牌及下方四項數據。啟動器會明確選用新佈局，
+畫面左下顯示 **HENRY V2**；不是只在舊版面增加辨識圖示。
+
+![模擬版面預覽，非實車辨識測試](henry-v2-preview.png)
+
+以上為實際 renderer 以合成資料繪製的 1920×462 圖，不代表已在使用者硬體驗證。
+道路只畫收到的模型路徑、車道與路緣；沒有資料就不畫。未定位物件只計數，
+不套用範例距離。未知數值顯示「—」。此版不仿造 STOP 辨識、提前速限與道路名稱。
+橫向加速度右值是視覺 yaw rate × 車速的估計，不宣稱為 IMU 實測。
 
 ## Mac 快速安裝與開啟（不用切換分支）
 
@@ -18,8 +26,9 @@ Carrot 現有 HUD。辨識行人、自行車、汽車、機車、公車、卡車
 
 - 不執行 git checkout/pull，不切換 C4 或 Mac 的分支。
 - 不重編譯或替換 Jetlink App，不更換 N16；YOLO 套件裝在獨立 venv。
-- 只在現有 Mac HUD renderer 加入三個繪圖掛點，以及一個顯示模組。
+- 在現有 Mac HUD renderer 加入繪圖掛點、兩個顯示模組及小型中文字型。
   原檔備份後才更新；不覆蓋其他 Mac／導航客製修改。介面不相容就停止。
+- 可以直接升級已裝過的 V1 疊圖；保留第一次安裝前的備份，還原仍回到原版。
 - 開啟時讀取既有 `hud_runtime.py` 的實際封包位置，處理 Mac 的 epoch 時間格式。
 - 安裝過程若 App 重新開啟或 HUD 檔案被改動，停止套用。
 
@@ -30,10 +39,14 @@ bash "$HOME/CarrotHUD-YOLO/Start-YOLO.command"
 ```
 
 這會啟動獨立 YOLO 程序，並開啟原本 Jetlink App；不需要再手動點一次 App。
+新佈局使用 `CARROT_HUD_LAYOUT=henry-v2`，不受原先畫面模式 7 的左右分割影響。
+終端機收到 `HUD 已確認載入 HENRY V2 版面` 才代表 renderer 已實際繪製新畫面。
+若 30 秒內沒有回報，會顯示提示；檢查 App 的 HUD 是否開啟及 `~/CarrotHUD-YOLO/jetlink-yolo.log`。
 保持終端機開啟。C4 READY、USB 連線與 HUD 影像供應正常後，會出現辨識統計。
 `waiting_for_fresh_road_frame` 表示仍在等待新鮮的道路影像，不代表已辨識成功。
-按 **Ctrl+C** 停止 YOLO，Jetlink App 繼續運作；關閉 App 也會結束該次 YOLO。
-照平常方式單獨開啟 App，不會自動啟用 YOLO。
+按 **Ctrl+C** 停止 YOLO，Jetlink App 和寬幅畫面繼續運作，辨識物件到期消失；關閉 App 也會結束該次 YOLO。
+照平常方式單獨開啟 App，仍是原版 Carrot 版面，不會自動啟用 YOLO 或 Henry V2。
+要切回原來的地圖／資訊版面，退出此次 App 後照原本方式重新開啟即可。
 
 要移除顯示補丁，先退出 App 再執行：
 
@@ -50,8 +63,8 @@ Mac 真正安裝、App 啟動、M4/N16 共跑與實體顯示仍待使用者機�
 1. C4 原有 Jetlink HUD 預覽封包（`carrot_hud_v1`）提供 road JPEG。
 2. Mac 的獨立 Python 程序以 ONNX Runtime CPU、2 執行緒跑 YOLO。
 3. 本機小型 JSON 檔提供結果給現有 Carrot cluster renderer。
-4. 3D 模式顯示分類圖示與 `~距離 m`；road 相機模式顯示同來源的辨識框。
-   wide 相機不套用 narrow 的框。車輛警告仍在最後繪製。
+4. V2 寬幅道路顯示分類圖示與 `~距離 m`，雷達／視覺前車以藍色箭頭保留獨立來源。
+   原版疊圖模式仍支援 road 相機框，不混用 wide 相機。兩種版面都將車輛警告最後繪製。
 
 沒有新增相機訂閱、C4 模型工作、CAN 傳送或控制訊息發布。
 YOLO 結果只用於顯示，沒有接到 ACC、轉向、AEB、NOO 或 N16 模型輸入。

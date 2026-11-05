@@ -177,6 +177,9 @@ def test_overlay_draws_production_projection_and_does_not_mask_vehicle_alerts(tm
   renderer = object.__new__(renderer_module.ClusterUiRenderer)
   renderer.width, renderer.height, renderer.screen_mode = 1920, 462, 7
   renderer._yolo_overlay = overlay
+  from cluster_henry_layout import HenryLayout
+  monkeypatch.delenv('CARROT_HUD_LAYOUT', raising=False)
+  renderer._henry_layout = HenryLayout()
   state = replace(ClusterSimulator().update(SimulatorInput(), .05), onroad=True, camera_view_mode=0)
   scene = build_cluster_scene(state)
   for name in ('begin_scissor_mode', 'end_scissor_mode', 'draw_line_ex', 'draw_circle_v', 'draw_circle_lines'):
