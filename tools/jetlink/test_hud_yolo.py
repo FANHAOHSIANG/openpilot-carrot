@@ -239,7 +239,8 @@ def test_actual_cereal_calibration_validity_and_source_timestamp():
   assert calibration(p, frame) is None
 
 
-def test_real_model_live_packet_and_disconnect(tmp_path):
+@pytest.mark.parametrize('clock', ['monotonic', 'epoch'])
+def test_real_model_live_packet_and_disconnect(tmp_path, clock):
   """Optional real-ONNX end-to-end test, enabled by YOLO_TEST_MODEL and YOLO_TEST_IMAGE."""
   import hashlib
   import os
@@ -256,7 +257,8 @@ def test_real_model_live_packet_and_disconnect(tmp_path):
   sha = hashlib.sha256(Path(model).read_bytes()).hexdigest()
   process = subprocess.Popen([sys.executable, str(ROOT/'tools/jetlink/hud_yolo.py'), 'live',
                               '--model', model, '--sha256', sha, '--snapshot', str(source),
-                              '--output', str(output), '--seconds', '8'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                              '--output', str(output), '--seconds', '8', '--packet-clock', clock],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   seen = None
   try:
     for frame_id in range(60):
@@ -264,7 +266,7 @@ def test_real_model_live_packet_and_disconnect(tmp_path):
       p['sent'] = now
       p['cameras']['road'].update(frame=frame_id, time=now, capture_time=now)
       temporary = source.with_suffix('.tmp')
-      temporary.write_bytes(struct.pack('<d', now)+json.dumps(p).encode())
+      temporary.write_bytes(struct.pack('<d', time.time() if clock == 'epoch' else now)+json.dumps(p).encode())
       temporary.replace(source)
       time.sleep(.05)
       if output.exists():

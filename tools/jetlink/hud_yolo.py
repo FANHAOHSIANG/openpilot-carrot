@@ -55,7 +55,7 @@ def run_live(args, detector):
   try:
     while time.monotonic() < deadline:
       start = time.monotonic()
-      snapshot = read_packet(args.snapshot, start)
+      snapshot = read_packet(args.snapshot, start, time.time() if args.packet_clock == 'epoch' else None)
       frame = frames.take(snapshot, start)
       if frame is None:
         if start >= next_report:
@@ -145,7 +145,11 @@ def main():
   parser.add_argument('--model', required=True)
   parser.add_argument('--sha256', required=True)
   parser.add_argument('--classes', choices=('coco', 'hcop13'), default='coco')
-  parser.add_argument('--snapshot', default='/dev/shm/carrot-jetlink-hud.packet')
+  default_snapshot = (Path(os.environ.get('CARROT_HUD_DIR', str(Path.home()/'Library/Caches/io.zoompilot.jetlink/carrot-hud')))/'snapshot.packet'
+                      if sys.platform == 'darwin' else Path('/dev/shm/carrot-jetlink-hud.packet'))
+  parser.add_argument('--snapshot', default=str(default_snapshot))
+  parser.add_argument('--packet-clock', choices=('epoch', 'monotonic'),
+                      default='epoch' if sys.platform == 'darwin' else 'monotonic')
   parser.add_argument('--output', default='/tmp/carrot-hud-yolo.json')
   parser.add_argument('--input')
   parser.add_argument('--frames', type=int, default=60)

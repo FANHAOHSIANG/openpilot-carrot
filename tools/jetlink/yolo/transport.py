@@ -14,13 +14,17 @@ MAX_PACKET = 512 * 1024
 TTL = .8
 
 
-def read_packet(path, now):
+def read_packet(path, now, epoch_now=None):
   try:
     with Path(path).open('rb') as f:
       raw = f.read(MAX_PACKET + 1)
     if not HEADER.size < len(raw) <= MAX_PACKET:
       return None
     received, = HEADER.unpack_from(raw)
+    # The existing Mac Swift receiver stores UNIX epoch seconds. Linux stores
+    # a monotonic stamp. Match hud_runtime/hud_protocol's clock adapter.
+    if epoch_now is not None:
+      received = now - (epoch_now - received)
     packet = json.loads(raw[HEADER.size:])
     if (not isinstance(packet, dict) or packet.get('version') != 1 or
         not 0 <= now - received < .5 or not math.isfinite(packet['sent'])):

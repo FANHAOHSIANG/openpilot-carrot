@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "files": {
+    "tools/jetlink/hud_yolo.py": "12d8c1645897e5d85b412d609e8580291cfea44f1eb15fab61cd2ed983a43777",
+    "openpilot/selfdrive/carrot/cluster/cluster_yolo_overlay.py": "b0ff44e29938c27d5c9d8da2a4506d122165fccf89a27c7bea3fe184d655ea76",
+    "tools/jetlink/yolo/__init__.py": "fd8a1cd78efe4f91ba00cd6fdeb756981759d678a7558dfc92021c3af14af10e",
+    "tools/jetlink/yolo/core.py": "1f8af758770a430c00fbf31a981a7df5cc1a3218b127d9689c440f53be86c33f",
+    "tools/jetlink/yolo/transport.py": "a37c264be4abedc5f0250182e4b7e6d32047854c68b4b8eca46e645ea099f3a1",
+    "tools/jetlink/yolo/prepare_model.py": "eb86e4de1e1304b8a9b559f259df4e8cc28ac70c6c76057652c209ea8da340e5",
+    "tools/jetlink/yolo/requirements.txt": "9c8293a21bff8f9cb8333db053b3b6c9a3c0cc9dcbfceacced6314b9d8ea593e",
+    "tools/jetlink/yolo/NOTICE": "505e77b647ecb7376f715e2ac08794baafede50282c08cfad3beed396f0bd99f",
+    "tools/jetlink/yolo/install_mac_yolo.py": "544a4414c9889fd56cfe9bf9516b7b1c5450c4ddbb13d727778a7e34aaedf990",
+    "tools/jetlink/yolo/mac_launcher.py": "4b4f69e7cbe3a391550a8607d107be70a14ba72fdcb79d6a4b885f7febae52de"
+  }
+}

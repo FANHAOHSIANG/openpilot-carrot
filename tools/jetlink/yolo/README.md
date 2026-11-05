@@ -9,6 +9,42 @@ Carrot 現有 HUD。辨識行人、自行車、汽車、機車、公車、卡車
 保留原本 Carrot HUD、導航與雷達顯示，增加語意圖示、分類統計、相機模式辨識框。
 這不是 Henry 整張儀表板的外觀重製。
 
+## Mac 快速安裝與開啟（不用切換分支）
+
+`install_mac_yolo.py --revision <完整 commit SHA>` 會從指定版本下載小型、帶 SHA256
+清單的 YOLO 套件。在 Mac 停好車、退出 Jetlink 後，以 Python 3.12 執行安裝器。
+預設使用你現有的 `~/CarrotMacHUD/carrot` 與
+`~/CarrotMacHUD/jetlink/macos/build/Jetlink.app`，新環境放在 `~/CarrotHUD-YOLO`。
+
+- 不執行 git checkout/pull，不切換 C4 或 Mac 的分支。
+- 不重編譯或替換 Jetlink App，不更換 N16；YOLO 套件裝在獨立 venv。
+- 只在現有 Mac HUD renderer 加入三個繪圖掛點，以及一個顯示模組。
+  原檔備份後才更新；不覆蓋其他 Mac／導航客製修改。介面不相容就停止。
+- 開啟時讀取既有 `hud_runtime.py` 的實際封包位置，處理 Mac 的 epoch 時間格式。
+- 安裝過程若 App 重新開啟或 HUD 檔案被改動，停止套用。
+
+安裝成功後，每次測試先退出原本 Jetlink，再執行：
+
+```bash
+bash "$HOME/CarrotHUD-YOLO/Start-YOLO.command"
+```
+
+這會啟動獨立 YOLO 程序，並開啟原本 Jetlink App；不需要再手動點一次 App。
+保持終端機開啟。C4 READY、USB 連線與 HUD 影像供應正常後，會出現辨識統計。
+`waiting_for_fresh_road_frame` 表示仍在等待新鮮的道路影像，不代表已辨識成功。
+按 **Ctrl+C** 停止 YOLO，Jetlink App 繼續運作；關閉 App 也會結束該次 YOLO。
+照平常方式單獨開啟 App，不會自動啟用 YOLO。
+
+要移除顯示補丁，先退出 App 再執行：
+
+```bash
+bash "$HOME/CarrotHUD-YOLO/Restore-HUD.command"
+```
+
+若安裝後 HUD 檔案又被更新，還原工具會保留新修改並停止，不強行覆蓋。
+安裝器、舊版 Mac renderer 相容處理與 epoch 封包已在桌面測試；
+Mac 真正安裝、App 啟動、M4/N16 共跑與實體顯示仍待使用者機器驗證。
+
 ## 已接好的資料流
 
 1. C4 原有 Jetlink HUD 預覽封包（`carrot_hud_v1`）提供 road JPEG。
@@ -75,7 +111,8 @@ Linux 匯出測試使用 CPU-only torch 2.5.1+cpu；Mac 請使用原生 arm64 wh
 
 ## 接現有 Mac HUD
 
-必須先確認 Mac 正在執行的 Carrot HUD 原始碼位置與實際 snapshot 路徑。
+上面的安裝／啟動工具會處理這一節；以下是手動啟動說明。
+必須使用 Mac 正在執行的 Carrot HUD 原始碼位置與實際 snapshot 路徑。
 本分支變更 `cluster_renderer.py` 並新增 `cluster_yolo_overlay.py`；Mac App 若使用
 內嵌或獨立副本，必須更新該副本。**只更新 C4 不會更新 Mac App 的 HUD 程式。**
 不要用整個分支覆蓋仍有未合併修改的 Mac 工作目錄。
@@ -85,12 +122,14 @@ Linux 匯出測試使用 CPU-only torch 2.5.1+cpu；Mac 請使用原生 arm64 wh
 ```bash
 "$YOLO_RUNTIME/venv/bin/python" tools/jetlink/hud_yolo.py live \
   --model "$YOLO_RUNTIME/model/yolo11n.onnx" --sha256 "$YOLO_SHA" \
-  --snapshot /absolute/path/to/carrot-jetlink-hud.packet \
+  --snapshot "$HOME/Library/Caches/io.zoompilot.jetlink/carrot-hud/snapshot.packet" \
+  --packet-clock epoch \
   --output /tmp/carrot-hud-yolo.json --seconds 60
 ```
 
 Linux/原始 host 預設 snapshot 是 `/dev/shm/carrot-jetlink-hud.packet`；
-Mac 使用現有啟動器的對應路徑，不能假設 macOS 有 `/dev/shm`。
+Mac 預設使用上面的快取路徑；有 `CARROT_HUD_DIR` 時使用該目錄。
+Swift 封包標頭為 epoch，必須先轉成本機 monotonic 時間；macOS 不使用 `/dev/shm`。
 同時讓**既有 Mac HUD 啟動程序**繼承：
 
 ```bash
@@ -104,7 +143,7 @@ YOLO 關閉/開啟時 N16 的延遲、錯誤、掉幀與系統溫度。
 
 ## 本次測試
 
-- 144 項通過：辨識前後處理、距離座標、凍結/斷線/過期、實際 ONNX
+- 初版 144 項通過：辨識前後處理、距離座標、凍結/斷線/過期、實際 ONNX
   從合成 Jetlink 封包到 JSON，再到顯示讀取；既有 HUD、導航地圖、場景及設定回歸。
 - 128 張 COCO128 公開圖片，原尺寸及 384×240 各跑一次，六種類別都有輸出。
   這是串接 smoke test，資料可能與模型訓練集重疊，**不是獨立準確率評測**。
@@ -113,6 +152,8 @@ YOLO 關閉/開啟時 N16 的延遲、錯誤、掉幀與系統溫度。
 - AMD EPYC 測試主機、CPU 2 threads，原尺寸輸入推論中位數約 41.9 ms、p95 64.9 ms；
   預覽尺寸約 42.6 / 61.2 ms。包含前後處理，不是 Mac/N16 共用實測。
 - 已以實際 Raylib/Carrot renderer 產生 1920×462 合成畫面，檢查分類圖示與警告疊放。
+- 新增 Mac epoch/monotonic 兩種實際 ONNX 封包流程、安裝/還原、保留客製修改與
+  準備期間檔案變動的測試；目前總數見 validation.json。
 - 詳細數據見 [validation.json](validation.json)。
 
 重跑：
@@ -122,6 +163,7 @@ YOLO_TEST_MODEL=/absolute/path/to/yolo11n.onnx \
 YOLO_TEST_IMAGE=/absolute/path/to/bus.jpg \
 python -m pytest --noconftest -o addopts='' \
   tools/jetlink/test_hud_yolo.py tools/jetlink/test_hud.py tools/jetlink/test_hud_nav_map.py \
+  tools/jetlink/test_mac_yolo_install.py \
   openpilot/selfdrive/carrot/tests/test_cluster_scene.py \
   openpilot/selfdrive/carrot/tests/test_cluster_config.py -q
 ```

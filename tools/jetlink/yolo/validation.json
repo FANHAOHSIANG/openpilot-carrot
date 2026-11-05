@@ -18,9 +18,13 @@
     ]
   },
   "tests": {
-    "passed": 144,
+    "passed": 158,
     "failed": 0,
-    "actual_onnx_packet_test": true
+    "actual_onnx_packet_test": true,
+    "mac_epoch_onnx_packet_test": true,
+    "mac_installer_and_restore": true,
+    "pinned_legacy_mac_renderer": "a564ce1dc082909b1fdc73b72e64d920336b34d6",
+    "stop_trial_preserves_jetlink_process": true
   },
   "smoke_test_only_not_independent_accuracy_evaluation": true,
   "mac_n16_concurrency_tested": false,
@@ -95,5 +99,6 @@
       462
     ],
     "vehicle_alert_drawn_last": true
-  }
+  },
+  "mac_installation_executed": false
 }

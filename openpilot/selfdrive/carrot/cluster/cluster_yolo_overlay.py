@@ -162,6 +162,8 @@ class ObjectOverlay:
     try:
       from cluster_renderer import rl, rl_color
       value = self.read()
+      if isinstance(self.cached, dict) and self.cached.get('status') == 'stopped':
+        return
       text = 'YOLO: waiting / stale' if value is None else 'YOLO ' + ' '.join(
         f"{label}:{sum(o['cls'] == cls for o in value['objects'])}" for cls, label in LABELS.items())
       if value and not any('d' in o for o in value['objects']):
