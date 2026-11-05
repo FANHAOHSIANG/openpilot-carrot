@@ -15,3 +15,5 @@ iPhone / C4 / LOY LED 區網連動原型 0.5
 C4 的固定金鑰自動啟動方案在 GitHub 獨立測試分支，尚未安裝到 C4；HTTP 僅限可信私人網路，金鑰和車況不加密。既有臨時橋接仍可用；金鑰每次啟動會改變。
 
 安裝更新：在 Mac 解壓，結束 Xcode，把 CarrotLEDProbe.swift 和 Info.plist 取代到原 Xcode 專案目錄，重新開啟專案並用 Xcode 對 iPhone 執行。只更動 iPhone 程式，不需變更 C4。請勿直接將 GitHub 測試分支併入正在行車的 C4。
+
+0.5.1：僅當實際安裝 App 的 Info.plist 宣告 bluetooth-central 時才啟用藍牙狀態恢復。若 Xcode 使用其他 Info.plist，改為前景連線以避免啟動時例外；要使用背景藍牙，請檢查 Target → Signing & Capabilities → Background Modes 勾選 Uses Bluetooth LE accessories。
