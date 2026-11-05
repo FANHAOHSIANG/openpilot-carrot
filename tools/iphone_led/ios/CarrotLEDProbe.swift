@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import CoreBluetooth
 import Security
+import CoreText
 
 @main
 struct CarrotLEDProbeApp: App {
@@ -23,6 +24,8 @@ struct CarrotLEDProbeApp: App {
                     Text(model.values).font(.system(.caption, design: .monospaced))
                     Divider()
                     Button("掃描並連接屏幕") { model.scan() }
+                    Label(model.ready ? "屏幕藍牙已連線" : "屏幕尚未連線", systemImage: model.ready ? "checkmark.circle.fill" : "circle.dashed")
+                        .foregroundColor(model.ready ? .green : .gray)
                     Text(model.bluetoothStatus)
                     HStack {
                         Button("開啟屏幕") { model.power(true) }.disabled(!model.ready)
@@ -30,6 +33,12 @@ struct CarrotLEDProbeApp: App {
                     }
                     Toggle("自動顯示車況", isOn: $model.enabled)
                     Text("目前提示：\(model.currentLabel)")
+                    HStack {
+                        Button("清除屏幕") { model.clearScreen() }.disabled(!model.ready)
+                        Button("燈珠全亮測試") { model.testAllPixels() }.disabled(!model.ready)
+                    }
+                    Text("清除屏幕會暫停車況連動，重新開啟「自動顯示車況」可恢復。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     Divider()
                     Text("五組自訂文字").font(.headline)
                     ForEach(0..<5, id: \.self) { index in
@@ -64,6 +73,15 @@ struct CarrotLEDProbeApp: App {
                     Text("預設 96 × 16。已加入自動連線與背景藍牙；iOS 可能暫停背景車況接收，請先停車實測。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding()
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .active { model.returnToForeground() }
@@ -261,17 +279,30 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         let write = service.characteristics?.first { $0.uuid == CBUUID(string: "FFF2") && $0.properties.contains(.writeWithoutResponse) }
         let notify = service.characteristics?.first { $0.uuid == CBUUID(string: "FFF1") && $0.properties.contains(.notify) }
-        guard let write, let notify else { return }
-        peripheral.setNotifyValue(true, for: notify)
+        guard let write, let notify, error == nil else {
+            Task { @MainActor in self.bluetoothStatus = "屏幕通道不完整，請重新連線" }
+            return
+        }
         Task { @MainActor in
-            self.writeCharacteristic = write; self.notifyCharacteristic = notify; self.ready = true
-            self.bluetoothStatus = "藍牙已連線；畫面需目視確認"
-            if self.firstScreenConnection {
-                self.firstScreenConnection = false
-                self.power(false)
-            } else {
-                self.lastLabel = nil
+            self.writeCharacteristic = write; self.notifyCharacteristic = notify
+            self.bluetoothStatus = "已連上藍牙，正在確認屏幕通知…"
+            peripheral.setNotifyValue(true, for: notify)
+        }
+    }
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        guard characteristic.uuid == CBUUID(string: "FFF1") else { return }
+        Task { @MainActor in
+            guard error == nil && characteristic.isNotifying && self.writeCharacteristic != nil else {
+                self.ready = false
+                self.bluetoothStatus = "屏幕通知訂閱失敗，請重新連線"
+                return
             }
+            self.ready = true
+            self.firstScreenConnection = false
+            self.lastLabel = nil; self.lastDisplayKey = nil
+            self.power(true)
+            self.enabled = true
+            self.bluetoothStatus = "屏幕已連線，車況連動已啟用；等待有效 C4 資料"
         }
     }
     nonisolated func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
@@ -279,13 +310,31 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     func power(_ on: Bool) {
         guard ready else { return }
-        enabled = false
+        if !on { enabled = false; queuedLabel = nil }
         lastDisplayKey = nil
         if drawActive { enqueue([0x30, 0x01, 0x65]); drawActive = false }
         enqueue([4, 2, 0, on ? 1 : 0]); lastLabel = nil
         bluetoothStatus = on ? "已送開屏指令，請目視確認" : "已送關屏指令，請目視確認"
     }
 
+    func clearScreen() {
+        guard ready else { return }
+        enabled = false; activeSlot = nil; queuedLabel = nil
+        lastDisplayKey = nil; lastLabel = nil
+        customStatus = "已清除自訂文字，車況連動已暫停。"
+        currentLabel = "清屏中"
+        requestDisplay("")
+    }
+    func testAllPixels() {
+        guard ready else { return }
+        enabled = false; activeSlot = nil; queuedLabel = nil; lastDisplayKey = nil
+        if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
+        var payload: [UInt8] = [0x00,255,255,255, 0,0,0,0,95,0,15,0]
+        payload += [UInt8](repeating: 255, count: 192)
+        enqueue([0x32,0x81,UInt8(payload.count)] + payload)
+        currentLabel = "96 × 16 全亮測試"
+        customStatus = "請目視檢查燈珠；按清除屏幕結束。"
+    }
     @discardableResult func saveSlots() -> Bool {
         guard customSlots.allSatisfy({ $0.text.count <= 16 && ($0.text.isEmpty || validHex($0.color)) }) else {
             customStatus = "文字最多 16 字，顏色請填 6 位十六進位數字。"; return false
@@ -415,9 +464,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         // Device behavior must still be visually verified for trails.
         if !(scrolling || animatedPattern) { enqueue(clear) }
         if text.isEmpty || (slot?.effect == "blink" && tick % 2 == 1) { return }
-        let offset = slot?.effect == "left" ? -(tick * 2 % 96) : slot?.effect == "right" ? (tick * 2 % 96) : 0
+        let offset = slot?.effect == "left" ? -(tick * 2) : slot?.effect == "right" ? (tick * 2) : 0
         let pattern = turn ? (label == "左轉彎" ? "turnLeft" : "turnRight") : (slot?.effect ?? "static")
-        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold, pattern: pattern, phase: tick) else { return }
+        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold, pattern: pattern, phase: tick, scrolling: scrolling) else { return }
         var rgb: [UInt8] = label == "減速中" ? [255,48,32] : [255,180,0]
         if let slot = slot, let color = UInt32(slot.color, radix: 16) {
             rgb = [UInt8((color >> 16) & 255), UInt8((color >> 8) & 255), UInt8(color & 255)]
@@ -440,32 +489,41 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         enqueue(command)
     }
     private func bitmap(_ text: String, offset: Int = 0, customBold: Bool? = nil,
-                        pattern: String = "static", phase: Int = 0) -> [UInt8]? {
+                        pattern: String = "static", phase: Int = 0, scrolling: Bool = false) -> [UInt8]? {
         let size = CGSize(width: 96, height: 16)
         let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
         let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
             UIColor.black.setFill(); context.fill(CGRect(origin: .zero, size: size))
-            // Thin dense turning glyphs to preserve their strokes at 16 px.
+            // Measure actual glyph ink, then scale it to the panel height.
+            // The typographic width includes spaces; preserve those advances.
             let turnMessage = (text == "左轉彎" || text == "右轉彎")
             let useBold = customBold ?? !turnMessage
-            let font = UIFont.systemFont(ofSize: 14, weight: useBold ? .bold : .regular)
+            let font = UIFont.systemFont(ofSize: 32, weight: useBold ? .bold : .regular)
             let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.white]
-            // Nonbreaking spaces keep every user-entered space measurable and visible.
-            let rendered = text.replacingOccurrences(of: " ", with: "\u{00A0}") as NSString
+            let rendered = text.replacingOccurrences(of: " ", with: "\u{00A0}")
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: rendered, attributes: attributes))
+            let bounds = CTLineGetImageBounds(line, context.cgContext)
+            let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+            guard !bounds.isNull, bounds.height.isFinite, bounds.height > 0, width.isFinite else { return }
             let hasEdgePattern = ["turnLeft", "turnRight", "arrowsLeft", "arrowsRight", "wave", "heart", "warning"].contains(pattern)
-            let measured = rendered.size(withAttributes: attributes)
-            let availableWidth: CGFloat = hasEdgePattern ? 68 : 94
-            let scale = min(1, availableWidth / max(1, measured.width))
-            context.cgContext.saveGState()
-            let x = (96 - measured.width * scale) / 2 + CGFloat(offset)
-            for wrap in [-96, 0, 96] {
+            let availableWidth: CGFloat = hasEdgePattern ? 68 : 96
+            let inkHeight = max(CGFloat(1), bounds.height)
+            var scale = 15 / inkHeight
+            if !scrolling { scale = min(scale, availableWidth / max(CGFloat(1), width)) }
+            let textWidth = width * scale
+            let baseline = (16 - bounds.height * scale) / 2 + bounds.maxY * scale
+            let period = max(CGFloat(120), textWidth + 24)
+            let distance = CGFloat(abs(offset)).truncatingRemainder(dividingBy: period)
+            let start: CGFloat = scrolling ? (offset <= 0 ? 96 - distance : -textWidth + distance) : (96 - textWidth) / 2
+            let copies: [CGFloat] = scrolling ? [start - period, start, start + period] : [start]
+            for x in copies {
                 context.cgContext.saveGState()
-                context.cgContext.translateBy(x: x + CGFloat(wrap), y: (16 - measured.height * scale) / 2)
-                context.cgContext.scaleBy(x: scale, y: scale)
-                rendered.draw(at: .zero, withAttributes: attributes)
+                context.cgContext.translateBy(x: x, y: baseline)
+                context.cgContext.scaleBy(x: scale, y: -scale)
+                context.cgContext.textPosition = .zero
+                CTLineDraw(line, context.cgContext)
                 context.cgContext.restoreGState()
             }
-            context.cgContext.restoreGState()
             let cg = context.cgContext
             cg.setStrokeColor(UIColor.white.cgColor)
             cg.setLineWidth(1)
@@ -526,7 +584,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         var packed = [UInt8](repeating: 0, count: 12 * 16)
         for y in 0..<16 { for x in 0..<96 {
             let offset = (y * 96 + x) * 4
-            if bytes[offset] > 100 { packed[y * 12 + x / 8] |= UInt8(0x80 >> (x % 8)) }
+            if bytes[offset] > 60 { packed[y * 12 + x / 8] |= UInt8(0x80 >> (x % 8)) }
         }}
         return packed
     }
