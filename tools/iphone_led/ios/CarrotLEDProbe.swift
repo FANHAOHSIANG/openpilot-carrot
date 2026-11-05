@@ -135,8 +135,16 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
            let saved = try? JSONDecoder().decode([CustomSlot].self, from: data), saved.count == 5 {
             customSlots = saved
         }
-        central = CBCentralManager(delegate: self, queue: .main,
-            options: [CBCentralManagerOptionRestoreIdentifierKey: "tw.carrotled.central"])
+        // Only request restoration if the *built app* declares the central
+        // background mode. Some Xcode projects generate a different Info.plist.
+        let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+        if modes.contains("bluetooth-central") {
+            central = CBCentralManager(delegate: self, queue: .main,
+                options: [CBCentralManagerOptionRestoreIdentifierKey: "tw.carrotled.central"])
+        } else {
+            central = CBCentralManager(delegate: self, queue: .main)
+            bluetoothStatus = "背景藍牙未啟用，前景仍可連線"
+        }
         if !host.isEmpty && !token.isEmpty { connectC4() }
         Timer.scheduledTimer(withTimeInterval: 0.33, repeats: true) { [weak self] _ in
             Task { @MainActor in
