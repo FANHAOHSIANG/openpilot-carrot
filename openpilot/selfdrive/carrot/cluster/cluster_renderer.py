@@ -924,6 +924,8 @@ class ClusterUiRenderer:
         self.is_metric = bool(is_metric)
         self._theme = current_cluster_theme(self.theme_mode)
         self.hidden = False
+        from cluster_yolo_overlay import ObjectOverlay
+        self._yolo_overlay = ObjectOverlay.from_environment()
         self._nav_model_texture = None
         self._nav_model_checked = 0.
         self._nav_model_mtime = 0
@@ -1521,6 +1523,8 @@ class ClusterUiRenderer:
         profile_stage = self._profile_start()
         from openpilot.common.indicator_display import draw as draw_indicator
         draw_indicator(530, 78, 460, self._korean_font or self._font, 24)
+        if getattr(self, '_yolo_overlay', None) is not None:
+            self._yolo_overlay.draw_status(self, state)
         self._draw_alert_overlay(getattr(state, "alert", None))
         self._profile_add("render.alert", profile_stage)
 
@@ -1646,6 +1650,8 @@ class ClusterUiRenderer:
             profile_stage = self._profile_start()
             self._draw_scene(scene, state)
             self._profile_add("render_world.draw_scene", profile_stage)
+        if getattr(self, '_yolo_overlay', None) is not None:
+            self._yolo_overlay.draw_world(self, scene, state)
 
     def _scene_for_state(
         self,

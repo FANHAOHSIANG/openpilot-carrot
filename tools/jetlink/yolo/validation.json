@@ -1,0 +1,99 @@
+{
+  "date": "2026-11-05",
+  "base_commit": "334a4ac52379f8e4aa0783d6637f34046d2ba892",
+  "upstream_hcop": "1283b4d3c7d33958ae82ffdbd1b346c1eed4e474",
+  "model_source_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "onnx_sha256": "365cdc6c364e81ac4c67ba6df318bf2b4f79ead0c5959eaf05dabc1d91fe734f",
+  "dataset_source": "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128.zip",
+  "runtime": {
+    "platform": "Linux x86_64 AMD EPYC 9V74",
+    "onnxruntime": "1.23.2",
+    "provider": "CPUExecutionProvider",
+    "threads": 2,
+    "input": [
+      1,
+      3,
+      384,
+      672
+    ]
+  },
+  "tests": {
+    "passed": 144,
+    "failed": 0,
+    "actual_onnx_packet_test": true
+  },
+  "smoke_test_only_not_independent_accuracy_evaluation": true,
+  "mac_n16_concurrency_tested": false,
+  "installed_on_vehicle": false,
+  "image_results": [
+    {
+      "preview": false,
+      "images": 128,
+      "detections": {
+        "person": 148,
+        "car": 8,
+        "motorcycle": 6,
+        "bicycle": 1,
+        "truck": 3,
+        "bus": 5
+      },
+      "ground_truth": {
+        "person": 254,
+        "car": 46,
+        "truck": 12,
+        "motorcycle": 5,
+        "bicycle": 6,
+        "bus": 7
+      },
+      "matched_iou50": {
+        "person": 133,
+        "car": 6,
+        "motorcycle": 5,
+        "bicycle": 1,
+        "truck": 3,
+        "bus": 5
+      },
+      "median_ms": 41.93250200023613,
+      "p95_ms": 64.85993774913368
+    },
+    {
+      "preview": true,
+      "images": 128,
+      "detections": {
+        "person": 138,
+        "car": 10,
+        "motorcycle": 6,
+        "bicycle": 2,
+        "truck": 3,
+        "bus": 5
+      },
+      "ground_truth": {
+        "person": 254,
+        "car": 46,
+        "truck": 12,
+        "motorcycle": 5,
+        "bicycle": 6,
+        "bus": 7
+      },
+      "matched_iou50": {
+        "person": 128,
+        "car": 7,
+        "motorcycle": 5,
+        "bicycle": 1,
+        "truck": 3,
+        "bus": 5
+      },
+      "median_ms": 42.581049000546045,
+      "p95_ms": 61.15744699964125
+    }
+  ],
+  "render_review": {
+    "actual_renderer": true,
+    "synthetic": true,
+    "dimensions": [
+      1920,
+      462
+    ],
+    "vehicle_alert_drawn_last": true
+  }
+}

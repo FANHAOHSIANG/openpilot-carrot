@@ -1,0 +1,130 @@
+# Carrot / Mac HUD YOLO 測試版
+
+基底：`FANHAOHSIANG/openpilot-carrot` 的 `carrot-wip`
+`334a4ac52379f8e4aa0783d6637f34046d2ba892`。
+分支：`test/hud-yolo-20261105`。
+
+將 Henry HCOP 的交通物件分類、分類別 NMS、騎士去重概念移植到
+Carrot 現有 HUD。辨識行人、自行車、汽車、機車、公車、卡車。
+保留原本 Carrot HUD、導航與雷達顯示，增加語意圖示、分類統計、相機模式辨識框。
+這不是 Henry 整張儀表板的外觀重製。
+
+## 已接好的資料流
+
+1. C4 原有 Jetlink HUD 預覽封包（`carrot_hud_v1`）提供 road JPEG。
+2. Mac 的獨立 Python 程序以 ONNX Runtime CPU、2 執行緒跑 YOLO。
+3. 本機小型 JSON 檔提供結果給現有 Carrot cluster renderer。
+4. 3D 模式顯示分類圖示與 `~距離 m`；road 相機模式顯示同來源的辨識框。
+   wide 相機不套用 narrow 的框。車輛警告仍在最後繪製。
+
+沒有新增相機訂閱、C4 模型工作、CAN 傳送或控制訊息發布。
+YOLO 結果只用於顯示，沒有接到 ACC、轉向、AEB、NOO 或 N16 模型輸入。
+未與雷達目標做配對；原有雷達與 YOLO 有可能同時標示同一物件。
+
+預設關閉：HUD 程序沒有 `CARROT_HUD_YOLO_FILE` 環境變數時，沒有檔案輪詢或辨識程序。
+即時辨識程序拒絕在有 `/AGNOS` 的 C4 上啟動。
+
+## 影像與效能限制
+
+- 本版直接使用現有 **384×240** HUD 預覽，不增加 USB 封包或 C4 影像處理負載。
+  上採樣到模型尺寸不會恢復已經消失的小物件細節。
+- 模型輸入固定 `672×384`，保留完整視野並做 letterbox；還原框時移除 padding。
+- 最多 2 Hz，無推論佇列，使用最新影像；另限制推論占工作程序時間約 35%。
+- 影像必須有有效 frame ID、來源尺寸、capture timestamp 與新鮮封包。
+  同一 frame 不因封包更新而重複推論。
+- 結果從估算的本機拍攝時間起 **0.8 秒到期**，過慢推論直接丟棄；斷線不保留凍結物件。
+  封包時間換算使用原有 Jetlink 收件時間，無法量出隱藏的 USB 傳輸延遲。
+- 平面道路距離估算只接受 C4/mici、os04c10 narrow 1344×760、有效且新鮮的
+  Carrot `liveCalibration`，含 rpy 與相機高度。無校正仍可顯示 2D 分類和數量。
+  不沿用 Custin 的固定高度或 0.9 距離修正係數。
+- `~` 表示單鏡頭估計；斜坡、遮蔽、框底部偏差會造成誤差。不是雷達測距。
+- 尚未量測使用者 Mac mini M4 與 N16 同時運行的延遲、溫度、掉幀或實體 TURZX 顯示。
+
+## 準備公開模型（Mac，Python 3.12）
+
+Henry 的 `c4light13` 自訓權重不在倉庫中，本次測試使用官方 YOLO11n COCO 權重。
+下載後先驗證已釘選 SHA256，再匯出 ONNX；不下載未知權重，也不在即時程序中自動下載。
+權重及匯出工具授權見 [NOTICE](NOTICE)。不要把套件安裝進 Jetlink 的大模型環境。
+
+在本分支 checkout 根目錄執行：
+
+```bash
+YOLO_RUNTIME="$HOME/Library/Application Support/CarrotHUD-YOLO"
+python3.12 -m venv "$YOLO_RUNTIME/venv"
+"$YOLO_RUNTIME/venv/bin/python" -m pip install -r tools/jetlink/yolo/requirements.txt
+"$YOLO_RUNTIME/venv/bin/python" -m pip install 'torch==2.5.1' 'torchvision==0.20.1' 'ultralytics==8.3.40' 'onnx==1.19.1' 'ml-dtypes==0.5.3'
+"$YOLO_RUNTIME/venv/bin/python" tools/jetlink/yolo/prepare_model.py "$YOLO_RUNTIME/model"
+YOLO_SHA=$("$YOLO_RUNTIME/venv/bin/python" -c 'import json,sys; print(json.load(open(sys.argv[1]))["onnx_sha256"])' "$YOLO_RUNTIME/model/manifest.json")
+```
+
+Linux 匯出測試使用 CPU-only torch 2.5.1+cpu；Mac 請使用原生 arm64 wheel。
+不同匯出環境的 ONNX 位元組可能不同，使用當次 manifest 中的 SHA。
+程式也會驗證模型輸入形狀、輸出格式、task 與 class metadata，避免類別編號錯置。
+
+## 離線圖片或錄影測試
+
+```bash
+"$YOLO_RUNTIME/venv/bin/python" tools/jetlink/hud_yolo.py replay \
+  --model "$YOLO_RUNTIME/model/yolo11n.onnx" --sha256 "$YOLO_SHA" \
+  --input /absolute/path/to/road.jpg --output /tmp/yolo-photo-test
+```
+
+輸出帶框照片與 `report.json`。加 `--preview-size` 可模擬 384×240 預覽。
+影片使用相同命令，`--input` 改為 MP4/HEVC/TS；`--frames 60 --fps 2` 取樣前 30 秒。
+影片需要 OpenCV（上面的獨立匯出環境已包含）。離線輸出不會被即時 HUD 當成車上資料。
+
+## 接現有 Mac HUD
+
+必須先確認 Mac 正在執行的 Carrot HUD 原始碼位置與實際 snapshot 路徑。
+本分支變更 `cluster_renderer.py` 並新增 `cluster_yolo_overlay.py`；Mac App 若使用
+內嵌或獨立副本，必須更新該副本。**只更新 C4 不會更新 Mac App 的 HUD 程式。**
+不要用整個分支覆蓋仍有未合併修改的 Mac 工作目錄。
+
+即時工作程序：
+
+```bash
+"$YOLO_RUNTIME/venv/bin/python" tools/jetlink/hud_yolo.py live \
+  --model "$YOLO_RUNTIME/model/yolo11n.onnx" --sha256 "$YOLO_SHA" \
+  --snapshot /absolute/path/to/carrot-jetlink-hud.packet \
+  --output /tmp/carrot-hud-yolo.json --seconds 60
+```
+
+Linux/原始 host 預設 snapshot 是 `/dev/shm/carrot-jetlink-hud.packet`；
+Mac 使用現有啟動器的對應路徑，不能假設 macOS 有 `/dev/shm`。
+同時讓**既有 Mac HUD 啟動程序**繼承：
+
+```bash
+export CARROT_HUD_YOLO_FILE=/tmp/carrot-hud-yolo.json
+```
+
+GUI 啟動的 App 不一定繼承終端機 export，應在實際 HUD supervisor 的子程序環境設定。
+停止工作程序並移除此環境變數，即恢復原本顯示。停車先確認資料與畫面，之後才能比較
+YOLO 關閉/開啟時 N16 的延遲、錯誤、掉幀與系統溫度。
+本次未連線到 Mac/C4、未安裝或重啟任一裝置。
+
+## 本次測試
+
+- 144 項通過：辨識前後處理、距離座標、凍結/斷線/過期、實際 ONNX
+  從合成 Jetlink 封包到 JSON，再到顯示讀取；既有 HUD、導航地圖、場景及設定回歸。
+- 128 張 COCO128 公開圖片，原尺寸及 384×240 各跑一次，六種類別都有輸出。
+  這是串接 smoke test，資料可能與模型訓練集重疊，**不是獨立準確率評測**。
+- 機車標註共 5 個，兩種輸入皆有 5 個 IoU≥0.5 配對，同時各有 1 個額外機車預測。
+  行人、遠小汽車等仍有大量漏判；不可用此小樣本推論台灣道路表現。
+- AMD EPYC 測試主機、CPU 2 threads，原尺寸輸入推論中位數約 41.9 ms、p95 64.9 ms；
+  預覽尺寸約 42.6 / 61.2 ms。包含前後處理，不是 Mac/N16 共用實測。
+- 已以實際 Raylib/Carrot renderer 產生 1920×462 合成畫面，檢查分類圖示與警告疊放。
+- 詳細數據見 [validation.json](validation.json)。
+
+重跑：
+
+```bash
+YOLO_TEST_MODEL=/absolute/path/to/yolo11n.onnx \
+YOLO_TEST_IMAGE=/absolute/path/to/bus.jpg \
+python -m pytest --noconftest -o addopts='' \
+  tools/jetlink/test_hud_yolo.py tools/jetlink/test_hud.py tools/jetlink/test_hud_nav_map.py \
+  openpilot/selfdrive/carrot/tests/test_cluster_scene.py \
+  openpilot/selfdrive/carrot/tests/test_cluster_config.py -q
+```
+
+需要倉庫一般測試依賴與 opendbc 模組。未指定模型與圖片時，實際推論測試會明確 skip。
+`render_review.py` 使用真正的 cluster renderer 產生合成畫面，只驗證版面，不是行車證據。

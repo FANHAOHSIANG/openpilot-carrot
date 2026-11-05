@@ -1,0 +1,5 @@
+# Independent YOLO worker only. Do not install into Jetlink's inference venv.
+numpy==1.26.4
+Pillow==11.3.0
+onnxruntime==1.23.2
+pycapnp==2.2.1
