@@ -4,6 +4,40 @@ import { createBridge, allowedWebOrigin } from './bridge.mjs';
 import { createApp } from './server.mjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+test('fresh account codes retain their full lifetime beyond the original browser lease', () => {
+  let time = 1000;
+  const b = createBridge({ now: () => time });
+  const origin = 'http://carrot:7000';
+  const browser = b.create(origin);
+  time += 299000;
+  const old = b.browser(browser.browser_token, origin, 'account_code');
+  time += 2000;
+  assert.equal(b.browser(browser.browser_token, origin, 'poll').expires_at, old.expires_at);
+  // Renewing account approval must not extend the old legacy chat-pairing code.
+  assert.throws(() => b.pair(browser.pairing_code));
+  const fresh = b.browser(browser.browser_token, origin, 'account_code');
+  assert.throws(() => b.claimAccountCode(old.account_code));
+  time += 299999;
+  const account = b.claimAccountCode(fresh.account_code);
+  assert.equal(b.accountStatus(account.id).connected, true);
+  assert.throws(() => b.claimAccountCode(fresh.account_code));
+});
+
+test('an unclaimed renewed account code still expires at its own deadline', () => {
+  let time = 1000;
+  const b = createBridge({ now: () => time });
+  const origin = 'http://carrot:7000';
+  const browser = b.create(origin);
+  time += 299000;
+  const code = b.browser(browser.browser_token, origin, 'account_code');
+  time = code.expires_at;
+  assert.throws(() => b.claimAccountCode(code.account_code));
+  assert.throws(() => b.browser(browser.browser_token, origin, 'poll'));
+});
 
 test('pairing is single-use, origin-bound, isolated, expiring and revocable', () => {
   let time = 1000;
@@ -32,7 +66,38 @@ test('pairing is single-use, origin-bound, isolated, expiring and revocable', ()
   assert.throws(() => bridge.status(control));
   time += 300001; assert.throws(() => bridge.pair(b.pairing_code));
   const c = bridge.create(origin), d = bridge.pair(c.pairing_code);
-  time += 8 * 3600000; assert.throws(() => bridge.status(d.connection_id));
+  time += 365 * 24 * 3600000; assert.equal(bridge.status(d.connection_id).connected, true);
+});
+
+test('paired hashes survive restart without queued commands; disconnect is durable', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'carrot-bridge-'));
+  const statePath = join(dir, 'connections.json'), origin = 'http://192.168.0.178:7000';
+  try {
+    let bridge = createBridge({ statePath });
+    const browser = bridge.create(origin), control = bridge.pair(browser.pairing_code).connection_id;
+    bridge.open(control, 'AutoBlinkerControl');
+    const disk = readFileSync(statePath, 'utf8');
+    for (const secret of [browser.browser_token, browser.pairing_code, control, 'AutoBlinkerControl']) assert.equal(disk.includes(secret), false);
+    bridge = createBridge({ statePath });
+    assert.equal(bridge.status(control).connected, true);
+    assert.equal(bridge.status(control).command, null);
+    assert.equal(bridge.browser(browser.browser_token, origin, 'poll').expires_at, null);
+    bridge.browser(browser.browser_token, origin, 'disconnect');
+    bridge = createBridge({ statePath });
+    assert.throws(() => bridge.status(control));
+    writeFileSync(statePath, '{broken');
+    assert.throws(() => createBridge({ statePath }));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('failed persistence does not issue a control capability', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'carrot-bridge-'));
+  try {
+    const bridge = createBridge({ statePath: join(dir, 'missing', 'state.json') });
+    const browser = bridge.create('http://localhost:7000');
+    assert.throws(() => bridge.pair(browser.pairing_code));
+    assert.equal(bridge.browser(browser.browser_token, 'http://localhost:7000', 'poll').connected, false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('CORS permits local web origins, not null or lookalike/public origins', () => {
