@@ -1,5 +1,216 @@
 # Repository memory
 
+- On 2026-11-06, owner reports eGPU Light/N16 first-inference AMD-7/hang becoming
+  permanently rejected. Prior committed code reproduces next-boot denial;
+  pinned N16/Flip/Light/Light2 runtime archives hash-check and map-7 to USB wait
+  timeout. Recognize exact terminal-7/hang only for those runtimes, retain this
+  boot quarantine/internal fallback, allow matching previous-boot verified load.
+  No expansion of live recovery. Migrate old reports, keep diagnostics and all
+  hash/contract/output/smoke gates. Web KO/EN shows cause and permits offroad-only
+  one-shot next-boot verification, bound to model/runtime/failure/boot identity;
+  never directly deletes markers, starts GPU or reboots. Desktop416+web19 pass,
+  isolated web build/Ruff pass. No vehicle/CAN/model/Jetson writes. Initial fault
+  and physical cure unverified; reporter JSONs not supplied. GitPull/full comma
+  reboot. See docs/egpu_rejection_recovery_20261106.md.
+
+- On 2026-11-05, owner reports ATC indicator-associated warnings while driving,
+  then explicitly requests PC-only fix/test/push and will apply after exercise.
+  Full-cereal NAS rlog 11a6/30: receiver unavailable/lease_lost at19:47:56.001,
+  model IPC timeout/local fallback167ms later and commIssue soft-disable.
+  Both reported indicators are off at failure; this does not prove a turn-on
+  trigger or why receiver availability dropped. Sender synchronously waited
+  for policy-child exit on the model bridge thread. Reap only that source in
+  background after immediate IPC closure; retain synchronous CAN-worker close,
+  lease grace and expiry. Gate fresh sources until reaping ends, revoke commands
+  on adapter-generation change, log receiver state/error on loss. Real desktop
+  child with400ms shutdown reproduces old405ms blocking; new lifecycle tests
+  cover loss/change/close, recovery without command replay and CAN close.
+  Indicator suites606pass/7Linux-only skips; Ruff passes. No vehicle write,
+  restart, firmware or model change. Initial receiver failure and road cure
+  remain unverified; user must GitPull/full reboot to load the comma bridge fix.
+
+- On 2026-11-05, owner requests 0.20s coherent-vision replacement while a
+  healthy measured front radar lead remains, following ID4 29e/46 on contributor
+  model_selector-ha c6eb3b36a. Short visual range/speed outliers replace measured
+  281 and drive recorded acceleration dips. Retain current measured values;
+  reset confirmation on visual kinematic jumps, revoke on invalid radar/path,
+  count model timestamps (not repeated wakeups), preserve new radar matches
+  and independent stationary contradictions. No parameter/model/device change.
+  New log-derived case passes modes1/2/3; all104logs/504labels have no new failures.
+  Existing expectation failures11/10/13, mode3 predecel1 and208unverified remain.
+  Full124489frame audit changes677 vision-only L1 frames in33logs to radar,
+  no L2/risk identity changes. Local1847pass/4skip and Ruff pass. Actual road
+  acceleration untested; NAS graph retains recorded commands. See
+  docs/id4_vision_transition_20261105.md; private evidence under .analysis/archive.
+
+- On 2026-11-05, owner requests Light speed 2 b92fc482 as an additional shared
+  eGPU/Jetson choice, keeping old Light speed. Official PKL b4dead3e/767228907B,
+  ONNX909a1400/768749892B, checkpoint ea2f516f match all metadata; NOO unsupported.
+  Pin isolated tinygrad ec91b74/runtime96c6ecc9; upstream includes cast-zero USB
+  wrap rule, so retain old backport only for d39227. Add exact-runtime cooperative
+  USB wait/captured copies and native compatibility CI. Signed selected-model
+  host delivery required. Parked physical testing authorized before19:40; do not
+  treat desktop metadata/CI as road acceptance. See docs/light_speed_2_model_20261105.md.
+  Published9faaee0ab9; native Light2 five/Jetson2364 checks pass. Owner car retained
+  concurrent CAN-task f8e02ee19d, normal comma reboot selects Light2. ONNX downloaded
+  on Jetson and reboot requested; owner then explicitly PAUSED Jetson work due to
+  CAN-task overlap. No further device changes/tests until resumed. Automatic boot
+  update may proceed; actual Light2 engine/inference/road readiness unverified.
+  Owner then resumed. Auto-install7c6be06a/ONNX909a1400/FP16 engine matches pin,
+  built47s. Actual commaf8e02ee19d boot selectsLight2, snapshotfalse/P/inactive.
+  120s/2405frames: mean37.569/P9941.971/max44.868ms, zero>50execution/gaps/invalid
+  pose/alerts/linkloss. N16 prior mean40.662; CAN cadence also changed, not isolated
+  A/B. Loop max61.614ms remains; no absolute50ms or road/eGPUhardware guarantee.
+  DATA4GBfree. FullCI4Bluetooth import failures match pre-model895905 baseline.
+  Light2 remains selected/running; no additional reboot after resume.
+
+
+- On 2026-11-05, owner requests MKS CANable 2.0 support alongside PEAK and S3,
+  first-ready output selection, and beginner PC/Jetson firmware/photo guides.
+  Standard G431 board flashed/readback-verified carrot-b1-slcan-2; exact image
+  aa59e9f7733d3398537d1a7d7c07cdd5e17edc91ac689fd7e0bd738dad03cd26.
+  Fix upstream silent-open override, disable automatic retries, clear pending TX
+  on close, and report actual sequence/TXBTO/protocol-error/cancellation results.
+  Host retries only confirmed no-error cancellations within 15ms/eight attempts.
+  Native Park test: left/right each exactly three flashes, comma and 0x413 agree;
+  13 completed TX frames, no opposite lamp. No long-duration driving proof.
+  Shared comma lease selects first ready S3/USB, retains working owner, expires
+  old commands before failover; enrollment alone never reserves S3 priority.
+  Native ownership/SLCAN21 pass, desktop88 pass/7 native-only skips; staged
+  production discovery receives matching CAN without sending. Installer backs up
+  full internal flash then programs/readback-compares; never writes options/OTP.
+  Standard MKS V2.0 only; Pro/V1/other MCU unverified. Windows physical DFU flash
+  untested. User explicitly authorizes KO/EN photo guides, Wiki and release kits.
+  See docs/user/ko/indicator-adapters.md and tools/jetlink/canable/README.md.
+  Live installation exposed bridge status cadence (1Hz inference/2s idle) versus
+  the new 500ms lease: source restarted repeatedly despite healthy CAN. Request
+  telemetry on each inference with an indicator channel, poll idle at200ms and
+  keep local receive timeout100ms; retain 500ms stale revocation. Production-loop
+  cadence regressions3pass. No firmware change is needed for this correction.
+  Public release carrot-canable-v2 and clickable KO/EN Wiki adapter pages are
+  published; five downloaded assets hash-match, public photo/link navigation and
+  mobile offline guide checked. Windows GUI/no-device checks exercised; no PC DFU
+  hardware attached. Park-guarded comma GitPull/reboot installed f8e02ee19d; avoid
+  only killing Python child processes after source changes because manager
+  preimports their modules. Concurrent owner-authorized Light2 work rebooted
+  both devices; preserve its selection. Final native observation: CANable owns
+  all391 samples across20s, same lease token, fresh CAN/ready/no error. Jetson
+  then runs Light2 source7c6be06a5b (includes CANable), not the earlier c70 pin.
+  This final check is passive; the earlier direct Park left/right test remains
+  the physical lamp proof, not a new end-to-end Bluetooth-button test.
+
+- On 2026-11-05, owner requests exact g1 handoff rejection on screen and logs.
+  Add adb-handoff reason codes and bounded observations for first failed guard,
+  pre-write recheck, locks and unbind IO. Setup always invokes the existing
+  permission-checking helper for g1, including missing/unsafe marker diagnostics.
+  Shell status/stderr and daemon errors carry the cause to Carrot Web KO/EN;
+  label becomes comma USB setup blocked. Automatic NCM fallback retains the
+  cause at the start of its bounded error. Default opt-in/offroad/identity and
+  ownership checks still govern release. No marker enrollment/live device writes.
+  See docs/jetlink_konik_usb_recognition_20261023.md diagnostic table.
+
+- On 2026-11-05, owner requests review/integration of PR570/571. PR570 final
+  5f6712c422 doubles Ray command increment above neutral264/497; cap0.70 maps
+  795/1572 with matching explicit Panda bounds. Raw slew increases too.
+  Eligibility/sensor calibration retain prior definitions; contributor reports
+  Ray operation, no local physical acceleration proof. PR571980f2f9413 selects
+  temporary geocoding; supplement with RAM-only active destination, DONT_LOG,
+  manager-start/offroad cleanup and CLI replacement. Fix arrival cleanup omission
+  (original production method fails regression); local221vehicle+29nav pass.
+  Ordinary GitPull/restart includes Panda rebuild. No live writes/CAN/reboot.
+
+
+- On 2026-11-04, owner requests USB wrap correction and curve replay comparison.
+  Backport tinygrad42ea17d1 cast-zero USB memset rule before loading only exact
+  d39227/cb9bf2cf Light runtime; older N16/Flip ranged-store paths untouched.
+  New Light AMD warp cache tag; validation receipts hash hooks. No model/runtime
+  replacement or claimed hardware cure. 26hash-checked rlogs346631805B give
+  30284model/30276usable/25243moving frames; ALL lack yawStd/raw predictions.
+  Current ceiling vs ssh f3bf59fd negative-cap rates6.92/7.01%; assumed sigma
+  .03rad/s gives11.29/11.87, NOT measured uncertainty or braking. Corpus includes
+  retiredMD4798frames and JoiningModel without exact recorded external identity.
+  Some near-straight extra limits and nonmonotonic tighter-curve gate found.
+  Live curve policy unchanged; publish existing orientationRate stds for future
+  logs only. Desktop128 plus pinned matcher pass; eGPU41834213643 passes505+57,
+  native old3/2skip and Light5 plusWeb. Jetson41834213685 passes5+2330/56skip
+  and supporting suites/Windows; docs pass. Physical USB wrap untested.
+  No live writes/CAN/Jetson bundle. See docs/usb_wrap_curve_comparison_20261104.md.
+
+
+- On 2026-11-04, owner reports unintended steering with AutoEngage0 after the
+  Nov3 isolated stock MAIN change. Confirmed source chain OEM MainMode_ACC ->
+  main_enabled -> cruiseState.available rising -> VCruiseCarrot latEnabled ->
+  AlwaysLateral. Nov3 packet tests missed this driver-intent feedback path.
+  CameraSCC+openpilotLong now excludes OEM MAIN feedback from driver's main state;
+  AutoEngage init and physical MAIN/RES/SET still own that state. LFA off survives
+  OEM transitions. Generic cruise/controller/Panda and stock-long paths unchanged.
+  Production helper+full cruise+lateral-gate regression old7fail/2pass, new9pass;
+  combined368 desktop pass. UTF8 required for pre-existing VW metadata reads on
+  Windows. No live vehicle writes or individual complaint log validation.
+  GitPull/comma restart. See docs/ev5_cluster_corner_display.md correction.
+
+
+- On 2026-11-03, owner requests PR569 Comma Pedal review/integration with emphasis
+  on unsupported vehicles. Merge head01b8bf5d into currentWip36fbbbae, preserving
+  CameraSCC MAIN fix. DefaultOFF, explicit RayEV+CC_ONLY classic/nonlegacy/noncamera
+  profile,0x201/DLC6 presence and noSCC fingerprint required. OEM ready/engaged,
+  stale/missing status, pedal faults, driver/brake override block positive output.
+  2568-case before/after CP matrix has2566 identical including24 existingerrors;
+  only2 intended RayON/devicepresent cases differ. Desktop438 pass; native pedal
+  safety/profile-switch and Python/Cython checks added to SignalCI. Contributor
+  limited-acceleration symptom remains unresolved; no vehicle/settings/CAN work.
+  Normal GitPull/reboot includes Panda rebuild/signature verification. See
+  docs/comma_pedal.md; private comparison artifacts under .analysis.
+
+
+- On 2026-11-03, EV5 corner-display review finds eight full logs and the earlier
+  native ALT2 fix intact. Recent38/45 Carrot disabled; AutoEngage0 alone is not
+  the cause. 38 stock LFA/SCC overlap enables HDA,45 overlap still HDA0; automatic
+  LFA emissions fail to elicit activation before physical input. Owner requests
+  isolated stock SCC MAIN while disengaged. CameraSCC+openpilotLong+cornerON,
+  stock SCC/LFA present, valid CAN, Drive, finite >3m/s and no brake/hold/park
+  permit existing ALT2/legacy MAIN pulses; physical input wins. MAIN-on stops
+  retry, SET/resume retain CC.enabled. Existing control-side SCC/Panda unchanged.
+  258 desktop packet/entry tests and25 Wiki pass; native ALT2 added to Signal CI.
+  No live CAN/install/reboot or physical cure claim. Git Pull/comma restart.
+  See docs/ev5_cluster_corner_display.md; raw evidence private.
+
+
+- On 2026-11-03, owner requests comma0c40995 low-speed curvature review/adoption.
+  Port exact action-head denominator floor1.0->2.5m/s in modeld. Shared eGPU/Jetson
+  N16/Flip/Light action conversion is affected below9km/h above existing0.3m/s
+  hold; plan-only conversion, longitudinal outputs and smoothing remain intact.
+  Same-input attenuation can reduce low-speed overcorrection but also reduces
+  tight-turn curvature. No physical oscillation/road cure or timing claim.
+  Production-function regression76 checks (old24fail/52pass, new76pass), expanded
+  model/runtime/link suites140pass/5skip. Add regression to eGPU CI. Normal
+  carrot-wip GitPull/comma restart; no model download, Jetson bundle or live writes.
+
+- On 2026-11-03, owner requests morning TBT dropout/manual torque+approach review
+  and configurable right ATC distance. Ten full rlogs137168022B hash-matched,
+  11800frames/03a28b256c. Three pre-turn aborts are receiver driver_override with
+  no recorded completed-send ACK, not30deg completion. Receiver state conflates
+  payload change/stale400ms/expiry. Comma B1 neutral repeats200ms after tap-like
+  signals, receiver cause unresolved. Owner cannot power Jetson now, code first.
+  Normal turn return becomes15deg after30deg steer/20deg heading entry. Driver
+  cancellation after30deg steer requires pressed opposite torque and opposite
+  angle strictly past0 whilemoving. Preserve journey across receiver override.
+  Only previously exact-ACK+lamp-confirmed TBT holds continue through fresh
+  override/ready/waiting, never initial-unacked hold or override retry. Initial
+  three failures NOT cured. Source-loop8cases and local832/2skip,Wiki25 pass.
+  RightLaneChange parameter becomesINT metres0..500/step50/default0; legacy1
+  migrates250, runtime backup compatibility, oldmode4 remains retryable.
+  Prior12755frame replay20 requests, morning7/6lamp starts median0.284s. Strong
+  torque350+0.5s trial advances morningone0.204s, priornone; stronger confirmation
+  addsnothing. Unconditional0.5s adds roadside candidate. Manual timing unchanged.
+  No vehicle writes/CAN/reboot/bundle. GitPull/comma restart. See
+  docs/indicator_morning_review_20261103.md. Raw evidence private.
+  Source1196a59d34 published. Native41535582601 1285/40skip/362subtests;
+  Jetson41535583787 2329/56skip+232/62/94/119/11/11 andWindows pass. eGPU/docs
+  pass. Localweb52+30 pass after oldtoggle expectation update. Wiki c815bd5
+  twelve pages reviewed/hash-matched.
+
+
 - On 2026-11-02, owner separates prior manual-attempt replay from lunch long-turn
   review, then requests TBT wheel-return<=30deg completion.10hash-matched lunch
   rlogs127897928B on4a555c75b8: returnseg3 leftlamp22.512..37.002s/14.49s;
