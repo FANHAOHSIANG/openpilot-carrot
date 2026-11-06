@@ -16,6 +16,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           sparse-checkout: tools/iphone_led/ios
+      - name: Test island alert transitions
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc IslandAlertPolicy.swift tests/IslandAlertPolicyTests.swift -o /tmp/island-alert-tests
+          /tmp/island-alert-tests
       - name: Generate project
         working-directory: tools/iphone_led/ios
         run: |
@@ -32,6 +37,7 @@ jobs:
           python3 - <<'PY'
           import pathlib, plistlib
           app = pathlib.Path('/tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app')
+          assert (app / 'IslandSilent.wav').is_file()
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['NSSupportsLiveActivities'] is True
           assert 'bluetooth-central' in info['UIBackgroundModes']

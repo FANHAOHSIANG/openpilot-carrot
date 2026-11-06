@@ -13,6 +13,9 @@ targets:
     sources:
       - CarrotLEDProbe.swift
       - DrivingSession.swift
+      - IslandAlertPolicy.swift
+      - path: Resources/IslandSilent.wav
+        buildPhase: resources
       - LEDActivityAttributes.swift
     dependencies:
       - target: CarrotLEDLiveActivity

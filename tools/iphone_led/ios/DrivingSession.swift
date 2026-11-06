@@ -9,6 +9,13 @@ final class DrivingSession: ObservableObject {
     @Published private(set) var active = false
     @Published private(set) var message = "尚未開始行車即時動態"
     @Published private(set) var autoStart = UserDefaults.standard.object(forKey: "ledAutoBackground") as? Bool ?? true
+    @Published var expandOnChange = UserDefaults.standard.object(forKey: "ledExpandOnChange") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(expandOnChange, forKey: "ledExpandOnChange")
+            alertPolicy.reset(text: lastState?.displayText ?? "")
+        }
+    }
+    private var alertPolicy = IslandAlertPolicy()
     private var nextAutoAttempt = Date.distantPast
     private var cleanupComplete = false
     private var activity: Activity<LEDActivityAttributes>?
@@ -62,6 +69,7 @@ final class DrivingSession: ObservableObject {
         do {
             let item = try Activity.request(attributes: LEDActivityAttributes(title: "Carrot 行車連動"),
                 content: ActivityContent(state: state, staleDate: sampledAt.addingTimeInterval(0.9)), pushType: nil)
+            alertPolicy.reset(text: displayText)
             activity = item; active = true; lastState = state; lastUpdate = .distantPast
             message = "行車即時動態已開始，可切換至背景"
             observer = Task { [weak self] in
@@ -88,12 +96,24 @@ final class DrivingSession: ObservableObject {
         let fresh = now.timeIntervalSince(sampledAt) < 0.9
         let state = LEDActivityAttributes.ContentState(sampledAt: sampledAt, fresh: fresh,
                                                        screenConnected: connected, automatic: automatic, displayText: displayText)
+        let isControl = displayText.isEmpty || ["清屏", "清屏中", "已送開屏指令", "已送關屏指令"].contains(displayText) || displayText.hasSuffix("全亮測試")
+        let eligible = expandOnChange && connected && fresh && !isControl
+            && UIApplication.shared.applicationState == .background
+        let shouldExpand = alertPolicy.shouldAlert(text: displayText, eligible: eligible,
+                                                  uptime: ProcessInfo.processInfo.systemUptime)
         let changed = lastState?.fresh != fresh || lastState?.screenConnected != connected || lastState?.automatic != automatic || lastState?.displayText != displayText
         // Avoid sending every 5 Hz vehicle packet to ActivityKit. A conservative
         // staleDate can show expired between updates; never extend freshness.
-        guard changed || now.timeIntervalSince(lastUpdate) >= 1 else { return }
+        guard changed || shouldExpand || now.timeIntervalSince(lastUpdate) >= 1 else { return }
         lastState = state; lastUpdate = now
-        Task { await item.update(ActivityContent(state: state, staleDate: sampledAt.addingTimeInterval(0.9))) }
+        // AlertConfiguration asks iOS to expand briefly; the system owns presentation timing.
+        // The bundled silent sound avoids beeping on every vehicle-word change.
+        let alert: AlertConfiguration? = shouldExpand && Bundle.main.url(forResource: "IslandSilent", withExtension: "wav") != nil
+            ? AlertConfiguration(title: "Carrot LED", body: "\(displayText)", sound: .named("IslandSilent.wav")) : nil
+        Task {
+            guard self.active, self.activity?.id == item.id else { return }
+            await item.update(ActivityContent(state: state, staleDate: sampledAt.addingTimeInterval(0.9)), alertConfiguration: alert)
+        }
     }
 
     func stop() {
@@ -114,6 +134,9 @@ struct DrivingSessionView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("背景行車連動").font(.headline)
             Toggle("自動啟動背景連動", isOn: Binding(get: { session.autoStart }, set: { session.setAutoStart($0) }))
+            Toggle("換字時展開動態島", isOn: $session.expandOnChange)
+            Text("背景換字時暫時展開，至少間隔 2 秒；停留與收合由 iOS 決定。")
+                .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button("立即啟動", action: start).disabled(session.active)
                 Button("停止並關閉自動啟動") { session.stop() }.disabled(!session.active && !session.autoStart)
