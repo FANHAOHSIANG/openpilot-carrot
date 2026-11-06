@@ -22,6 +22,7 @@ struct CarrotLEDProbeApp: App {
                     }
                     Text(model.vehicleStatus)
                     Text(model.values).font(.system(.caption, design: .monospaced))
+                    DrivingSessionView(session: model.drivingSession) { model.startDrivingSession() }
                     Divider()
                     Button("掃描並連接屏幕") { model.scan() }
                     Label(model.ready ? "屏幕藍牙已連線" : "屏幕尚未連線", systemImage: model.ready ? "checkmark.circle.fill" : "circle.dashed")
@@ -414,6 +415,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var notifyCharacteristic: CBCharacteristic?
     private var sequence: UInt16 = 1
     private var timer: Timer?
+    let drivingSession = DrivingSession()
+    private var inBackground = false
     private var lastSample = Date.distantPast
     private var isPolling = false
     private var generation = UUID()
@@ -434,6 +437,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
 
     override init() {
         super.init()
+        drivingSession.onEnded = { [weak self] in
+            guard let self, self.inBackground else { return }
+            self.invalidate()
+        }
         token = readKey() ?? ""
         let oldTexts = UserDefaults.standard.dictionary(forKey: "ledVehicleTexts") as? [String: String] ?? [:]
         let savedStyles: [String: VehicleStyle]
@@ -478,7 +485,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if !host.isEmpty && !token.isEmpty { connectC4() }
         Timer.scheduledTimer(withTimeInterval: 0.33, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.ready, !self.enabled, self.activeSlot != nil else { return }
+                guard let self else { return }
+                if self.enabled && Date().timeIntervalSince(self.lastSample) >= 0.9 { self.invalidate() }
+                self.updateDrivingSession()
+                guard !self.inBackground || self.drivingSession.active else { return }
+                guard self.ready, !self.enabled, self.activeSlot != nil else { return }
                 self.requestDisplay("__custom__")
             }
         }
@@ -510,11 +521,20 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
+    func startDrivingSession() {
+        drivingSession.start(sampledAt: lastSample, connected: ready, automatic: enabled)
+    }
+    private func updateDrivingSession() {
+        drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled)
+    }
     func enterBackground() {
-        // A suspended app cannot guarantee a timely clear; attempt it before suspension.
-        invalidate()
+        inBackground = true
+        // Only the explicit experiment may continue polling in background.
+        // Suspension still prevents the watchdog from guaranteeing a LED clear.
+        if !drivingSession.active { invalidate() }
     }
     func returnToForeground() {
+        inBackground = false
         // Previous data is never considered fresh after suspension.
         lastSample = .distantPast
         lastDisplayKey = nil
@@ -769,13 +789,15 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if enabled { requestDisplay("") }
     }
     private func poll(_ url: URL, id: UUID) async {
-        guard generation == id, !isPolling else { return }
+        guard generation == id, !isPolling, !inBackground || drivingSession.active else { return }
         isPolling = true; defer { isPolling = false }
+        let requestedAt = Date()
         var request = URLRequest(url: url, timeoutInterval: 0.7)
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard generation == id else { return }
+            guard generation == id, !inBackground || drivingSession.active else { return }
+            guard Date().timeIntervalSince(requestedAt) < 0.9 else { invalidate(); return }
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if response.statusCode == 401 {
                 invalidate()
@@ -795,11 +817,13 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             let label = choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: now)
             if enabled && ready { requestDisplay(label.isEmpty && activeSlot != nil ? "__custom__" : label) }
         } catch {
-            guard generation == id else { return }
+            guard generation == id, !inBackground || drivingSession.active else { return }
             if Date().timeIntervalSince(lastSample) > 0.9 { invalidate() }
         }
     }
     private func invalidate() {
+        lastSample = .distantPast
+        updateDrivingSession()
         vehicleStatus = "C4 資料中斷，嘗試清屏"
         slowing = false; hard = false; slowingSince = nil; hardSince = nil; congestionAlternationSince = nil
         if enabled && ready { requestDisplay("") }

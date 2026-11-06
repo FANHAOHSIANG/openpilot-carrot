@@ -1,4 +1,4 @@
-iPhone / C4 / LOY LED 區網連動原型 0.13
+iPhone / C4 / LOY LED 區網連動原型 0.14
 
 架構：C4 只讀車況橋接 → 區網 → iPhone → 藍牙 → 96 × 16 LED。
 這是 Xcode 原始碼，需用 Mac 的 Xcode 簽署並安裝到 iPhone。
@@ -14,7 +14,13 @@ iPhone / C4 / LOY LED 區網連動原型 0.13
 
 C4 保留 /data/iphone-led/token 的既有固定金鑰；在行車介面啟動時由 manager 管理橋接程序，異常退出會嘗試重啟，離開行車介面時停止。HTTP 僅限可信私人網路，金鑰和車況不加密。GitHub 合併不會自動更新 C4 或重新安裝 iPhone App。
 
-安裝更新：在 Mac 解壓，結束 Xcode，把 CarrotLEDProbe.swift 和 Info.plist 取代到原 Xcode 專案目錄，重新開啟專案並用 Xcode 對 iPhone 執行。只更動 iPhone 程式，不需變更 C4。請勿直接將 GitHub 測試分支併入正在行車的 C4。
+安裝更新（0.14 必須重新產生專案，不能只替換舊版單一 Swift 檔）：
+1. 在 Mac 解壓新版到新資料夾，保留整個目錄，包含 LiveActivity 子資料夾。
+2. Terminal 進入有 project.yml 的目錄。若未安裝 XcodeGen，先執行 brew install xcodegen；再執行 xcodegen generate。
+3. 開啟 CarrotLEDProbe.xcodeproj。在主 App 與 CarrotLEDLiveActivity 兩個 Target 的 Signing & Capabilities 選相同 Apple 開發團隊、勾選 Automatically manage signing。
+4. 主 App 的 Bundle Identifier 改成你原本已安裝的值，保留設定與鑰匙圈；extension 必須使用同一前綴再加 .liveactivity。不要移除舊 App。
+5. Scheme 選 CarrotLEDProbe、裝置選 iPhone，按 Run 安裝。只更新 iPhone，不需變更 C4。
+本版最低 iOS 16.2；「背景行車連動」測試按鈕只允許 iOS 26 以上開始。
 
 0.5.1：僅當實際安裝 App 的 Info.plist 宣告 bluetooth-central 時才啟用藍牙狀態恢復。若 Xcode 使用其他 Info.plist，改為前景連線以避免啟動時例外；要使用背景藍牙，請檢查 Target → Signing & Capabilities → Background Modes 勾選 Uses Bluetooth LE accessories。
 
@@ -39,3 +45,21 @@ C4 保留 /data/iphone-led/token 的既有固定金鑰；在行車介面啟動�
 0.13：將車況與自訂文字的字型選單改成獨立選擇頁。開啟時以當時選取字型定位；點選僅變更勾選狀態，按「套用」才確認；取消或滑動關閉不更改原設定。清單順序固定，可搜尋名稱，車況資料更新不重新建立選取流程。字型按鈕保留固定文字高度，減少主畫面位置因字型名稱長短改變。車況字型套用後自動儲存，自訂文字仍須按原本的「儲存」按鈕。
 
 字型選擇驗證：連接 C4 後開啟字型頁，滑到清單中下段停留，點選多個字型確認位置不跳回頂端；按取消確認原字型不變；按套用後重新開啟確認定位到已選字型；車況字型與五組自訂文字均需測試。製作環境沒有 Xcode，尚未完成編譯及 iPhone 實機驗證。
+
+
+0.14 行車即時動態（實驗功能）：
+- 先開 App，確認屏幕已連線、C4 車況持續更新、自動顯示車況已開啟，再按「開始行車即時動態」，之後切換 App。
+- 使用 ActivityKit + WidgetKit extension，顯示於鎖定畫面及支援的動態島。無遠端推播、無假音訊／定位保活，不需要 App Group。
+- iOS 26+ 的 Live Activity 可改善背景藍牙權限；它不是讓 HTTP 輪詢與動畫無限執行的授權。即使畫面仍存在也不代表車況正更新。
+- 最後收到車況超過 0.9 秒，Activity content 以 staleDate 標示過期；系統呈現時機仍由 iOS 決定。不在即時動態顯示舊煞車或轉向字詞。
+- App 有執行機會時，每約 0.33 秒檢查車況過期並嘗試清屏；超時才回到 App 的舊 HTTP 回覆會捨棄。iOS 暫停 App 或藍牙斷線時，無法保證實體 LED 已清除。
+- 未開始行車即時動態時，切背景會嘗試清屏並暫停輪詢；回前景重新取新資料。結束／系統終止即時動態時，同樣不再允許背景輪詢。App 重啟不自動重開行車即時動態。
+- 清屏按鈕維持原功能：暫停自動車況並取消自訂文字，不因即時動態而重新啟用。停止即時動態不停止前景車況使用。
+
+停車驗證（實車未完成，請分別記錄）：
+A. 前景開始 session，切到其他 App 2 分鐘：確認實體 LED 回應車況，而非只看動態島。
+B. 鎖屏亮著、鎖屏熄屏各 5 分鐘：觀察連動／動畫是否停止，再回 App 確認恢復。
+C. 中斷 C4 Wi-Fi、關閉屏幕藍牙：確認過期與斷線標示；若 LED 保留舊畫面，記錄當時 App 狀態。
+D. 結束即時動態再切背景：不得繼續用舊車況刷新；回前景應重新收資料。
+E. 關閉即時動態權限或重啟 App：應顯示未啟動／需要授權，不宣稱已持續連動。
+此功能沒有修改 C4 車輛控制、橋接金鑰、LED 字體或事件優先順序。無法承諾背景持續時間；強制關閉 App 後不能繼續連動。

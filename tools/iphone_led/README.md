@@ -4,7 +4,7 @@
 
 ## 程式位置與啟動
 
-- `ios/`：CarrotLEDProbe iPhone 原生 App 原始碼（0.13）。Mac 使用 XcodeGen 的 `project.yml` 或既有 Xcode 專案編譯、簽署並安裝。C4 與 iPhone 接入同一區網，iPhone 以 BLE 控制 LOY PLAY 屏幕。
+- `ios/`：CarrotLEDProbe iPhone 原生 App 原始碼（0.14）。Mac 使用 XcodeGen 的 `project.yml` 重新產生含 Live Activity extension 的專案，再簽署並安裝；不能只替換舊專案的 Swift 主檔。C4 與 iPhone 接入同一區網，iPhone 以 BLE 控制 LOY PLAY 屏幕。
 - `mac/`：既有 Mac LED / Carrot HUD 測試工具（0.4.1），執行 `START.command`。Mac 與 iPhone 是兩個獨立客戶端；Mac 不包含後續只在 iPhone 加入的全部 UI 功能。
 - `openpilot/selfdrive/carrot/iphone_led_bridge.py`：C4 正式橋接入口。manager 僅在 TICI/C4、行車介面已啟動且 `/data/iphone-led/token` 存在時執行，使用獨立 spawn 程序並在崩潰後重啟。
 - `c4_carstate_bridge.py` 和 `ios/c4_carstate_bridge.py`：可單獨執行的相同橋接副本，支援 `CARROT_LED_TOKEN` 或上述固定金鑰檔。

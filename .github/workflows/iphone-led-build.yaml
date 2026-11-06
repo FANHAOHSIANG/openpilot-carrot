@@ -1,0 +1,43 @@
+name: iPhone LED build
+on:
+  push:
+    branches: [carrot-wip]
+    paths: ['tools/iphone_led/ios/**', '.github/workflows/iphone-led-build.yaml']
+  pull_request:
+    paths: ['tools/iphone_led/ios/**', '.github/workflows/iphone-led-build.yaml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: tools/iphone_led/ios
+      - name: Generate project
+        working-directory: tools/iphone_led/ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Compile app and Live Activity extension
+        working-directory: tools/iphone_led/ios
+        run: |
+          xcodebuild -project CarrotLEDProbe.xcodeproj -scheme CarrotLEDProbe \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath /tmp/carrot-led-build CODE_SIGNING_ALLOWED=NO build
+      - name: Validate installed bundle declarations
+        run: |
+          python3 - <<'PY'
+          import pathlib, plistlib
+          app = pathlib.Path('/tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app')
+          info = plistlib.loads((app / 'Info.plist').read_bytes())
+          assert info['NSSupportsLiveActivities'] is True
+          assert 'bluetooth-central' in info['UIBackgroundModes']
+          widgets = list((app / 'PlugIns').glob('*.appex/Info.plist'))
+          assert len(widgets) == 1
+          extension = plistlib.loads(widgets[0].read_bytes())
+          assert extension['NSExtension']['NSExtensionPointIdentifier'] == 'com.apple.widgetkit-extension'
+          assert extension['CFBundleIdentifier'].startswith(info['CFBundleIdentifier'] + '.')
+          PY
