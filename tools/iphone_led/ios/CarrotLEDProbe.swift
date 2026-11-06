@@ -81,19 +81,15 @@ struct CarrotLEDProbeApp: App {
                             Text("自訂 \(index + 1)")
                             TextField("文字，最多 16 字", text: $model.customSlots[index].text)
                                 .textFieldStyle(.roundedBorder)
-                            HStack {
-                                TextField("顏色 RRGGBB", text: $model.customSlots[index].color)
-                                    .textInputAutocapitalization(.characters).autocorrectionDisabled()
-                                    .textFieldStyle(.roundedBorder)
-                                Picker("效果", selection: $model.customSlots[index].effect) {
-                                    Text("靜態").tag("static"); Text("閃爍").tag("blink")
-                                    Text("左跑馬燈").tag("left"); Text("右跑馬燈").tag("right")
-                                    Text("呼吸").tag("breathe"); Text("自動換色").tag("rainbow")
-                                    Text("向左動態箭頭").tag("arrowsLeft"); Text("向右動態箭頭").tag("arrowsRight")
-                                    Text("波浪圖案").tag("wave"); Text("愛心圖案").tag("heart")
-                                    Text("警示圖案").tag("warning")
-                                }
-                            }
+                            LEDColorPicker(colorHex: $model.customSlots[index].color)
+                            Picker("效果", selection: $model.customSlots[index].effect) {
+                                Text("靜態").tag("static"); Text("閃爍").tag("blink")
+                                Text("左跑馬燈").tag("left"); Text("右跑馬燈").tag("right")
+                                Text("呼吸").tag("breathe"); Text("自動換色").tag("rainbow")
+                                Text("向左動態箭頭").tag("arrowsLeft"); Text("向右動態箭頭").tag("arrowsRight")
+                                Text("波浪圖案").tag("wave"); Text("愛心圖案").tag("heart")
+                                Text("警示圖案").tag("warning")
+                            }.pickerStyle(.menu)
                             FontMenu(title: "自訂文字字型", selection: $model.customSlots[index].font, choices: model.fontChoices)
                             HStack {
                                 Picker("字重", selection: $model.customSlots[index].bold) {
@@ -190,6 +186,38 @@ struct VehicleStyle: Codable {
     var effect: String
 }
 
+// Store the same RGB value as earlier versions, but let users choose it with
+// the native iOS color picker instead of editing a hexadecimal string.
+struct LEDColorPicker: View {
+    @Binding var colorHex: String
+
+    private var selectedColor: Binding<Color> {
+        Binding(get: {
+            let value = UInt32(colorHex, radix: 16) ?? 0xFFB400
+            return Color(.sRGB,
+                         red: Double((value >> 16) & 255) / 255,
+                         green: Double((value >> 8) & 255) / 255,
+                         blue: Double(value & 255) / 255)
+        }, set: { color in
+            let resolved = UIColor(color).resolvedColor(with: UITraitCollection.current)
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            if !resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+                var white: CGFloat = 0
+                guard resolved.getWhite(&white, alpha: &alpha) else { return }
+                red = white; green = white; blue = white
+            }
+            func channel(_ component: CGFloat) -> Int {
+                Int((min(1, max(0, component)) * 255).rounded())
+            }
+            colorHex = String(format: "%02X%02X%02X", channel(red), channel(green), channel(blue))
+        })
+    }
+
+    var body: some View {
+        ColorPicker("文字顏色", selection: selectedColor, supportsOpacity: false)
+    }
+}
+
 struct VehicleStyleEditor: View {
     let event: String
     @Binding var setting: VehicleStyle
@@ -199,21 +227,7 @@ struct VehicleStyleEditor: View {
             VStack(alignment: .leading, spacing: 8) {
                 TextField("顯示文字，最多 16 字", text: $setting.text)
                     .textFieldStyle(.roundedBorder)
-                HStack {
-                    Text("顏色 #")
-                    TextField("RRGGBB", text: $setting.color)
-                        .textInputAutocapitalization(.characters).autocorrectionDisabled()
-                        .textFieldStyle(.roundedBorder)
-                    Menu("選擇顏色") {
-                        Button("黃橘色") { setting.color = "FFB400" }
-                        Button("紅色") { setting.color = "FF3020" }
-                        Button("白色") { setting.color = "FFFFFF" }
-                        Button("綠色") { setting.color = "00FF00" }
-                        Button("藍色") { setting.color = "0088FF" }
-                        Button("青色") { setting.color = "00FFFF" }
-                        Button("紫色") { setting.color = "CC44FF" }
-                    }
-                }
+                LEDColorPicker(colorHex: $setting.color)
                 HStack {
                     Text("動畫效果")
                     Spacer()
@@ -354,6 +368,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if let data = UserDefaults.standard.data(forKey: "ledCustomSlots"),
            let saved = try? JSONDecoder().decode([CustomSlot].self, from: data), saved.count == 5 {
             customSlots = saved
+        }
+        for index in customSlots.indices where !validHex(customSlots[index].color) {
+            customSlots[index].color = "FFB400"
         }
         // Only request restoration if the *built app* declares the central
         // background mode. Some Xcode projects generate a different Info.plist.
@@ -547,7 +564,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             let style = vehicleDrafts[event] ?? defaultVehicleStyle(for: event)
             guard !style.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   style.text.count <= 16, validHex(style.color), Self.allowedEffects.contains(style.effect) else {
-                vehicleSettingsStatus = "「\(event)」請填 1–16 字及 6 位顏色代碼。"; return
+                vehicleSettingsStatus = "「\(event)」請填 1–16 字，並重新選擇顏色。"; return
             }
             newStyles[event] = style
         }
@@ -606,7 +623,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     @discardableResult func saveSlots() -> Bool {
         guard customSlots.allSatisfy({ $0.text.count <= 16 && ($0.text.isEmpty || validHex($0.color)) }) else {
-            customStatus = "文字最多 16 字，顏色請填 6 位十六進位數字。"; return false
+            customStatus = "文字最多 16 字；若顏色異常，請重新選擇。"; return false
         }
         if let data = try? JSONEncoder().encode(customSlots) {
             UserDefaults.standard.set(data, forKey: "ledCustomSlots")
@@ -621,7 +638,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func activateSlot(_ index: Int) {
         guard (0..<5).contains(index), !customSlots[index].text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               customSlots[index].text.count <= 16, validHex(customSlots[index].color) else {
-            customStatus = "請填入文字及 6 位顏色代碼。"; return
+            customStatus = "請填入文字並選擇顏色。"; return
         }
         guard saveSlots() else { return }
         activeSlot = index; lastDisplayKey = nil
