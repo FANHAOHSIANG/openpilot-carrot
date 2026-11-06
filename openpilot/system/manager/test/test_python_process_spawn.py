@@ -45,7 +45,29 @@ def test_deferred_and_restart_sensitive_services_select_spawn():
   calls = [n for n in ast.walk(ast.parse(path.read_text(encoding='utf-8')))
            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'PythonProcess']
   selected = [n.args[0].value for n in calls if any(k.arg == 'spawn' and ast.literal_eval(k.value) for k in n.keywords)]
-  assert selected == ['signalcolord', 'qcomgpsd', 'carrot_man', 'xiaoge_data']
+  assert selected == ['signalcolord', 'qcomgpsd', 'carrot_man', 'iphone_led_bridge', 'xiaoge_data']
+
+
+@pytest.mark.parametrize('tici', [False, True])
+@pytest.mark.parametrize('started,token_exists', [(False, False), (False, True), (True, False), (True, True)])
+def test_led_bridge_requires_device_onroad_and_local_token(tici, started, token_exists):
+  path = Path(__file__).parents[1] / 'process_config.py'
+  call = next(n for n in ast.walk(ast.parse(path.read_text(encoding='utf-8')))
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'PythonProcess'
+              and n.args[0].value == 'iphone_led_bridge')
+  isfile = Mock(return_value=token_exists)
+  capture = Mock()
+  namespace = {'PythonProcess': capture, 'TICI': tici, 'os': SimpleNamespace(path=SimpleNamespace(isfile=isfile))}
+  eval(compile(ast.Expression(call), str(path), 'eval'), namespace)
+  args, options = capture.call_args
+  assert args[1] == 'openpilot.selfdrive.carrot.iphone_led_bridge'
+  assert options['enabled'] == tici
+  assert options['spawn'] and options['restart_if_crash']
+  assert bool(args[2](started, None, None)) == (started and token_exists)
+  if started:
+    isfile.assert_called_once_with('/data/iphone-led/token')
+  else:
+    isfile.assert_not_called()
 
 
 @pytest.mark.parametrize('legacy_fork', [False, True])
