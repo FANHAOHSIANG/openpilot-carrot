@@ -619,10 +619,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
     func startDrivingSession() {
-        drivingSession.start(sampledAt: lastSample, connected: ready, automatic: enabled)
+        drivingSession.start(sampledAt: lastSample, connected: ready, automatic: enabled, displayText: currentLabel)
     }
     private func updateDrivingSession() {
-        drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled)
+        drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled, displayText: currentLabel)
     }
     func enterBackground() {
         let wasPreview = previewStyle != nil
@@ -748,6 +748,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if drawActive { enqueue([0x30, 0x01, 0x65]); drawActive = false }
         enqueue([4, 2, 0, on ? 1 : 0]); lastLabel = nil
         bluetoothStatus = on ? "已送開屏指令，請目視確認" : "已送關屏指令，請目視確認"
+        currentLabel = on ? "已送開屏指令" : "已送關屏指令"
+        updateDrivingSession()
     }
 
     func clearScreen() {

@@ -34,7 +34,7 @@ final class DrivingSession: ObservableObject {
         else { message = "等待 C4 車況與屏幕連線，會自動啟動背景連動" }
     }
 
-    private func tryAutoStart(sampledAt: Date, connected: Bool, automatic: Bool) {
+    private func tryAutoStart(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String) {
         guard autoStart, !active, cleanupComplete,
               UIApplication.shared.applicationState == .active,
               connected, automatic, Date().timeIntervalSince(sampledAt) >= 0,
@@ -42,10 +42,10 @@ final class DrivingSession: ObservableObject {
               Date() >= nextAutoAttempt else { return }
         // Do not hammer ActivityKit when permission or OS support is unavailable.
         nextAutoAttempt = Date().addingTimeInterval(30)
-        start(sampledAt: sampledAt, connected: connected, automatic: automatic)
+        start(sampledAt: sampledAt, connected: connected, automatic: automatic, displayText: displayText)
     }
 
-    func start(sampledAt: Date, connected: Bool, automatic: Bool) {
+    func start(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String) {
         guard !active, cleanupComplete else { return }
         guard #available(iOS 26.0, *) else {
             message = "背景藍牙即時動態測試需要 iOS 26 或以上"; return
@@ -58,7 +58,7 @@ final class DrivingSession: ObservableObject {
             message = "請先連接屏幕、收到有效 C4 車況，並開啟自動顯示車況"; return
         }
         let state = LEDActivityAttributes.ContentState(sampledAt: sampledAt, fresh: true,
-                                                       screenConnected: connected, automatic: automatic)
+                                                       screenConnected: connected, automatic: automatic, displayText: displayText)
         do {
             let item = try Activity.request(attributes: LEDActivityAttributes(title: "Carrot 行車連動"),
                 content: ActivityContent(state: state, staleDate: sampledAt.addingTimeInterval(0.9)), pushType: nil)
@@ -81,14 +81,14 @@ final class DrivingSession: ObservableObject {
         } catch { message = "無法開始即時動態：\(error.localizedDescription)" }
     }
 
-    func update(sampledAt: Date, connected: Bool, automatic: Bool) {
-        tryAutoStart(sampledAt: sampledAt, connected: connected, automatic: automatic)
+    func update(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String) {
+        tryAutoStart(sampledAt: sampledAt, connected: connected, automatic: automatic, displayText: displayText)
         guard let item = activity, active else { return }
         let now = Date()
         let fresh = now.timeIntervalSince(sampledAt) < 0.9
         let state = LEDActivityAttributes.ContentState(sampledAt: sampledAt, fresh: fresh,
-                                                       screenConnected: connected, automatic: automatic)
-        let changed = lastState?.fresh != fresh || lastState?.screenConnected != connected || lastState?.automatic != automatic
+                                                       screenConnected: connected, automatic: automatic, displayText: displayText)
+        let changed = lastState?.fresh != fresh || lastState?.screenConnected != connected || lastState?.automatic != automatic || lastState?.displayText != displayText
         // Avoid sending every 5 Hz vehicle packet to ActivityKit. A conservative
         // staleDate can show expired between updates; never extend freshness.
         guard changed || now.timeIntervalSince(lastUpdate) >= 1 else { return }

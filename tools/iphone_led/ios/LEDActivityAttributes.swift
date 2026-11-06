@@ -7,6 +7,8 @@ struct LEDActivityAttributes: ActivityAttributes {
         var fresh: Bool
         var screenConnected: Bool
         var automatic: Bool
+        // Optional so an existing activity payload without text remains decodable.
+        var displayText: String?
     }
     var title: String
 }
