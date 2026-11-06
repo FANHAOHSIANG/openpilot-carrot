@@ -152,30 +152,123 @@ struct FontMenu: View {
     let title: String
     @Binding var selection: String
     let choices: [LEDFontChoice]
+    @State private var pickerSession: FontPickerSession?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.subheadline)
-            Menu {
-                ForEach(choices) { choice in
-                    Button { selection = choice.id } label: {
-                        if selection == choice.id { Label(choice.title, systemImage: "checkmark") }
-                        else { Text(choice.title) }
-                    }
-                }
+            Button {
+                // Snapshot the choices and selection once per presentation.
+                // Live vehicle updates must not restart an open font list.
+                pickerSession = FontPickerSession(title: title, selection: selection, choices: choices)
             } label: {
                 HStack {
                     Image(systemName: "textformat")
                     Text("選擇字型：\(choices.first(where: { $0.id == selection })?.title ?? selection)")
                         .lineLimit(2)
+                        .frame(height: 44, alignment: .leading)
                     Spacer(minLength: 8)
-                    Image(systemName: "chevron.up.chevron.down")
+                    Image(systemName: "chevron.right")
                 }
                 .padding(10)
                 .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
             }
+            .sheet(item: $pickerSession) { session in
+                FontPickerSheet(session: session) { chosen in
+                    selection = chosen
+                    pickerSession = nil
+                }
+                .id(session.id)
+            }
             Text("系統樣式可能使用相同中文字型；其他選項已檢查部分繁體字，請以屏幕顯示為準。")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct FontPickerSession: Identifiable {
+    let id = UUID()
+    let title: String
+    let selection: String
+    let choices: [LEDFontChoice]
+}
+
+struct FontPickerSheet: View {
+    let session: FontPickerSession
+    let onApply: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftSelection: String
+    @State private var search = ""
+    @State private var positionedInitially = false
+
+    init(session: FontPickerSession, onApply: @escaping (String) -> Void) {
+        self.session = session
+        self.onApply = onApply
+        _draftSelection = State(initialValue: session.selection)
+    }
+
+    private var visibleChoices: [LEDFontChoice] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty ? session.choices : session.choices.filter {
+            $0.title.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if visibleChoices.isEmpty {
+                            Text("找不到符合的字型").foregroundStyle(.secondary).padding()
+                        }
+                        ForEach(visibleChoices) { choice in
+                            Button { draftSelection = choice.id } label: {
+                                HStack(spacing: 12) {
+                                    Text(choice.title)
+                                        .foregroundStyle(.primary)
+                                        .multilineTextAlignment(.leading)
+                                        .lineLimit(2)
+                                    Spacer(minLength: 4)
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.accentColor)
+                                        .frame(width: 22)
+                                        .opacity(draftSelection == choice.id ? 1 : 0)
+                                }
+                                .frame(minHeight: 44)
+                                .padding(.horizontal)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityValue(draftSelection == choice.id ? "已選取" : "未選取")
+                            .id(choice.id)
+                            Divider()
+                        }
+                    }
+                }
+                .onAppear {
+                    guard !positionedInitially else { return }
+                    positionedInitially = true
+                    // Scroll only when this picker opens, never on selection
+                    // changes or incoming C4 messages.
+                    DispatchQueue.main.async {
+                        proxy.scrollTo(session.selection, anchor: .center)
+                    }
+                }
+            }
+            .navigationTitle(session.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $search, prompt: "搜尋字型名稱")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("套用") { onApply(draftSelection) }
+                        .disabled(!session.choices.contains(where: { $0.id == draftSelection }))
+                }
+            }
         }
     }
 }
