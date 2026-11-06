@@ -701,6 +701,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         else if speed >= 5.0/3.6 && accel <= -2.0 {
             if hardSince == nil { hardSince = now }; if now.timeIntervalSince(hardSince!) >= 0.3 { hard = true }
         } else { hardSince = nil }
+        // In D, both the brake pedal and sustained regenerative deceleration
+        // take precedence over turn signals and hazard-light messages.
+        if gear == "drive" && (brake || slowing) { return "減速中" }
         if gear == "reverse" || gear == "r" {
             slowing = false; hard = false; slowingSince = nil; hardSince = nil
             return "倒車"
@@ -712,7 +715,6 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             return ""
         }
         if left { return "左轉彎" }; if right { return "右轉彎" }
-        if gear == "drive" && (brake || slowing) { return "減速中" }
         return ""
     }
     private func requestDisplay(_ label: String) {
