@@ -312,6 +312,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var generation = UUID()
     private var slowingSince: Date?
     private var hardSince: Date?
+    private var congestionAlternationSince: Date?
     private var slowing = false
     private var hard = false
     private var lastLabel: String?
@@ -652,7 +653,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func disconnectC4() {
         autoC4 = false
         generation = UUID(); timer?.invalidate(); timer = nil
-        lastSample = .distantPast; slowingSince = nil; hardSince = nil; slowing = false; hard = false
+        lastSample = .distantPast; slowingSince = nil; hardSince = nil; congestionAlternationSince = nil
+        slowing = false; hard = false
         vehicleStatus = "C4 已斷線"; values = "等待車況"
         if enabled { requestDisplay("") }
     }
@@ -689,7 +691,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     private func invalidate() {
         vehicleStatus = "C4 資料中斷，嘗試清屏"
-        slowing = false; hard = false; slowingSince = nil; hardSince = nil
+        slowing = false; hard = false; slowingSince = nil; hardSince = nil; congestionAlternationSince = nil
         if enabled && ready { requestDisplay("") }
     }
     private func choose(speed: Double, accel: Double, brake: Bool, left: Bool, right: Bool, gear: String, now: Date) -> String {
@@ -701,9 +703,20 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         else if speed >= 5.0/3.6 && accel <= -2.0 {
             if hardSince == nil { hardSince = now }; if now.timeIntervalSince(hardSince!) >= 0.3 { hard = true }
         } else { hardSince = nil }
-        // In D, both the brake pedal and sustained regenerative deceleration
-        // take precedence over turn signals and hazard-light messages.
-        if gear == "drive" && (brake || slowing) { return "減速中" }
+        // Remember a hard-deceleration + hazard event while the hazard lights
+        // and braking/deceleration persist; otherwise a short hard-decel peak
+        // may end before the second message can be shown.
+        if gear == "drive" && (brake || slowing) {
+            if left && right {
+                if hard && congestionAlternationSince == nil { congestionAlternationSince = now }
+                if let start = congestionAlternationSince {
+                    let elapsed = max(0, now.timeIntervalSince(start))
+                    return Int(elapsed / 2) % 2 == 0 ? "減速中" : "前方塞車"
+                }
+            } else { congestionAlternationSince = nil }
+            return "減速中"
+        }
+        congestionAlternationSince = nil
         if gear == "reverse" || gear == "r" {
             slowing = false; hard = false; slowingSince = nil; hardSince = nil
             return "倒車"
