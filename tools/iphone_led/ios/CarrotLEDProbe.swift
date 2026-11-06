@@ -35,6 +35,7 @@ struct CarrotLEDProbeApp: App {
                     Picker("車況字型", selection: $model.vehicleFont) {
                         Text("標準").tag("standard"); Text("圓體").tag("rounded")
                         Text("等寬").tag("monospaced"); Text("襯線").tag("serif")
+                        ForEach(model.availableFonts, id: \.self) { name in Text(name).tag("font:" + name) }
                     }
                     Text("目前提示：\(model.currentLabel)")
                     HStack {
@@ -42,6 +43,32 @@ struct CarrotLEDProbeApp: App {
                         Button("燈珠全亮測試") { model.testAllPixels() }.disabled(!model.ready)
                     }
                     Text("清除屏幕會暫停車況連動，重新開啟「自動顯示車況」可恢復。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Divider()
+                    Text("車況文字設定").font(.headline)
+                    ForEach(model.eventKeys, id: \.self) { event in
+                        HStack {
+                            Text(event).frame(width: 120, alignment: .leading)
+                            TextField("顯示文字", text: Binding(
+                                get: { model.vehicleDrafts[event] ?? event },
+                                set: { model.vehicleDrafts[event] = $0 }))
+                                .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                    Button("儲存車況文字") { model.saveVehicleTexts() }
+                    Text(model.settingsStatus).font(.footnote)
+                    Text("屏幕與文字像素").font(.headline)
+                    HStack {
+                        TextField("屏幕寬", text: $model.widthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        Text("×")
+                        TextField("屏幕高", text: $model.heightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                    }
+                    HStack {
+                        TextField("字高像素", text: $model.fontHeightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        TextField("字寬 %", text: $model.fontWidthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                    }
+                    Button("套用像素設定") { model.applyDisplaySettings() }
+                    Text("屏幕寬高須與實際燈珠數相符；字高以像素設定、字寬以百分比調整。")
                         .font(.footnote).foregroundStyle(.secondary)
                     Divider()
                     Text("五組自訂文字").font(.headline)
@@ -66,6 +93,7 @@ struct CarrotLEDProbeApp: App {
                             Picker("字型", selection: $model.customSlots[index].font) {
                                 Text("標準").tag("standard"); Text("圓體").tag("rounded")
                                 Text("等寬").tag("monospaced"); Text("襯線").tag("serif")
+                                ForEach(model.availableFonts, id: \.self) { name in Text(name).tag("font:" + name) }
                             }
                             HStack {
                                 Picker("字重", selection: $model.customSlots[index].bold) {
@@ -115,7 +143,7 @@ struct CustomSlot: Codable {
         effect = try values.decodeIfPresent(String.self, forKey: .effect) ?? "static"
         bold = try values.decodeIfPresent(Bool.self, forKey: .bold) ?? false
         font = try values.decodeIfPresent(String.self, forKey: .font) ?? "standard"
-        if !["standard", "rounded", "monospaced", "serif"].contains(font) { font = "standard" }
+        if !["standard", "rounded", "monospaced", "serif"].contains(font) && !font.hasPrefix("font:") { font = "standard" }
     }
 }
 
@@ -147,6 +175,19 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     @Published var customSlots = Array(repeating: CustomSlot(), count: 5)
     @Published var customStatus = "儲存後選擇顯示；車況提示優先。"
+    let eventKeys = ["左轉彎", "右轉彎", "減速中", "暫停一下謝謝", "謝謝", "前方塞車"]
+    let availableFonts = UIFont.familyNames.sorted().flatMap { UIFont.fontNames(forFamilyName: $0).sorted() }
+    @Published var vehicleDrafts = [String: String]()
+    @Published var settingsStatus = "車況文字可編輯並儲存。"
+    @Published var widthDraft = "96"
+    @Published var heightDraft = "16"
+    @Published var fontHeightDraft = "16"
+    @Published var fontWidthDraft = "100"
+    private var vehicleTexts = [String: String]()
+    private var panelWidth = 96
+    private var panelHeight = 16
+    private var fontHeight = 16
+    private var fontWidthPercent = 100
     private var activeSlot: Int?
     private var lastDisplayKey: String?
     private var pendingCustom = false
@@ -176,6 +217,17 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     override init() {
         super.init()
         token = readKey() ?? ""
+        vehicleTexts = UserDefaults.standard.dictionary(forKey: "ledVehicleTexts") as? [String: String] ?? [:]
+        vehicleDrafts = vehicleTexts
+        let savedWidth = UserDefaults.standard.integer(forKey: "ledPanelWidth")
+        let savedHeight = UserDefaults.standard.integer(forKey: "ledPanelHeight")
+        let savedFontHeight = UserDefaults.standard.integer(forKey: "ledFontHeight")
+        let savedFontWidth = UserDefaults.standard.integer(forKey: "ledFontWidthPercent")
+        if (8...256).contains(savedWidth), (8...64).contains(savedHeight) { panelWidth = savedWidth; panelHeight = savedHeight }
+        fontHeight = (1...panelHeight).contains(savedFontHeight) ? savedFontHeight : panelHeight
+        fontWidthPercent = (50...200).contains(savedFontWidth) ? savedFontWidth : 100
+        widthDraft = String(panelWidth); heightDraft = String(panelHeight)
+        fontHeightDraft = String(fontHeight); fontWidthDraft = String(fontWidthPercent)
         if let data = UserDefaults.standard.data(forKey: "ledCustomSlots"),
            let saved = try? JSONDecoder().decode([CustomSlot].self, from: data), saved.count == 5 {
             customSlots = saved
@@ -352,14 +404,56 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         currentLabel = "清屏中"
         requestDisplay("")
     }
+    func saveVehicleTexts() {
+        guard eventKeys.allSatisfy({ let text = vehicleDrafts[$0] ?? $0; return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && text.count <= 16 }) else {
+            settingsStatus = "每個車況文字需為 1 至 16 字。"; return
+        }
+        vehicleTexts = Dictionary(uniqueKeysWithValues: eventKeys.map { ($0, vehicleDrafts[$0] ?? $0) })
+        UserDefaults.standard.set(vehicleTexts, forKey: "ledVehicleTexts")
+        lastDisplayKey = nil; settingsStatus = "車況文字已儲存。"
+    }
+    func applyDisplaySettings() {
+        guard let w = Int(widthDraft), (8...256).contains(w), let h = Int(heightDraft), (8...64).contains(h),
+              let fh = Int(fontHeightDraft), (1...h).contains(fh), let fw = Int(fontWidthDraft), (50...200).contains(fw) else {
+            settingsStatus = "寬 8–256、高 8–64，字高不可超過屏幕高，字寬 50–200%。"; return
+        }
+        guard !sending && frames.isEmpty else { settingsStatus = "正在傳送，請稍後再按套用。"; return }
+        if ready && drawActive { enqueue(clearCommand()) }
+        panelWidth = w; panelHeight = h; fontHeight = fh; fontWidthPercent = fw
+        UserDefaults.standard.set(w, forKey: "ledPanelWidth"); UserDefaults.standard.set(h, forKey: "ledPanelHeight")
+        UserDefaults.standard.set(fh, forKey: "ledFontHeight"); UserDefaults.standard.set(fw, forKey: "ledFontWidthPercent")
+        lastDisplayKey = nil; settingsStatus = "已儲存屏幕與字體像素設定。"
+    }
+    private func word(_ value: Int) -> [UInt8] { [UInt8(value & 255), UInt8((value >> 8) & 255)] }
+    private func drawCommand(_ data: [UInt8]) -> [UInt8] {
+        if data.count < 128 { return [0x32, UInt8(data.count)] + data }
+        if data.count < 256 { return [0x32, 0x81, UInt8(data.count)] + data }
+        return [0x32, 0x82] + word(data.count) + data
+    }
+    private func clearCommand() -> [UInt8] {
+        drawCommand([0x01,0,0,0,0] + word(0) + word(0) + word(panelWidth - 1) + word(panelHeight - 1))
+    }
+    private func drawPixels(_ pixels: [UInt8], color: [UInt8]) {
+        let rowBytes = (panelWidth + 7) / 8
+        let rowsPerPacket = max(1, 240 / rowBytes)
+        for y in stride(from: 0, to: panelHeight, by: rowsPerPacket) {
+            let end = min(panelHeight, y + rowsPerPacket)
+            let header = [UInt8(0)] + color + word(0) + word(y) + word(panelWidth - 1) + word(end - 1)
+            enqueue(drawCommand(header + Array(pixels[(y * rowBytes)..<(end * rowBytes)])))
+        }
+    }
     func testAllPixels() {
         guard ready else { return }
         enabled = false; activeSlot = nil; queuedLabel = nil; lastDisplayKey = nil
         if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
-        var payload: [UInt8] = [0x00,255,255,255, 0,0,0,0,95,0,15,0]
-        payload += [UInt8](repeating: 255, count: 192)
-        enqueue([0x32,0x81,UInt8(payload.count)] + payload)
-        currentLabel = "96 × 16 全亮測試"
+        let rowBytes = (panelWidth + 7) / 8
+        var pixels = [UInt8](repeating: 255, count: rowBytes * panelHeight)
+        if panelWidth % 8 != 0 {
+            let mask = UInt8((0xff << (8 - panelWidth % 8)) & 0xff)
+            for y in 0..<panelHeight { pixels[y * rowBytes + rowBytes - 1] = mask }
+        }
+        drawPixels(pixels, color: [255,255,255])
+        currentLabel = "\(panelWidth) × \(panelHeight) 全亮測試"
         customStatus = "請目視檢查燈珠；按清除屏幕結束。"
     }
     @discardableResult func saveSlots() -> Bool {
@@ -478,19 +572,18 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         let turn = label == "左轉彎" || label == "右轉彎"
         if turn { phase = tick }
         let fontChoice = slot?.font ?? vehicleFont
-        let key = "\(label)|\(slot?.text ?? "")|\(slot?.color ?? "")|\(slot?.effect ?? "")|\(slot?.bold ?? false)|\(fontChoice)|\(phase)"
+        let displayText = slot?.text ?? vehicleTexts[label] ?? label
+        let key = "\(label)|\(displayText)|\(slot?.color ?? "")|\(slot?.effect ?? "")|\(slot?.bold ?? false)|\(fontChoice)|\(phase)"
         if sending || !frames.isEmpty { queuedLabel = label; return }
         guard key != lastDisplayKey else { return }
         lastDisplayKey = key; lastLabel = label
-        let text = slot?.text ?? label
+        let text = displayText
         currentLabel = text.isEmpty ? "清屏" : text
         if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
-        let clear: [UInt8] = [0x32,0x0d,0x01,0,0,0,0, 0,0,0,0,95,0,15,0]
         let scrolling = slot?.effect == "left" || slot?.effect == "right"
-        let animatedPattern = turn || ["arrowsLeft", "arrowsRight", "wave", "heart", "warning"].contains(slot?.effect ?? "")
-        // An animated full-screen bitmap avoids the blank frame caused by clear+redraw.
-        // Device behavior must still be visually verified for trails.
-        if !(scrolling || animatedPattern) { enqueue(clear) }
+        // The screen may treat zero bits as transparent; clear each frame before drawing.
+        // This is a software fallback, not a confirmed native marquee command.
+        enqueue(clearCommand())
         if text.isEmpty || (slot?.effect == "blink" && tick % 2 == 1) { return }
         let offset = slot?.effect == "left" ? -(tick * 2) : slot?.effect == "right" ? (tick * 2) : 0
         let pattern = turn ? (label == "左轉彎" ? "turnLeft" : "turnRight") : (slot?.effect ?? "static")
@@ -508,23 +601,17 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 rgb = [UInt8(r*255), UInt8(g*255), UInt8(b*255)]
             }
         }
-        var content: [UInt8] = [0x00] + rgb + [0,0,0,0,95,0,15,0]
-        content += pixels
-        var command: [UInt8] = [0x32]
-        if content.count < 128 { command += [UInt8(content.count)] }
-        else { command += [0x81, UInt8(content.count)] }
-        command += content
-        enqueue(command)
+        drawPixels(pixels, color: rgb)
     }
     private func bitmap(_ text: String, offset: Int = 0, customBold: Bool? = nil,
                         fontChoice: String = "standard", pattern: String = "static", phase: Int = 0, scrolling: Bool = false) -> [UInt8]? {
-        let size = CGSize(width: 96, height: 16)
+        let size = CGSize(width: CGFloat(panelWidth), height: CGFloat(panelHeight))
         let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
         let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
             UIColor.black.setFill(); context.fill(CGRect(origin: .zero, size: size))
             // Measure actual glyph ink, then scale it to the panel height.
             // The typographic width includes spaces; preserve those advances.
-            let turnMessage = (text == "左轉彎" || text == "右轉彎")
+            let turnMessage = (pattern == "turnLeft" || pattern == "turnRight")
             let useBold = customBold ?? !turnMessage
             let weight: UIFont.Weight = useBold ? .bold : .regular
             let base = UIFont.systemFont(ofSize: 32, weight: weight)
@@ -536,6 +623,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 font = UIFont.monospacedSystemFont(ofSize: 32, weight: weight)
             case "serif":
                 font = base.fontDescriptor.withDesign(.serif).map { UIFont(descriptor: $0, size: 32) } ?? base
+            case let name where name.hasPrefix("font:"):
+                let selected = UIFont(name: String(name.dropFirst(5)), size: 32) ?? base
+                if useBold, let descriptor = selected.fontDescriptor.withSymbolicTraits(selected.fontDescriptor.symbolicTraits.union(.traitBold)) {
+                    font = UIFont(descriptor: descriptor, size: 32)
+                } else { font = selected }
             default:
                 font = base
             }
@@ -546,25 +638,27 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
             guard !bounds.isNull, bounds.height.isFinite, bounds.height > 0, width.isFinite else { return }
             let hasEdgePattern = ["turnLeft", "turnRight", "arrowsLeft", "arrowsRight", "wave", "heart", "warning"].contains(pattern)
-            let availableWidth: CGFloat = hasEdgePattern ? 68 : 96
+            let availableWidth = CGFloat(panelWidth) * (hasEdgePattern ? 68.0 / 96.0 : 1.0)
             let inkHeight = max(CGFloat(1), bounds.height)
-            var scale = 15 / inkHeight
-            if !scrolling { scale = min(scale, availableWidth / max(CGFloat(1), width)) }
-            let textWidth = width * scale
-            let baseline = (16 - bounds.height * scale) / 2 + bounds.maxY * scale
-            let period = max(CGFloat(120), textWidth + 24)
+            let scaleY = CGFloat(fontHeight) / inkHeight
+            var scaleX = scaleY * CGFloat(fontWidthPercent) / 100
+            if !scrolling { scaleX = min(scaleX, availableWidth / max(CGFloat(1), width)) }
+            let textWidth = width * scaleX
+            let baseline = (CGFloat(panelHeight) - bounds.height * scaleY) / 2 + bounds.maxY * scaleY
+            let period = max(CGFloat(panelWidth + 24), textWidth + 24)
             let distance = CGFloat(abs(offset)).truncatingRemainder(dividingBy: period)
-            let start: CGFloat = scrolling ? (offset <= 0 ? 96 - distance : -textWidth + distance) : (96 - textWidth) / 2
+            let start: CGFloat = scrolling ? (offset <= 0 ? CGFloat(panelWidth) - distance : -textWidth + distance) : (CGFloat(panelWidth) - textWidth) / 2
             let copies: [CGFloat] = scrolling ? [start - period, start, start + period] : [start]
             for x in copies {
                 context.cgContext.saveGState()
                 context.cgContext.translateBy(x: x, y: baseline)
-                context.cgContext.scaleBy(x: scale, y: -scale)
+                context.cgContext.scaleBy(x: scaleX, y: -scaleY)
                 context.cgContext.textPosition = .zero
                 CTLineDraw(line, context.cgContext)
                 context.cgContext.restoreGState()
             }
             let cg = context.cgContext
+            cg.scaleBy(x: CGFloat(panelWidth) / 96, y: CGFloat(panelHeight) / 16)
             cg.setStrokeColor(UIColor.white.cgColor)
             cg.setLineWidth(1)
             if ["turnLeft", "turnRight", "arrowsLeft", "arrowsRight"].contains(pattern) {
@@ -613,18 +707,19 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             }
         }
         guard let cg = image.cgImage else { return nil }
-        var bytes = [UInt8](repeating: 0, count: 96 * 16 * 4)
+        var bytes = [UInt8](repeating: 0, count: panelWidth * panelHeight * 4)
         let ok = bytes.withUnsafeMutableBytes { raw -> Bool in
-            guard let context = CGContext(data: raw.baseAddress, width: 96, height: 16, bitsPerComponent: 8,
-                bytesPerRow: 96 * 4, space: CGColorSpaceCreateDeviceRGB(),
+            guard let context = CGContext(data: raw.baseAddress, width: panelWidth, height: panelHeight, bitsPerComponent: 8,
+                bytesPerRow: panelWidth * 4, space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
-            context.draw(cg, in: CGRect(x: 0, y: 0, width: 96, height: 16)); return true
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: CGFloat(panelWidth), height: CGFloat(panelHeight))); return true
         }
         guard ok else { return nil }
-        var packed = [UInt8](repeating: 0, count: 12 * 16)
-        for y in 0..<16 { for x in 0..<96 {
-            let offset = (y * 96 + x) * 4
-            if bytes[offset] > 60 { packed[y * 12 + x / 8] |= UInt8(0x80 >> (x % 8)) }
+        let rowBytes = (panelWidth + 7) / 8
+        var packed = [UInt8](repeating: 0, count: rowBytes * panelHeight)
+        for y in 0..<panelHeight { for x in 0..<panelWidth {
+            let offset = (y * panelWidth + x) * 4
+            if bytes[offset] > 60 { packed[y * rowBytes + x / 8] |= UInt8(0x80 >> (x % 8)) }
         }}
         return packed
     }
