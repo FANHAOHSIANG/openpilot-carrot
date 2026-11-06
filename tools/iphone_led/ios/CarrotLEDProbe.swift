@@ -8,11 +8,14 @@ import CoreText
 struct CarrotLEDProbeApp: App {
     @StateObject private var model = CarrotLED()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var page = 0
     var body: some Scene {
         WindowGroup {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("C4 → iPhone → 後窗 LED").font(.title2.bold())
+                    Picker("頁面", selection: $page) { Text("快捷顯示").tag(0); Text("編輯與連線設定").tag(1) }.pickerStyle(.segmented)
+                    if page == 0 { LEDQuickView(model: model) } else {
                     Text("先在 C4 啟動唯讀車況橋接，iPhone 與 C4 接入同一區網。")
                     TextField("C4 的 IP", text: $model.host).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
                     SecureField("橋接連線金鑰", text: $model.token).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
@@ -32,8 +35,7 @@ struct CarrotLEDProbeApp: App {
                         Button("開啟屏幕") { model.power(true) }.disabled(!model.ready)
                         Button("關閉屏幕") { model.power(false) }.disabled(!model.ready)
                     }
-                    Toggle("自動顯示車況", isOn: $model.enabled)
-                    FontMenu(title: "車況文字字型", selection: $model.vehicleFont, choices: model.fontChoices)
+                    Toggle("自動顯示車況", isOn: model.automaticBinding)
                     Text("目前提示：\(model.currentLabel)")
                     HStack {
                         Button("清除屏幕") { model.clearScreen() }.disabled(!model.ready)
@@ -46,8 +48,9 @@ struct CarrotLEDProbeApp: App {
                     Text("點選車況展開設定，完成後按下方儲存。倒車提示優先於其他車況。")
                         .font(.footnote).foregroundStyle(.secondary)
                     ForEach(model.eventKeys, id: \.self) { event in
-                        VehicleStyleEditor(event: event, setting: model.vehicleBinding(for: event))
+                        VehicleStyleEditor(event: model.eventTitle(event), setting: model.vehicleBinding(for: event), choices: model.fontChoices, preview: { model.previewVehicle(event, draft: true) })
                     }
+                    Text(model.previewStatus).font(.footnote).foregroundStyle(.orange)
                     Button("儲存所有車況設定") { model.saveVehicleTexts() }
                     Text(model.vehicleSettingsStatus).font(.footnote)
                     Text("屏幕與文字像素").font(.headline)
@@ -105,6 +108,7 @@ struct CarrotLEDProbeApp: App {
                     Text(model.customStatus).font(.footnote)
                     Text("預設 96 × 16。已加入自動連線與背景藍牙；iOS 可能暫停背景車況接收，請先停車實測。")
                         .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }.padding()
             }
             .scrollDismissesKeyboard(.interactively)
@@ -120,6 +124,47 @@ struct CarrotLEDProbeApp: App {
                 if phase == .active { model.returnToForeground() }
                 if phase == .background { model.enterBackground() }
             }
+        }
+    }
+}
+
+struct LEDQuickView: View {
+    @ObservedObject var model: CarrotLED
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(model.vehicleStatus).font(.headline)
+            Text(model.bluetoothStatus)
+            Text(model.values).font(.caption.monospaced())
+            Text("目前送出：\(model.currentLabel)").font(.title3.bold())
+            Text(model.previewStatus).foregroundStyle(.orange)
+            Toggle("自動車況", isOn: model.automaticBinding)
+            Button("清屏 · 暫停所有顯示") { model.clearScreen() }
+                .buttonStyle(.borderedProminent).disabled(!model.ready)
+            DrivingSessionView(session: model.drivingSession) { model.startDrivingSession() }
+            Text("車況快捷預覽").font(.headline)
+            Text("手動預覽 5 秒後恢復原模式；請停車操作。畫面為送出內容，非屏幕回讀。")
+                .font(.caption).foregroundStyle(.secondary)
+            ForEach(model.eventKeys, id: \.self) { key in
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(model.eventTitle(key)).bold()
+                        Text(model.eventText(key)).font(.caption)
+                    }
+                    Spacer()
+                    Button("顯示") { model.previewVehicle(key) }.buttonStyle(.bordered)
+                        .disabled(!model.ready)
+                }.frame(minHeight: 52)
+            }
+            Text("自訂文字快捷").font(.headline)
+            ForEach(0..<5, id: \.self) { index in
+                HStack {
+                    Text(model.customSlots[index].text.isEmpty ? "自訂 \(index+1)（未設定）" : model.customSlots[index].text)
+                    Spacer()
+                    Button("顯示") { model.activateSlot(index) }.buttonStyle(.bordered)
+                        .disabled(!model.ready || model.customSlots[index].text.isEmpty)
+                }.frame(minHeight: 52)
+            }
+            Text(model.customStatus).font(.caption)
         }
     }
 }
@@ -278,6 +323,20 @@ struct VehicleStyle: Codable {
     var text: String
     var color: String
     var effect: String
+    var font: String = "standard"
+    var bold: Bool = false
+    private enum CodingKeys: String, CodingKey { case text, color, effect, font, bold }
+    init(text: String, color: String, effect: String, font: String = "standard", bold: Bool = false) {
+        self.text = text; self.color = color; self.effect = effect; self.font = font; self.bold = bold
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        text = try c.decode(String.self, forKey: .text)
+        color = try c.decode(String.self, forKey: .color)
+        effect = try c.decode(String.self, forKey: .effect)
+        font = try c.decodeIfPresent(String.self, forKey: .font) ?? UserDefaults.standard.string(forKey: "ledVehicleFont") ?? "standard"
+        bold = try c.decodeIfPresent(Bool.self, forKey: .bold) ?? !["左轉彎", "右轉彎"].contains(decoder.codingPath.last?.stringValue ?? text)
+    }
 }
 
 // Store the same RGB value as earlier versions, but let users choose it with
@@ -315,6 +374,8 @@ struct LEDColorPicker: View {
 struct VehicleStyleEditor: View {
     let event: String
     @Binding var setting: VehicleStyle
+    let choices: [LEDFontChoice]
+    let preview: () -> Void
 
     var body: some View {
         DisclosureGroup {
@@ -322,6 +383,9 @@ struct VehicleStyleEditor: View {
                 TextField("顯示文字，最多 16 字", text: $setting.text)
                     .textFieldStyle(.roundedBorder)
                 LEDColorPicker(colorHex: $setting.color)
+                FontMenu(title: "此項字型", selection: $setting.font, choices: choices)
+                Toggle("此項加粗", isOn: $setting.bold)
+                Button("顯示預覽（5 秒）", action: preview)
                 HStack {
                     Text("動畫效果")
                     Spacer()
@@ -407,6 +471,33 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var fontHeight = 16
     private var fontWidthPercent = 100
     private var activeSlot: Int?
+    private var previewStyle: VehicleStyle?
+    private var previewUntil = Date.distantPast
+    @Published var previewStatus = ""
+    var automaticBinding: Binding<Bool> {
+        Binding(get: { self.enabled }, set: { value in
+            self.endPreview(); self.enabled = value; self.lastDisplayKey = nil
+            if self.ready { self.requestDisplay(!value && self.activeSlot != nil ? "__custom__" : "") }
+        })
+    }
+    func eventTitle(_ key: String) -> String {
+        let names = ["R檔", "左方向燈", "右方向燈", "煞車", "雙黃燈", "感謝燈", "急煞雙黃燈"]
+        return eventKeys.firstIndex(of: key).map { names[$0] } ?? key
+    }
+    func eventText(_ key: String) -> String { vehicleStyles[key]?.text ?? key }
+    func previewVehicle(_ key: String, draft: Bool = false) {
+        guard ready else { previewStatus = "請先連接屏幕"; return }
+        guard let style = (draft ? vehicleDrafts[key] : vehicleStyles[key]),
+              !style.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              style.text.count <= 16, validHex(style.color) else { previewStatus = "請先填入有效文字與顏色"; return }
+        previewStyle = style; previewUntil = Date().addingTimeInterval(5)
+        previewStatus = "手動預覽：\(eventTitle(key))（5 秒，暫停自動顯示）"
+        lastDisplayKey = nil; requestDisplay("__preview__")
+    }
+    func endPreview() {
+        if queuedLabel == "__preview__" { queuedLabel = nil }
+        previewStyle = nil; previewUntil = .distantPast; previewStatus = ""; lastDisplayKey = nil
+    }
     private var lastDisplayKey: String?
     private var pendingCustom = false
     private var central: CBCentralManager!
@@ -486,6 +577,12 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         Timer.scheduledTimer(withTimeInterval: 0.33, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                if self.previewStyle != nil {
+                    if Date() < self.previewUntil && self.ready {
+                        self.requestDisplay("__preview__"); self.updateDrivingSession(); return
+                    }
+                    self.endPreview(); self.requestDisplay("")
+                }
                 if self.enabled && Date().timeIntervalSince(self.lastSample) >= 0.9 { self.invalidate() }
                 self.updateDrivingSession()
                 guard !self.inBackground || self.drivingSession.active else { return }
@@ -528,6 +625,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled)
     }
     func enterBackground() {
+        let wasPreview = previewStyle != nil
+        endPreview()
+        if wasPreview && ready { requestDisplay("") }
         inBackground = true
         // Only the explicit experiment may continue polling in background.
         // Suspension still prevents the watchdog from guaranteeing a LED clear.
@@ -641,6 +741,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         Task { @MainActor in self.pump() }
     }
     func power(_ on: Bool) {
+        endPreview()
         guard ready else { return }
         if !on { enabled = false; queuedLabel = nil }
         lastDisplayKey = nil
@@ -650,6 +751,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
 
     func clearScreen() {
+        endPreview()
         guard ready else { return }
         enabled = false; activeSlot = nil; queuedLabel = nil
         lastDisplayKey = nil; lastLabel = nil
@@ -665,7 +767,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         let text = event == "倒車" ? "倒車，請注意" : event
         let color = event == "減速中" ? "FF3020" : "FFB400"
         let effect = event == "左轉彎" ? "arrowsLeft" : event == "右轉彎" ? "arrowsRight" : "static"
-        return VehicleStyle(text: text, color: color, effect: effect)
+        return VehicleStyle(text: text, color: color, effect: effect, font: vehicleFont, bold: !["左轉彎", "右轉彎"].contains(event))
     }
     func vehicleBinding(for event: String) -> Binding<VehicleStyle> {
         Binding(get: { self.vehicleDrafts[event] ?? self.defaultVehicleStyle(for: event) },
@@ -722,6 +824,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     func testAllPixels() {
         guard ready else { return }
+        endPreview()
         enabled = false; activeSlot = nil; queuedLabel = nil; lastDisplayKey = nil
         if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
         let rowBytes = (panelWidth + 7) / 8
@@ -749,6 +852,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         return bytes.count == 6 && bytes.allSatisfy { (48...57).contains($0) || (65...70).contains($0) || (97...102).contains($0) }
     }
     func activateSlot(_ index: Int) {
+        endPreview()
         guard (0..<5).contains(index), !customSlots[index].text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               customSlots[index].text.count <= 16, validHex(customSlots[index].color) else {
             customStatus = "請填入文字並選擇顏色。"; return
@@ -865,16 +969,18 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         return ""
     }
     private func requestDisplay(_ label: String) {
+        if label == "__preview__" && previewStyle == nil { return }
+        if label != "__preview__", previewStyle != nil, Date() < previewUntil { return }
         let slot = label == "__custom__" ? activeSlot.map { customSlots[$0] } : nil
-        let vehicleStyle = vehicleStyles[label]
+        let vehicleStyle = label == "__preview__" ? previewStyle : vehicleStyles[label]
         let tick = Int(Date().timeIntervalSince1970 * 3)
         let effect = slot?.effect ?? vehicleStyle?.effect ?? "static"
         let phase = effect == "static" ? 0 : tick
         let turn = label == "左轉彎" || label == "右轉彎"
-        let fontChoice = slot?.font ?? vehicleFont
+        let fontChoice = slot?.font ?? vehicleStyle?.font ?? vehicleFont
         let displayText = slot?.text ?? vehicleStyle?.text ?? label
         let colorCode = slot?.color ?? vehicleStyle?.color ?? "FFB400"
-        let key = "\(label)|\(displayText)|\(colorCode)|\(effect)|\(slot?.bold ?? false)|\(fontChoice)|\(phase)"
+        let key = "\(label)|\(displayText)|\(colorCode)|\(effect)|\(slot?.bold ?? vehicleStyle?.bold ?? false)|\(fontChoice)|\(phase)"
         if sending || !frames.isEmpty { queuedLabel = label; return }
         guard key != lastDisplayKey else { return }
         lastDisplayKey = key; lastLabel = label
@@ -887,7 +993,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         enqueue(clearCommand())
         if text.isEmpty || (effect == "blink" && tick % 2 == 1) { return }
         let offset = effect == "left" ? -(tick * 2) : effect == "right" ? (tick * 2) : 0
-        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold ?? !turn, fontChoice: fontChoice, pattern: effect, phase: tick, scrolling: scrolling) else { return }
+        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold ?? vehicleStyle?.bold ?? !turn, fontChoice: fontChoice, pattern: effect, phase: tick, scrolling: scrolling) else { return }
         var rgb: [UInt8] = [255,180,0]
         if let color = UInt32(colorCode, radix: 16) {
             rgb = [UInt8((color >> 16) & 255), UInt8((color >> 8) & 255), UInt8(color & 255)]

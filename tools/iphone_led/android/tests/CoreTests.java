@@ -18,6 +18,14 @@ public class CoreTests {
   }
 
   public static void main(String[] args) {
+    eq(DisplaySelection.choose(true, true, "減速中", 1, "左轉彎", 5000, 4999), "左轉彎");
+    eq(DisplaySelection.choose(true, true, "減速中", 1, "左轉彎", 5000, 5000), "減速中");
+    eq(DisplaySelection.choose(true, false, "減速中", 1, "", 0, 5000), "");
+    eq(DisplaySelection.choose(false, false, "減速中", 1, "", 0, 5000), "slot1");
+    eq(DisplaySelection.choose(true, true, "", 1, "", 0, 5000), "slot1");
+    eq(DisplaySelection.choose(false, true, "減速中", -1, "", 0, 5000), "");
+    eq(DisplaySelection.choose(false, false, "", -1, "倒車", 5000, 0), "倒車");
+    eq(DisplaySelection.choose(false, false, "", -1, "倒車", 5000, 5000), "");
     VehicleRules r = new VehicleRules();
     eq(r.choose(10, 0, false, true, false, "drive", 0), "左轉彎");
     eq(r.choose(10, -.1, true, true, false, "drive", 100), "減速中");

@@ -10,7 +10,16 @@ import javax.crypto.spec.GCMParameterSpec;
 
 final class Settings {
   static final String[] EVENTS = {"倒車", "左轉彎", "右轉彎", "減速中", "暫停一下謝謝", "謝謝", "前方塞車"};
-  static final String[] EFFECTS = {"靜態", "閃爍", "向左跑馬燈", "向右跑馬燈", "呼吸", "自動換色"};
+  static final String[] TITLES = {"R檔", "左方向燈", "右方向燈", "煞車", "雙黃燈", "感謝燈", "急煞雙黃燈"};
+
+  static String title(String key) {
+    for (int i = 0; i < EVENTS.length; i++) if (EVENTS[i].equals(key)) return TITLES[i];
+    return key;
+  }
+
+  static final String[] EFFECTS = {
+    "靜態", "閃爍", "向左跑馬燈", "向右跑馬燈", "呼吸", "自動換色", "向左動態箭頭", "向右動態箭頭", "波浪圖案", "愛心圖案", "警示圖案"
+  };
   static final String[] FONTS = {"系統黑體", "襯線體", "等寬體", "圓潤黑體", "匯入字型"};
   final SharedPreferences p;
   final java.io.File fontFile;

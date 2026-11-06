@@ -17,6 +17,9 @@ public final class MainActivity extends Activity {
   Settings settings;
   LinearLayout body;
   TextView state;
+  Switch autoSwitch;
+  boolean syncingAuto;
+  final Map<String, TextView> quickLabels = new HashMap<>();
   EditText host, token;
   Handler ui = new Handler();
   int selectedPage = 0;
@@ -76,7 +79,7 @@ public final class MainActivity extends Activity {
 
   void startSession() {
     if (!saveConnection()) {
-      selectPage(0);
+      selectPage(1);
       return;
     }
     if (!permissions()) {
@@ -171,7 +174,7 @@ public final class MainActivity extends Activity {
     body = panel();
     controls.addView(body);
     text("Carrot LED", 26);
-    text(wide ? "車機橫向介面 · 0.1.1" : "自適應介面 · 0.1.1", 14);
+    text(wide ? "車機橫向介面 · 0.1.2" : "自適應介面 · 0.1.2", 14);
     state = new TextView(this);
     state.setTextSize(16);
     state.setPadding(dp(8), dp(8), dp(8), dp(8));
@@ -179,7 +182,19 @@ public final class MainActivity extends Activity {
     body.addView(state);
     button("開始背景連動", () -> startSession());
     button("停止背景連動", () -> send(LedService.STOP));
-    button("恢復自動車況", () -> send(LedService.AUTO));
+    autoSwitch = new Switch(this);
+    autoSwitch.setText("自動車況");
+    autoSwitch.setTextSize(20);
+    autoSwitch.setMinHeight(dp(56));
+    autoSwitch.setOnCheckedChangeListener(
+        (v, checked) -> {
+          if (!syncingAuto)
+            send(
+                new Intent(this, LedService.class)
+                    .setAction(LedService.AUTO)
+                    .putExtra("enabled", checked));
+        });
+    body.addView(autoSwitch);
     LinearLayout old = body;
     body = dashboard;
     Button clear = button("清屏 · 暫停所有顯示", () -> send(LedService.CLEAR));
@@ -202,6 +217,35 @@ public final class MainActivity extends Activity {
     LinearLayout content = new LinearLayout(this);
     content.setOrientation(LinearLayout.VERTICAL);
     editor.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+    addPage(
+        content,
+        navigation,
+        "快捷",
+        () -> {
+          text("車況快捷預覽", 22);
+          text("預覽 5 秒後恢復原模式。請停車操作；目前送出內容並非屏幕回讀。", 16);
+          for (String event : Settings.EVENTS)
+            quickRow(
+                event,
+                Settings.title(event),
+                () ->
+                    send(
+                        new Intent(this, LedService.class)
+                            .setAction(LedService.PREVIEW)
+                            .putExtra("event", event)));
+          text("五組自訂文字", 22);
+          for (int i = 0; i < 5; i++) {
+            final int n = i;
+            quickRow(
+                "slot" + n,
+                "自訂 " + (n + 1),
+                () ->
+                    send(
+                        new Intent(this, LedService.class)
+                            .setAction(LedService.CUSTOM)
+                            .putExtra("slot", n)));
+          }
+        });
     addPage(
         content,
         navigation,
@@ -285,7 +329,7 @@ public final class MainActivity extends Activity {
         () -> {
           text("車況文字與樣式", 22);
           for (String event : Settings.EVENTS)
-            button(event + " · 編輯", () -> editStyle(event, false, -1));
+            button(Settings.title(event) + " · 編輯", () -> editStyle(event, false, -1));
         });
     addPage(
         content,
@@ -325,12 +369,17 @@ public final class MainActivity extends Activity {
               "DUDU C3：請在車機的背景／省電管理允許本 App 執行；設定名稱依韌體而異。切換導航不會主動停止本服務，但車機休眠或斷電仍可能中斷；喚醒後請檢查連線。", 16);
           text("每次連動最多 8 小時。藍牙斷線或系統停止時無法保證清屏。請停車設定與測試。", 16);
         });
-    selectPage(b == null ? 0 : Math.max(0, Math.min(4, b.getInt("page", 0))));
+    selectPage(b == null ? 0 : Math.max(0, Math.min(5, b.getInt("page", 0))));
   }
 
   final Runnable refresh =
       new Runnable() {
         public void run() {
+          syncingAuto = true;
+          autoSwitch.setChecked(LedService.automatic);
+          syncingAuto = false;
+          for (Map.Entry<String, TextView> item : quickLabels.entrySet())
+            item.getValue().setText(settings.style(item.getKey()).text);
           state.setText(
               (LedService.running ? "● 背景服務運作中" : "○ 背景服務未啟動")
                   + "\n"
@@ -339,7 +388,9 @@ public final class MainActivity extends Activity {
                   + LedService.screen
                   + "\n"
                   + LedService.details
-                  + "\n目前提示："
+                  + "\n"
+                  + LedService.previewStatus
+                  + "\n目前送出："
                   + LedService.display
                   + "\n自動車況："
                   + (LedService.automatic ? "開" : "關"));
@@ -432,6 +483,17 @@ public final class MainActivity extends Activity {
       toast("請先開始背景連動");
       return;
     }
+    String action = intent.getAction();
+    if ((LedService.PREVIEW.equals(action) || LedService.CUSTOM.equals(action))
+        && !LedService.connected) {
+      toast("請先連接屏幕");
+      return;
+    }
+    if (LedService.CUSTOM.equals(action)
+        && settings.style("slot" + intent.getIntExtra("slot", -1)).text.trim().isEmpty()) {
+      toast("請先編輯並儲存這組文字");
+      return;
+    }
     startService(intent);
   }
 
@@ -476,6 +538,32 @@ public final class MainActivity extends Activity {
     return s;
   }
 
+  void quickRow(String key, String title, Runnable display) {
+    LinearLayout row = new LinearLayout(this);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    LinearLayout labels = panel();
+    TextView heading = new TextView(this);
+    heading.setText(title);
+    heading.setTextSize(20);
+    labels.addView(heading);
+    TextView value = new TextView(this);
+    value.setTextSize(16);
+    labels.addView(value);
+    quickLabels.put(key, value);
+    row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+    Button show = new Button(this);
+    show.setText("顯示");
+    show.setTextSize(20);
+    show.setMinHeight(dp(56));
+    show.setOnClickListener(
+        v -> {
+          hideKeyboard();
+          display.run();
+        });
+    row.addView(show, new LinearLayout.LayoutParams(dp(100), -2));
+    body.addView(row);
+  }
+
   void editStyle(String key, boolean custom, int index) {
     Settings.Style old = settings.style(key);
     LinearLayout l = column();
@@ -503,11 +591,11 @@ public final class MainActivity extends Activity {
     sc.addView(l);
     AlertDialog.Builder b =
         new AlertDialog.Builder(this)
-            .setTitle(custom ? "自訂 " + (index + 1) : key)
+            .setTitle(custom ? "自訂 " + (index + 1) : Settings.title(key))
             .setView(sc)
             .setNegativeButton("取消", null)
             .setPositiveButton("儲存", null);
-    if (custom) b.setNeutralButton("儲存並顯示", null);
+    b.setNeutralButton("儲存並顯示", null);
     AlertDialog d = b.create();
     d.setOnShowListener(
         v -> {
@@ -536,21 +624,21 @@ public final class MainActivity extends Activity {
                 d.dismiss();
               };
           d.getButton(-1).setOnClickListener(w -> save.run());
-          if (custom)
-            d.getButton(-3)
-                .setOnClickListener(
-                    w -> {
-                      if (text.getText().toString().trim().isEmpty()) {
-                        toast("先輸入自訂文字");
-                        return;
-                      }
-                      save.run();
-                      if (!d.isShowing())
-                        send(
-                            new Intent(this, LedService.class)
-                                .setAction(LedService.CUSTOM)
-                                .putExtra("slot", index));
-                    });
+          d.getButton(-3)
+              .setOnClickListener(
+                  w -> {
+                    if (text.getText().toString().trim().isEmpty()) {
+                      toast("先輸入自訂文字");
+                      return;
+                    }
+                    save.run();
+                    if (!d.isShowing())
+                      send(
+                          new Intent(this, LedService.class)
+                              .setAction(custom ? LedService.CUSTOM : LedService.PREVIEW)
+                              .putExtra("slot", index)
+                              .putExtra("event", key));
+                  });
         });
     d.show();
   }

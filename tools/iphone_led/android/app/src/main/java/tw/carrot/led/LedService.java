@@ -17,6 +17,7 @@ public final class LedService extends Service {
       CLEAR = "CLEAR",
       AUTO = "AUTO",
       CUSTOM = "CUSTOM",
+      PREVIEW = "PREVIEW",
       SCAN = "SCAN",
       CONNECT = "CONNECT",
       POWER = "POWER",
@@ -35,6 +36,9 @@ public final class LedService extends Service {
   boolean polling = false;
   long lastSample = -1, startTime, lastNotification = 0, lastRender = 0;
   int generation = 0, slot = -1;
+  String previewKey = "";
+  long previewUntil = 0;
+  public static volatile String previewStatus = "";
   String host = "", token = "", label = "", lastKey = "";
   final VehicleRules rules = new VehicleRules();
 
@@ -112,6 +116,8 @@ public final class LedService extends Service {
     }
     if (!running) return;
     if (CLEAR.equals(a)) {
+      previewKey = "";
+      previewStatus = "";
       automatic = false;
       slot = -1;
       label = "";
@@ -119,10 +125,25 @@ public final class LedService extends Service {
       render(true);
     }
     if (AUTO.equals(a)) {
-      automatic = true;
+      previewKey = "";
+      previewStatus = "";
+      automatic = i.getBooleanExtra("enabled", true);
       lastKey = "";
+      render(true);
+    }
+    if (PREVIEW.equals(a)) {
+      String key = i.getStringExtra("event");
+      if (Arrays.asList(Settings.EVENTS).contains(key) && ble.ready) {
+        previewKey = key;
+        previewUntil = SystemClock.elapsedRealtime() + 5000;
+        previewStatus = "手動預覽：" + Settings.title(key) + "（5 秒，暫停自動顯示）";
+        lastKey = "";
+        render(true);
+      }
     }
     if (CUSTOM.equals(a)) {
+      previewKey = "";
+      previewStatus = "";
       slot = i.getIntExtra("slot", -1);
       lastKey = "";
     }
@@ -137,6 +158,8 @@ public final class LedService extends Service {
     }
     if (RELOAD.equals(a)) reload();
     if (POWER.equals(a)) {
+      previewKey = "";
+      previewStatus = "";
       boolean on = i.getBooleanExtra("on", true);
       if (!on) {
         automatic = false;
@@ -148,6 +171,8 @@ public final class LedService extends Service {
       display = on ? "已送開屏" : "已送關屏";
     }
     if (TEST.equals(a)) {
+      previewKey = "";
+      previewStatus = "";
       automatic = false;
       slot = -1;
       int w = settings.width(), height = settings.height();
@@ -182,7 +207,13 @@ public final class LedService extends Service {
           if (!polling) poll();
           if (now - lastRender >= 333) {
             lastRender = now;
-            if (automatic || slot >= 0) render(false);
+            if (!previewKey.isEmpty() && now >= previewUntil) {
+              previewKey = "";
+              previewStatus = "";
+              lastKey = "";
+              render(true);
+            }
+            if (automatic || slot >= 0 || !previewKey.isEmpty()) render(false);
           }
           screen = ble.status;
           connected = ble.ready;
@@ -294,9 +325,8 @@ public final class LedService extends Service {
     if (!ble.ready) return;
     boolean fresh = lastSample >= 0 && SystemClock.elapsedRealtime() - lastSample < 900;
     String key =
-        automatic
-            ? (fresh ? (!label.isEmpty() ? label : slot >= 0 ? "slot" + slot : "") : "")
-            : (slot >= 0 ? "slot" + slot : "");
+        DisplaySelection.choose(
+            automatic, fresh, label, slot, previewKey, previewUntil, SystemClock.elapsedRealtime());
     Settings.Style style = key.isEmpty() ? null : settings.style(key);
     long phase = SystemClock.elapsedRealtime() / 333;
     String signature =
@@ -349,6 +379,8 @@ public final class LedService extends Service {
   private void shutdown() {
     if (stopping) return;
     stopping = true;
+    previewKey = "";
+    previewStatus = "";
     generation++;
     automatic = false;
     slot = -1;
