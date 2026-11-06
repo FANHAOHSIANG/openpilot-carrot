@@ -32,11 +32,7 @@ struct CarrotLEDProbeApp: App {
                         Button("關閉屏幕") { model.power(false) }.disabled(!model.ready)
                     }
                     Toggle("自動顯示車況", isOn: $model.enabled)
-                    Picker("車況字型", selection: $model.vehicleFont) {
-                        Text("標準").tag("standard"); Text("圓體").tag("rounded")
-                        Text("等寬").tag("monospaced"); Text("襯線").tag("serif")
-                        ForEach(model.availableFonts, id: \.self) { name in Text(name).tag("font:" + name) }
-                    }
+                    FontMenu(title: "車況文字字型", selection: $model.vehicleFont, choices: model.fontChoices)
                     Text("目前提示：\(model.currentLabel)")
                     HStack {
                         Button("清除屏幕") { model.clearScreen() }.disabled(!model.ready)
@@ -45,30 +41,38 @@ struct CarrotLEDProbeApp: App {
                     Text("清除屏幕會暫停車況連動，重新開啟「自動顯示車況」可恢復。")
                         .font(.footnote).foregroundStyle(.secondary)
                     Divider()
-                    Text("車況文字設定").font(.headline)
+                    Text("車況文字、顏色與效果").font(.headline)
+                    Text("點選車況展開設定，完成後按下方儲存。倒車提示優先於其他車況。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     ForEach(model.eventKeys, id: \.self) { event in
-                        HStack {
-                            Text(event).frame(width: 120, alignment: .leading)
-                            TextField("顯示文字", text: Binding(
-                                get: { model.vehicleDrafts[event] ?? event },
-                                set: { model.vehicleDrafts[event] = $0 }))
-                                .textFieldStyle(.roundedBorder)
-                        }
+                        VehicleStyleEditor(event: event, setting: model.vehicleBinding(for: event))
                     }
-                    Button("儲存車況文字") { model.saveVehicleTexts() }
-                    Text(model.settingsStatus).font(.footnote)
+                    Button("儲存所有車況設定") { model.saveVehicleTexts() }
+                    Text(model.vehicleSettingsStatus).font(.footnote)
                     Text("屏幕與文字像素").font(.headline)
                     HStack {
-                        TextField("屏幕寬", text: $model.widthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                        Text("×")
-                        TextField("屏幕高", text: $model.heightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        VStack(alignment: .leading) {
+                            Text("屏幕寬（燈珠）")
+                            TextField("96", text: $model.widthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        }
+                        VStack(alignment: .leading) {
+                            Text("屏幕高（燈珠）")
+                            TextField("16", text: $model.heightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        }
                     }
                     HStack {
-                        TextField("字高像素", text: $model.fontHeightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                        TextField("字寬 %", text: $model.fontWidthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        VStack(alignment: .leading) {
+                            Text("文字高度（像素）")
+                            TextField("16", text: $model.fontHeightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        }
+                        VStack(alignment: .leading) {
+                            Text("文字寬度（%）")
+                            TextField("100", text: $model.fontWidthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
+                        }
                     }
                     Button("套用像素設定") { model.applyDisplaySettings() }
-                    Text("屏幕寬高須與實際燈珠數相符；字高以像素設定、字寬以百分比調整。")
+                    Text(model.settingsStatus).font(.footnote)
+                    Text("你的屏幕：寬 96 × 高 16 燈珠。字高 16 代表盡量使用 16 排，字寬 100% 為原比例；靜態文字過長會自動縮窄。")
                         .font(.footnote).foregroundStyle(.secondary)
                     Divider()
                     Text("五組自訂文字").font(.headline)
@@ -90,11 +94,7 @@ struct CarrotLEDProbeApp: App {
                                     Text("警示圖案").tag("warning")
                                 }
                             }
-                            Picker("字型", selection: $model.customSlots[index].font) {
-                                Text("標準").tag("standard"); Text("圓體").tag("rounded")
-                                Text("等寬").tag("monospaced"); Text("襯線").tag("serif")
-                                ForEach(model.availableFonts, id: \.self) { name in Text(name).tag("font:" + name) }
-                            }
+                            FontMenu(title: "自訂文字字型", selection: $model.customSlots[index].font, choices: model.fontChoices)
                             HStack {
                                 Picker("字重", selection: $model.customSlots[index].bold) {
                                     Text("一般").tag(false); Text("加粗").tag(true)
@@ -122,6 +122,115 @@ struct CarrotLEDProbeApp: App {
             .onChange(of: scenePhase) { phase in
                 if phase == .active { model.returnToForeground() }
                 if phase == .background { model.enterBackground() }
+            }
+        }
+    }
+}
+
+struct LEDFontChoice: Identifiable {
+    let id: String
+    let title: String
+
+    @MainActor
+    static func available() -> [LEDFontChoice] {
+        var choices = [
+            LEDFontChoice(id: "standard", title: "系統標準"),
+            LEDFontChoice(id: "rounded", title: "系統圓體"),
+            LEDFontChoice(id: "monospaced", title: "系統等寬"),
+            LEDFontChoice(id: "serif", title: "系統襯線")
+        ]
+        let names = Set(UIFont.familyNames.flatMap { UIFont.fontNames(forFamilyName: $0) }).sorted()
+        let sample = Array("繁體中文轉彎倒車減速謝".utf16)
+        for name in names {
+            guard let font = UIFont(name: name, size: 32) else { continue }
+            let ctFont = CTFontCreateWithName(name as CFString, 32, nil)
+            var glyphs = [CGGlyph](repeating: 0, count: sample.count)
+            guard CTFontGetGlyphsForCharacters(ctFont, sample, &glyphs, sample.count) else { continue }
+            choices.append(LEDFontChoice(id: "font:" + name, title: "\(font.familyName) · \(name)"))
+        }
+        return choices
+    }
+}
+
+struct FontMenu: View {
+    let title: String
+    @Binding var selection: String
+    let choices: [LEDFontChoice]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.subheadline)
+            Menu {
+                ForEach(choices) { choice in
+                    Button { selection = choice.id } label: {
+                        if selection == choice.id { Label(choice.title, systemImage: "checkmark") }
+                        else { Text(choice.title) }
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "textformat")
+                    Text("選擇字型：\(choices.first(where: { $0.id == selection })?.title ?? selection)")
+                        .lineLimit(2)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.up.chevron.down")
+                }
+                .padding(10)
+                .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
+            Text("系統樣式可能使用相同中文字型；其他選項已檢查部分繁體字，請以屏幕顯示為準。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct VehicleStyle: Codable {
+    var text: String
+    var color: String
+    var effect: String
+}
+
+struct VehicleStyleEditor: View {
+    let event: String
+    @Binding var setting: VehicleStyle
+
+    var body: some View {
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("顯示文字，最多 16 字", text: $setting.text)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    Text("顏色 #")
+                    TextField("RRGGBB", text: $setting.color)
+                        .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                        .textFieldStyle(.roundedBorder)
+                    Menu("選擇顏色") {
+                        Button("黃橘色") { setting.color = "FFB400" }
+                        Button("紅色") { setting.color = "FF3020" }
+                        Button("白色") { setting.color = "FFFFFF" }
+                        Button("綠色") { setting.color = "00FF00" }
+                        Button("藍色") { setting.color = "0088FF" }
+                        Button("青色") { setting.color = "00FFFF" }
+                        Button("紫色") { setting.color = "CC44FF" }
+                    }
+                }
+                HStack {
+                    Text("動畫效果")
+                    Spacer()
+                    Picker("動畫效果", selection: $setting.effect) {
+                        Text("靜態").tag("static"); Text("閃爍").tag("blink")
+                        Text("向左跑馬燈").tag("left"); Text("向右跑馬燈").tag("right")
+                        Text("呼吸").tag("breathe"); Text("自動換色").tag("rainbow")
+                        Text("向左箭頭").tag("arrowsLeft"); Text("向右箭頭").tag("arrowsRight")
+                        Text("波浪圖案").tag("wave"); Text("愛心圖案").tag("heart")
+                        Text("警示圖案").tag("warning")
+                    }.pickerStyle(.menu).labelsHidden()
+                }
+            }.padding(.vertical, 6)
+        } label: {
+            VStack(alignment: .leading) {
+                Text(event)
+                Text(setting.text).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -175,15 +284,16 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     @Published var customSlots = Array(repeating: CustomSlot(), count: 5)
     @Published var customStatus = "儲存後選擇顯示；車況提示優先。"
-    let eventKeys = ["左轉彎", "右轉彎", "減速中", "暫停一下謝謝", "謝謝", "前方塞車"]
-    let availableFonts = UIFont.familyNames.sorted().flatMap { UIFont.fontNames(forFamilyName: $0).sorted() }
-    @Published var vehicleDrafts = [String: String]()
-    @Published var settingsStatus = "車況文字可編輯並儲存。"
+    let eventKeys = ["倒車", "左轉彎", "右轉彎", "減速中", "暫停一下謝謝", "謝謝", "前方塞車"]
+    let fontChoices = LEDFontChoice.available()
+    @Published var vehicleDrafts = [String: VehicleStyle]()
+    @Published var vehicleSettingsStatus = "各項車況可設定文字、顏色及動畫。"
+    @Published var settingsStatus = "設定值須符合實際屏幕尺寸。"
     @Published var widthDraft = "96"
     @Published var heightDraft = "16"
     @Published var fontHeightDraft = "16"
     @Published var fontWidthDraft = "100"
-    private var vehicleTexts = [String: String]()
+    private var vehicleStyles = [String: VehicleStyle]()
     private var panelWidth = 96
     private var panelHeight = 16
     private var fontHeight = 16
@@ -217,8 +327,20 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     override init() {
         super.init()
         token = readKey() ?? ""
-        vehicleTexts = UserDefaults.standard.dictionary(forKey: "ledVehicleTexts") as? [String: String] ?? [:]
-        vehicleDrafts = vehicleTexts
+        let oldTexts = UserDefaults.standard.dictionary(forKey: "ledVehicleTexts") as? [String: String] ?? [:]
+        let savedStyles: [String: VehicleStyle]
+        if let data = UserDefaults.standard.data(forKey: "ledVehicleStyles"),
+           let decoded = try? JSONDecoder().decode([String: VehicleStyle].self, from: data) {
+            savedStyles = decoded
+        } else { savedStyles = [:] }
+        for event in eventKeys {
+            var style = savedStyles[event] ?? defaultVehicleStyle(for: event)
+            if savedStyles[event] == nil, let old = oldTexts[event] { style.text = old }
+            if !validHex(style.color) { style.color = defaultVehicleStyle(for: event).color }
+            if !Self.allowedEffects.contains(style.effect) { style.effect = defaultVehicleStyle(for: event).effect }
+            vehicleStyles[event] = style
+        }
+        vehicleDrafts = vehicleStyles
         let savedWidth = UserDefaults.standard.integer(forKey: "ledPanelWidth")
         let savedHeight = UserDefaults.standard.integer(forKey: "ledPanelHeight")
         let savedFontHeight = UserDefaults.standard.integer(forKey: "ledFontHeight")
@@ -404,13 +526,38 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         currentLabel = "清屏中"
         requestDisplay("")
     }
+    private static let allowedEffects: Set<String> = [
+        "static", "blink", "left", "right", "breathe", "rainbow",
+        "arrowsLeft", "arrowsRight", "wave", "heart", "warning"
+    ]
+    private func defaultVehicleStyle(for event: String) -> VehicleStyle {
+        let text = event == "倒車" ? "倒車，請注意" : event
+        let color = event == "減速中" ? "FF3020" : "FFB400"
+        let effect = event == "左轉彎" ? "arrowsLeft" : event == "右轉彎" ? "arrowsRight" : "static"
+        return VehicleStyle(text: text, color: color, effect: effect)
+    }
+    func vehicleBinding(for event: String) -> Binding<VehicleStyle> {
+        Binding(get: { self.vehicleDrafts[event] ?? self.defaultVehicleStyle(for: event) },
+                set: { self.vehicleDrafts[event] = $0 })
+    }
     func saveVehicleTexts() {
-        guard eventKeys.allSatisfy({ let text = vehicleDrafts[$0] ?? $0; return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && text.count <= 16 }) else {
-            settingsStatus = "每個車況文字需為 1 至 16 字。"; return
+        var newStyles = [String: VehicleStyle]()
+        for event in eventKeys {
+            let style = vehicleDrafts[event] ?? defaultVehicleStyle(for: event)
+            guard !style.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  style.text.count <= 16, validHex(style.color), Self.allowedEffects.contains(style.effect) else {
+                vehicleSettingsStatus = "「\(event)」請填 1–16 字及 6 位顏色代碼。"; return
+            }
+            newStyles[event] = style
         }
-        vehicleTexts = Dictionary(uniqueKeysWithValues: eventKeys.map { ($0, vehicleDrafts[$0] ?? $0) })
-        UserDefaults.standard.set(vehicleTexts, forKey: "ledVehicleTexts")
-        lastDisplayKey = nil; settingsStatus = "車況文字已儲存。"
+        guard let data = try? JSONEncoder().encode(newStyles) else {
+            vehicleSettingsStatus = "車況設定儲存失敗。"; return
+        }
+        UserDefaults.standard.set(data, forKey: "ledVehicleStyles")
+        UserDefaults.standard.set(newStyles.mapValues { $0.text }, forKey: "ledVehicleTexts")
+        vehicleStyles = newStyles
+        lastDisplayKey = nil
+        vehicleSettingsStatus = "所有車況的文字、顏色和效果已儲存。"
     }
     func applyDisplaySettings() {
         guard let w = Int(widthDraft), (8...256).contains(w), let h = Int(heightDraft), (8...64).contains(h),
@@ -554,6 +701,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         else if speed >= 5.0/3.6 && accel <= -2.0 {
             if hardSince == nil { hardSince = now }; if now.timeIntervalSince(hardSince!) >= 0.3 { hard = true }
         } else { hardSince = nil }
+        if gear == "reverse" || gear == "r" {
+            slowing = false; hard = false; slowingSince = nil; hardSince = nil
+            return "倒車"
+        }
         if left && right {
             if gear == "drive" && hard { return "前方塞車" }
             if gear == "park" { return "暫停一下謝謝" }
@@ -566,35 +717,35 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     private func requestDisplay(_ label: String) {
         let slot = label == "__custom__" ? activeSlot.map { customSlots[$0] } : nil
+        let vehicleStyle = vehicleStyles[label]
         let tick = Int(Date().timeIntervalSince1970 * 3)
-        var phase = 0
-        if let slot = slot, slot.effect != "static" { phase = tick }
+        let effect = slot?.effect ?? vehicleStyle?.effect ?? "static"
+        let phase = effect == "static" ? 0 : tick
         let turn = label == "左轉彎" || label == "右轉彎"
-        if turn { phase = tick }
         let fontChoice = slot?.font ?? vehicleFont
-        let displayText = slot?.text ?? vehicleTexts[label] ?? label
-        let key = "\(label)|\(displayText)|\(slot?.color ?? "")|\(slot?.effect ?? "")|\(slot?.bold ?? false)|\(fontChoice)|\(phase)"
+        let displayText = slot?.text ?? vehicleStyle?.text ?? label
+        let colorCode = slot?.color ?? vehicleStyle?.color ?? "FFB400"
+        let key = "\(label)|\(displayText)|\(colorCode)|\(effect)|\(slot?.bold ?? false)|\(fontChoice)|\(phase)"
         if sending || !frames.isEmpty { queuedLabel = label; return }
         guard key != lastDisplayKey else { return }
         lastDisplayKey = key; lastLabel = label
         let text = displayText
         currentLabel = text.isEmpty ? "清屏" : text
         if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
-        let scrolling = slot?.effect == "left" || slot?.effect == "right"
+        let scrolling = effect == "left" || effect == "right"
         // The screen may treat zero bits as transparent; clear each frame before drawing.
         // This is a software fallback, not a confirmed native marquee command.
         enqueue(clearCommand())
-        if text.isEmpty || (slot?.effect == "blink" && tick % 2 == 1) { return }
-        let offset = slot?.effect == "left" ? -(tick * 2) : slot?.effect == "right" ? (tick * 2) : 0
-        let pattern = turn ? (label == "左轉彎" ? "turnLeft" : "turnRight") : (slot?.effect ?? "static")
-        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold, fontChoice: fontChoice, pattern: pattern, phase: tick, scrolling: scrolling) else { return }
-        var rgb: [UInt8] = label == "減速中" ? [255,48,32] : [255,180,0]
-        if let slot = slot, let color = UInt32(slot.color, radix: 16) {
+        if text.isEmpty || (effect == "blink" && tick % 2 == 1) { return }
+        let offset = effect == "left" ? -(tick * 2) : effect == "right" ? (tick * 2) : 0
+        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold ?? !turn, fontChoice: fontChoice, pattern: effect, phase: tick, scrolling: scrolling) else { return }
+        var rgb: [UInt8] = [255,180,0]
+        if let color = UInt32(colorCode, radix: 16) {
             rgb = [UInt8((color >> 16) & 255), UInt8((color >> 8) & 255), UInt8(color & 255)]
-            if slot.effect == "breathe" {
+            if effect == "breathe" {
                 let levels: [Double] = [0.25,0.4,0.6,0.8,1.0,0.8,0.6,0.4]
                 rgb = rgb.map { UInt8(Double($0) * levels[tick % 8]) }
-            } else if slot.effect == "rainbow" {
+            } else if effect == "rainbow" {
                 let color = UIColor(hue: CGFloat(tick % 12) / 12, saturation: 1, brightness: 1, alpha: 1)
                 var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
                 color.getRed(&r, green: &g, blue: &b, alpha: &a)
@@ -624,14 +775,17 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             case "serif":
                 font = base.fontDescriptor.withDesign(.serif).map { UIFont(descriptor: $0, size: 32) } ?? base
             case let name where name.hasPrefix("font:"):
-                let selected = UIFont(name: String(name.dropFirst(5)), size: 32) ?? base
-                if useBold, let descriptor = selected.fontDescriptor.withSymbolicTraits(selected.fontDescriptor.symbolicTraits.union(.traitBold)) {
-                    font = UIFont(descriptor: descriptor, size: 32)
-                } else { font = selected }
+                // Keep the exact selected face; descriptor-based bold can replace
+                // the chosen Chinese font with an unexpected fallback face.
+                font = UIFont(name: String(name.dropFirst(5)), size: 32) ?? base
             default:
                 font = base
             }
-            let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.white]
+            var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.white]
+            if useBold && fontChoice.hasPrefix("font:") {
+                attributes[.strokeColor] = UIColor.white
+                attributes[.strokeWidth] = -1.5
+            }
             let rendered = text.replacingOccurrences(of: " ", with: "\u{00A0}")
             let line = CTLineCreateWithAttributedString(NSAttributedString(string: rendered, attributes: attributes))
             let bounds = CTLineGetImageBounds(line, context.cgContext)
