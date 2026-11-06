@@ -24,6 +24,12 @@ class BridgeTests(unittest.TestCase):
             cache.publish({'speed':1.0, 'accel':0.0, 'brake':False, 'gear':'drive', 'left':False, 'right':False})
             with urllib.request.urlopen(request) as result:
                 self.assertEqual(json.load(result)['gear'], 'drive')
+            cache.publish({'speed':0.0, 'accel':0.0, 'brake':True, 'gear':'reverse', 'left':True, 'right':True})
+            with urllib.request.urlopen(request) as result:
+                reverse = json.load(result)
+                self.assertTrue(reverse['valid'])
+                self.assertEqual(reverse['gear'], 'reverse')
+                self.assertTrue(reverse['left'] and reverse['right'])
             with cache.lock:
                 cache.updated = time.monotonic() - 1
             with urllib.request.urlopen(request) as result:
