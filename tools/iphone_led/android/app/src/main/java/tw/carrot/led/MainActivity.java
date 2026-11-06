@@ -19,12 +19,84 @@ public final class MainActivity extends Activity {
   TextView state;
   EditText host, token;
   Handler ui = new Handler();
+  int selectedPage = 0;
+  final ArrayList<ScrollView> pages = new ArrayList<>();
+  final ArrayList<Button> tabs = new ArrayList<>();
+
+  int dp(float value) {
+    return Math.round(value * getResources().getDisplayMetrics().density);
+  }
+
+  LinearLayout panel() {
+    LinearLayout box = new LinearLayout(this);
+    box.setOrientation(LinearLayout.VERTICAL);
+    box.setPadding(dp(12), dp(8), dp(12), dp(8));
+    return box;
+  }
+
+  void hideKeyboard() {
+    View focus = getCurrentFocus();
+    if (focus != null) {
+      ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+          .hideSoftInputFromWindow(focus.getWindowToken(), 0);
+      focus.clearFocus();
+    }
+  }
+
+  void selectPage(int index) {
+    hideKeyboard();
+    selectedPage = index;
+    for (int i = 0; i < pages.size(); i++) {
+      pages.get(i).setVisibility(i == index ? View.VISIBLE : View.GONE);
+      tabs.get(i).setTextColor(i == index ? Color.WHITE : Color.rgb(52, 62, 57));
+      tabs.get(i)
+          .setBackgroundTintList(
+              android.content.res.ColorStateList.valueOf(
+                  i == index ? Color.rgb(171, 65, 20) : Color.rgb(238, 230, 220)));
+    }
+  }
+
+  void addPage(LinearLayout content, LinearLayout navigation, String title, Runnable populate) {
+    int index = pages.size();
+    Button tab = new Button(this);
+    tab.setText(title);
+    tab.setTextSize(16);
+    tab.setMinHeight(dp(52));
+    tab.setOnClickListener(v -> selectPage(index));
+    navigation.addView(tab, new LinearLayout.LayoutParams(dp(100), dp(56)));
+    tabs.add(tab);
+    ScrollView scroll = new ScrollView(this);
+    scroll.setFillViewport(true);
+    body = panel();
+    scroll.addView(body);
+    populate.run();
+    pages.add(scroll);
+    content.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
+  }
+
+  void startSession() {
+    if (!saveConnection()) {
+      selectPage(0);
+      return;
+    }
+    if (!permissions()) {
+      requestPermissions(required(), 42);
+      return;
+    }
+    begin();
+  }
+
+  protected void onSaveInstanceState(Bundle out) {
+    out.putInt("page", selectedPage);
+    out.putString("hostDraft", host.getText().toString());
+    super.onSaveInstanceState(out);
+  }
 
   void text(String s, int size) {
     TextView v = new TextView(this);
     v.setText(s);
     v.setTextSize(size);
-    v.setPadding(0, 16, 0, 8);
+    v.setPadding(0, dp(12), 0, dp(6));
     body.addView(v);
   }
 
@@ -32,6 +104,8 @@ public final class MainActivity extends Activity {
     Button b = new Button(this);
     b.setText(s);
     b.setAllCaps(false);
+    b.setTextSize(18);
+    b.setMinHeight(dp(56));
     b.setOnClickListener(v -> action.run());
     body.addView(b);
     return b;
@@ -43,6 +117,17 @@ public final class MainActivity extends Activity {
     e.setText(value);
     e.setInputType(type);
     e.setSingleLine(true);
+    e.setMinHeight(dp(56));
+    e.setTextSize(18);
+    e.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+    e.setOnEditorActionListener(
+        (view, action, event) -> {
+          if (action == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+            hideKeyboard();
+            return true;
+          }
+          return false;
+        });
     box.addView(e, new LinearLayout.LayoutParams(-1, -2));
     return e;
   }
@@ -50,111 +135,197 @@ public final class MainActivity extends Activity {
   public void onCreate(Bundle b) {
     super.onCreate(b);
     settings = new Settings(this);
-    ScrollView scroll = new ScrollView(this);
-    scroll.setFillViewport(true);
-    body = new LinearLayout(this);
-    body.setOrientation(LinearLayout.VERTICAL);
-    body.setPadding(28, 24, 28, 40);
-    body.setBackgroundColor(Color.rgb(255, 247, 240));
-    scroll.addView(body);
-    setContentView(scroll);
-    scroll.setOnApplyWindowInsetsListener(
+    boolean wide =
+        getResources().getConfiguration().screenWidthDp >= 700
+            && getResources().getConfiguration().screenWidthDp
+                > getResources().getConfiguration().screenHeightDp;
+    LinearLayout root = new LinearLayout(this);
+    root.setOrientation(wide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+    root.setBackgroundColor(Color.rgb(255, 247, 240));
+    setContentView(root);
+    root.setOnApplyWindowInsetsListener(
         (v, insets) -> {
           if (Build.VERSION.SDK_INT >= 30) {
-            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            android.graphics.Insets bars =
+                insets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
+            v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
           } else
             v.setPadding(
-                0, insets.getSystemWindowInsetTop(), 0, insets.getSystemWindowInsetBottom());
+                insets.getSystemWindowInsetLeft(),
+                insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(),
+                insets.getSystemWindowInsetBottom());
           return insets;
         });
-    text("Carrot LED", 30);
-    text("C4 → Android → 後窗屏幕", 18);
-    text("Android 0.1 · 背景連動測試版", 14);
+    root.requestApplyInsets();
+    LinearLayout dashboard = panel();
+    root.addView(
+        dashboard,
+        wide
+            ? new LinearLayout.LayoutParams(0, -1, .36f)
+            : new LinearLayout.LayoutParams(-1, dp(220)));
+    ScrollView controls = new ScrollView(this);
+    dashboard.addView(controls, new LinearLayout.LayoutParams(-1, 0, 1));
+    body = panel();
+    controls.addView(body);
+    text("Carrot LED", 26);
+    text(wide ? "車機橫向介面 · 0.1.1" : "自適應介面 · 0.1.1", 14);
     state = new TextView(this);
     state.setTextSize(16);
-    state.setPadding(16, 16, 16, 16);
+    state.setPadding(dp(8), dp(8), dp(8), dp(8));
     state.setBackgroundColor(Color.WHITE);
     body.addView(state);
-    text("連線設定", 21);
-    host = field(body, "C4 區網 IP，例如 192.168.1.138", settings.host(), InputType.TYPE_CLASS_PHONE);
-    token =
-        field(
-            body,
-            "橋接金鑰（已儲存可留空）",
-            "",
-            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-    button("儲存連線設定", () -> saveConnection());
-    button(
-        "開始背景連動",
-        () -> {
-          if (!saveConnection()) return;
-          if (!permissions()) {
-            requestPermissions(required(), 42);
-            return;
-          }
-          begin();
-        });
+    button("開始背景連動", () -> startSession());
     button("停止背景連動", () -> send(LedService.STOP));
-    text("屏幕", 21);
-    button(
-        "掃描並選擇屏幕",
+    button("恢復自動車況", () -> send(LedService.AUTO));
+    LinearLayout old = body;
+    body = dashboard;
+    Button clear = button("清屏 · 暫停所有顯示", () -> send(LedService.CLEAR));
+    clear.setTextColor(Color.WHITE);
+    clear.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(171, 65, 20)));
+    body = old;
+
+    LinearLayout editor = panel();
+    root.addView(
+        editor,
+        wide
+            ? new LinearLayout.LayoutParams(0, -1, .64f)
+            : new LinearLayout.LayoutParams(-1, 0, 1));
+    HorizontalScrollView tabScroll = new HorizontalScrollView(this);
+    tabScroll.setHorizontalScrollBarEnabled(false);
+    LinearLayout navigation = new LinearLayout(this);
+    navigation.setOrientation(LinearLayout.HORIZONTAL);
+    tabScroll.addView(navigation);
+    editor.addView(tabScroll, new LinearLayout.LayoutParams(-1, dp(60)));
+    LinearLayout content = new LinearLayout(this);
+    content.setOrientation(LinearLayout.VERTICAL);
+    editor.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+    addPage(
+        content,
+        navigation,
+        "連線",
         () -> {
-          if (!LedService.running) {
-            toast("請先開始背景連動");
-            return;
+          text("C4 連線設定", 22);
+          host =
+              field(
+                  body,
+                  "C4 區網 IP，例如 192.168.1.138",
+                  b == null ? settings.host() : b.getString("hostDraft", settings.host()),
+                  InputType.TYPE_CLASS_PHONE);
+          token =
+              field(
+                  body,
+                  "橋接金鑰（已儲存可留空）",
+                  "",
+                  InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+          token.setSaveEnabled(false);
+          button("儲存連線設定", () -> saveConnection());
+          button("收起鍵盤", () -> hideKeyboard());
+          text("C4 與車機接入同一區網，沿用原橋接金鑰。按「開始背景連動」後再連接屏幕。", 16);
+          text("系統檢查", 20);
+          android.bluetooth.BluetoothManager bm =
+              getSystemService(android.bluetooth.BluetoothManager.class);
+          boolean ble = getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
+          text(
+              "Android "
+                  + Build.VERSION.RELEASE
+                  + " · API "
+                  + Build.VERSION.SDK_INT
+                  + "\n視窗 "
+                  + getResources().getConfiguration().screenWidthDp
+                  + " × "
+                  + getResources().getConfiguration().screenHeightDp
+                  + " dp"
+                  + "\n系統宣告 BLE："
+                  + (ble ? "支援" : "未宣告")
+                  + "\n藍牙介面："
+                  + (bm != null && bm.getAdapter() != null ? "存在，仍需實際連線確認" : "不可用"),
+              16);
+        });
+    addPage(
+        content,
+        navigation,
+        "屏幕",
+        () -> {
+          text("屏幕控制", 22);
+          button(
+              "掃描屏幕",
+              () -> {
+                if (!LedService.running) {
+                  toast("請先開始背景連動");
+                  return;
+                }
+                send(LedService.SCAN);
+                toast("掃描約 12 秒，再按選擇屏幕；已知屏幕會自動連上");
+              });
+          button("選擇掃描到的屏幕", () -> selectDevice());
+          button(
+              "開啟屏幕",
+              () ->
+                  send(
+                      new Intent(this, LedService.class)
+                          .setAction(LedService.POWER)
+                          .putExtra("on", true)));
+          button(
+              "關閉屏幕",
+              () ->
+                  send(
+                      new Intent(this, LedService.class)
+                          .setAction(LedService.POWER)
+                          .putExtra("on", false)));
+          button("燈珠全亮測試", () -> send(LedService.TEST));
+          text("請先讓 iPhone、Mac、LOY PLAY 斷開屏幕。車機的電話藍牙可用，不代表第三方 App 一定能使用 BLE。", 16);
+        });
+    addPage(
+        content,
+        navigation,
+        "車況",
+        () -> {
+          text("車況文字與樣式", 22);
+          for (String event : Settings.EVENTS)
+            button(event + " · 編輯", () -> editStyle(event, false, -1));
+        });
+    addPage(
+        content,
+        navigation,
+        "自訂",
+        () -> {
+          text("五組自訂文字", 22);
+          for (int i = 0; i < 5; i++) {
+            final int n = i;
+            button("自訂 " + (i + 1) + " · 編輯／顯示", () -> editStyle("slot" + n, true, n));
           }
-          send(LedService.SCAN);
-          toast("掃描約 12 秒，再按選擇屏幕；你的已知屏幕會自動連上");
         });
-    button("選擇掃描到的屏幕", () -> selectDevice());
-    button(
-        "開啟屏幕",
-        () ->
-            send(
-                new Intent(this, LedService.class)
-                    .setAction(LedService.POWER)
-                    .putExtra("on", true)));
-    button(
-        "關閉屏幕",
-        () ->
-            send(
-                new Intent(this, LedService.class)
-                    .setAction(LedService.POWER)
-                    .putExtra("on", false)));
-    button("恢復自動顯示車況", () -> send(LedService.AUTO));
-    button("清除屏幕（全部清除並暫停連動）", () -> send(LedService.CLEAR));
-    button("燈珠全亮測試", () -> send(LedService.TEST));
-    text("車況文字與樣式", 21);
-    for (String event : Settings.EVENTS) button(event + " · 編輯", () -> editStyle(event, false, -1));
-    text("五組自訂文字", 21);
-    for (int i = 0; i < 5; i++) {
-      final int n = i;
-      button("自訂 " + (i + 1) + " · 編輯／顯示", () -> editStyle("slot" + n, true, n));
-    }
-    text("像素與字型", 21);
-    button("調整屏幕／文字像素", () -> pixels());
-    button(
-        "匯入中文字型（TTF／OTF）",
+    addPage(
+        content,
+        navigation,
+        "設定",
         () -> {
-          Intent pick =
-              new Intent(Intent.ACTION_OPEN_DOCUMENT)
-                  .setType("*/*")
-                  .addCategory(Intent.CATEGORY_OPENABLE);
-          startActivityForResult(pick, 55);
+          text("像素與字型", 22);
+          button("調整屏幕／文字像素", () -> pixels());
+          button(
+              "匯入中文字型（TTF／OTF）",
+              () ->
+                  startActivityForResult(
+                      new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                          .setType("*/*")
+                          .addCategory(Intent.CATEGORY_OPENABLE),
+                      55));
+          button(
+              "開啟 App 系統設定",
+              () ->
+                  startActivity(
+                      new Intent(
+                          android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                          android.net.Uri.parse("package:" + getPackageName()))));
+          text("後窗屏幕仍為 96 × 16，與車機解析度無關。文字動畫為手機逐格傳送；不同系統字型的中文字可能相同，可匯入有授權的中文字型。", 16);
+          text(
+              "DUDU C3：請在車機的背景／省電管理允許本 App 執行；設定名稱依韌體而異。切換導航不會主動停止本服務，但車機休眠或斷電仍可能中斷；喚醒後請檢查連線。", 16);
+          text("每次連動最多 8 小時。藍牙斷線或系統停止時無法保證清屏。請停車設定與測試。", 16);
         });
-    text("預設屏幕 96 × 16。動畫為手機逐格傳送，不宣稱與遙控器原生動畫同樣流暢。系統字型的中文字可能相同，可匯入有授權的中文字型。", 14);
-    button(
-        "開啟 App 系統設定",
-        () ->
-            startActivity(
-                new Intent(
-                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    android.net.Uri.parse("package:" + getPackageName()))));
-    text(
-        "背景連動需要常駐通知與附近裝置權限。若手機會省電停止 App，請在系統電池設定允許背景執行。每次最多 8 小時；停止後重新開始。\n"
-            + "請先讓 iPhone、Mac 與 LOY PLAY 斷開屏幕。C4 與手機須在同一區網。中斷時會嘗試清屏，但藍牙斷線或系統強制停止後無法保證清除。",
-        14);
+    selectPage(b == null ? 0 : Math.max(0, Math.min(4, b.getInt("page", 0))));
   }
 
   final Runnable refresh =
@@ -290,7 +461,7 @@ public final class MainActivity extends Activity {
   LinearLayout column() {
     LinearLayout l = new LinearLayout(this);
     l.setOrientation(LinearLayout.VERTICAL);
-    l.setPadding(24, 12, 24, 12);
+    l.setPadding(dp(16), dp(8), dp(16), dp(8));
     return l;
   }
 
@@ -388,6 +559,12 @@ public final class MainActivity extends Activity {
     void set(int color);
   }
 
+  ScrollView scrollable(View child) {
+    ScrollView scroll = new ScrollView(this);
+    scroll.addView(child);
+    return scroll;
+  }
+
   void colorPicker(int initial, ColorResult result) {
     LinearLayout l = column();
     float[] hsv = new float[3];
@@ -398,7 +575,10 @@ public final class MainActivity extends Activity {
     preview.setTextColor(initial);
     l.addView(preview);
     HueWheel wheel = new HueWheel(this, hsv, () -> preview.setTextColor(Color.HSVToColor(hsv)));
-    l.addView(wheel, new LinearLayout.LayoutParams(-1, 500));
+    l.addView(
+        wheel,
+        new LinearLayout.LayoutParams(
+            -1, dp(Math.min(220, getResources().getConfiguration().screenHeightDp / 2))));
     TextView label = new TextView(this);
     label.setText("亮度");
     l.addView(label);
@@ -420,7 +600,7 @@ public final class MainActivity extends Activity {
         });
     new AlertDialog.Builder(this)
         .setTitle("調色盤")
-        .setView(l)
+        .setView(scrollable(l))
         .setPositiveButton("套用", (d, w) -> result.set(Color.HSVToColor(hsv)))
         .setNegativeButton("取消", null)
         .show();
@@ -484,7 +664,7 @@ public final class MainActivity extends Activity {
     AlertDialog d =
         new AlertDialog.Builder(this)
             .setTitle("屏幕與文字像素")
-            .setView(l)
+            .setView(scrollable(l))
             .setPositiveButton("套用", null)
             .setNegativeButton("取消", null)
             .create();
@@ -498,8 +678,14 @@ public final class MainActivity extends Activity {
                             hh = Integer.parseInt(h.getText().toString()),
                             ff = Integer.parseInt(fh.getText().toString()),
                             width = Integer.parseInt(fw.getText().toString());
-                        if (ww < 8 || ww > 256 || hh < 8 || hh > 64 || ff < 1 || ff > hh
-                            || width < 50 || width > 200) throw new Exception();
+                        if (ww < 8
+                            || ww > 256
+                            || hh < 8
+                            || hh > 64
+                            || ff < 1
+                            || ff > hh
+                            || width < 50
+                            || width > 200) throw new Exception();
                         if (LedService.running) {
                           toast("請先停止背景連動再修改像素，避免新舊尺寸混用");
                           return;
