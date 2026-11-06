@@ -32,6 +32,10 @@ struct CarrotLEDProbeApp: App {
                         Button("關閉屏幕") { model.power(false) }.disabled(!model.ready)
                     }
                     Toggle("自動顯示車況", isOn: $model.enabled)
+                    Picker("車況字型", selection: $model.vehicleFont) {
+                        Text("標準").tag("standard"); Text("圓體").tag("rounded")
+                        Text("等寬").tag("monospaced"); Text("襯線").tag("serif")
+                    }
                     Text("目前提示：\(model.currentLabel)")
                     HStack {
                         Button("清除屏幕") { model.clearScreen() }.disabled(!model.ready)
@@ -58,6 +62,10 @@ struct CarrotLEDProbeApp: App {
                                     Text("波浪圖案").tag("wave"); Text("愛心圖案").tag("heart")
                                     Text("警示圖案").tag("warning")
                                 }
+                            }
+                            Picker("字型", selection: $model.customSlots[index].font) {
+                                Text("標準").tag("standard"); Text("圓體").tag("rounded")
+                                Text("等寬").tag("monospaced"); Text("襯線").tag("serif")
                             }
                             HStack {
                                 Picker("字重", selection: $model.customSlots[index].bold) {
@@ -96,6 +104,19 @@ struct CustomSlot: Codable {
     var color = "FFB400"
     var effect = "static"
     var bold = false
+    var font = "standard"
+
+    private enum CodingKeys: String, CodingKey { case text, color, effect, bold, font }
+    init() {}
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        text = try values.decodeIfPresent(String.self, forKey: .text) ?? ""
+        color = try values.decodeIfPresent(String.self, forKey: .color) ?? "FFB400"
+        effect = try values.decodeIfPresent(String.self, forKey: .effect) ?? "static"
+        bold = try values.decodeIfPresent(Bool.self, forKey: .bold) ?? false
+        font = try values.decodeIfPresent(String.self, forKey: .font) ?? "standard"
+        if !["standard", "rounded", "monospaced", "serif"].contains(font) { font = "standard" }
+    }
 }
 
 private struct CarState: Decodable {
@@ -118,6 +139,12 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     @Published var currentLabel = "清屏"
     @Published var ready = false
     @Published var enabled = false
+    @Published var vehicleFont = UserDefaults.standard.string(forKey: "ledVehicleFont") ?? "standard" {
+        didSet {
+            UserDefaults.standard.set(vehicleFont, forKey: "ledVehicleFont")
+            lastDisplayKey = nil
+        }
+    }
     @Published var customSlots = Array(repeating: CustomSlot(), count: 5)
     @Published var customStatus = "儲存後選擇顯示；車況提示優先。"
     private var activeSlot: Int?
@@ -450,7 +477,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if let slot = slot, slot.effect != "static" { phase = tick }
         let turn = label == "左轉彎" || label == "右轉彎"
         if turn { phase = tick }
-        let key = "\(label)|\(slot?.text ?? "")|\(slot?.color ?? "")|\(slot?.effect ?? "")|\(slot?.bold ?? false)|\(phase)"
+        let fontChoice = slot?.font ?? vehicleFont
+        let key = "\(label)|\(slot?.text ?? "")|\(slot?.color ?? "")|\(slot?.effect ?? "")|\(slot?.bold ?? false)|\(fontChoice)|\(phase)"
         if sending || !frames.isEmpty { queuedLabel = label; return }
         guard key != lastDisplayKey else { return }
         lastDisplayKey = key; lastLabel = label
@@ -466,7 +494,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if text.isEmpty || (slot?.effect == "blink" && tick % 2 == 1) { return }
         let offset = slot?.effect == "left" ? -(tick * 2) : slot?.effect == "right" ? (tick * 2) : 0
         let pattern = turn ? (label == "左轉彎" ? "turnLeft" : "turnRight") : (slot?.effect ?? "static")
-        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold, pattern: pattern, phase: tick, scrolling: scrolling) else { return }
+        guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold, fontChoice: fontChoice, pattern: pattern, phase: tick, scrolling: scrolling) else { return }
         var rgb: [UInt8] = label == "減速中" ? [255,48,32] : [255,180,0]
         if let slot = slot, let color = UInt32(slot.color, radix: 16) {
             rgb = [UInt8((color >> 16) & 255), UInt8((color >> 8) & 255), UInt8(color & 255)]
@@ -489,7 +517,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         enqueue(command)
     }
     private func bitmap(_ text: String, offset: Int = 0, customBold: Bool? = nil,
-                        pattern: String = "static", phase: Int = 0, scrolling: Bool = false) -> [UInt8]? {
+                        fontChoice: String = "standard", pattern: String = "static", phase: Int = 0, scrolling: Bool = false) -> [UInt8]? {
         let size = CGSize(width: 96, height: 16)
         let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
         let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
@@ -498,7 +526,19 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             // The typographic width includes spaces; preserve those advances.
             let turnMessage = (text == "左轉彎" || text == "右轉彎")
             let useBold = customBold ?? !turnMessage
-            let font = UIFont.systemFont(ofSize: 32, weight: useBold ? .bold : .regular)
+            let weight: UIFont.Weight = useBold ? .bold : .regular
+            let base = UIFont.systemFont(ofSize: 32, weight: weight)
+            let font: UIFont
+            switch fontChoice {
+            case "rounded":
+                font = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 32) } ?? base
+            case "monospaced":
+                font = UIFont.monospacedSystemFont(ofSize: 32, weight: weight)
+            case "serif":
+                font = base.fontDescriptor.withDesign(.serif).map { UIFont(descriptor: $0, size: 32) } ?? base
+            default:
+                font = base
+            }
             let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.white]
             let rendered = text.replacingOccurrences(of: " ", with: "\u{00A0}")
             let line = CTLineCreateWithAttributedString(NSAttributedString(string: rendered, attributes: attributes))
