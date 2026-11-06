@@ -1,0 +1,15 @@
+name: CarrotLEDProbe
+options:
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  CarrotLEDProbe:
+    type: application
+    platform: iOS
+    sources: [CarrotLEDProbe.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tw.example.carrotledprobe
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info.plist
+        SWIFT_VERSION: "5.0"

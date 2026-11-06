@@ -110,7 +110,10 @@ class RouteEngine:
       self.send_route()
       self.resend_at = time.monotonic() + 5.
     self.poll_route()
-    if self.sm.valid['carrotMan'] and self.sm.alive['carrotMan'] and self.sm['carrotMan'].activeCarrot > 0:
+    # activeCarrot also describes stock speed-camera/bump warnings. Only an
+    # external session may suppress the saved-coordinate route and instructions.
+    if (self.sm.valid['carrotMan'] and self.sm.alive['carrotMan']
+        and self.sm['carrotMan'].externalNavigationActive):
       self.was_external = True
       self.pm.send('navInstruction', messaging.new_message('navInstruction', valid=False))
       return
