@@ -186,6 +186,10 @@ procs = [
 
   PythonProcess("carrot_server", "openpilot.selfdrive.carrot.carrot_server", always_run, enabled=not CARROT_WEB_EXTERNAL),
   PythonProcess("carrot_bluetooth", "openpilot.selfdrive.carrot.bluetooth.daemon", always_run, enabled=TICI, restart_if_crash=True),
+  # Opt-in: presence of the local private token starts a read-only onroad bridge.
+  PythonProcess("iphone_led_bridge", "openpilot.selfdrive.carrot.iphone_led_bridge",
+                lambda started, params, CP: started and os.path.isfile("/data/iphone-led/token"),
+                enabled=TICI, restart_if_crash=True, spawn=True),
   PythonProcess("cweb_push", "openpilot.selfdrive.carrot.cweb_push", always_run, enabled=not PC),
   PythonProcess("carrot_cluster", "openpilot.selfdrive.carrot.cluster_autorun", enable_cluster_hud, restart_if_crash=True),
 

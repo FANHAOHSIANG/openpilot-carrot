@@ -12,8 +12,32 @@
 | MADS、ACC 行為 | HKG Enhanced | 逐項驗證踏板、巡航退出和狀態轉換；等使用者選定行為 |
 | FCA／AEB | 車輛與各分支的驗證條件 | 先確認原廠資料、比對 ECU 與 Panda 行為，停在離線驗證 |
 
-第一版只有電腦端參數比對。Henry／YOLO HUD 已取消。原本 Carrot 的
-啟動流程、控制器、Panda 安全程式、韌體和設定皆沿用基底。
+## 整合試驗內容
+
+- LED 取自 iPhone LED 測試分支 `0f6aab88`，含 C4 的唯讀橋接、iPhone
+  Xcode 專案、Mac 顯示工具與測試。C4 橋接沿用來源分支的啟動條件，
+  車輛上電且存在本機 `/data/iphone-led/token` 才會啟動。配對請依
+  [iPhone 說明](../iphone_led/ios/README_繁體中文.txt)或[Mac 說明](../iphone_led/mac/README_繁體中文.txt)。
+- `replay_candidates.py` 讀完整 cereal rlog，在電腦上計算 HCOP CurveV2 的
+  加速度上限，並在符合低速條件的記錄上列出 HKG v1 的名義比例增益。
+  另外使用明確標記的合成事件測試 HKG MADS 與巡航狀態轉換。
+- 比較資料不接入任何行車控制。HKG 名義增益不是方向盤扭力，也不含
+  NNLC、摩擦模型或完整控制器回放。MADS／巡航範例從事件層開始，
+  不把放開煞車、按鍵或原廠 ECU 訊號猜成重新啟用事件。
+- 原有 FCA／AEB 的行為需分開驗證。Henry／YOLO HUD 已取消。
+
+```sh
+python3 tools/ioniq5_integration/replay_candidates.py
+python3 tools/ioniq5_integration/replay_candidates.py --rlog /path/to/rlog.zst --schema-dir /path/to/full-cereal-schema
+```
+
+第二個命令需要 `numpy`、`pycapnp`、`zstandard`。schema 目錄須可解析
+`log.capnp` 與全部相依匯入，包括錄製版本的 `car.capnp`。
+HCOP 實作源自 `1283b4d3`。HKG 狀態機與增益表源自 `872cfd28`，
+採用僅供離線輸入的事件介面。原始授權見 [HKG 授權](LICENSE-HKG.md)。
+
+This software is licensed under a custom license requiring permission for use.
+This project uses software from Haibin Wen and SUNNYPILOT LLC and is licensed under a custom license requiring permission for use.
 
 ## 已做的比對
 
