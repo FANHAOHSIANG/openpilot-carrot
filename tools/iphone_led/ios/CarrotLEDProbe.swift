@@ -318,6 +318,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func activateEyes(_ variant: Int) {
         guard ready else { return }
         if !screenPowerOn { power(true) }
+        startup.cancel()
         endPreview(); eyesVariant = EyeAnimations.index(variant); eyesActive = true; activeSlot = nil; lastDisplayKey = nil
         customStatus = "眼睛動畫已選用，車況提示優先。"
         if !enabled { requestDisplay("__eyes__") }
@@ -363,7 +364,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     @Published var previewStatus = ""
     var automaticBinding: Binding<Bool> {
         Binding(get: { self.enabled }, set: { value in
-            if value && !self.screenPowerOn { self.power(true) }; self.endPreview(); self.enabled = value; self.lastDisplayKey = nil
+            if value && !self.screenPowerOn { self.power(true) }; self.startup.cancel(); self.endPreview(); self.enabled = value; self.lastDisplayKey = nil
             if self.ready { self.requestDisplay(!value ? self.idleLabel : "") }
         })
     }
@@ -378,6 +379,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         guard let style = (draft ? vehicleDrafts[key] : vehicleStyles[key]),
               !style.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               style.text.count <= 16, validHex(style.color) else { previewStatus = "請先填入有效文字與顏色"; return }
+        startup.cancel()
         previewStyle = style; previewUntil = Date().addingTimeInterval(5)
         previewStatus = "手動預覽：\(eventTitle(key))（5 秒，暫停自動顯示）"
         lastDisplayKey = nil; requestDisplay("__preview__")
@@ -400,6 +402,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var isPolling = false
     private var generation = UUID()
     private let vehicleRules = VehicleRules()
+    private let startup = StartupPlayback()
+    private var latestVehicleLabel = ""
     private var lastLabel: String?
     private var frames: [Data] = []
     private var queuedLabel: String?
@@ -471,6 +475,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                if self.startup.active {
+                    self.tickStartup()
+                    self.updateDrivingSession()
+                    if self.startup.active { return }
+                }
                 if self.previewStyle != nil {
                     if Date() < self.previewUntil && self.ready {
                         self.requestDisplay("__preview__"); self.updateDrivingSession(); return
@@ -525,7 +534,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         inBackground = true
         // Only the explicit experiment may continue polling in background.
         // Suspension still prevents the watchdog from guaranteeing a LED clear.
-        if !drivingSession.active { invalidate() }
+        if !drivingSession.active { startup.cancel(); invalidate() }
     }
     func returnToForeground() {
         inBackground = false
@@ -550,6 +559,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         bluetoothStatus = "已切換屏幕類型，請掃描並選擇屏幕；舊屏幕請目視確認已關閉"
     }
     private func resetTransmission() {
+        startup.cancel()
         txGeneration = UUID(); frames = []; ipixelPackets = []
         sending = false; ipixelWriting = false; ipixelAwaitingAck = false; ipixelAckSeen = false
         queuedLabel = nil; lastDisplayKey = nil; lastLabel = nil; drawActive = false
@@ -698,7 +708,13 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func power(_ on: Bool) {
         endPreview()
         guard ready else { return }
+        let wasOn = screenPowerOn
         screenPowerOn = on
+        if !on { startup.cancel() }
+        if on && !wasOn && StartupArtwork.supported(width: panelWidth, height: panelHeight) {
+            queuedLabel = nil
+            startup.begin(Int64(ProcessInfo.processInfo.systemUptime*1000))
+        }
         if !on { enabled = false; activeSlot = nil; eyesActive = false; queuedLabel = nil; ipixelPackets = [] }
         lastDisplayKey = nil
         if ipixel { enqueue(IPixelProtocol.power(on)) }
@@ -713,6 +729,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
 
     func clearScreen() {
+        startup.cancel()
         endPreview()
         guard ready else { return }
         enabled = false; activeSlot = nil; eyesActive = false; queuedLabel = nil
@@ -762,6 +779,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if ipixel && h != 16 { settingsStatus = "iPixel 此版僅支援 16 排；請設定 64 × 16"; return }
         guard !sending && frames.isEmpty else { settingsStatus = "正在傳送，請稍後再按套用。"; return }
         if ready && drawActive && !ipixel { enqueue(clearCommand()) }
+        startup.cancel()
         panelWidth = w; panelHeight = h; fontHeight = fh; fontWidthPercent = fw
         UserDefaults.standard.set(w, forKey: "ledPanelWidth"); UserDefaults.standard.set(h, forKey: "ledPanelHeight")
         UserDefaults.standard.set(fh, forKey: "ledFontHeight"); UserDefaults.standard.set(fw, forKey: "ledFontWidthPercent")
@@ -792,6 +810,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func testAllPixels() {
         guard ready else { return }
         if !screenPowerOn { power(true) }
+        startup.cancel()
         endPreview()
         enabled = false; activeSlot = nil; eyesActive = false; queuedLabel = nil; lastDisplayKey = nil
         if !ipixel && !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
@@ -827,6 +846,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         }
         guard ready, saveSlots() else { return }
         if !screenPowerOn { power(true) }
+        startup.cancel()
         eyesActive = false
         activeSlot = index; lastDisplayKey = nil
         customStatus = "已選自訂 \(index + 1)，有效車況提示優先。"
@@ -834,6 +854,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if ready && !enabled { requestDisplay("__custom__") }
     }
     func clearSlot() {
+        startup.cancel()
         activeSlot = nil; lastDisplayKey = nil; customStatus = "已取消自訂待機文字。"
         if ready && !enabled { requestDisplay("") }
     }
@@ -888,6 +909,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             vehicleStatus = "已收到 C4 車況"
             values = String(format: "%.1f km/h  %.2f m/s²  檔位 %@\n煞車 %d  左燈 %d  右燈 %d", speed * 3.6, accel, gear, brake ? 1 : 0, left ? 1 : 0, right ? 1 : 0)
             let label = vehicleRules.choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: Int64(ProcessInfo.processInfo.systemUptime*1000))
+            latestVehicleLabel = label
             if enabled && vehicleRules.emergencyActive && previewStyle != nil { endPreview() }
             if enabled && ready { requestDisplay(label.isEmpty ? idleLabel : label) }
         } catch {
@@ -899,10 +921,16 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         lastSample = .distantPast
         updateDrivingSession()
         vehicleStatus = "C4 資料中斷，嘗試清屏"
-        vehicleRules.reset()
+        vehicleRules.reset(); latestVehicleLabel = ""
         if enabled && ready { requestDisplay("") }
     }
     private func requestDisplay(_ label: String) {
+        if startup.active {
+            // Vehicle alerts supersede the opener; idle updates wait until it ends.
+            if label == "__preview__" || (enabled && vehicleIsFresh && eventKeys.contains(label)) {
+                startup.cancel(); lastDisplayKey = nil
+            } else { return }
+        }
         if label == "__preview__" && previewStyle == nil { return }
         if label != "__preview__", previewStyle != nil, Date() < previewUntil { return }
         if label == "__eyes__" {
@@ -980,6 +1008,40 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         }
         drawPixels(pixels, color: rgb)
     }
+    private func tickStartup() {
+        let idle = !sending && frames.isEmpty && ipixelPackets.isEmpty && !ipixelWriting && !ipixelAwaitingAck
+        let native = ipixel && nativeEyes && panelWidth == 64 && panelHeight == 16
+            && (peripheral?.maximumWriteValueLength(for: .withResponse) ?? 0) >= 100
+        let frame = startup.step(Int64(ProcessInfo.processInfo.systemUptime*1000), ready: ready,
+            power: screenPowerOn, interrupt: enabled && vehicleIsFresh && !latestVehicleLabel.isEmpty(),
+            idle: idle, nativeMode: native)
+        if frame == StartupPlayback.native {
+            if let data = StartupArtwork.gif(), let packet = IPixelProtocol.gif(data) {
+                currentLabel = "胡蘿蔔車開走 · 開屏動畫"; enqueue(packet)
+            } else { startup.cancel(); bluetoothStatus = "開屏素材缺失，請更新完整 App" }
+        } else if frame >= 0 {
+            if let layers = StartupArtwork.layers(width: panelWidth, frame: frame) {
+                currentLabel = "胡蘿蔔車開走 · 開屏動畫"
+                if ipixel {
+                    var merged = layers[1]
+                    for layer in layers.dropFirst(2) { for i in merged.indices { merged[i] |= layer[i] } }
+                    drawPixels(merged, color: StartupArtwork.colors[1])
+                } else {
+                    if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
+                    enqueue(clearCommand())
+                    for i in 1..<4 where layers[i].contains(where: { $0 != 0 }) {
+                        drawPixels(layers[i], color: StartupArtwork.colors[i])
+                    }
+                }
+            } else { startup.cancel(); bluetoothStatus = "開屏素材缺失，請更新完整 App" }
+        }
+        if !startup.active && ready && screenPowerOn {
+            lastDisplayKey = nil
+            let resume = enabled ? (vehicleIsFresh ? (latestVehicleLabel.isEmpty ? idleLabel : latestVehicleLabel) : "") : idleLabel
+            requestDisplay(resume)
+        }
+    }
+
     private func selectedFont(_ fontChoice: String, bold: Bool) -> UIFont {
         let weight: UIFont.Weight = bold ? .bold : .regular
             let base = UIFont.systemFont(ofSize: 32, weight: weight)

@@ -18,6 +18,12 @@ targets:
       - LEDInterface.swift
       - EyesBitmap.swift
       - EyeAnimations.swift
+      - StartupPlayback.swift
+      - StartupArtwork.swift
+      - path: Resources/Startup
+        buildPhase: resources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
       - path: Resources/Eyes
         buildPhase: resources
       - VehicleRules.swift
@@ -29,6 +35,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tw.example.carrotledprobe
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Info.plist
   CarrotLEDLiveActivity:

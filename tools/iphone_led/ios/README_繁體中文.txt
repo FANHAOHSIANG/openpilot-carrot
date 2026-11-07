@@ -1,4 +1,6 @@
-最新版本：iPhone 0.23／Android 0.1.6，新增兩款佐助變化動畫。請見同目錄 SASUKE_EYES_UPDATE.txt，並以完整專案重新產生及安裝。
+最新版本：iPhone 0.24／Android 0.1.7，胡蘿蔔車 App 圖示與開屏動畫；LOY PLAY 96×16 仍支援。請看同目錄 STARTUP_UPDATE.txt，解壓完整專案後重新執行 xcodegen generate。
+
+上一版：iPhone 0.23／Android 0.1.6，新增兩款佐助變化動畫。請見同目錄 SASUKE_EYES_UPDATE.txt，並以完整專案重新產生及安裝。
 
 上一版更新紀錄：iPhone 0.22 / Android 0.1.5。六款眼睛與無需雙黃燈的急煞提示，詳見 同目錄 EYES_EMERGENCY_UPDATE.txt。
 

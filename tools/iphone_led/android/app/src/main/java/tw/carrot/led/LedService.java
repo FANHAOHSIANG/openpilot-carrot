@@ -41,6 +41,7 @@ public final class LedService extends Service {
   public static volatile String previewStatus = "";
   String host = "", token = "", label = "", lastKey = "";
   final VehicleRules rules = new VehicleRules();
+  final StartupPlayback startup = new StartupPlayback();
 
   public void onCreate() {
     super.onCreate();
@@ -55,6 +56,7 @@ public final class LedService extends Service {
           lastKey = "";
           automatic = true; powerOn = true;
           ble.controls(Collections.singletonList(settings.ipixel() ? IPixelProtocol.power(true) : new byte[] {4, 2, 0, 1}));
+          if(StartupArtwork.supported(settings.width(),settings.height())) startup.begin(SystemClock.elapsedRealtime());
         };
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
@@ -110,6 +112,8 @@ public final class LedService extends Service {
 
   private void command(String a, Intent i) {
     if (stopping) return;
+    // Explicit content, clear, settings, scan and stop always supersede the opener.
+    if (!POWER.equals(a)) startup.cancel();
     if (STOP.equals(a)) {
       shutdown();
       return;
@@ -170,6 +174,8 @@ public final class LedService extends Service {
       previewKey = "";
       previewStatus = "";
       boolean on = i.getBooleanExtra("on", true);
+      boolean wasOn = powerOn;
+      if(!on) startup.cancel();
       if (!on) {
         automatic = false;
         slot = -1;
@@ -179,6 +185,8 @@ public final class LedService extends Service {
       ble.controls(
           settings.ipixel() ? Collections.singletonList(IPixelProtocol.power(on)) : Arrays.asList(new byte[] {0x30, 1, 0x65}, new byte[] {4, 2, 0, (byte) (on ? 1 : 0)}));
       display = on ? "已送開屏" : "已送關屏";
+      if(on && !wasOn && ble.ready && StartupArtwork.supported(settings.width(),settings.height()))
+        startup.begin(SystemClock.elapsedRealtime());
     }
     if (TEST.equals(a)) {
       previewKey = "";
@@ -223,11 +231,11 @@ public final class LedService extends Service {
               lastKey = "";
               render(true);
             }
-            if (automatic || slot >= 0 || !previewKey.isEmpty()) render(false);
+            if (startup.active || automatic || slot >= 0 || !previewKey.isEmpty()) render(false);
           }
           screen = ble.status;
           connected = ble.ready;
-          if (!connected) powerOn = false;
+          if (!connected) { powerOn = false; startup.cancel(); }
           discovered = Collections.unmodifiableMap(new LinkedHashMap<>(ble.devices));
           if (now - lastNotification >= 2000) {
             lastNotification = now;
@@ -336,6 +344,17 @@ public final class LedService extends Service {
   private void render(boolean force) {
     if (!ble.ready || (!powerOn && !force)) return;
     boolean fresh = lastSample >= 0 && SystemClock.elapsedRealtime() - lastSample < 900;
+    if (startup.active) {
+      int frame = startup.step(SystemClock.elapsedRealtime(), ble.ready, powerOn,
+          automatic && fresh && !label.isEmpty(), ble.idle(),
+          settings.ipixel() && settings.width()==64 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady());
+      if (frame >= 0 || frame == StartupPlayback.NATIVE) {
+        try { ble.offer(StartupArtwork.commands(settings,frame)); display="胡蘿蔔車開走 · 開屏動畫"; }
+        catch (IllegalArgumentException e) { startup.cancel(); screen="開屏動畫略過："+e.getMessage(); }
+      }
+      if (startup.active) return;
+      lastKey=""; // Resume the current vehicle/custom state, never an old snapshot.
+    }
     String key =
         DisplaySelection.choose(
             automatic, fresh, label, slot, previewKey, previewUntil, SystemClock.elapsedRealtime());

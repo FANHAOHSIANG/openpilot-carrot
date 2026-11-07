@@ -36,6 +36,11 @@ jobs:
         run: |
           swiftc VehicleRules.swift tests/VehicleRulesTests.swift -o /tmp/vehicle-rules-tests
           /tmp/vehicle-rules-tests
+      - name: Test opening animation priority
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc StartupPlayback.swift IPixelProtocol.swift tests/StartupTests.swift -o /tmp/startup-tests
+          /tmp/startup-tests
       - name: Generate project
         working-directory: tools/iphone_led/ios
         run: |
@@ -53,10 +58,15 @@ jobs:
           import pathlib, plistlib
           app = pathlib.Path('/tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app')
           assert (app / 'IslandSilent.wav').is_file()
+          assert (app / 'Assets.car').is_file()
+          for filename in ['startup_car.gif','startup64.bin','startup96.bin']:
+              assert (app / filename).is_file(), filename
           for name in ['crystal','gaze','devil','spiral','flame','mecha','sasuke_sharingan','sasuke_rinnegan']:
               assert (app / (name+'.gif')).is_file(), name
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['NSSupportsLiveActivities'] is True
+          assert info['CFBundleDisplayName'] == 'Carrot LED'
+          assert info['CFBundleIcons']['CFBundlePrimaryIcon']['CFBundleIconName'] == 'AppIcon'
           assert 'bluetooth-central' in info['UIBackgroundModes']
           widgets = list((app / 'PlugIns').glob('*.appex/Info.plist'))
           assert len(widgets) == 1

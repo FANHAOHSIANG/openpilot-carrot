@@ -1,3 +1,23 @@
+# 胡蘿蔔車 App 圖示與開屏動畫
+
+Android 0.1.7／iPhone 0.24，採用使用者選定的橘色車身與綠葉圖示。
+
+<img src="../ios/Resources/Assets.xcassets/AppIcon.appiconset/CarrotLED-1024.png" width="240" alt="Carrot LED 胡蘿蔔車 App 圖示">
+
+## 原 LOY PLAY 96×16
+
+![胡蘿蔔車開走 96×16 素材預覽](startup-96x16.gif)
+
+## iPixel 64×16
+
+![胡蘿蔔車開走 64×16 素材預覽](startup-64x16.gif)
+
+此頁 GIF 為方便觀看而循環；屏幕開屏只播放一次。預覽是 20 fps 素材放大，LOY 透過藍牙最高 5 fps 逐格傳送，實際流暢度須實測。
+
+[更新說明](../STARTUP_UPDATE.md) · [下載與安裝](../downloads/README.md)
+
+---
+
 # 佐助眼睛動畫預覽
 
 Android 0.1.6／iPhone 0.23 新增兩款，原六款保留。下方為 64×16 素材放大預覽，不是實體 LED 錄影。

@@ -14,3 +14,6 @@ java -cp "$out" tw.carrot.led.EyesTests
 
 javac -encoding UTF-8 -d "$out" app/src/main/java/tw/carrot/led/VehicleRules.java tests/VehicleRulesTests.java
 java -cp "$out" tw.carrot.led.VehicleRulesTests
+
+javac -encoding UTF-8 -d "$out" app/src/main/java/tw/carrot/led/StartupPlayback.java app/src/main/java/tw/carrot/led/IPixelProtocol.java app/src/main/java/tw/carrot/led/LoyProtocol.java tests/StartupTests.java
+java -cp "$out" tw.carrot.led.StartupTests
