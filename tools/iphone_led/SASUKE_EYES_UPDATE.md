@@ -1,0 +1,23 @@
+# 佐助眼睛動畫更新
+
+Android 0.1.6（versionCode 7）／iPhone 0.23（build 23）。原六款保留，共八款；新增兩款排在「快捷 → 眼睛動畫」最前面。
+
+| 選項 | 動畫內容 |
+|---|---|
+| 寫輪眼 → 萬花筒 | 紅色三勾玉旋轉，變為佐助風格的紅色六芒星，停留後以眨眼銜接循環。 |
+| 萬花筒 → 輪迴眼 | 兩眼先呈紅色萬花筒；畫面右側（角色左眼）展開紫色輪紋與勾玉，另一眼維持紅色。停留後以眨眼銜接循環。 |
+
+兩款依 64×16 點陣重新繪製，紋路經過簡化；沒有直接擷取動畫片段或原廠圖庫。
+
+- 新增兩款固定紅／紫配色，避免全域調色將輪迴眼也染成紅色。調色盤仍可調整原六款。
+- 素材為 20 fps、3.2 秒循環。iPixel 64×16 原生模式上傳一次後由屏幕循環播放；兩份 GIF 均小於 8 KiB，沿用暫存 slot 0 與接收確認機制。
+- 相容模式目標 5 fps；iPixel 相容模式簡化為紅色點陣，LOY 使用近似四層顏色。要看完整紅／紫變化，請使用 iPixel 64×16 並開啟「iPixel 原生平順動畫」。
+- 自動車況開啟時，車況仍優先；結束後恢復選用的眼睛。清屏會取消動畫及自動顯示。急煞條件沿用上一版。
+
+Android 可覆蓋安裝同簽章 APK。iPhone 請下載完整專案、執行 `xcodegen generate`，沿用兩個 Target 的開發團隊與 Bundle ID 再 Run；本次含新增 GIF 資源，不能只更換 Swift 檔。C4 不用更新。
+
+驗證通過：資源解碼、循環接縫、左右眼配色、轉換前後差異及 upstream GIF 封包比對；Android APK、iPhone App 與 Live Activity extension 均編譯成功，兩平台模擬器畫面已檢查。實體屏幕的解碼速度及顯示效果仍待實機確認。
+
+[下載與安裝](downloads/README.md) · [動畫預覽](design/sasuke-eyes-preview.gif)
+
+編譯及畫面證據：[iPhone](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42401366431)、[Android 編譯](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42401366386)、[Android 畫面](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42401366399)。

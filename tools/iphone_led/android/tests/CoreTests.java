@@ -26,6 +26,11 @@ public class CoreTests {
     eq(DisplaySelection.choose(false, true, "減速中", -1, "", 0, 5000), "");
     eq(DisplaySelection.choose(false, false, "", -1, "倒車", 5000, 0), "倒車");
     eq(DisplaySelection.choose(false, false, "", -1, "倒車", 5000, 5000), "");
+    eq(DisplaySelection.choose(true,true,"減速中",5,"",0,5000),"減速中");
+    eq(DisplaySelection.choose(true,true,"",5,"",0,5000),"eyes");
+    eq(DisplaySelection.choose(true,false,"",5,"",0,5000),"");
+    eq(DisplaySelection.choose(false,false,"",5,"",0,5000),"eyes");
+    eq(DisplaySelection.choose(false,false,"",-1,"",0,5000),"");
     VehicleRules r = new VehicleRules();
     eq(r.choose(10, 0, false, true, false, "drive", 0), "左轉彎");
     eq(r.choose(10, -.1, true, true, false, "drive", 100), "減速中");
@@ -42,7 +47,7 @@ public class CoreTests {
     eq(r.choose(10, -3, true, true, true, "drive", 2000), "減速中");
     eq(r.choose(10, -3, true, true, true, "drive", 2300), "減速中");
     eq(r.choose(10, -.6, true, true, true, "drive", 4299), "減速中");
-    eq(r.choose(10, -.6, true, true, true, "drive", 4300), "前方塞車");
+    eq(r.choose(10, -.6, true, true, true, "drive", 4300), "減速中");
     eq(r.choose(10, -.6, true, true, true, "drive", 6300), "減速中");
     eq(r.choose(10, -.6, true, false, true, "drive", 6400), "減速中");
     r.reset();

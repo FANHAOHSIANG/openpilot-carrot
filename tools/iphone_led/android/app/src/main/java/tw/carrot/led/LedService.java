@@ -22,9 +22,9 @@ public final class LedService extends Service {
       CONNECT = "CONNECT",
       POWER = "POWER",
       RELOAD = "RELOAD",
-      TEST = "TEST";
+      TEST = "TEST", EYES = "EYES";
   public static volatile String status = "服務未啟動", details = "", screen = "屏幕尚未連線", display = "清屏";
-  public static volatile boolean running = false, connected = false, automatic = false;
+  public static volatile boolean running = false, connected = false, automatic = false, powerOn = false;
   public static volatile Map<String, String> discovered = Collections.emptyMap();
   HandlerThread thread;
   Handler h;
@@ -34,13 +34,14 @@ public final class LedService extends Service {
   PowerManager.WakeLock wake;
   volatile boolean stopping = false;
   boolean polling = false;
-  long lastSample = -1, startTime, lastNotification = 0, lastRender = 0;
+  long lastSample = -1, startTime, lastNotification = 0, lastRender = 0, lastPoll = -200;
   int generation = 0, slot = -1;
   String previewKey = "";
   long previewUntil = 0;
   public static volatile String previewStatus = "";
   String host = "", token = "", label = "", lastKey = "";
   final VehicleRules rules = new VehicleRules();
+  final StartupPlayback startup = new StartupPlayback();
 
   public void onCreate() {
     super.onCreate();
@@ -53,8 +54,9 @@ public final class LedService extends Service {
     ble.onReady =
         () -> {
           lastKey = "";
-          automatic = true;
-          ble.offer(Collections.singletonList(new byte[] {4, 2, 0, 1}));
+          automatic = true; powerOn = true;
+          ble.controls(Collections.singletonList(settings.ipixel() ? IPixelProtocol.power(true) : new byte[] {4, 2, 0, 1}));
+          if(StartupArtwork.supported(settings.width(),settings.height())) startup.begin(SystemClock.elapsedRealtime());
         };
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
@@ -110,6 +112,8 @@ public final class LedService extends Service {
 
   private void command(String a, Intent i) {
     if (stopping) return;
+    // Explicit content, clear, settings, scan and stop always supersede the opener.
+    if (!POWER.equals(a)) startup.cancel();
     if (STOP.equals(a)) {
       shutdown();
       return;
@@ -123,6 +127,15 @@ public final class LedService extends Service {
       label = "";
       lastKey = "";
       render(true);
+    }
+    if ((AUTO.equals(a) && i.getBooleanExtra("enabled",true)) || PREVIEW.equals(a) || CUSTOM.equals(a) || EYES.equals(a) || TEST.equals(a)) {
+      if (ble.ready && !powerOn) {
+        powerOn=true;
+        ble.controls(Collections.singletonList(settings.ipixel()?IPixelProtocol.power(true):new byte[]{4,2,0,1}));
+      }
+    }
+    if (EYES.equals(a)) {
+      previewKey="";previewStatus="";slot=5;lastKey="";render(true);
     }
     if (AUTO.equals(a)) {
       previewKey = "";
@@ -161,14 +174,19 @@ public final class LedService extends Service {
       previewKey = "";
       previewStatus = "";
       boolean on = i.getBooleanExtra("on", true);
+      boolean wasOn = powerOn;
+      if(!on) startup.cancel();
       if (!on) {
         automatic = false;
         slot = -1;
       }
       lastKey = "";
-      ble.offer(
-          Arrays.asList(new byte[] {0x30, 1, 0x65}, new byte[] {4, 2, 0, (byte) (on ? 1 : 0)}));
+      powerOn = on && ble.ready;
+      ble.controls(
+          settings.ipixel() ? Collections.singletonList(IPixelProtocol.power(on)) : Arrays.asList(new byte[] {0x30, 1, 0x65}, new byte[] {4, 2, 0, (byte) (on ? 1 : 0)}));
       display = on ? "已送開屏" : "已送關屏";
+      if(on && !wasOn && ble.ready && StartupArtwork.supported(settings.width(),settings.height()))
+        startup.begin(SystemClock.elapsedRealtime());
     }
     if (TEST.equals(a)) {
       previewKey = "";
@@ -179,8 +197,8 @@ public final class LedService extends Service {
       byte[] bits = new byte[((w + 7) / 8) * height];
       Arrays.fill(bits, (byte) 255);
       List<byte[]> c = new ArrayList<>();
-      c.add(new byte[] {0x30, 1, (byte) 0x90});
-      c.addAll(LoyProtocol.pixels(bits, w, height, 0xffffff));
+      if (settings.ipixel()) c.add(IPixelProtocol.text(bits,w,height,0xffffff,0));
+      else { c.add(new byte[] {0x30,1,(byte)0x90}); c.addAll(LoyProtocol.pixels(bits,w,height,0xffffff)); }
       ble.offer(c);
       lastKey = "test";
       display = "全亮測試，按清屏結束";
@@ -204,8 +222,8 @@ public final class LedService extends Service {
             status = "C4 資料過期，嘗試清屏";
             lastKey = "";
           }
-          if (!polling) poll();
-          if (now - lastRender >= 333) {
+          if (!polling && now - lastPoll >= 200) { lastPoll = now; poll(); }
+          if (now - lastRender >= 50) {
             lastRender = now;
             if (!previewKey.isEmpty() && now >= previewUntil) {
               previewKey = "";
@@ -213,17 +231,18 @@ public final class LedService extends Service {
               lastKey = "";
               render(true);
             }
-            if (automatic || slot >= 0 || !previewKey.isEmpty()) render(false);
+            if (startup.active || automatic || slot >= 0 || !previewKey.isEmpty()) render(false);
           }
           screen = ble.status;
           connected = ble.ready;
+          if (!connected) { powerOn = false; startup.cancel(); }
           discovered = Collections.unmodifiableMap(new LinkedHashMap<>(ble.devices));
           if (now - lastNotification >= 2000) {
             lastNotification = now;
             getSystemService(NotificationManager.class)
                 .notify(7, notification(status + " · " + (ble.ready ? "藍牙已連線" : "屏幕未連線")));
           }
-          h.postDelayed(this, 200);
+          h.postDelayed(this, 50);
         }
       };
 
@@ -298,6 +317,7 @@ public final class LedService extends Service {
                   String gear = result.getString("gear").toLowerCase(Locale.ROOT);
                   lastSample = now;
                   label = rules.choose(speed, accel, brake, left, right, gear, now);
+                  if(automatic && rules.emergencyActive){previewKey="";previewStatus="";}
                   status = "已收到 C4 車況";
                   details =
                       String.format(
@@ -322,13 +342,28 @@ public final class LedService extends Service {
   }
 
   private void render(boolean force) {
-    if (!ble.ready) return;
+    if (!ble.ready || (!powerOn && !force)) return;
     boolean fresh = lastSample >= 0 && SystemClock.elapsedRealtime() - lastSample < 900;
+    if (startup.active) {
+      int frame = startup.step(SystemClock.elapsedRealtime(), ble.ready, powerOn,
+          automatic && fresh && !label.isEmpty(), ble.idle(),
+          settings.ipixel() && settings.width()==64 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady(), settings.ipixel()?200:50);
+      if (frame >= 0 || frame == StartupPlayback.NATIVE) {
+        try { ble.offer(StartupArtwork.commands(settings,frame)); display="胡蘿蔔車開走 · 開屏動畫"; }
+        catch (IllegalArgumentException e) { startup.cancel(); screen="開屏動畫略過："+e.getMessage(); }
+      }
+      if (startup.active) return;
+      lastKey=""; // Resume the current vehicle/custom state, never an old snapshot.
+    }
     String key =
         DisplaySelection.choose(
             automatic, fresh, label, slot, previewKey, previewUntil, SystemClock.elapsedRealtime());
     Settings.Style style = key.isEmpty() ? null : settings.style(key);
-    long phase = SystemClock.elapsedRealtime() / 333;
+    boolean nativeEyes=key.equals("eyes") && settings.ipixel() && settings.width()==64 && settings.height()==16 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady();
+    // Never queue old animation bitmaps behind a busy link. Sample the current
+    // animation time only once the previous frame and any vehicle alert are done.
+    if (key.equals("eyes") && !nativeEyes && !ble.idle()) return;
+    long phase = SystemClock.elapsedRealtime() / (key.equals("eyes")?(settings.ipixel()?200:50):333);
     String signature =
         key
             + (style == null
@@ -338,11 +373,12 @@ public final class LedService extends Service {
                     + style.font
                     + style.bold
                     + style.effect
-                    + (style.effect == 0 ? 0 : phase));
+                    + (nativeEyes || style.effect == 0 || (settings.ipixel() && style.effect <= 5) ? 0 : phase));
     if (!force && signature.equals(lastKey)) return;
     lastKey = signature;
-    display = style == null ? "清屏" : style.text;
-    ble.offer(LedRenderer.render(settings, style, phase));
+    display = style == null ? "清屏" : key.equals("eyes") ? EyeAnimations.NAMES[EyeAnimations.index(style.effect-11)] : style.text;
+    try { ble.offer(LedRenderer.render(settings, style, phase,nativeEyes)); }
+    catch (IllegalArgumentException e) { screen = "顯示失敗："+e.getMessage(); lastKey=""; }
   }
 
   private Notification notification(String text) {
@@ -385,7 +421,7 @@ public final class LedService extends Service {
     automatic = false;
     slot = -1;
     h.removeCallbacks(tick);
-    ble.offer(LedRenderer.render(settings, null, 0));
+    ble.offer(LedRenderer.render(settings, null, 0,false));
     long until = SystemClock.elapsedRealtime() + 1800;
     Runnable finish =
         new Runnable() {
@@ -406,6 +442,7 @@ public final class LedService extends Service {
     stopping = true;
     running = false;
     connected = false;
+    powerOn = false;
     automatic = false;
     screen = "服務已停止，請確認屏幕已清除";
     if (wake != null && wake.isHeld()) wake.release();

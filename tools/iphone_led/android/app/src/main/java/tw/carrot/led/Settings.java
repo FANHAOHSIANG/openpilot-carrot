@@ -10,7 +10,7 @@ import javax.crypto.spec.GCMParameterSpec;
 
 final class Settings {
   static final String[] EVENTS = {"倒車", "左轉彎", "右轉彎", "減速中", "暫停一下謝謝", "謝謝", "前方塞車"};
-  static final String[] TITLES = {"R檔", "左方向燈", "右方向燈", "煞車", "雙黃燈", "感謝燈", "急煞雙黃燈"};
+  static final String[] TITLES = {"R檔", "左方向燈", "右方向燈", "煞車", "雙黃燈", "感謝燈", "急煞提示"};
 
   static String title(String key) {
     for (int i = 0; i < EVENTS.length; i++) if (EVENTS[i].equals(key)) return TITLES[i];
@@ -22,9 +22,11 @@ final class Settings {
   };
   static final String[] FONTS = {"系統黑體", "襯線體", "等寬體", "圓潤黑體", "匯入字型"};
   final SharedPreferences p;
+  final Context context;
   final java.io.File fontFile;
 
   Settings(Context c) {
+    context=c.getApplicationContext();
     fontFile = new java.io.File(c.getFilesDir(), "user-font");
     p = c.getSharedPreferences("settings", Context.MODE_PRIVATE);
   }
@@ -32,6 +34,8 @@ final class Settings {
   String host() {
     return p.getString("host", "");
   }
+
+  boolean ipixel() { return p.getBoolean("ipixel", false); }
 
   int width() {
     return p.getInt("width", 96);
@@ -64,6 +68,7 @@ final class Settings {
   }
 
   Style style(String key) {
+    if (key.equals("eyes")) return new Style("眼睛動畫",p.getInt("eyes.color",Color.rgb(0,220,200)),11+EyeAnimations.index(p.getInt("eyes.variant",0)),0,false);
     return new Style(
         p.getString(key + ".text", key.startsWith("slot") ? "" : key.equals("倒車") ? "倒車，請注意" : key),
         p.getInt(

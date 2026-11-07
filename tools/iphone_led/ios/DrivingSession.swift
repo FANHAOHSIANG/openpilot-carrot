@@ -20,6 +20,10 @@ final class DrivingSession: ObservableObject {
     private var cleanupComplete = false
     private var activity: Activity<LEDActivityAttributes>?
     private var observer: Task<Void, Never>?
+    @Published private(set) var islandUpdateStatus = "尚未提交動態島更新"
+    private var updateTask: Task<Void, Never>?
+    private var updateGeneration = UUID()
+    private var pendingUpdate: (LEDActivityAttributes.ContentState, Date, AlertConfiguration?)?
     private var lastUpdate = Date.distantPast
     private var lastState: LEDActivityAttributes.ContentState?
     var onEnded: (() -> Void)?
@@ -68,7 +72,8 @@ final class DrivingSession: ObservableObject {
                                                        screenConnected: connected, automatic: automatic, displayText: displayText)
         do {
             let item = try Activity.request(attributes: LEDActivityAttributes(title: "Carrot 行車連動"),
-                content: ActivityContent(state: state, staleDate: sampledAt.addingTimeInterval(0.9)), pushType: nil)
+                content: ActivityContent(state: state, staleDate: Date().addingTimeInterval(15)), pushType: nil)
+            cancelUpdates()
             alertPolicy.reset(text: displayText)
             activity = item; active = true; lastState = state; lastUpdate = .distantPast
             message = "行車即時動態已開始，可切換至背景"
@@ -77,6 +82,7 @@ final class DrivingSession: ObservableObject {
                     guard !Task.isCancelled else { return }
                     if state == .ended || state == .dismissed {
                         guard let self, self.activity?.id == item.id else { return }
+                        self.cancelUpdates()
                         self.activity = nil; self.active = false
                         self.autoStart = false
                         UserDefaults.standard.set(false, forKey: "ledAutoBackground")
@@ -102,21 +108,45 @@ final class DrivingSession: ObservableObject {
         let shouldExpand = alertPolicy.shouldAlert(text: displayText, eligible: eligible,
                                                   uptime: ProcessInfo.processInfo.systemUptime)
         let changed = lastState?.fresh != fresh || lastState?.screenConnected != connected || lastState?.automatic != automatic || lastState?.displayText != displayText
-        // Avoid sending every 5 Hz vehicle packet to ActivityKit. A conservative
-        // staleDate can show expired between updates; never extend freshness.
-        guard changed || shouldExpand || now.timeIntervalSince(lastUpdate) >= 1 else { return }
+        // This deadline describes the UI snapshot, NOT vehicle-data validity.
+        // C4 freshness remains 0.9 s and fresh=false is sent immediately.
+        // Changed text/status bypasses the 5 s unchanged-content heartbeat.
+        guard changed || shouldExpand || now.timeIntervalSince(lastUpdate) >= 5 else { return }
         lastState = state; lastUpdate = now
         // AlertConfiguration asks iOS to expand briefly; the system owns presentation timing.
         // The bundled silent sound avoids beeping on every vehicle-word change.
         let alert: AlertConfiguration? = shouldExpand && Bundle.main.url(forResource: "IslandSilent", withExtension: "wav") != nil
             ? AlertConfiguration(title: "Carrot LED", body: "\(displayText)", sound: .named("IslandSilent.wav")) : nil
-        Task {
-            guard self.active, self.activity?.id == item.id else { return }
-            await item.update(ActivityContent(state: state, staleDate: sampledAt.addingTimeInterval(0.9)), alertConfiguration: alert)
+        pendingUpdate = (state, now.addingTimeInterval(15), alert)
+        guard updateTask == nil else { return }
+        let generation = updateGeneration
+        updateTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled, self.updateGeneration == generation,
+                  self.active, self.activity?.id == item.id, let pending = self.pendingUpdate {
+                self.pendingUpdate = nil
+                // Do not revive a queued snapshot or pop up an old alert after suspension.
+                guard pending.1 > Date() else { continue }
+                let stillFresh = Date().timeIntervalSince(pending.0.sampledAt) < 0.9
+                var state = pending.0
+                state.fresh = state.fresh && stillFresh
+                await item.update(ActivityContent(state: state, staleDate: pending.1),
+                                  alertConfiguration: state.fresh ? pending.2 : nil)
+                guard self.updateGeneration == generation else { return }
+                self.islandUpdateStatus = "最近完成提交：" + Date().formatted(date: .omitted, time: .standard)
+            }
+            guard self.updateGeneration == generation else { return }
+            self.updateTask = nil
         }
     }
 
+    private func cancelUpdates() {
+        updateGeneration = UUID()
+        updateTask?.cancel(); updateTask = nil; pendingUpdate = nil
+    }
+
     func stop() {
+        cancelUpdates()
         autoStart = false
         UserDefaults.standard.set(false, forKey: "ledAutoBackground")
         observer?.cancel(); observer = nil
@@ -142,6 +172,9 @@ struct DrivingSessionView: View {
                 Button("停止並關閉自動啟動") { session.stop() }.disabled(!session.active && !session.autoStart)
             }
             Text(session.message).font(.footnote)
+            Text(session.islandUpdateStatus).font(.caption)
+            Text("提交完成不等於 iOS 已刷新畫面。動態島更新逾時與 C4 車況中斷會分開標示。")
+                .font(.caption).foregroundStyle(.secondary)
             Text("開啟 App，等 C4 車況與屏幕連線就緒，即會自動啟動；顯示已開始後可切換 App。這不是開機自啟或強制關閉後重啟。背景執行仍受 iOS 管理。")
                 .font(.caption).foregroundStyle(.secondary)
         }

@@ -21,6 +21,31 @@ jobs:
         run: |
           swiftc IslandAlertPolicy.swift tests/IslandAlertPolicyTests.swift -o /tmp/island-alert-tests
           /tmp/island-alert-tests
+      - name: Test iPixel packet encoding
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc IPixelProtocol.swift tests/IPixelProtocolTests.swift -o /tmp/ipixel-tests
+          /tmp/ipixel-tests
+      - name: Test LOY compact animation encoding
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc LoyBitmap.swift tests/LoyBitmapTests.swift -o /tmp/loy-bitmap-tests
+          /tmp/loy-bitmap-tests
+      - name: Test eyes animation
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc EyesBitmap.swift tests/EyesTests.swift -o /tmp/eyes-tests
+          /tmp/eyes-tests
+      - name: Replay emergency brake scenarios
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc VehicleRules.swift tests/VehicleRulesTests.swift -o /tmp/vehicle-rules-tests
+          /tmp/vehicle-rules-tests
+      - name: Test opening animation priority
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc StartupPlayback.swift IPixelProtocol.swift tests/StartupTests.swift -o /tmp/startup-tests
+          /tmp/startup-tests
       - name: Generate project
         working-directory: tools/iphone_led/ios
         run: |
@@ -38,8 +63,15 @@ jobs:
           import pathlib, plistlib
           app = pathlib.Path('/tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app')
           assert (app / 'IslandSilent.wav').is_file()
+          assert (app / 'Assets.car').is_file()
+          for filename in ['startup_car.gif','startup64.bin','startup96.bin']:
+              assert (app / filename).is_file(), filename
+          for name in ['crystal','gaze','devil','spiral','flame','mecha','sasuke_sharingan','sasuke_rinnegan']:
+              assert (app / (name+'.gif')).is_file(), name
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['NSSupportsLiveActivities'] is True
+          assert info['CFBundleDisplayName'] == 'Carrot LED'
+          assert info['CFBundleIcons']['CFBundlePrimaryIcon']['CFBundleIconName'] == 'AppIcon'
           assert 'bluetooth-central' in info['UIBackgroundModes']
           widgets = list((app / 'PlugIns').glob('*.appex/Info.plist'))
           assert len(widgets) == 1
@@ -47,3 +79,29 @@ jobs:
           assert extension['NSExtension']['NSExtensionPointIdentifier'] == 'com.apple.widgetkit-extension'
           assert extension['CFBundleIdentifier'].startswith(info['CFBundleIdentifier'] + '.')
           PY
+      - name: Capture simulator UI preview
+        timeout-minutes: 12
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted(devices,key=lambda key:tuple(map(int,re.findall(r"\d+",key))),reverse=True); print(next(d["udid"] for runtime in runtimes for d in devices[runtime] if "iPhone" in d["name"]))')
+          xcrun simctl boot "$DEVICE" || true
+          python3 - "$DEVICE" <<'PYBOOT'
+          import subprocess, sys
+          subprocess.run(['xcrun','simctl','bootstatus',sys.argv[1],'-b'],check=True,timeout=600)
+          PYBOOT
+          xcrun simctl install "$DEVICE" /tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app
+          xcrun simctl status_bar "$DEVICE" override --time '09:41' --batteryState charged --batteryLevel 100
+          xcrun simctl launch "$DEVICE" tw.example.carrotledprobe --ui-screenshot
+          sleep 4
+          mkdir -p /tmp/carrot-led-ui
+          xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-quick.png
+          xcrun simctl terminate "$DEVICE" tw.example.carrotledprobe
+          EYES_PID=$(xcrun simctl launch "$DEVICE" tw.example.carrotledprobe --ui-screenshot --eyes-preview | awk '{print $NF}')
+          sleep 10
+          kill -0 "$EYES_PID"
+          xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-eyes.png
+          sleep 1.6
+          xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-eyes-transformed.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone-ui-preview
+          path: /tmp/carrot-led-ui/
