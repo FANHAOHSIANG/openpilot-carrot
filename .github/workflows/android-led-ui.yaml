@@ -50,7 +50,7 @@ jobs:
             adb shell am start -n tw.carrot.led/.MainActivity
             sleep 3
             adb exec-out screencap -p > /tmp/carrot-led-ui/android-car.png
-            adb shell input tap 1688 115
+            adb shell input tap 1688 80
             sleep 2
             adb exec-out screencap -p > /tmp/carrot-led-ui/android-eyes.png
             adb logcat -d -s AndroidRuntime:E > /tmp/carrot-led-ui/crash-log.txt

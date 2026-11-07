@@ -197,6 +197,7 @@ public final class MainActivity extends Activity {
     preview.addView(previewLabel,new LinearLayout.LayoutParams(-1,-2));
     preview.addView(label("依 App 指令顯示，非屏幕畫面回讀",11,MUTED));block(preview,body,-2);
     LinearLayout actions=new LinearLayout(this);
+    actions.setBaselineAligned(false);
     powerButton=new Button(this);styleButton(powerButton,false);powerButton.setText("已關閉");
     powerIcon=new PowerIcon();powerIcon.setBounds(0,0,dp(24),dp(24));powerButton.setCompoundDrawables(null,powerIcon,null,null);powerButton.setCompoundDrawablePadding(dp(3));
     powerButton.setOnClickListener(v->send(new Intent(this,LedService.class).setAction(LedService.POWER).putExtra("on",!LedService.powerOn)));
