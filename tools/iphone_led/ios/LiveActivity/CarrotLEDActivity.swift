@@ -55,13 +55,15 @@ struct CarrotLEDActivity: Widget {
 
     private func compactText(_ context: ActivityViewContext<LEDActivityAttributes>) -> String {
         if !context.state.screenConnected { return "屏幕斷線" }
-        if context.isStale || !context.state.fresh { return "資料過期" }
+        if context.isStale { return "更新逾時" }
+        if !context.state.fresh { return "車況中斷" }
         let text = displayText(context)
         return text.count > 5 ? String(text.prefix(5)) + "…" : text
     }
 
     private func status(_ context: ActivityViewContext<LEDActivityAttributes>) -> String {
-        if context.isStale || !context.state.fresh { return "資料已過期，請回 App 確認" }
+        if context.isStale { return "動態島更新逾時；以下為最後回報，請回 App 確認" }
+        if !context.state.fresh { return "C4 車況資料中斷，請回 App 確認" }
         if !context.state.automatic { return "自動顯示已暫停" }
         if !context.state.screenConnected { return "已收到車況，屏幕未連線" }
         return "車況連動中 · App 最近送出內容"
