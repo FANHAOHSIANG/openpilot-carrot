@@ -888,7 +888,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             vehicleStatus = "已收到 C4 車況"
             values = String(format: "%.1f km/h  %.2f m/s²  檔位 %@\n煞車 %d  左燈 %d  右燈 %d", speed * 3.6, accel, gear, brake ? 1 : 0, left ? 1 : 0, right ? 1 : 0)
             let label = vehicleRules.choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: Int64(ProcessInfo.processInfo.systemUptime*1000))
-            if enabled && vehicleRules.emergencyActive { endPreview() }
+            if enabled && vehicleRules.emergencyActive && previewStyle != nil { endPreview() }
             if enabled && ready { requestDisplay(label.isEmpty ? idleLabel : label) }
         } catch {
             guard generation == id, !inBackground || drivingSession.active else { return }

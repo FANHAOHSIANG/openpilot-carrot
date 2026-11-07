@@ -24,7 +24,7 @@ jobs:
       - name: Build APK
         run: |
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-          tools/iphone_led/android/build-apk.sh
+          bash tools/iphone_led/android/build-apk.sh
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
