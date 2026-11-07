@@ -15,6 +15,8 @@ targets:
       - DrivingSession.swift
       - IslandAlertPolicy.swift
       - IPixelProtocol.swift
+      - LEDInterface.swift
+      - EyesBitmap.swift
       - path: Resources/IslandSilent.wav
         buildPhase: resources
       - LEDActivityAttributes.swift

@@ -13,6 +13,6 @@ final class DisplaySelection {
     if (!preview.isEmpty() && now < deadline) return preview;
     if (automatic && !fresh) return "";
     if (automatic && !vehicle.isEmpty()) return vehicle;
-    return slot >= 0 && slot < 5 ? "slot" + slot : "";
+    return slot == 5 ? "eyes" : slot >= 0 && slot < 5 ? "slot" + slot : "";
   }
 }

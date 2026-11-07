@@ -8,3 +8,6 @@ java -cp "$out" tw.carrot.led.CoreTests
 
 javac -encoding UTF-8 -d "$out" app/src/main/java/tw/carrot/led/IPixelProtocol.java tests/IPixelTests.java
 java -cp "$out" tw.carrot.led.IPixelTests
+
+javac -encoding UTF-8 -d "$out" app/src/main/java/tw/carrot/led/EyesBitmap.java tests/EyesTests.java
+java -cp "$out" tw.carrot.led.EyesTests

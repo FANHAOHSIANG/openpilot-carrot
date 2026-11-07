@@ -66,6 +66,7 @@ final class Settings {
   }
 
   Style style(String key) {
+    if (key.equals("eyes")) return new Style("眼睛動畫",p.getInt("eyes.color",Color.rgb(0,220,200)),11+p.getInt("eyes.variant",0),0,false);
     return new Style(
         p.getString(key + ".text", key.startsWith("slot") ? "" : key.equals("倒車") ? "倒車，請注意" : key),
         p.getInt(

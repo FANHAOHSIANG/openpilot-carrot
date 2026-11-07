@@ -4,10 +4,14 @@
 
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
-| Android 手機／車機 | [CarrotLED-0.1.3.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.3.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.20-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.20-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| Android 手機／車機 | [CarrotLED-0.1.4.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.4.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
+| iPhone | [CarrotLED-iOS-0.21-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.21-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
+
+## 新版方塊介面
+
+新增醒目狀態框、單一電源鈕、大清屏鍵、三種眼睛動畫及開 App 自動啟動。詳見 [UI 更新說明](../UI_UPDATE.md)。
 
 ## iPixel Color 64 × 16 適配（Android 0.1.3 / iOS 0.20）
 
@@ -38,7 +42,7 @@
 ## Android 車機安裝（包含 Android 15）
 
 1. 在車機瀏覽器下載上方 APK；也可以先在電腦下載，再用 USB 隨身碟傳到車機。
-2. 用車機「檔案管理」開啟 `CarrotLED-0.1.3.apk`。若系統阻擋，依提示允許該瀏覽器或檔案管理器「安裝未知應用程式／允許此來源」，返回後安裝。
+2. 用車機「檔案管理」開啟 `CarrotLED-0.1.4.apk`。若系統阻擋，依提示允許該瀏覽器或檔案管理器「安裝未知應用程式／允許此來源」，返回後安裝。
 3. 開啟 **Carrot LED**，允許「附近裝置／藍牙」與通知權限。Android 11 以下另需掃描所需的位置權限與位置開關。
 4. 進入「連線」頁，輸入 **C4 目前的區網 IP** 與 **橋接金鑰**，按「儲存連線設定」。已儲存金鑰時欄位可留空；IP 欄只填位址，不加 `http://` 或連接埠。
 5. 按「開始背景連動」，到「屏幕」頁掃描／選擇 LED；曾選過的屏幕會嘗試重連。確認狀態區的 C4 車況與藍牙都連通，再打開「自動車況」。
@@ -49,7 +53,7 @@
 
 **更新舊版：**直接安裝 APK 覆蓋，不要先刪 App。這個 APK 與先前交付版本沿用同一測試簽章；如果遇到簽章衝突，先保留舊 App 與設定並確認原安裝來源，不要直接刪除重裝。
 
-此版背景服務需由 App 按「開始背景連動」啟動，每次最多 8 小時；不是開機自啟。車機休眠、斷電或系統強制停止後，請回 App 檢查並重新開始。
+此版開 App 時已有 IP、金鑰與權限即會自動啟動背景服務；也可在設定頁手動按「開始背景連動」，每次最多 8 小時；不是開機自啟。車機休眠、斷電或系統強制停止後，請回 App 檢查並重新開始。
 
 ## iPhone 安裝（Mac + Xcode）
 
@@ -125,8 +129,8 @@ ip -4 -o addr show wlan0
 
 ## 本次檔案與驗證範圍
 
-- Android：0.1.3，versionCode 4，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，既有 37 項核心檢查與 iPixel 封包測試通過。
-- iPhone：0.20，主 App 與 extension build 20。ZIP 已逐檔核對本次原始碼；iPixel 封包與動態島測試已通過，完整 App 編譯狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
+- Android：0.1.4，versionCode 5，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，42 項核心檢查與 iPixel 封包測試通過。
+- iPhone：0.21，主 App 與 extension build 21。ZIP 已逐檔核對本次原始碼；iPixel 封包與動態島測試已通過，完整 App 編譯狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
 - 既有版背景連動曾有使用者成功回報；不同車機、iPhone 系統及新版動態島修正仍需實機確認。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 

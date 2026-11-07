@@ -69,6 +69,12 @@ final class LedRenderer {
       if (settings.ipixel()) commands.add(IPixelProtocol.text(new byte[((w+7)/8)*h],w,h,0,0));
       return commands;
     }
+    if (style.effect >= 11 && style.effect <= 13) {
+      byte[] eyes=EyesBitmap.make(w,h,style.effect-11,tick);
+      if(settings.ipixel())commands.add(IPixelProtocol.text(eyes,w,h,style.color,0));
+      else commands.addAll(LoyProtocol.pixels(eyes,w,h,style.color));
+      return commands;
+    }
     Paint p = new Paint();
     p.setColor(Color.WHITE);
     p.setTextSize(64);

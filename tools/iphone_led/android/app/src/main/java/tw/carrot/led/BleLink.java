@@ -266,6 +266,11 @@ final class BleLink {
         }
       };
 
+  void controls(List<byte[]> commands) {
+    if (!ready) return;
+    pending=null; packets.clear(); packets.addAll(commands); pump();
+  }
+
   void offer(List<byte[]> commands) {
     if (!ready) return;
     pending = commands;

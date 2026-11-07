@@ -22,9 +22,9 @@ public final class LedService extends Service {
       CONNECT = "CONNECT",
       POWER = "POWER",
       RELOAD = "RELOAD",
-      TEST = "TEST";
+      TEST = "TEST", EYES = "EYES";
   public static volatile String status = "服務未啟動", details = "", screen = "屏幕尚未連線", display = "清屏";
-  public static volatile boolean running = false, connected = false, automatic = false;
+  public static volatile boolean running = false, connected = false, automatic = false, powerOn = false;
   public static volatile Map<String, String> discovered = Collections.emptyMap();
   HandlerThread thread;
   Handler h;
@@ -53,8 +53,8 @@ public final class LedService extends Service {
     ble.onReady =
         () -> {
           lastKey = "";
-          automatic = true;
-          ble.offer(Collections.singletonList(settings.ipixel() ? IPixelProtocol.power(true) : new byte[] {4, 2, 0, 1}));
+          automatic = true; powerOn = true;
+          ble.controls(Collections.singletonList(settings.ipixel() ? IPixelProtocol.power(true) : new byte[] {4, 2, 0, 1}));
         };
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
@@ -124,6 +124,15 @@ public final class LedService extends Service {
       lastKey = "";
       render(true);
     }
+    if ((AUTO.equals(a) && i.getBooleanExtra("enabled",true)) || PREVIEW.equals(a) || CUSTOM.equals(a) || EYES.equals(a) || TEST.equals(a)) {
+      if (ble.ready && !powerOn) {
+        powerOn=true;
+        ble.controls(Collections.singletonList(settings.ipixel()?IPixelProtocol.power(true):new byte[]{4,2,0,1}));
+      }
+    }
+    if (EYES.equals(a)) {
+      previewKey="";previewStatus="";slot=5;lastKey="";render(true);
+    }
     if (AUTO.equals(a)) {
       previewKey = "";
       previewStatus = "";
@@ -166,7 +175,8 @@ public final class LedService extends Service {
         slot = -1;
       }
       lastKey = "";
-      ble.offer(
+      powerOn = on && ble.ready;
+      ble.controls(
           settings.ipixel() ? Collections.singletonList(IPixelProtocol.power(on)) : Arrays.asList(new byte[] {0x30, 1, 0x65}, new byte[] {4, 2, 0, (byte) (on ? 1 : 0)}));
       display = on ? "已送開屏" : "已送關屏";
     }
@@ -217,6 +227,7 @@ public final class LedService extends Service {
           }
           screen = ble.status;
           connected = ble.ready;
+          if (!connected) powerOn = false;
           discovered = Collections.unmodifiableMap(new LinkedHashMap<>(ble.devices));
           if (now - lastNotification >= 2000) {
             lastNotification = now;
@@ -322,7 +333,7 @@ public final class LedService extends Service {
   }
 
   private void render(boolean force) {
-    if (!ble.ready) return;
+    if (!ble.ready || (!powerOn && !force)) return;
     boolean fresh = lastSample >= 0 && SystemClock.elapsedRealtime() - lastSample < 900;
     String key =
         DisplaySelection.choose(
@@ -341,7 +352,7 @@ public final class LedService extends Service {
                     + (style.effect == 0 || (settings.ipixel() && style.effect <= 5) ? 0 : phase));
     if (!force && signature.equals(lastKey)) return;
     lastKey = signature;
-    display = style == null ? "清屏" : style.text;
+    display = style == null ? "清屏" : key.equals("eyes") ? new String[]{"眨眨眼","左右看","惡魔眼"}[Math.max(0,Math.min(2,style.effect-11))] : style.text;
     try { ble.offer(LedRenderer.render(settings, style, phase)); }
     catch (IllegalArgumentException e) { screen = "iPixel 僅支援高 16；請停止服務並重新選屏幕類型"; }
   }
@@ -407,6 +418,7 @@ public final class LedService extends Service {
     stopping = true;
     running = false;
     connected = false;
+    powerOn = false;
     automatic = false;
     screen = "服務已停止，請確認屏幕已清除";
     if (wake != null && wake.isHeld()) wake.release();

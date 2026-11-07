@@ -26,6 +26,11 @@ jobs:
         run: |
           swiftc IPixelProtocol.swift tests/IPixelProtocolTests.swift -o /tmp/ipixel-tests
           /tmp/ipixel-tests
+      - name: Test eyes animation
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc EyesBitmap.swift tests/EyesTests.swift -o /tmp/eyes-tests
+          /tmp/eyes-tests
       - name: Generate project
         working-directory: tools/iphone_led/ios
         run: |
@@ -52,3 +57,18 @@ jobs:
           assert extension['NSExtension']['NSExtensionPointIdentifier'] == 'com.apple.widgetkit-extension'
           assert extension['CFBundleIdentifier'].startswith(info['CFBundleIdentifier'] + '.')
           PY
+      - name: Capture simulator UI preview
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if "iPhone" in d["name"]))')
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" /tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app
+          xcrun simctl status_bar "$DEVICE" override --time '09:41' --batteryState charged --batteryLevel 100
+          xcrun simctl launch "$DEVICE" tw.example.carrotledprobe --ui-screenshot
+          sleep 4
+          mkdir -p /tmp/carrot-led-ui
+          xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-quick.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone-ui-preview
+          path: /tmp/carrot-led-ui/

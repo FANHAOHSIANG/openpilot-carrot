@@ -8,172 +8,13 @@ import CoreText
 struct CarrotLEDProbeApp: App {
     @StateObject private var model = CarrotLED()
     @Environment(\.scenePhase) private var scenePhase
-    @State private var page = 0
     var body: some Scene {
         WindowGroup {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("C4 → iPhone → 後窗 LED").font(.title2.bold())
-                    Picker("頁面", selection: $page) { Text("快捷顯示").tag(0); Text("編輯與連線設定").tag(1) }.pickerStyle(.segmented)
-                    if page == 0 { LEDQuickView(model: model) } else {
-                    Text("先在 C4 啟動唯讀車況橋接，iPhone 與 C4 接入同一區網。")
-                    TextField("C4 的 IP", text: $model.host).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
-                    SecureField("橋接連線金鑰", text: $model.token).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
-                    HStack {
-                        Button("連接 C4") { model.connectC4() }
-                        Button("斷開 C4") { model.disconnectC4() }
-                    }
-                    Text(model.vehicleStatus)
-                    Text(model.values).font(.system(.caption, design: .monospaced))
-                    DrivingSessionView(session: model.drivingSession) { model.startDrivingSession() }
-                    Divider()
-                    Picker("屏幕類型", selection: Binding(get: { model.ipixel }, set: { model.selectScreenType($0) })) {
-                        Text("LOY PLAY").tag(false)
-                        Text("iPixel Color · 64 × 16").tag(true)
-                    }.pickerStyle(.segmented)
-                    Text(model.ipixel ? "iPixel 測試適配：先關閉原廠 App，掃描後選擇屏幕。" : "LOY PLAY 原有協定")
-                        .font(.caption)
-                    ForEach(model.screens.keys.sorted(by: { $0.uuidString < $1.uuidString }), id: \.self) { id in
-                        Button("連接：\(model.screens[id] ?? id.uuidString)") { model.connectScreen(id) }
-                    }
-                    Button("掃描並連接屏幕") { model.scan() }
-                    Label(model.ready ? "屏幕藍牙已連線" : "屏幕尚未連線", systemImage: model.ready ? "checkmark.circle.fill" : "circle.dashed")
-                        .foregroundColor(model.ready ? .green : .gray)
-                    Text(model.bluetoothStatus)
-                    HStack {
-                        Button("開啟屏幕") { model.power(true) }.disabled(!model.ready)
-                        Button("關閉屏幕") { model.power(false) }.disabled(!model.ready)
-                    }
-                    Toggle("自動顯示車況", isOn: model.automaticBinding)
-                    Text("目前提示：\(model.currentLabel)")
-                    HStack {
-                        Button("清除屏幕") { model.clearScreen() }.disabled(!model.ready)
-                        Button("燈珠全亮測試") { model.testAllPixels() }.disabled(!model.ready)
-                    }
-                    Text("清除屏幕會暫停車況連動，重新開啟「自動顯示車況」可恢復。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Divider()
-                    Text("車況文字、顏色與效果").font(.headline)
-                    Text("點選車況展開設定，完成後按下方儲存。倒車提示優先於其他車況。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    ForEach(model.eventKeys, id: \.self) { event in
-                        VehicleStyleEditor(event: model.eventTitle(event), setting: model.vehicleBinding(for: event), choices: model.fontChoices, preview: { model.previewVehicle(event, draft: true) })
-                    }
-                    Text(model.previewStatus).font(.footnote).foregroundStyle(.orange)
-                    Button("儲存所有車況設定") { model.saveVehicleTexts() }
-                    Text(model.vehicleSettingsStatus).font(.footnote)
-                    Text("屏幕與文字像素").font(.headline)
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("屏幕寬（燈珠）")
-                            TextField("96", text: $model.widthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("屏幕高（燈珠）")
-                            TextField("16", text: $model.heightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                        }
-                    }
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("文字高度（像素）")
-                            TextField("16", text: $model.fontHeightDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("文字寬度（%）")
-                            TextField("100", text: $model.fontWidthDraft).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-                        }
-                    }
-                    Button("套用像素設定") { model.applyDisplaySettings() }
-                    Text(model.settingsStatus).font(.footnote)
-                    Text("屏幕：寬 \(model.widthDraft) × 高 \(model.heightDraft) 燈珠。字高 16 代表盡量使用 16 排，字寬 100% 為原比例；靜態文字過長會自動縮窄。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Divider()
-                    Text("五組自訂文字").font(.headline)
-                    ForEach(0..<5, id: \.self) { index in
-                        VStack(alignment: .leading) {
-                            Text("自訂 \(index + 1)")
-                            TextField("文字，最多 16 字", text: $model.customSlots[index].text)
-                                .textFieldStyle(.roundedBorder)
-                            LEDColorPicker(colorHex: $model.customSlots[index].color)
-                            Picker("效果", selection: $model.customSlots[index].effect) {
-                                Text("靜態").tag("static"); Text("閃爍").tag("blink")
-                                Text("左跑馬燈").tag("left"); Text("右跑馬燈").tag("right")
-                                Text("呼吸").tag("breathe"); Text("自動換色").tag("rainbow")
-                                Text("向左動態箭頭").tag("arrowsLeft"); Text("向右動態箭頭").tag("arrowsRight")
-                                Text("波浪圖案").tag("wave"); Text("愛心圖案").tag("heart")
-                                Text("警示圖案").tag("warning")
-                            }.pickerStyle(.menu)
-                            FontMenu(title: "自訂文字字型", selection: $model.customSlots[index].font, choices: model.fontChoices)
-                            HStack {
-                                Picker("字重", selection: $model.customSlots[index].bold) {
-                                    Text("一般").tag(false); Text("加粗").tag(true)
-                                }.pickerStyle(.segmented)
-                                Button("儲存") { model.saveSlots() }
-                                Button("顯示") { model.activateSlot(index) }
-                            }
-                        }.padding(.vertical, 5)
-                    }
-                    Button("清除自訂文字") { model.clearSlot() }
-                    Text(model.customStatus).font(.footnote)
-                    Text("LOY 預設 96 × 16，iPixel 預設 64 × 16。已加入自動連線與背景藍牙；iOS 可能暫停背景車況接收，請先停車實測。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }.padding()
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("完成") {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
-                }
-            }
-            .onChange(of: scenePhase) { phase in
+            LEDInterface(model: model).onChange(of: scenePhase) { phase in
+                if model.isScreenshotPreview { return }
                 if phase == .active { model.returnToForeground() }
                 if phase == .background { model.enterBackground() }
             }
-        }
-    }
-}
-
-struct LEDQuickView: View {
-    @ObservedObject var model: CarrotLED
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(model.vehicleStatus).font(.headline)
-            Text(model.bluetoothStatus)
-            Text(model.values).font(.caption.monospaced())
-            Text("目前送出：\(model.currentLabel)").font(.title3.bold())
-            Text(model.previewStatus).foregroundStyle(.orange)
-            Toggle("自動車況", isOn: model.automaticBinding)
-            Button("清屏 · 暫停所有顯示") { model.clearScreen() }
-                .buttonStyle(.borderedProminent).disabled(!model.ready)
-            DrivingSessionView(session: model.drivingSession) { model.startDrivingSession() }
-            Text("車況快捷預覽").font(.headline)
-            Text("手動預覽 5 秒後恢復原模式；請停車操作。畫面為送出內容，非屏幕回讀。")
-                .font(.caption).foregroundStyle(.secondary)
-            ForEach(model.eventKeys, id: \.self) { key in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(model.eventTitle(key)).bold()
-                        Text(model.eventText(key)).font(.caption)
-                    }
-                    Spacer()
-                    Button("顯示") { model.previewVehicle(key) }.buttonStyle(.bordered)
-                        .disabled(!model.ready)
-                }.frame(minHeight: 52)
-            }
-            Text("自訂文字快捷").font(.headline)
-            ForEach(0..<5, id: \.self) { index in
-                HStack {
-                    Text(model.customSlots[index].text.isEmpty ? "自訂 \(index+1)（未設定）" : model.customSlots[index].text)
-                    Spacer()
-                    Button("顯示") { model.activateSlot(index) }.buttonStyle(.bordered)
-                        .disabled(!model.ready || model.customSlots[index].text.isEmpty)
-                }.frame(minHeight: 52)
-            }
-            Text(model.customStatus).font(.caption)
         }
     }
 }
@@ -449,12 +290,34 @@ private struct CarState: Decodable {
 
 @MainActor
 final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBPeripheralDelegate {
+    var isScreenshotPreview: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("--ui-screenshot")
+        #else
+        return false
+        #endif
+    }
     @Published var host = UserDefaults.standard.string(forKey: "c4host") ?? ""
     @Published var token = ""
     @Published var vehicleStatus = "C4 尚未連線"
     @Published var values = "等待車況"
     @Published var bluetoothStatus = "藍牙尚未連線"
     @Published var currentLabel = "清屏"
+    @Published var screenPowerOn = false
+    @Published var eyesColor = UserDefaults.standard.string(forKey: "ledEyesColor") ?? "00DCC8" {
+        didSet { UserDefaults.standard.set(eyesColor, forKey: "ledEyesColor"); lastDisplayKey = nil }
+    }
+    private var eyesActive = false
+    private var eyesVariant = 0
+    var vehicleIsFresh: Bool { Date().timeIntervalSince(lastSample) < 0.9 }
+    private var idleLabel: String { eyesActive ? "__eyes__" : activeSlot != nil ? "__custom__" : "" }
+    func activateEyes(_ variant: Int) {
+        guard ready else { return }
+        if !screenPowerOn { power(true) }
+        endPreview(); eyesVariant = max(0,min(2,variant)); eyesActive = true; activeSlot = nil; lastDisplayKey = nil
+        customStatus = "眼睛動畫已選用，車況提示優先。"
+        if !enabled { requestDisplay("__eyes__") }
+    }
     @Published var ipixel = UserDefaults.standard.bool(forKey: "ledIPixel")
     @Published var screens: [UUID: String] = [:]
     private var discoveredScreens: [UUID: CBPeripheral] = [:]
@@ -496,8 +359,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     @Published var previewStatus = ""
     var automaticBinding: Binding<Bool> {
         Binding(get: { self.enabled }, set: { value in
-            self.endPreview(); self.enabled = value; self.lastDisplayKey = nil
-            if self.ready { self.requestDisplay(!value && self.activeSlot != nil ? "__custom__" : "") }
+            if value && !self.screenPowerOn { self.power(true) }; self.endPreview(); self.enabled = value; self.lastDisplayKey = nil
+            if self.ready { self.requestDisplay(!value ? self.idleLabel : "") }
         })
     }
     func eventTitle(_ key: String) -> String {
@@ -507,6 +370,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func eventText(_ key: String) -> String { vehicleStyles[key]?.text ?? key }
     func previewVehicle(_ key: String, draft: Bool = false) {
         guard ready else { previewStatus = "請先連接屏幕"; return }
+        if !screenPowerOn { power(true) }
         guard let style = (draft ? vehicleDrafts[key] : vehicleStyles[key]),
               !style.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               style.text.count <= 16, validHex(style.color) else { previewStatus = "請先填入有效文字與顏色"; return }
@@ -552,6 +416,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             guard let self, self.inBackground else { return }
             self.invalidate()
         }
+        if !UserDefaults.standard.bool(forKey: "ledUI21AutoStartConfigured") {
+            drivingSession.setAutoStart(true)
+            UserDefaults.standard.set(true, forKey: "ledUI21AutoStartConfigured")
+        }
         token = readKey() ?? ""
         let oldTexts = UserDefaults.standard.dictionary(forKey: "ledVehicleTexts") as? [String: String] ?? [:]
         let savedStyles: [String: VehicleStyle]
@@ -583,6 +451,12 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         for index in customSlots.indices where !validHex(customSlots[index].color) {
             customSlots[index].color = "FFB400"
         }
+        if isScreenshotPreview {
+            ready = true; screenPowerOn = true; enabled = true; ipixel = true
+            currentLabel = "減速中"; vehicleStatus = "已收到 C4 車況"; lastSample = Date.distantFuture
+            bluetoothStatus = "iPixel · 介面示範"; customSlots[0].text = "Baby in car"
+            return
+        }
         // Only request restoration if the *built app* declares the central
         // background mode. Some Xcode projects generate a different Info.plist.
         let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
@@ -606,8 +480,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 if self.enabled && Date().timeIntervalSince(self.lastSample) >= 0.9 { self.invalidate() }
                 self.updateDrivingSession()
                 guard !self.inBackground || self.drivingSession.active else { return }
-                guard self.ready, !self.enabled, self.activeSlot != nil else { return }
-                self.requestDisplay("__custom__")
+                guard self.ready, self.screenPowerOn, !self.enabled, !self.idleLabel.isEmpty else { return }
+                self.requestDisplay(self.idleLabel)
             }
         }
     }
@@ -667,7 +541,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         central.stopScan()
         let old = peripheral; peripheral = nil
         if let old { central.cancelPeripheralConnection(old) }
-        resetTransmission(); ready = false; reconnectAttempt = false
+        resetTransmission(); ready = false; screenPowerOn = false; reconnectAttempt = false
         writeCharacteristic = nil; notifyCharacteristic = nil
         screens = [:]; discoveredScreens = [:]
         ipixel = value; UserDefaults.standard.set(value, forKey: "ledIPixel")
@@ -760,7 +634,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
             guard self.peripheral === peripheral else { return }
-            self.ready = false; self.writeCharacteristic = nil; self.notifyCharacteristic = nil; self.resetTransmission()
+            self.ready = false; self.screenPowerOn = false; self.writeCharacteristic = nil; self.notifyCharacteristic = nil; self.resetTransmission()
             self.bluetoothStatus = "屏幕已斷線，正在重新連接；請確認是否留有畫面"
             self.reconnectAttempt = false
             try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -824,7 +698,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func power(_ on: Bool) {
         endPreview()
         guard ready else { return }
-        if !on { enabled = false; queuedLabel = nil }
+        screenPowerOn = on
+        if !on { enabled = false; activeSlot = nil; eyesActive = false; queuedLabel = nil; ipixelPackets = [] }
         lastDisplayKey = nil
         if ipixel { enqueue(IPixelProtocol.power(on)) }
         else {
@@ -840,7 +715,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func clearScreen() {
         endPreview()
         guard ready else { return }
-        enabled = false; activeSlot = nil; queuedLabel = nil
+        enabled = false; activeSlot = nil; eyesActive = false; queuedLabel = nil
         lastDisplayKey = nil; lastLabel = nil
         customStatus = "已清除自訂文字，車況連動已暫停。"
         currentLabel = "清屏中"
@@ -916,8 +791,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     func testAllPixels() {
         guard ready else { return }
+        if !screenPowerOn { power(true) }
         endPreview()
-        enabled = false; activeSlot = nil; queuedLabel = nil; lastDisplayKey = nil
+        enabled = false; activeSlot = nil; eyesActive = false; queuedLabel = nil; lastDisplayKey = nil
         if !ipixel && !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
         let rowBytes = (panelWidth + 7) / 8
         var pixels = [UInt8](repeating: 255, count: rowBytes * panelHeight)
@@ -949,7 +825,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
               customSlots[index].text.count <= 16, validHex(customSlots[index].color) else {
             customStatus = "請填入文字並選擇顏色。"; return
         }
-        guard saveSlots() else { return }
+        guard ready, saveSlots() else { return }
+        if !screenPowerOn { power(true) }
+        eyesActive = false
         activeSlot = index; lastDisplayKey = nil
         customStatus = "已選自訂 \(index + 1)，有效車況提示優先。"
         if enabled && Date().timeIntervalSince(lastSample) < 0.9 { return }
@@ -1011,7 +889,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             vehicleStatus = "已收到 C4 車況"
             values = String(format: "%.1f km/h  %.2f m/s²  檔位 %@\n煞車 %d  左燈 %d  右燈 %d", speed * 3.6, accel, gear, brake ? 1 : 0, left ? 1 : 0, right ? 1 : 0)
             let label = choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: now)
-            if enabled && ready { requestDisplay(label.isEmpty && activeSlot != nil ? "__custom__" : label) }
+            if enabled && ready { requestDisplay(label.isEmpty ? idleLabel : label) }
         } catch {
             guard generation == id, !inBackground || drivingSession.active else { return }
             if Date().timeIntervalSince(lastSample) > 0.9 { invalidate() }
@@ -1063,6 +941,22 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private func requestDisplay(_ label: String) {
         if label == "__preview__" && previewStyle == nil { return }
         if label != "__preview__", previewStyle != nil, Date() < previewUntil { return }
+        if label == "__eyes__" {
+            let phase = Int(Date().timeIntervalSince1970*3)
+            let key = "eyes|\(eyesVariant)|\(eyesColor)|\(phase)"
+            if sending || !frames.isEmpty { queuedLabel = label; return }
+            guard key != lastDisplayKey else { return }; lastDisplayKey = key
+            currentLabel = ["眨眨眼", "左右看", "惡魔眼"][eyesVariant]
+            let pixels = EyesBitmap.make(width:panelWidth,height:panelHeight,variant:eyesVariant,phase:phase)
+            let color = UInt32(eyesColor,radix:16) ?? 0x00dcc8
+            let rgb = [UInt8((color>>16)&255),UInt8((color>>8)&255),UInt8(color&255)]
+            if !ipixel {
+                if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
+                enqueue(clearCommand())
+            }
+            drawPixels(pixels,color:rgb)
+            return
+        }
         let slot = label == "__custom__" ? activeSlot.map { customSlots[$0] } : nil
         let vehicleStyle = label == "__preview__" ? previewStyle : vehicleStyles[label]
         let tick = Int(Date().timeIntervalSince1970 * 3)
