@@ -69,8 +69,9 @@ jobs:
           mkdir -p /tmp/carrot-led-ui
           xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-quick.png
           xcrun simctl terminate "$DEVICE" tw.example.carrotledprobe
-          xcrun simctl launch "$DEVICE" tw.example.carrotledprobe --ui-screenshot --eyes-preview
-          sleep 2
+          EYES_PID=$(xcrun simctl launch "$DEVICE" tw.example.carrotledprobe --ui-screenshot --eyes-preview | awk '{print $NF}')
+          sleep 10
+          kill -0 "$EYES_PID"
           xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-eyes.png
       - uses: actions/upload-artifact@v4
         with:

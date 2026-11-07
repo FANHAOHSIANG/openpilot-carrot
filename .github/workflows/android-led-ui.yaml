@@ -50,8 +50,9 @@ jobs:
             adb shell am start -n tw.carrot.led/.MainActivity
             sleep 3
             adb exec-out screencap -p > /tmp/carrot-led-ui/android-car.png
-            adb shell uiautomator dump /sdcard/layout.xml
-            adb pull /sdcard/layout.xml /tmp/carrot-led-ui/layout.xml
+            adb shell input tap 1688 115
+            sleep 2
+            adb exec-out screencap -p > /tmp/carrot-led-ui/android-eyes.png
             adb logcat -d -s AndroidRuntime:E > /tmp/carrot-led-ui/crash-log.txt
             if grep -q 'FATAL EXCEPTION' /tmp/carrot-led-ui/crash-log.txt; then exit 1; fi
       - uses: actions/upload-artifact@v4

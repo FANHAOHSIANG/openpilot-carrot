@@ -143,6 +143,7 @@ public final class MainActivity extends Activity {
       MUTED=0xff9ca9b9, ACCENT=0xffffb347, GREEN=0xff55e6a5;
   TextView previewLabel,c4Pill,screenPill,backgroundPill;
   Button powerButton,sessionButton;
+  PowerIcon powerIcon;
   LinearLayout quickArea;
   final ArrayList<View> quickTiles=new ArrayList<>();
   final ArrayList<Button> quickGroupButtons=new ArrayList<>();
@@ -159,6 +160,17 @@ public final class MainActivity extends Activity {
     b.setBackgroundTintList(null);
     b.setBackground(new android.graphics.drawable.RippleDrawable(
       android.content.res.ColorStateList.valueOf(0x33ffffff),rounded(primary?ACCENT:SURFACE,primary?ACCENT:LINE,14),null));
+  }
+  final class PowerIcon extends android.graphics.drawable.Drawable {
+    final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);int color=MUTED;
+    void color(int value){if(color!=value){color=value;invalidateSelf();}}
+    public void draw(Canvas canvas){Rect b=getBounds();float unit=Math.min(b.width(),b.height())/24f;
+      int saved=canvas.save();canvas.translate(b.centerX()-12*unit,b.centerY()-12*unit);canvas.scale(unit,unit);
+      paint.setColor(color);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2.5f);paint.setStrokeCap(Paint.Cap.ROUND);
+      canvas.drawArc(new RectF(3,3,21,21),-45,270,false,paint);canvas.drawLine(12,1,12,11,paint);canvas.restoreToCount(saved);}
+    public void setAlpha(int value){paint.setAlpha(value);invalidateSelf();}
+    public void setColorFilter(ColorFilter filter){paint.setColorFilter(filter);invalidateSelf();}
+    public int getOpacity(){return PixelFormat.TRANSLUCENT;}
   }
   TextView label(String title,int size,int color) {
     TextView t=new TextView(this);t.setText(title);t.setTextSize(size);t.setTextColor(color);return t;
@@ -185,7 +197,8 @@ public final class MainActivity extends Activity {
     preview.addView(previewLabel,new LinearLayout.LayoutParams(-1,-2));
     preview.addView(label("依 App 指令顯示，非屏幕畫面回讀",11,MUTED));block(preview,body,-2);
     LinearLayout actions=new LinearLayout(this);
-    powerButton=new Button(this);styleButton(powerButton,false);powerButton.setText("⏻\n已關閉");
+    powerButton=new Button(this);styleButton(powerButton,false);powerButton.setText("已關閉");
+    powerIcon=new PowerIcon();powerIcon.setBounds(0,0,dp(24),dp(24));powerButton.setCompoundDrawables(null,powerIcon,null,null);powerButton.setCompoundDrawablePadding(dp(3));
     powerButton.setOnClickListener(v->send(new Intent(this,LedService.class).setAction(LedService.POWER).putExtra("on",!LedService.powerOn)));
     LinearLayout.LayoutParams powerLP=new LinearLayout.LayoutParams(dp(88),dp(78));powerLP.rightMargin=dp(12);actions.addView(powerButton,powerLP);
     Button clear=new Button(this);styleButton(clear,false);clear.setText("▣  清除屏幕\n停止文字、動畫與連動");clear.setTextColor(0xffff8b7e);clear.setBackground(rounded(0xff3d1a1c,0xff70403d,18));clear.setOnClickListener(v->send(LedService.CLEAR));actions.addView(clear,new LinearLayout.LayoutParams(0,dp(78),1));block(actions,body,-2);
@@ -301,7 +314,8 @@ public final class MainActivity extends Activity {
           screenPill.setText(LedService.connected?"● 屏幕已連線":"● 屏幕未連線");screenPill.setTextColor(LedService.connected?GREEN:MUTED);
           backgroundPill.setText(LedService.running?"● 背景運作":"● 背景待命");backgroundPill.setTextColor(LedService.running?GREEN:MUTED);
           boolean on=LedService.connected&&LedService.powerOn;
-          powerButton.setText(!LedService.connected?"⏻\n未連線":on?"⏻\n已開啟":"⏻\n已關閉");powerButton.setTextColor(on?GREEN:MUTED);
+          powerButton.setText(!LedService.connected?"未連線":on?"已開啟":"已關閉");powerButton.setTextColor(on?GREEN:MUTED);powerIcon.color(on?GREEN:MUTED);
+          powerButton.setContentDescription(!LedService.connected?"屏幕未連線":on?"關閉屏幕":"開啟屏幕");
           powerButton.setBackground(rounded(on?0xff102e26:Color.BLACK,on?GREEN:LINE,18));powerButton.setEnabled(LedService.connected);
           sessionButton.setText(LedService.running?"停止背景連動":"開始背景連動");
           for(View tile:quickTiles){tile.setEnabled(LedService.connected);tile.setAlpha(LedService.connected?1f:.55f);}
