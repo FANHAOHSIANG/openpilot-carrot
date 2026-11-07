@@ -1,0 +1,90 @@
+name: LED integration offline
+on:
+  pull_request:
+    paths:
+      - 'tools/iphone_led/**'
+      - 'openpilot/selfdrive/carrot/iphone_led_bridge.py'
+      - 'openpilot/system/manager/process_config.py'
+      - 'openpilot/system/manager/test/test_python_process_spawn.py'
+      - '.github/workflows/*led*.yaml'
+  push:
+    branches: ['sync/led-test-*', 'test/carrot-wip-upstream-20261104']
+    paths:
+      - 'tools/iphone_led/**'
+      - 'openpilot/selfdrive/carrot/iphone_led_bridge.py'
+      - 'openpilot/system/manager/process_config.py'
+      - 'openpilot/system/manager/test/test_python_process_spawn.py'
+      - '.github/workflows/*led*.yaml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    name: LED bridge, Mac and integration regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify LED-only initial integration and unchanged source blobs
+        env:
+          BASE: 946de3ac2166267cd81a4e74fe311227ca474e72
+          SOURCE: b9c16ec9808ef7b5e1f3bd675ae08ec7e3b9da31
+          IMPORT: 1bb4123641705930d8bf567436c5df99746deb79
+        run: |
+          python - <<'PY'
+          import ast, os, subprocess
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          base, source, imported = (os.environ[k] for k in ('BASE', 'SOURCE', 'IMPORT'))
+          exact = {
+              'openpilot/selfdrive/carrot/iphone_led_bridge.py',
+              'openpilot/system/manager/process_config.py',
+              'openpilot/system/manager/test/test_python_process_spawn.py',
+              '.github/workflows/iphone-led-build.yaml',
+              '.github/workflows/android-led-build.yaml',
+          }
+          paths = git('diff', '--name-only', base, imported).splitlines()
+          assert paths and all(p.startswith('tools/iphone_led/') or p in exact for p in paths), paths
+          for path in sorted(exact | {'tools/iphone_led'}):
+              assert git('rev-parse', f'{imported}:{path}') == git('rev-parse', f'{source}:{path}'), path
+          assert git('merge-base', '--is-ancestor', base, imported) == ''
+          path = 'openpilot/system/manager/process_config.py'
+          old = ast.parse(git('show', f'{base}:{path}'))
+          new = ast.parse(git('show', f'{imported}:{path}'))
+          removed = []
+          class RemoveLEDRegistration(ast.NodeTransformer):
+              def visit_List(self, node):
+                  keep = []
+                  for n in node.elts:
+                      if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'PythonProcess' and n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value == 'iphone_led_bridge':
+                          removed.append(n)
+                      else:
+                          keep.append(n)
+                  node.elts = keep
+                  return self.generic_visit(node)
+          new = RemoveLEDRegistration().visit(new)
+          assert len(removed) == 1
+          assert ast.dump(old) == ast.dump(new), 'Non-LED process configuration changed'
+          bridge = ast.parse(git('show', f'{imported}:openpilot/selfdrive/carrot/iphone_led_bridge.py'))
+          forbidden = {'PubMaster', 'sendcan', 'Panda', 'CanClient', 'can_send'}
+          assert not any((isinstance(n, ast.Name) and n.id in forbidden) or (isinstance(n, ast.Attribute) and n.attr in forbidden) for n in ast.walk(bridge))
+          print('Exact source blobs, scoped import and read-only bridge checks passed')
+          PY
+      - name: Install desktop test dependencies
+        run: python -m pip install pytest -r tools/iphone_led/mac/requirements.txt
+      - name: Mac LED protocol, effects and mocked HUD tests
+        run: python -m unittest discover -s tools/iphone_led/mac/tests -v
+      - name: Bridge authorization and stale-data tests
+        run: python -m unittest discover -s tools/iphone_led/ios -p test_bridge.py -v
+      - name: Manager admission, spawn and crash-restart regressions
+        run: python -m pytest -o addopts='' --confcutdir=openpilot/system/manager/test openpilot/system/manager/test/test_python_process_spawn.py -v
+      - name: Python syntax and matching production bridge copies
+        run: |
+          python -m compileall -q tools/iphone_led openpilot/selfdrive/carrot/iphone_led_bridge.py
+          cmp openpilot/selfdrive/carrot/iphone_led_bridge.py tools/iphone_led/c4_carstate_bridge.py
+          cmp openpilot/selfdrive/carrot/iphone_led_bridge.py tools/iphone_led/ios/c4_carstate_bridge.py
