@@ -53,7 +53,7 @@ jobs:
           import pathlib, plistlib
           app = pathlib.Path('/tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app')
           assert (app / 'IslandSilent.wav').is_file()
-          for name in ['crystal','gaze','devil','spiral','flame','mecha']:
+          for name in ['crystal','gaze','devil','spiral','flame','mecha','sasuke_sharingan','sasuke_rinnegan']:
               assert (app / (name+'.gif')).is_file(), name
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['NSSupportsLiveActivities'] is True
@@ -80,6 +80,8 @@ jobs:
           sleep 10
           kill -0 "$EYES_PID"
           xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-eyes.png
+          sleep 1.6
+          xcrun simctl io "$DEVICE" screenshot /tmp/carrot-led-ui/iphone-eyes-transformed.png
       - uses: actions/upload-artifact@v4
         with:
           name: iphone-ui-preview

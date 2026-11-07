@@ -1,3 +1,5 @@
+最新版本：Android 0.1.6／iPhone 0.23，新增兩款佐助變化動畫。[更新說明](SASUKE_EYES_UPDATE.md)。
+
 # C4 / iPhone / Android / Mac 後窗 LED
 
 2026-11-06 整合至 `carrot-wip`。

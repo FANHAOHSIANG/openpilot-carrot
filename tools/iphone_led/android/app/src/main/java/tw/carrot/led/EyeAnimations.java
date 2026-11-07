@@ -6,8 +6,9 @@ import java.util.*;
 
 /** Original GIFs with one 16-color global palette; tinting never changes compressed indices. */
 final class EyeAnimations {
-  static final String[] FILES={"crystal","gaze","devil","spiral","flame","mecha"};
-  static final String[] NAMES={"晶亮眨眼","靈動眼","惡魔眼","螺旋眼","火焰眼","機甲眼"};
+  static final String[] FILES={"crystal","gaze","devil","spiral","flame","mecha","sasuke_sharingan","sasuke_rinnegan"};
+  static final String[] NAMES={"晶亮眨眼","靈動眼","惡魔眼","螺旋眼","火焰眼","機甲眼","寫輪眼 → 萬花筒","萬花筒 → 輪迴眼"};
+  static final int[] DISPLAY_ORDER={6,7,0,1,2,3,4,5};
   static int index(int n){return Math.max(0,Math.min(FILES.length-1,n));}
   static final Map<String,byte[]> cache=new HashMap<>();
   static synchronized byte[] gif(Context context,int variant,int color){
@@ -18,7 +19,8 @@ final class EyeAnimations {
       while((n=in.read(block))!=-1)out.write(block,0,n);
       byte[] data=out.toByteArray();
       if(data.length<61 || data.length>8192 || (data[10]&0x87)!=0x83)throw new IOException("invalid eyes palette");
-      for(int i=0;i<16;i++)for(int channel=0;channel<3;channel++){
+      // Fixed-color Sasuke variants retain the red/purple transformation palette.
+      if(variant<6)for(int i=0;i<16;i++)for(int channel=0;channel<3;channel++){
         int base=(color>>(16-8*channel))&255;
         int value=i<=10?(base*i/10):(base+(255-base)*(i-10)/5);
         data[13+i*3+channel]=(byte)value;

@@ -1,3 +1,11 @@
+# 佐助眼睛動畫預覽
+
+Android 0.1.6／iPhone 0.23 新增兩款，原六款保留。下方為 64×16 素材放大預覽，不是實體 LED 錄影。
+
+![寫輪眼至萬花筒及萬花筒至輪迴眼](sasuke-eyes-preview.gif)
+
+[更新與安裝說明](../SASUKE_EYES_UPDATE.md)
+
 # Carrot LED 新介面預覽
 
 Android 0.1.5 / iPhone 0.22。這些是 App 模擬器截圖，不代表實體車況或屏幕已連線。iPhone 使用明確標示的介面示範資料；Android 顯示尚未連線狀態。

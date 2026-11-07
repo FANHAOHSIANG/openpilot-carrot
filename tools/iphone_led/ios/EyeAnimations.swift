@@ -4,8 +4,9 @@ import ImageIO
 
 /// The same original, indexed GIF assets are bundled by Android and iPhone.
 enum EyeAnimations {
-    static let files = ["crystal","gaze","devil","spiral","flame","mecha"]
-    static let names = ["晶亮眨眼","靈動眼","惡魔眼","螺旋眼","火焰眼","機甲眼"]
+    static let files = ["crystal","gaze","devil","spiral","flame","mecha","sasuke_sharingan","sasuke_rinnegan"]
+    static let names = ["晶亮眨眼","靈動眼","惡魔眼","螺旋眼","火焰眼","機甲眼","寫輪眼 → 萬花筒","萬花筒 → 輪迴眼"]
+    static let displayOrder = [6,7,0,1,2,3,4,5]
     static func index(_ value: Int) -> Int { max(0,min(files.count-1,value)) }
     private static var cache: [String:Data] = [:]
     static func gif(_ variant: Int, color: UInt32) -> Data? {
@@ -15,11 +16,12 @@ enum EyeAnimations {
               let source = try? Data(contentsOf: url) else { return nil }
         var data = [UInt8](source)
         guard data.count >= 61, data.count <= 8192, data[10]&0x87 == 0x83 else { return nil }
-        for i in 0..<16 { for channel in 0..<3 {
+        // Character transformations keep their original red/purple palette.
+        if variant < 6 { for i in 0..<16 { for channel in 0..<3 {
             let base = Int((color >> (16-channel*8))&255)
             let value = i <= 10 ? base*i/10 : base+(255-base)*(i-10)/5
             data[13+i*3+channel] = UInt8(value)
-        } }
+        } } }
         if cache.count >= 24 { cache.removeAll() }
         let result = Data(data); cache[key] = result; return result
     }

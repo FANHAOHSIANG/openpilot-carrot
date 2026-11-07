@@ -1,3 +1,5 @@
+最新版本：Android 0.1.6／iPhone 0.23，新增兩款佐助變化動畫。[更新說明](../SASUKE_EYES_UPDATE.md)。
+
 最新：六款眼睛與無需雙黃燈的急煞提示，詳見 [更新說明](../EYES_EMERGENCY_UPDATE.md)。
 
 # Carrot LED 方塊介面更新

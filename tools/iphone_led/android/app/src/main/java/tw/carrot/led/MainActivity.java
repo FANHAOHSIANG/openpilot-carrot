@@ -228,15 +228,15 @@ public final class MainActivity extends Activity {
     LinearLayout row=null;
     for(int i=0;i<count;i++) {
       if(i%columns==0){row=new LinearLayout(this);block(row,quickArea,-2);}
-      final int index=i;String key=quickGroup==0?Settings.EVENTS[i]:"slot"+i;
+      final int index=quickGroup==2?EyeAnimations.DISPLAY_ORDER[i]:i;String key=quickGroup==0?Settings.EVENTS[i]:"slot"+i;
       LinearLayout tile=column();tile.setPadding(dp(16),dp(16),dp(16),dp(16));tile.setGravity(Gravity.TOP);tile.setMinimumHeight(dp(148));
       tile.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33ffffff),rounded(SURFACE,LINE,18),null));
       String title;
       if(quickGroup==2) {
-        EyeThumb eyes=new EyeThumb(this,i);tile.addView(eyes,new LinearLayout.LayoutParams(-1,dp(40)));title=EyeAnimations.NAMES[i];
+        EyeThumb eyes=new EyeThumb(this,index);tile.addView(eyes,new LinearLayout.LayoutParams(-1,dp(40)));title=EyeAnimations.NAMES[index];
       } else {TextView symbol=label(icon(key),29,quickGroup==0?ACCENT:settings.style(key).color);tile.addView(symbol);title=quickGroup==0?Settings.title(key):"自訂 "+(i+1);}
       TextView heading=label(title,18,INK);heading.setTypeface(null,Typeface.BOLD);heading.setPadding(0,dp(10),0,dp(7));tile.addView(heading);
-      TextView value=label(quickGroup==2?"點一下顯示":settings.style(key).text,14,MUTED);value.setMaxLines(2);tile.addView(value);
+      TextView value=label(quickGroup==2?(index>=6?"佐助・點一下顯示":"點一下顯示"):settings.style(key).text,14,MUTED);value.setMaxLines(2);tile.addView(value);
       if(quickGroup!=2)quickLabels.put(key,value);
       final int group=quickGroup;
       tile.setOnClickListener(v->{hideKeyboard();if(group==2){settings.p.edit().putInt("eyes.variant",index).apply();send(LedService.EYES);}else send(new Intent(this,LedService.class).setAction(group==0?LedService.PREVIEW:LedService.CUSTOM).putExtra("event",key).putExtra("slot",index));});
@@ -281,7 +281,7 @@ public final class MainActivity extends Activity {
       text("五組自訂文字",20);for(int i=0;i<5;i++){final int n=i;button("自訂 "+(i+1)+" · 編輯與顯示",()->editStyle("slot"+n,true,n));}
       text("眼睛動畫",20);button("選擇眼睛顏色",()->colorPicker(settings.p.getInt("eyes.color",0xff00dcc8),c->{settings.p.edit().putInt("eyes.color",c).apply();populateQuick();if(LedService.running)send(LedService.RELOAD);}));
       Switch nativeEyes=new Switch(this);nativeEyes.setText("iPixel 原生平順動畫");nativeEyes.setTextColor(INK);nativeEyes.setMinHeight(dp(56));nativeEyes.setChecked(settings.p.getBoolean("eyes.native",true));nativeEyes.setOnCheckedChangeListener((v,value)->{settings.p.edit().putBoolean("eyes.native",value).apply();if(LedService.running)send(LedService.RELOAD);});body.addView(nativeEyes);
-      text("六款漸層眼睛：晶亮眨眼、靈動、惡魔、螺旋、火焰、機甲。iPixel 64×16 原生模式為 20 fps 素材，屏幕循環播放；其他模式目標 5 fps。若原生模式不相容可關閉。車況優先，清屏停止動畫。",14);
+      text("共八款，新增佐助「寫輪眼 → 萬花筒」及「萬花筒 → 輪迴眼」。佐助兩款固定紅／紫配色；調色盤只調整原六款。iPixel 64×16 原生模式為 20 fps 素材，屏幕循環播放；其他模式目標 5 fps。若原生模式不相容可關閉。車況優先，清屏停止動畫。",14);
     });
     addPage(content,navigation,"連線設定",()->{
       text("連線設定",26);text("C4 車況橋接",20);
@@ -301,7 +301,7 @@ public final class MainActivity extends Activity {
       text("像素與字型",20);button("調整屏幕／文字像素",()->pixels());button("匯入中文字型 TTF / OTF",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),55));
       button("App 系統與背景權限",()->startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+getPackageName()))));
       text("DUDU 車機請允許背景執行。每次連動最多 8 小時，休眠或強制停止後請重新確認連線。",14);
-      text("Carrot LED 0.1.5 · Android "+Build.VERSION.RELEASE,13);
+      text("Carrot LED 0.1.6 · Android "+Build.VERSION.RELEASE,13);
     });
     selectPage(b==null?0:Math.max(0,Math.min(2,b.getInt("page",0))));
     ui.post(()->autoStartIfReady());

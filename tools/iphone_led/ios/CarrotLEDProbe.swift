@@ -927,7 +927,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                     if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
                     enqueue(clearCommand())
                 }
-                drawEyeRGBA(rgba,color:color)
+                drawEyeRGBA(rgba,color:color,fixed:eyesVariant>=6)
             }
             return
         }
@@ -1116,24 +1116,33 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         }}
         return packed
     }
-    private func drawEyeRGBA(_ rgba: [UInt8],color: UInt32) {
+    private func drawEyeRGBA(_ rgba: [UInt8],color: UInt32,fixed: Bool) {
         let base = [Int((color>>16)&255),Int((color>>8)&255),Int(color&255)]
+        let palette = [[255,34,54],[104,7,25],[148,77,217],[198,140,250]]
         let peak = base.max() ?? 255, stride = (panelWidth+7)/8
         var layers = [[UInt8]](repeating:[UInt8](repeating:0,count:stride*panelHeight),count:4)
         for y in 0..<panelHeight { for x in 0..<panelWidth {
             let p = (y*panelWidth+x)*4
             let rgb = [Int(rgba[p]),Int(rgba[p+1]),Int(rgba[p+2])], value = rgb.max() ?? 0
-            if value < 10 { continue }
+            if value < (fixed ? 85 : 10) { continue }
             let white = (0..<3).contains { rgb[$0] > base[$0]+12 }
-            let level = white ? 3 : value < peak/3 ? 0 : value < peak*2/3 ? 1 : 2
+            var level = white ? 3 : value < peak/3 ? 0 : value < peak*2/3 ? 1 : 2
+            if fixed {
+                var best = Int.max
+                for j in palette.indices {
+                    let dr = rgb[0]-palette[j][0], dg = rgb[1]-palette[j][1], db = rgb[2]-palette[j][2]
+                    let distance = dr*dr+dg*dg+db*db
+                    if distance < best { best = distance; level = j }
+                }
+            }
             layers[level][y*stride+x/8] |= UInt8(128 >> (x%8))
         } }
         if ipixel {
             var merged = layers[0]
             for layer in layers.dropFirst() { for i in merged.indices { merged[i] |= layer[i] } }
-            drawPixels(merged,color:base.map { UInt8($0) })
+            drawPixels(merged,color:fixed ? [255,34,54] : base.map { UInt8($0) })
         } else { for (level,layer) in layers.enumerated() {
-            let rgb: [UInt8] = level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
+            let rgb: [UInt8] = fixed ? palette[level].map { UInt8($0) } : level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
             drawPixels(layer,color:rgb)
         } }
     }

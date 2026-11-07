@@ -74,21 +74,27 @@ final class LedRenderer {
       Bitmap eye=EyeAnimations.raster(settings.context,style.effect-11,style.color,w,h,tick*200);
       if(eye==null)throw new IllegalArgumentException("eyes asset unavailable");
       byte[][] layers=new byte[4][((w+7)/8)*h];
+      boolean fixed=style.effect>=17;
+      int[] palette=fixed?new int[]{0xffff2236,0xff680719,0xff944dd9,0xffc68cfa}:null;
       int peak=Math.max(Color.red(style.color),Math.max(Color.green(style.color),Color.blue(style.color)));
       for(int y=0;y<h;y++)for(int x=0;x<w;x++){
         int c=eye.getPixel(x,y), red=Color.red(c),green=Color.green(c),blue=Color.blue(c);
-        int value=Math.max(red,Math.max(green,blue));if(value<10)continue;
+        int value=Math.max(red,Math.max(green,blue));if(value<(fixed?85:10))continue;
         boolean white=red>Color.red(style.color)+12 || green>Color.green(style.color)+12 || blue>Color.blue(style.color)+12;
         int layer=white?3:value<peak/3?0:value<peak*2/3?1:2;
+        if(fixed){
+          int best=Integer.MAX_VALUE;
+          for(int j=0;j<palette.length;j++){int dr=red-Color.red(palette[j]),dg=green-Color.green(palette[j]),db=blue-Color.blue(palette[j]);int distance=dr*dr+dg*dg+db*db;if(distance<best){best=distance;layer=j;}}
+        }
         layers[layer][y*((w+7)/8)+x/8]|=(byte)(128>>(x%8));
       }
       eye.recycle();
       if(settings.ipixel()){
         // Small-MTU/compatibility mode remains one colored bitmap, avoiding a long GIF transfer.
         byte[] merged=new byte[layers[0].length];for(byte[] layer:layers)for(int i=0;i<merged.length;i++)merged[i]|=layer[i];
-        commands.add(IPixelProtocol.text(merged,w,h,style.color,0));
+        commands.add(IPixelProtocol.text(merged,w,h,fixed?0xff2236:style.color,0));
       }else for(int level=0;level<4;level++){
-        int color=level==3?Color.WHITE:Color.rgb(Color.red(style.color)*(level+1)/3,Color.green(style.color)*(level+1)/3,Color.blue(style.color)*(level+1)/3);
+        int color=fixed?palette[level]:level==3?Color.WHITE:Color.rgb(Color.red(style.color)*(level+1)/3,Color.green(style.color)*(level+1)/3,Color.blue(style.color)*(level+1)/3);
         commands.addAll(LoyProtocol.pixels(layers[level],w,h,color));
       }
       return commands;

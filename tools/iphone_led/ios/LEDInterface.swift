@@ -119,12 +119,12 @@ struct LEDDashboard: View {
                                 .disabled(!model.ready || model.customSlots[i].text.isEmpty)
                         }
                     } else {
-                        ForEach(0..<EyeAnimations.names.count, id: \.self) { i in
+                        ForEach(EyeAnimations.displayOrder, id: \.self) { i in
                             Button { model.activateEyes(i) } label: {
                                 VStack(alignment: .leading, spacing: 14) {
                                     LEDEyesPreview(variant: i, color: LEDTheme.color(model.eyesColor)).frame(height: 45)
                                     Text(EyeAnimations.names[i]).font(.headline).foregroundStyle(.white)
-                                    Text("點一下顯示").font(.caption).foregroundStyle(.secondary)
+                                    Text(i >= 6 ? "佐助・點一下顯示" : "點一下顯示").font(.caption).foregroundStyle(.secondary)
                                 }.padding(16).frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
                                     .background(LEDTheme.surface, in: RoundedRectangle(cornerRadius: 18))
                                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(LEDTheme.line))
@@ -225,7 +225,7 @@ struct LEDStylePage: View {
                     LEDColorPicker(colorHex: $model.eyesColor)
                     Toggle("iPixel 原生平順動畫", isOn: $model.nativeEyes)
                     Text(model.eyePlaybackStatus).font(.caption).foregroundStyle(.secondary)
-                    Text("六款漸層眼睛：晶亮眨眼、靈動、惡魔、螺旋、火焰、機甲。原生模式上傳一次後由屏幕循環播放；若不相容可關閉。車況優先，清屏停止動畫。")
+                    Text("共八款，新增佐助「寫輪眼 → 萬花筒」及「萬花筒 → 輪迴眼」。佐助兩款保留紅／紫配色，調色盤只調整原六款。原生模式上傳一次後由屏幕循環播放；若不相容可關閉。車況優先，清屏停止動畫。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -268,7 +268,7 @@ struct LEDSettingsPage: View {
                 Button("套用像素設定") { model.applyDisplaySettings() }
                 Text(model.settingsStatus).font(.caption).foregroundStyle(.secondary)
             }
-            Section { Text("Carrot LED 0.22 · 字型、配色、點陣動畫\n電源與目前內容是 App 指令狀態，實體畫面請目視確認。")
+            Section { Text("Carrot LED 0.23 · 字型、配色、點陣動畫\n電源與目前內容是 App 指令狀態，實體畫面請目視確認。")
                 .font(.caption).foregroundStyle(.secondary) }
         }.navigationTitle("連線設定").scrollDismissesKeyboard(.interactively)
             .scrollContentBackground(.hidden).background(LEDTheme.background)
