@@ -1013,7 +1013,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         let native = ipixel && nativeEyes && panelWidth == 64 && panelHeight == 16
             && (peripheral?.maximumWriteValueLength(for: .withResponse) ?? 0) >= 100
         let frame = startup.step(Int64(ProcessInfo.processInfo.systemUptime*1000), ready: ready,
-            power: screenPowerOn, interrupt: enabled && vehicleIsFresh && !latestVehicleLabel.isEmpty(),
+            power: screenPowerOn, interrupt: enabled && vehicleIsFresh && !latestVehicleLabel.isEmpty,
             idle: idle, nativeMode: native)
         if frame == StartupPlayback.native {
             if let data = StartupArtwork.gif(), let packet = IPixelProtocol.gif(data) {

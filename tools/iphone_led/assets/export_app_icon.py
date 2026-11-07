@@ -35,8 +35,9 @@ def main():
         raise ValueError("App icon master must be square")
     image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
     # Reduce unused generated texture colors; retain opaque RGB for Apple.
-    image = image.quantize(colors=256, dither=Image.Dither.NONE).convert("RGB")
-    png(image, MASTER)
+    if source.resolve() != MASTER.resolve():
+        image = image.quantize(colors=256, dither=Image.Dither.NONE).convert("RGB")
+        png(image, MASTER)
     write(CATALOG / "Contents.json", json.dumps({"info": {"author": "xcode", "version": 1}}, indent=2))
     write(ICON / "Contents.json", json.dumps({
         "images": [{"filename": MASTER.name, "idiom": "universal", "platform": "ios", "size": "1024x1024"}],
@@ -45,7 +46,7 @@ def main():
 
     # Separate adaptive layer; inset the complete artwork for the 66/108 safe zone.
     foreground = Image.new("RGB", (432, 432), "#081329")
-    foreground.paste(image.resize((328, 328), Image.Resampling.LANCZOS), (52, 52))
+    foreground.paste(image.resize((296, 296), Image.Resampling.LANCZOS), (68, 68))
     png(foreground, RES / "drawable-nodpi/carrot_led_foreground.png")
     for density, pixels in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]:
         png(image.resize((pixels, pixels), Image.Resampling.LANCZOS), RES / f"mipmap-{density}/ic_launcher.png")

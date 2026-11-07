@@ -33,3 +33,12 @@ catalog = r/'ios/Resources/Assets.xcassets/AppIcon.appiconset'
 for icon in json.loads((catalog/'Contents.json').read_text())['images']:
     img = Image.open(catalog/icon['filename']); assert img.size == (1024,1024) and img.mode == 'RGB'
 print('Both panel geometries, identical resources, native one-shot GIF, startup fixtures and opaque icon passed')
+
+foreground = Image.open(r/'android/app/src/main/res/drawable-nodpi/carrot_led_foreground.png').convert('RGB')
+assert foreground.size == (432,432)
+for y in range(432):
+    for x in range(432):
+        red,green,blue = foreground.getpixel((x,y))
+        if max(red,green)>100 and max(red,green)-blue>60:
+            assert (x-215.5)**2+(y-215.5)**2 < 132**2, 'Android icon clipped by safe-zone mask'
+print('Android circular icon safe zone passed')
