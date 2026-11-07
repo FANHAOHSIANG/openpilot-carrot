@@ -16,6 +16,16 @@ public final class IPixelProtocol {
   private static void le(ByteArrayOutputStream b, long n, int count) {
     for (int i=0;i<count;i++) b.write((int)(n >> (8*i)) & 255);
   }
+  /** Single-window GIF, matching pypixelcolor send_image._build_send_plan; transient slot 0. */
+  public static byte[] gif(byte[] data) {
+    if(data==null || data.length<61 || data.length>8192 || data[0]!='G' || data[1]!='I' || data[2]!='F'
+        || data[6]!=64 || data[7]!=0 || data[8]!=16 || data[9]!=0 || data[data.length-1]!=0x3b)
+      throw new IllegalArgumentException("native eyes require a bounded 64x16 GIF");
+    CRC32 crc=new CRC32();crc.update(data);ByteArrayOutputStream frame=new ByteArrayOutputStream();
+    le(frame,data.length+15,2);frame.write(3);frame.write(0);frame.write(0);
+    le(frame,data.length,4);le(frame,crc.getValue(),4);frame.write(2);frame.write(0);
+    frame.write(data,0,data.length);return frame.toByteArray();
+  }
   public static byte[] text(byte[] bitmap, int width, int height, int color, int effect) {
     if (height != 16 || width < 1 || width > 2040 || bitmap.length != ((width+7)/8)*16)
       throw new IllegalArgumentException("iPixel requires 16 rows and at most 255 eight-pixel blocks");

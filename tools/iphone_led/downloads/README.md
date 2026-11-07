@@ -4,14 +4,14 @@
 
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
-| Android 手機／車機 | [CarrotLED-0.1.4.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.4.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.21-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.21-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| Android 手機／車機 | [CarrotLED-0.1.5.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.5.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
+| iPhone | [CarrotLED-iOS-0.22-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.22-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
 
 ## 新版方塊介面
 
-新增醒目狀態框、單一電源鈕、大清屏鍵、三種眼睛動畫及開 App 自動啟動。詳見 [UI 更新說明](../UI_UPDATE.md)。
+新增原生眼睛動畫與無需雙黃燈的急煞提示（[門檻與播放方式](../EYES_EMERGENCY_UPDATE.md)），沿用醒目狀態框、單一電源鈕、大清屏鍵、六種原生 GIF 眼睛動畫及開 App 自動啟動。詳見 [UI 更新說明](../UI_UPDATE.md)。
 
 ## iPixel Color 64 × 16 適配（Android 0.1.3 / iOS 0.20）
 
@@ -42,7 +42,7 @@
 ## Android 車機安裝（包含 Android 15）
 
 1. 在車機瀏覽器下載上方 APK；也可以先在電腦下載，再用 USB 隨身碟傳到車機。
-2. 用車機「檔案管理」開啟 `CarrotLED-0.1.4.apk`。若系統阻擋，依提示允許該瀏覽器或檔案管理器「安裝未知應用程式／允許此來源」，返回後安裝。
+2. 用車機「檔案管理」開啟 `CarrotLED-0.1.5.apk`。若系統阻擋，依提示允許該瀏覽器或檔案管理器「安裝未知應用程式／允許此來源」，返回後安裝。
 3. 開啟 **Carrot LED**，允許「附近裝置／藍牙」與通知權限。Android 11 以下另需掃描所需的位置權限與位置開關。
 4. 進入「連線設定」頁，輸入 **C4 目前的區網 IP** 與 **橋接金鑰**，按「儲存連線設定」。已儲存金鑰時欄位可留空；IP 欄只填位址，不加 `http://` 或連接埠。
 5. 儲存設定並允許權限後會自動開始背景連動；若尚未開始，可在同頁手動按「開始背景連動」。接著按「掃描屏幕」，約 12 秒後按「選擇掃描到的屏幕」；曾選過的屏幕會嘗試重連。連線就緒後自動開屏並啟用「自動車況」。
@@ -125,12 +125,12 @@ ip -4 -o addr show wlan0
 | 自訂文字被車況取代 | 自動車況開啟時，車況提示優先，結束後才回到選用的自訂文字 |
 | 切背景後停止 | Android 檢查服務通知與車機省電設定；iPhone 檢查行車即時動態已啟動，回 App 重新確認資料；強制關閉 App 不等於一般切背景 |
 
-車況七項為 R檔、左方向燈、右方向燈、煞車、雙黃燈、感謝燈、急煞雙黃燈。每項及五組自訂文字均可獨立儲存文字樣式。iPhone 與 Android 的系統字型不同，效果不一定完全相同；iPixel 的跑馬燈、閃爍及呼吸採原生文字命令；LOY 仍沿用逐格繪製。實際流暢度需在屏幕驗證。
+車況七項為 R檔、左方向燈、右方向燈、煞車、雙黃燈、感謝燈、急煞提示。每項及五組自訂文字均可獨立儲存文字樣式。iPhone 與 Android 的系統字型不同，效果不一定完全相同；iPixel 的跑馬燈、閃爍及呼吸採原生文字命令；LOY 仍沿用逐格繪製。實際流暢度需在屏幕驗證。
 
 ## 本次檔案與驗證範圍
 
-- Android：0.1.4，versionCode 5，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，42 項核心檢查、眼睛點陣及 iPixel 封包測試通過。
-- iPhone：0.21，主 App 與 extension build 21。ZIP 已逐檔核對本次原始碼；完整 App 與 extension 編譯、眼睛點陣、iPixel 封包及動態島測試已通過，後續狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
+- Android：0.1.5，versionCode 6，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，42 項核心檢查、291 筆車況重播、眼睛點陣及 iPixel 文字／GIF 封包測試通過。
+- iPhone：0.22，主 App 與 extension build 22。ZIP 已逐檔核對本次原始碼；完整 App 與 extension 編譯、車況重播、iPixel 文字／GIF 封包及動態島測試由 GitHub Actions 執行，後續狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
 - 既有版背景連動曾有使用者成功回報；不同車機、iPhone 系統及新版動態島修正仍需實機確認。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 

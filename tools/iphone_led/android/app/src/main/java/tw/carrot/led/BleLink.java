@@ -174,7 +174,7 @@ final class BleLink {
                   return;
                 }
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                  if (!g.requestMtu(185)) discover(g);
+                  if (!g.requestMtu(ipixel ? 247 : 185)) discover(g);
                   h.postDelayed(() -> discover(g), 2000);
                 }
               });
@@ -261,7 +261,8 @@ final class BleLink {
                   return;
                 }
                 writing = false;
-                h.postDelayed(() -> pump(), 20);
+                // With-response writes already provide backpressure. Avoid a second artificial delay for GIFs.
+                h.postDelayed(() -> pump(), ipixel ? 0 : 20);
               });
         }
       };
@@ -317,6 +318,7 @@ final class BleLink {
   boolean idle() {
     return !writing && !awaitingAck && chunks.isEmpty() && packets.isEmpty() && pending == null;
   }
+  boolean nativeEyesReady(){return ipixel && mtu-3>=100;}
 
   void fail(String text) {
     status = text;

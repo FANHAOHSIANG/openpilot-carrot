@@ -47,7 +47,7 @@ public class CoreTests {
     eq(r.choose(10, -3, true, true, true, "drive", 2000), "減速中");
     eq(r.choose(10, -3, true, true, true, "drive", 2300), "減速中");
     eq(r.choose(10, -.6, true, true, true, "drive", 4299), "減速中");
-    eq(r.choose(10, -.6, true, true, true, "drive", 4300), "前方塞車");
+    eq(r.choose(10, -.6, true, true, true, "drive", 4300), "減速中");
     eq(r.choose(10, -.6, true, true, true, "drive", 6300), "減速中");
     eq(r.choose(10, -.6, true, false, true, "drive", 6400), "減速中");
     r.reset();

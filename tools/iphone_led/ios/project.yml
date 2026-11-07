@@ -17,6 +17,10 @@ targets:
       - IPixelProtocol.swift
       - LEDInterface.swift
       - EyesBitmap.swift
+      - EyeAnimations.swift
+      - path: Resources/Eyes
+        buildPhase: resources
+      - VehicleRules.swift
       - path: Resources/IslandSilent.wav
         buildPhase: resources
       - LEDActivityAttributes.swift

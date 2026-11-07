@@ -215,7 +215,7 @@ public final class LedService extends Service {
             lastKey = "";
           }
           if (!polling) poll();
-          if (now - lastRender >= 333) {
+          if (now - lastRender >= 200) {
             lastRender = now;
             if (!previewKey.isEmpty() && now >= previewUntil) {
               previewKey = "";
@@ -309,6 +309,7 @@ public final class LedService extends Service {
                   String gear = result.getString("gear").toLowerCase(Locale.ROOT);
                   lastSample = now;
                   label = rules.choose(speed, accel, brake, left, right, gear, now);
+                  if(automatic && rules.emergencyActive){previewKey="";previewStatus="";}
                   status = "已收到 C4 車況";
                   details =
                       String.format(
@@ -339,7 +340,8 @@ public final class LedService extends Service {
         DisplaySelection.choose(
             automatic, fresh, label, slot, previewKey, previewUntil, SystemClock.elapsedRealtime());
     Settings.Style style = key.isEmpty() ? null : settings.style(key);
-    long phase = SystemClock.elapsedRealtime() / 333;
+    boolean nativeEyes=key.equals("eyes") && settings.ipixel() && settings.width()==64 && settings.height()==16 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady();
+    long phase = SystemClock.elapsedRealtime() / (key.equals("eyes")?200:333);
     String signature =
         key
             + (style == null
@@ -349,12 +351,12 @@ public final class LedService extends Service {
                     + style.font
                     + style.bold
                     + style.effect
-                    + (style.effect == 0 || (settings.ipixel() && style.effect <= 5) ? 0 : phase));
+                    + (nativeEyes || style.effect == 0 || (settings.ipixel() && style.effect <= 5) ? 0 : phase));
     if (!force && signature.equals(lastKey)) return;
     lastKey = signature;
-    display = style == null ? "清屏" : key.equals("eyes") ? new String[]{"眨眨眼","左右看","惡魔眼"}[Math.max(0,Math.min(2,style.effect-11))] : style.text;
-    try { ble.offer(LedRenderer.render(settings, style, phase)); }
-    catch (IllegalArgumentException e) { screen = "iPixel 僅支援高 16；請停止服務並重新選屏幕類型"; }
+    display = style == null ? "清屏" : key.equals("eyes") ? EyeAnimations.NAMES[EyeAnimations.index(style.effect-11)] : style.text;
+    try { ble.offer(LedRenderer.render(settings, style, phase,nativeEyes)); }
+    catch (IllegalArgumentException e) { screen = "顯示失敗："+e.getMessage(); lastKey=""; }
   }
 
   private Notification notification(String text) {
@@ -397,7 +399,7 @@ public final class LedService extends Service {
     automatic = false;
     slot = -1;
     h.removeCallbacks(tick);
-    ble.offer(LedRenderer.render(settings, null, 0));
+    ble.offer(LedRenderer.render(settings, null, 0,false));
     long until = SystemClock.elapsedRealtime() + 1800;
     Runnable finish =
         new Runnable() {

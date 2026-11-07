@@ -31,6 +31,11 @@ jobs:
         run: |
           swiftc EyesBitmap.swift tests/EyesTests.swift -o /tmp/eyes-tests
           /tmp/eyes-tests
+      - name: Replay emergency brake scenarios
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc VehicleRules.swift tests/VehicleRulesTests.swift -o /tmp/vehicle-rules-tests
+          /tmp/vehicle-rules-tests
       - name: Generate project
         working-directory: tools/iphone_led/ios
         run: |
@@ -48,6 +53,8 @@ jobs:
           import pathlib, plistlib
           app = pathlib.Path('/tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app')
           assert (app / 'IslandSilent.wav').is_file()
+          for name in ['crystal','gaze','devil','spiral','flame','mecha']:
+              assert (app / (name+'.gif')).is_file(), name
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['NSSupportsLiveActivities'] is True
           assert 'bluetooth-central' in info['UIBackgroundModes']

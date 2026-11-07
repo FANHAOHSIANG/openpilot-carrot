@@ -14,9 +14,11 @@ Android 0.1.4 / iPhone 0.21。這些是 App 模擬器截圖，不代表實體車
 
 ![Android 眼睛快捷頁](android-eyes.png)
 
-## 眼睛動畫
+## 新版眼睛動畫（Android 0.1.5 / iPhone 0.22）
 
-![三種原創點陣眼睛預覽](eyes-preview.gif)
+![六種原創漸層眼睛素材預覽](eyes-smooth-preview.gif)
+
+此處為素材播放預覽，實體屏幕的速度取決於控制板及傳輸。詳見 [播放方式與急煞門檻](../EYES_EMERGENCY_UPDATE.md)。
 
 預覽由實際點陣產生器繪製，從上到下為眨眨眼、左右看、惡魔眼。顏色可調。這是點陣內容示意，實體藍牙傳輸流暢度尚待測試。
 

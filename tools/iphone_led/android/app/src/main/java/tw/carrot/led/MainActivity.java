@@ -224,7 +224,7 @@ public final class MainActivity extends Activity {
     if(quickArea==null)return;for(int n=0;n<quickGroupButtons.size();n++){Button b=quickGroupButtons.get(n);b.setTextColor(n==quickGroup?ACCENT:MUTED);b.setBackground(rounded(SURFACE,n==quickGroup?ACCENT:LINE,12));}quickArea.removeAllViews();quickLabels.clear();quickTiles.clear();
     int available=wide?(int)(getResources().getConfiguration().screenWidthDp*.66f)-48:getResources().getConfiguration().screenWidthDp-40;
     int columns=Math.max(2,Math.min(4,available/145));
-    int count=quickGroup==0?7:quickGroup==1?5:3;
+    int count=quickGroup==0?7:quickGroup==1?5:EyeAnimations.NAMES.length;
     LinearLayout row=null;
     for(int i=0;i<count;i++) {
       if(i%columns==0){row=new LinearLayout(this);block(row,quickArea,-2);}
@@ -233,7 +233,7 @@ public final class MainActivity extends Activity {
       tile.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33ffffff),rounded(SURFACE,LINE,18),null));
       String title;
       if(quickGroup==2) {
-        EyeThumb eyes=new EyeThumb(this,i);tile.addView(eyes,new LinearLayout.LayoutParams(-1,dp(40)));title=new String[]{"眨眨眼","左右看","惡魔眼"}[i];
+        EyeThumb eyes=new EyeThumb(this,i);tile.addView(eyes,new LinearLayout.LayoutParams(-1,dp(40)));title=EyeAnimations.NAMES[i];
       } else {TextView symbol=label(icon(key),29,quickGroup==0?ACCENT:settings.style(key).color);tile.addView(symbol);title=quickGroup==0?Settings.title(key):"自訂 "+(i+1);}
       TextView heading=label(title,18,INK);heading.setTypeface(null,Typeface.BOLD);heading.setPadding(0,dp(10),0,dp(7));tile.addView(heading);
       TextView value=label(quickGroup==2?"點一下顯示":settings.style(key).text,14,MUTED);value.setMaxLines(2);tile.addView(value);
@@ -246,9 +246,14 @@ public final class MainActivity extends Activity {
     }
   }
   final class EyeThumb extends View {
-    final int variant;final Paint paint=new Paint();EyeThumb(Context c,int v){super(c);variant=v;}
-    protected void onDraw(Canvas c){byte[] bits=EyesBitmap.make(64,16,variant,0);float step=Math.min(getWidth()/64f,getHeight()/16f);paint.setColor(settings.p.getInt("eyes.color",0xff00dcc8));
-      for(int y=0;y<16;y++)for(int x=0;x<64;x++)if((bits[y*8+x/8]&(128>>(x%8)))!=0)c.drawRect(x*step,y*step,(x+1)*step-.5f,(y+1)*step-.5f,paint);}
+    final android.graphics.Movie movie;final long started=android.os.SystemClock.uptimeMillis();
+    EyeThumb(Context c,int variant){super(c);movie=EyeAnimations.movie(c,variant,settings.p.getInt("eyes.color",0xff00dcc8));setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+    protected void onDraw(Canvas c){
+      if(movie==null)return;
+      movie.setTime((int)((android.os.SystemClock.uptimeMillis()-started)%Math.max(1,movie.duration())));
+      float scale=Math.min(getWidth()/64f,getHeight()/16f);c.save();c.translate((getWidth()-64*scale)/2,(getHeight()-16*scale)/2);c.scale(scale,scale);movie.draw(c,0,0);c.restore();
+      if(isShown())postInvalidateDelayed(50);
+    }
   }
   void autoStartIfReady() {
     if(LedService.running || !settings.p.getBoolean("autoLaunch",true))return;
@@ -271,10 +276,12 @@ public final class MainActivity extends Activity {
     addPage(content,navigation,"▦ 快捷",()->makeQuickPage());
     addPage(content,navigation,"文字動畫",()->{
       text("文字與動畫",26);text("每個項目獨立儲存，點選即可編輯。",14);
+      text("急煞提示：D 檔 ≥20 km/h，減速度 ≥4.5 m/s² 持續 ≥0.3 秒（至少 3 筆），不需雙黃燈。觸發後交替提示至少 6 秒；離開 D 檔或資料失效取消。",14);
       text("車況文字",20);for(String event:Settings.EVENTS)button(icon(event)+"  "+Settings.title(event),()->editStyle(event,false,-1));
       text("五組自訂文字",20);for(int i=0;i<5;i++){final int n=i;button("自訂 "+(i+1)+" · 編輯與顯示",()->editStyle("slot"+n,true,n));}
       text("眼睛動畫",20);button("選擇眼睛顏色",()->colorPicker(settings.p.getInt("eyes.color",0xff00dcc8),c->{settings.p.edit().putInt("eyes.color",c).apply();populateQuick();if(LedService.running)send(LedService.RELOAD);}));
-      text("三種原創點陣動畫：眨眼、左右看、惡魔眼。車況提示優先，清屏會停止動畫。",14);
+      Switch nativeEyes=new Switch(this);nativeEyes.setText("iPixel 原生平順動畫");nativeEyes.setTextColor(INK);nativeEyes.setMinHeight(dp(56));nativeEyes.setChecked(settings.p.getBoolean("eyes.native",true));nativeEyes.setOnCheckedChangeListener((v,value)->{settings.p.edit().putBoolean("eyes.native",value).apply();if(LedService.running)send(LedService.RELOAD);});body.addView(nativeEyes);
+      text("六款漸層眼睛：晶亮眨眼、靈動、惡魔、螺旋、火焰、機甲。iPixel 64×16 原生模式為 20 fps 素材，屏幕循環播放；其他模式目標 5 fps。若原生模式不相容可關閉。車況優先，清屏停止動畫。",14);
     });
     addPage(content,navigation,"連線設定",()->{
       text("連線設定",26);text("C4 車況橋接",20);
@@ -294,7 +301,7 @@ public final class MainActivity extends Activity {
       text("像素與字型",20);button("調整屏幕／文字像素",()->pixels());button("匯入中文字型 TTF / OTF",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),55));
       button("App 系統與背景權限",()->startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+getPackageName()))));
       text("DUDU 車機請允許背景執行。每次連動最多 8 小時，休眠或強制停止後請重新確認連線。",14);
-      text("Carrot LED 0.1.4 · Android "+Build.VERSION.RELEASE,13);
+      text("Carrot LED 0.1.5 · Android "+Build.VERSION.RELEASE,13);
     });
     selectPage(b==null?0:Math.max(0,Math.min(2,b.getInt("page",0))));
     ui.post(()->autoStartIfReady());

@@ -307,6 +307,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     @Published var eyesColor = UserDefaults.standard.string(forKey: "ledEyesColor") ?? "00DCC8" {
         didSet { UserDefaults.standard.set(eyesColor, forKey: "ledEyesColor"); lastDisplayKey = nil }
     }
+    @Published var nativeEyes = UserDefaults.standard.object(forKey: "ledNativeEyes") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(nativeEyes,forKey:"ledNativeEyes"); lastDisplayKey = nil }
+    }
+    @Published var eyePlaybackStatus = "iPixel 可使用屏幕原生動畫；其他模式依藍牙速度播放"
     private var eyesActive = false
     private var eyesVariant = 0
     var vehicleIsFresh: Bool { Date().timeIntervalSince(lastSample) < 0.9 }
@@ -314,7 +318,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func activateEyes(_ variant: Int) {
         guard ready else { return }
         if !screenPowerOn { power(true) }
-        endPreview(); eyesVariant = max(0,min(2,variant)); eyesActive = true; activeSlot = nil; lastDisplayKey = nil
+        endPreview(); eyesVariant = EyeAnimations.index(variant); eyesActive = true; activeSlot = nil; lastDisplayKey = nil
         customStatus = "眼睛動畫已選用，車況提示優先。"
         if !enabled { requestDisplay("__eyes__") }
     }
@@ -364,7 +368,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         })
     }
     func eventTitle(_ key: String) -> String {
-        let names = ["R檔", "左方向燈", "右方向燈", "煞車", "雙黃燈", "感謝燈", "急煞雙黃燈"]
+        let names = ["R檔", "左方向燈", "右方向燈", "煞車", "雙黃燈", "感謝燈", "急煞提示"]
         return eventKeys.firstIndex(of: key).map { names[$0] } ?? key
     }
     func eventText(_ key: String) -> String { vehicleStyles[key]?.text ?? key }
@@ -395,11 +399,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var lastSample = Date.distantPast
     private var isPolling = false
     private var generation = UUID()
-    private var slowingSince: Date?
-    private var hardSince: Date?
-    private var congestionAlternationSince: Date?
-    private var slowing = false
-    private var hard = false
+    private let vehicleRules = VehicleRules()
     private var lastLabel: String?
     private var frames: [Data] = []
     private var queuedLabel: String?
@@ -468,7 +468,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             bluetoothStatus = "背景藍牙未啟用，前景仍可連線"
         }
         if !host.isEmpty && !token.isEmpty { connectC4() }
-        Timer.scheduledTimer(withTimeInterval: 0.33, repeats: true) { [weak self] _ in
+        Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 if self.previewStyle != nil {
@@ -857,8 +857,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     func disconnectC4() {
         autoC4 = false
         generation = UUID(); timer?.invalidate(); timer = nil
-        lastSample = .distantPast; slowingSince = nil; hardSince = nil; congestionAlternationSince = nil
-        slowing = false; hard = false
+        lastSample = .distantPast; vehicleRules.reset()
         vehicleStatus = "C4 已斷線"; values = "等待車況"
         if enabled { requestDisplay("") }
     }
@@ -888,7 +887,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             let now = Date(); lastSample = now
             vehicleStatus = "已收到 C4 車況"
             values = String(format: "%.1f km/h  %.2f m/s²  檔位 %@\n煞車 %d  左燈 %d  右燈 %d", speed * 3.6, accel, gear, brake ? 1 : 0, left ? 1 : 0, right ? 1 : 0)
-            let label = choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: now)
+            let label = vehicleRules.choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: Int64(ProcessInfo.processInfo.systemUptime*1000))
+            if enabled && vehicleRules.emergencyActive { endPreview() }
             if enabled && ready { requestDisplay(label.isEmpty ? idleLabel : label) }
         } catch {
             guard generation == id, !inBackground || drivingSession.active else { return }
@@ -899,62 +899,36 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         lastSample = .distantPast
         updateDrivingSession()
         vehicleStatus = "C4 資料中斷，嘗試清屏"
-        slowing = false; hard = false; slowingSince = nil; hardSince = nil; congestionAlternationSince = nil
+        vehicleRules.reset()
         if enabled && ready { requestDisplay("") }
-    }
-    private func choose(speed: Double, accel: Double, brake: Bool, left: Bool, right: Bool, gear: String, now: Date) -> String {
-        if slowing { if speed < 3.0/3.6 || accel >= -0.25 { slowing = false; slowingSince = nil } }
-        else if speed >= 5.0/3.6 && accel <= -0.50 {
-            if slowingSince == nil { slowingSince = now }; if now.timeIntervalSince(slowingSince!) >= 0.3 { slowing = true }
-        } else { slowingSince = nil }
-        if hard { if speed < 3.0/3.6 || accel >= -1.5 { hard = false; hardSince = nil } }
-        else if speed >= 5.0/3.6 && accel <= -2.0 {
-            if hardSince == nil { hardSince = now }; if now.timeIntervalSince(hardSince!) >= 0.3 { hard = true }
-        } else { hardSince = nil }
-        // Remember a hard-deceleration + hazard event while the hazard lights
-        // and braking/deceleration persist; otherwise a short hard-decel peak
-        // may end before the second message can be shown.
-        if gear == "drive" && (brake || slowing) {
-            if left && right {
-                if hard && congestionAlternationSince == nil { congestionAlternationSince = now }
-                if let start = congestionAlternationSince {
-                    let elapsed = max(0, now.timeIntervalSince(start))
-                    return Int(elapsed / 2) % 2 == 0 ? "減速中" : "前方塞車"
-                }
-            } else { congestionAlternationSince = nil }
-            return "減速中"
-        }
-        congestionAlternationSince = nil
-        if gear == "reverse" || gear == "r" {
-            slowing = false; hard = false; slowingSince = nil; hardSince = nil
-            return "倒車"
-        }
-        if left && right {
-            if gear == "drive" && hard { return "前方塞車" }
-            if gear == "park" { return "暫停一下謝謝" }
-            if gear == "drive" { return "謝謝" }
-            return ""
-        }
-        if left { return "左轉彎" }; if right { return "右轉彎" }
-        return ""
     }
     private func requestDisplay(_ label: String) {
         if label == "__preview__" && previewStyle == nil { return }
         if label != "__preview__", previewStyle != nil, Date() < previewUntil { return }
         if label == "__eyes__" {
-            let phase = Int(Date().timeIntervalSince1970*3)
-            let key = "eyes|\(eyesVariant)|\(eyesColor)|\(phase)"
+            let native = ipixel && nativeEyes && panelWidth == 64 && panelHeight == 16
+                && (peripheral?.maximumWriteValueLength(for:.withResponse) ?? 0) >= 100
+            let phase = Int(ProcessInfo.processInfo.systemUptime*5)
+            let key = "eyes|\(eyesVariant)|\(eyesColor)|\(native ? 0 : phase)|\(native)"
             if sending || !frames.isEmpty { queuedLabel = label; return }
             guard key != lastDisplayKey else { return }; lastDisplayKey = key
-            currentLabel = ["眨眨眼", "左右看", "惡魔眼"][eyesVariant]
-            let pixels = EyesBitmap.make(width:panelWidth,height:panelHeight,variant:eyesVariant,phase:phase)
+            currentLabel = EyeAnimations.names[EyeAnimations.index(eyesVariant)]
             let color = UInt32(eyesColor,radix:16) ?? 0x00dcc8
-            let rgb = [UInt8((color>>16)&255),UInt8((color>>8)&255),UInt8(color&255)]
-            if !ipixel {
-                if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
-                enqueue(clearCommand())
+            if native {
+                guard let data = EyeAnimations.gif(eyesVariant,color:color), let packet = IPixelProtocol.gif(data) else {
+                    eyePlaybackStatus = "眼睛素材讀取失敗，請重新安裝完整專案"; lastDisplayKey = nil; return
+                }
+                eyePlaybackStatus = "iPixel 原生動畫 · 20 fps 素材，屏幕循環播放"
+                enqueue(packet)
+            } else {
+                eyePlaybackStatus = "相容播放 · 目標 5 fps，依藍牙吞吐量調整"
+                guard let rgba = EyeAnimations.raster(eyesVariant,color:color,width:panelWidth,height:panelHeight,time:ProcessInfo.processInfo.systemUptime) else { return }
+                if !ipixel {
+                    if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
+                    enqueue(clearCommand())
+                }
+                drawEyeRGBA(rgba,color:color)
             }
-            drawPixels(pixels,color:rgb)
             return
         }
         let slot = label == "__custom__" ? activeSlot.map { customSlots[$0] } : nil
@@ -1141,6 +1115,27 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             if bytes[offset] > 60 { packed[y * rowBytes + x / 8] |= UInt8(0x80 >> (x % 8)) }
         }}
         return packed
+    }
+    private func drawEyeRGBA(_ rgba: [UInt8],color: UInt32) {
+        let base = [Int((color>>16)&255),Int((color>>8)&255),Int(color&255)]
+        let peak = base.max() ?? 255, stride = (panelWidth+7)/8
+        var layers = [[UInt8]](repeating:[UInt8](repeating:0,count:stride*panelHeight),count:4)
+        for y in 0..<panelHeight { for x in 0..<panelWidth {
+            let p = (y*panelWidth+x)*4
+            let rgb = [Int(rgba[p]),Int(rgba[p+1]),Int(rgba[p+2])], value = rgb.max() ?? 0
+            if value < 10 { continue }
+            let white = (0..<3).contains { rgb[$0] > base[$0]+12 }
+            let level = white ? 3 : value < peak/3 ? 0 : value < peak*2/3 ? 1 : 2
+            layers[level][y*stride+x/8] |= UInt8(128 >> (x%8))
+        } }
+        if ipixel {
+            var merged = layers[0]
+            for layer in layers.dropFirst() { for i in merged.indices { merged[i] |= layer[i] } }
+            drawPixels(merged,color:base.map { UInt8($0) })
+        } else { for (level,layer) in layers.enumerated() {
+            let rgb: [UInt8] = level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
+            drawPixels(layer,color:rgb)
+        } }
     }
     private func enqueue(_ payload: [UInt8]) {
         guard let peripheral, let characteristic = writeCharacteristic else { return }

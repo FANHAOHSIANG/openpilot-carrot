@@ -12,7 +12,7 @@ import pathlib,sys
 text=pathlib.Path('app/src/main/AndroidManifest.xml').read_text()
 pathlib.Path(sys.argv[1]).write_text(text.replace('<manifest ', '<manifest package="tw.carrot.led" ',1))
 PYMANIFEST
-"$bt/aapt2" link -o "$out/base.apk" -I "$platform" --manifest "$out/AndroidManifest.xml" --version-code 5 --version-name 0.1.4 "$out/resources.zip"
+"$bt/aapt2" link -o "$out/base.apk" -I "$platform" --manifest "$out/AndroidManifest.xml" --version-code 6 --version-name 0.1.5 "$out/resources.zip"
 find app/src/main/java -name '*.java' -print > "$out/sources.txt"
 javac -encoding UTF-8 -source 17 -target 17 -classpath "$platform" -d "$out/classes" @"$out/sources.txt"
 jar cf "$out/classes.jar" -C "$out/classes" .
@@ -22,6 +22,8 @@ import pathlib,sys,zipfile,shutil
 p=pathlib.Path(sys.argv[1]); shutil.copyfile(p/'base.apk',p/'unsigned.apk')
 with zipfile.ZipFile(p/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
     for dex in p.glob('classes*.dex'): z.write(dex,dex.name)
+    for asset in pathlib.Path('app/src/main/assets').rglob('*'):
+        if asset.is_file(): z.write(asset,'assets/'+str(asset.relative_to('app/src/main/assets')))
 PY
 "$bt/zipalign" -f 4 "$out/unsigned.apk" "$out/aligned.apk"
 key="${CARROT_ANDROID_KEYSTORE:-$HOME/.android/debug.keystore}"
@@ -30,6 +32,6 @@ if [ ! -f "$key" ]; then
   keytool -genkeypair -keystore "$key" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
   chmod 600 "$key"
 fi
-"$bt/apksigner" sign --ks "$key" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$out/CarrotLED-0.1.4.apk" "$out/aligned.apk"
-"$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.4.apk"
-echo "APK: $out/CarrotLED-0.1.4.apk"
+"$bt/apksigner" sign --ks "$key" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$out/CarrotLED-0.1.5.apk" "$out/aligned.apk"
+"$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.5.apk"
+echo "APK: $out/CarrotLED-0.1.5.apk"

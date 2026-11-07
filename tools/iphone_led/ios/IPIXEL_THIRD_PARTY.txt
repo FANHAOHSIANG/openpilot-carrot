@@ -3,6 +3,8 @@ iPixel protocol reference
 The iPixel packet encoding and transfer behavior are based on lucagoc/pypixelcolor:
 https://github.com/lucagoc/pypixelcolor
 Reference revision: 7ff1f5c2e8e61eca65f78200b4b33979c779b9c6
+Includes send_image._build_send_plan GIF header, CRC32 and transient slot 0 encoding.
+Eye animations themselves are original procedural artwork; no vendor gallery assets are bundled.
 The reference project is MIT licensed. Its license follows.
 
 MIT License

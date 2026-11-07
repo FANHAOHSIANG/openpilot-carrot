@@ -59,7 +59,7 @@ final class LedRenderer {
     p.setStyle(Paint.Style.FILL);
   }
 
-  static List<byte[]> render(Settings settings, Settings.Style style, long tick) {
+  static List<byte[]> render(Settings settings, Settings.Style style, long tick, boolean nativeEyes) {
     int w = settings.width(), h = settings.height(), fh = settings.fontHeight();
     List<byte[]> commands = new ArrayList<>();
     if (settings.ipixel() && h != 16) throw new IllegalArgumentException("iPixel height must be 16");
@@ -69,10 +69,28 @@ final class LedRenderer {
       if (settings.ipixel()) commands.add(IPixelProtocol.text(new byte[((w+7)/8)*h],w,h,0,0));
       return commands;
     }
-    if (style.effect >= 11 && style.effect <= 13) {
-      byte[] eyes=EyesBitmap.make(w,h,style.effect-11,tick);
-      if(settings.ipixel())commands.add(IPixelProtocol.text(eyes,w,h,style.color,0));
-      else commands.addAll(LoyProtocol.pixels(eyes,w,h,style.color));
+    if (style.effect >= 11 && style.effect < 11+EyeAnimations.NAMES.length) {
+      if(nativeEyes){commands.add(IPixelProtocol.gif(EyeAnimations.gif(settings.context,style.effect-11,style.color)));return commands;}
+      Bitmap eye=EyeAnimations.raster(settings.context,style.effect-11,style.color,w,h,tick*200);
+      if(eye==null)throw new IllegalArgumentException("eyes asset unavailable");
+      byte[][] layers=new byte[4][((w+7)/8)*h];
+      int peak=Math.max(Color.red(style.color),Math.max(Color.green(style.color),Color.blue(style.color)));
+      for(int y=0;y<h;y++)for(int x=0;x<w;x++){
+        int c=eye.getPixel(x,y), red=Color.red(c),green=Color.green(c),blue=Color.blue(c);
+        int value=Math.max(red,Math.max(green,blue));if(value<10)continue;
+        boolean white=red>Color.red(style.color)+12 || green>Color.green(style.color)+12 || blue>Color.blue(style.color)+12;
+        int layer=white?3:value<peak/3?0:value<peak*2/3?1:2;
+        layers[layer][y*((w+7)/8)+x/8]|=(byte)(128>>(x%8));
+      }
+      eye.recycle();
+      if(settings.ipixel()){
+        // Small-MTU/compatibility mode remains one colored bitmap, avoiding a long GIF transfer.
+        byte[] merged=new byte[layers[0].length];for(byte[] layer:layers)for(int i=0;i<merged.length;i++)merged[i]|=layer[i];
+        commands.add(IPixelProtocol.text(merged,w,h,style.color,0));
+      }else for(int level=0;level<4;level++){
+        int color=level==3?Color.WHITE:Color.rgb(Color.red(style.color)*(level+1)/3,Color.green(style.color)*(level+1)/3,Color.blue(style.color)*(level+1)/3);
+        commands.addAll(LoyProtocol.pixels(layers[level],w,h,color));
+      }
       return commands;
     }
     Paint p = new Paint();

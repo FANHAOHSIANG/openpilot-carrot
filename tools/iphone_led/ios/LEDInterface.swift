@@ -119,11 +119,11 @@ struct LEDDashboard: View {
                                 .disabled(!model.ready || model.customSlots[i].text.isEmpty)
                         }
                     } else {
-                        ForEach(0..<3, id: \.self) { i in
+                        ForEach(0..<EyeAnimations.names.count, id: \.self) { i in
                             Button { model.activateEyes(i) } label: {
                                 VStack(alignment: .leading, spacing: 14) {
                                     LEDEyesPreview(variant: i, color: LEDTheme.color(model.eyesColor)).frame(height: 45)
-                                    Text(["眨眨眼", "左右看", "惡魔眼"][i]).font(.headline).foregroundStyle(.white)
+                                    Text(EyeAnimations.names[i]).font(.headline).foregroundStyle(.white)
                                     Text("點一下顯示").font(.caption).foregroundStyle(.secondary)
                                 }.padding(16).frame(maxWidth: .infinity, minHeight: 124, alignment: .leading)
                                     .background(LEDTheme.surface, in: RoundedRectangle(cornerRadius: 18))
@@ -161,20 +161,26 @@ struct LEDQuickTile: View {
     }
 }
 
-struct LEDEyesPreview: View {
+struct LEDEyesPreview: UIViewRepresentable {
     let variant: Int; let color: Color
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 0.33)) { timeline in
-            Canvas { context, size in
-                let bits = EyesBitmap.make(width: 64, height: 16, variant: variant, phase: Int(timeline.date.timeIntervalSince1970*3))
-                let step = min(size.width/64, size.height/16)
-                for y in 0..<16 { for x in 0..<64 where bits[y*8+x/8] & (128 >> (x%8)) != 0 {
-                    let rect = CGRect(x: CGFloat(x)*step, y: CGFloat(y)*step, width: max(1,step-0.5), height: max(1,step-0.5))
-                    context.fill(Path(roundedRect: rect, cornerRadius: step/4), with: .color(color))
-                } }
-            }
-        }.accessibilityLabel("眼睛動畫預覽")
+    final class Coordinator { var key = "" }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> UIImageView {
+        let view = UIImageView(); view.contentMode = .scaleAspectFit
+        view.layer.magnificationFilter = .nearest; view.layer.minificationFilter = .nearest
+        view.setContentHuggingPriority(.defaultLow,for:.horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow,for:.horizontal)
+        view.accessibilityLabel = "眼睛動畫預覽"; return view
     }
+    func updateUIView(_ view: UIImageView,context: Context) {
+        var r: CGFloat = 0,g: CGFloat = 0,b: CGFloat = 0,a: CGFloat = 0
+        UIColor(color).getRed(&r,green:&g,blue:&b,alpha:&a)
+        let rgb = UInt32(r*255)<<16 | UInt32(g*255)<<8 | UInt32(b*255)
+        let key = "\(variant):\(rgb)"
+        guard context.coordinator.key != key else { return }
+        context.coordinator.key = key; view.image = EyeAnimations.image(variant,color:rgb); view.startAnimating()
+    }
+    static func dismantleUIView(_ view: UIImageView,coordinator: Coordinator) { view.stopAnimating() }
 }
 
 struct LEDEffectPicker: View {
@@ -195,6 +201,7 @@ struct LEDStylePage: View {
             Section { Picker("分類", selection: $group) { Text("車況").tag(0); Text("自訂文字").tag(1); Text("眼睛").tag(2) }.pickerStyle(.segmented) }
             if group == 0 {
                 Section("每項獨立設定") {
+                    Text("急煞提示：D 檔 ≥20 km/h，減速度 ≥4.5 m/s² 持續 ≥0.3 秒（至少 3 筆），不需雙黃燈。觸發後交替提示至少 6 秒，離開 D 檔或資料失效取消。").font(.caption).foregroundStyle(.secondary)
                     ForEach(model.eventKeys, id: \.self) { event in
                         VehicleStyleEditor(event: model.eventTitle(event), setting: model.vehicleBinding(for: event), choices: model.fontChoices, preview: { model.previewVehicle(event, draft: true) })
                     }
@@ -216,7 +223,9 @@ struct LEDStylePage: View {
                 Section("眼睛動畫") {
                     LEDEyesPreview(variant: 2, color: LEDTheme.color(model.eyesColor)).frame(height: 80)
                     LEDColorPicker(colorHex: $model.eyesColor)
-                    Text("三種原創點陣動畫：眨眼、左右看、惡魔眼。車況提示優先，結束後恢復眼睛；清屏會停止動畫。")
+                    Toggle("iPixel 原生平順動畫", isOn: $model.nativeEyes)
+                    Text(model.eyePlaybackStatus).font(.caption).foregroundStyle(.secondary)
+                    Text("六款漸層眼睛：晶亮眨眼、靈動、惡魔、螺旋、火焰、機甲。原生模式上傳一次後由屏幕循環播放；若不相容可關閉。車況優先，清屏停止動畫。")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -259,7 +268,7 @@ struct LEDSettingsPage: View {
                 Button("套用像素設定") { model.applyDisplaySettings() }
                 Text(model.settingsStatus).font(.caption).foregroundStyle(.secondary)
             }
-            Section { Text("Carrot LED 0.21 · 字型、配色、點陣動畫\n電源與目前內容是 App 指令狀態，實體畫面請目視確認。")
+            Section { Text("Carrot LED 0.22 · 字型、配色、點陣動畫\n電源與目前內容是 App 指令狀態，實體畫面請目視確認。")
                 .font(.caption).foregroundStyle(.secondary) }
         }.navigationTitle("連線設定").scrollDismissesKeyboard(.interactively)
             .scrollContentBackground(.hidden).background(LEDTheme.background)
