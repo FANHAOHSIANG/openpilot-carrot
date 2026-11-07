@@ -115,7 +115,7 @@ struct CarrotLEDProbeApp: App {
                     }
                     Button("清除自訂文字") { model.clearSlot() }
                     Text(model.customStatus).font(.footnote)
-                    Text("預設 96 × 16。已加入自動連線與背景藍牙；iOS 可能暫停背景車況接收，請先停車實測。")
+                    Text("LOY 預設 96 × 16，iPixel 預設 64 × 16。已加入自動連線與背景藍牙；iOS 可能暫停背景車況接收，請先停車實測。")
                         .font(.footnote).foregroundStyle(.secondary)
                     }
                 }.padding()

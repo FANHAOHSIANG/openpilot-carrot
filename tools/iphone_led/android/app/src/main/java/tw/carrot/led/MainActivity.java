@@ -331,7 +331,7 @@ public final class MainActivity extends Activity {
                           .setAction(LedService.POWER)
                           .putExtra("on", false)));
           button("燈珠全亮測試", () -> send(LedService.TEST));
-          text("請先讓 iPhone、Mac、LOY PLAY 斷開屏幕。車機的電話藍牙可用，不代表第三方 App 一定能使用 BLE。", 16);
+          text("請先讓 iPhone、Mac、iPixel Color／LOY PLAY 斷開屏幕。車機的電話藍牙可用，不代表第三方 App 一定能使用 BLE。", 16);
         });
     addPage(
         content,
@@ -375,7 +375,7 @@ public final class MainActivity extends Activity {
                       new Intent(
                           android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                           android.net.Uri.parse("package:" + getPackageName()))));
-          text("後窗屏幕仍為 96 × 16，與車機解析度無關。文字動畫為手機逐格傳送；不同系統字型的中文字可能相同，可匯入有授權的中文字型。", 16);
+          text("後窗屏幕設定：" + settings.width() + " × " + settings.height() + "，與車機解析度無關。iPixel 跑馬燈等文字效果由屏幕播放，圖案仍由手機逐格傳送。不同系統字型的中文字可能相同，可匯入有授權的中文字型。", 16);
           text(
               "DUDU C3：請在車機的背景／省電管理允許本 App 執行；設定名稱依韌體而異。切換導航不會主動停止本服務，但車機休眠或斷電仍可能中斷；喚醒後請檢查連線。", 16);
           text("每次連動最多 8 小時。藍牙斷線或系統停止時無法保證清屏。請停車設定與測試。", 16);
@@ -519,7 +519,7 @@ public final class MainActivity extends Activity {
     for (int i = 0; i < labels.length; i++)
       labels[i] = devices.get(addresses[i]) + "\n" + addresses[i];
     new AlertDialog.Builder(this)
-        .setTitle("選擇你的 LOY 屏幕")
+        .setTitle(settings.ipixel() ? "選擇你的 iPixel 屏幕" : "選擇你的 LOY 屏幕")
         .setItems(
             labels,
             (d, n) ->

@@ -36,6 +36,12 @@ enum IPixelProtocol {
         func le(_ n: UInt32, _ count: Int) -> [UInt8] {
             (0..<count).map { UInt8(truncatingIfNeeded: n >> ($0*8)) }
         }
-        return le(UInt32(data.count+15),2) + [0,1,0] + le(UInt32(data.count),4) + le(crc,4) + [0,0] + data
+        var frame = le(UInt32(data.count+15),2)
+        frame.append(contentsOf: [0,1,0])
+        frame.append(contentsOf: le(UInt32(data.count),4))
+        frame.append(contentsOf: le(crc,4))
+        frame.append(contentsOf: [0,0])
+        frame.append(contentsOf: data)
+        return frame
     }
 }
