@@ -130,7 +130,7 @@ ip -4 -o addr show wlan0
 ## 本次檔案與驗證範圍
 
 - Android：0.1.5，versionCode 6，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，42 項核心檢查、291 筆車況重播、眼睛點陣及 iPixel 文字／GIF 封包測試通過。
-- iPhone：0.22，主 App 與 extension build 22。ZIP 已逐檔核對本次原始碼；完整 App 與 extension 編譯、車況重播、iPixel 文字／GIF 封包及動態島測試由 GitHub Actions 執行，後續狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
+- iPhone：0.22，主 App 與 extension build 22。ZIP 已逐檔核對本次原始碼；完整 App 與 extension 編譯、車況重播、iPixel 文字／GIF 封包及動態島測試已通過，後續狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
 - 既有版背景連動曾有使用者成功回報；不同車機、iPhone 系統及新版動態島修正仍需實機確認。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 

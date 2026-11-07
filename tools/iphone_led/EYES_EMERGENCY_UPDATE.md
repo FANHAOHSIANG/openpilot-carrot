@@ -37,3 +37,11 @@ Android 覆蓋安裝同簽章 APK；iPhone 解壓完整 ZIP，執行 `xcodegen g
 離線驗證包含兩平台共用的 291 筆情境（一般回收、邊界速度／減速度、瞬間尖峰、長時間急煞、6 秒保留、換檔、資料缺失）、六個 GIF 與 pypixelcolor 的完整封包雜湊比對、GIF 解碼及幾何／資源驗證。Android APK 編譯及簽章檢查在本機完成；iPhone 完整 App／extension 與模擬器畫面由 GitHub Actions 驗證。實際屏幕原生 GIF 解碼、BLE 延遲及車機背景行為仍需裝置驗證。
 
 安裝後先在停車狀態手動預覽眼睛及急煞文字。不需為了測試 LED 而在道路上刻意急煞。
+
+## 本版驗證紀錄
+
+- [iPhone 完整編譯、291 筆重播、GIF 封包與模擬器啟動／截圖](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42399622200)：通過。
+- [Android 核心重播與 APK 編譯](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42399622201)：通過。
+- [Android 15 手機及 1920×720 車機模擬器畫面／無閃退檢查](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42399622166)：通過。
+- 最終 Android 安裝包另外包含 MIT 授權文字，沿用原簽章；相較上述驗證版本，App 程式與資源不變。
+- [新版介面與素材動畫預覽](design/README.md)。實體屏幕尚未驗證。

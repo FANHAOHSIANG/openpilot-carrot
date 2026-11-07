@@ -1,6 +1,6 @@
 # Carrot LED 新介面預覽
 
-Android 0.1.4 / iPhone 0.21。這些是 App 模擬器截圖，不代表實體車況或屏幕已連線。iPhone 使用明確標示的介面示範資料；Android 顯示尚未連線狀態。
+Android 0.1.5 / iPhone 0.22。這些是 App 模擬器截圖，不代表實體車況或屏幕已連線。iPhone 使用明確標示的介面示範資料；Android 顯示尚未連線狀態。
 
 ## iPhone 快捷頁
 
