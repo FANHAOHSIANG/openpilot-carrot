@@ -1,0 +1,44 @@
+name: CarrotLEDProbe
+options:
+  deploymentTarget:
+    iOS: "16.2"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  CarrotLEDProbe:
+    type: application
+    platform: iOS
+    sources:
+      - CarrotLEDProbe.swift
+      - DrivingSession.swift
+      - IslandAlertPolicy.swift
+      - path: Resources/IslandSilent.wav
+        buildPhase: resources
+      - LEDActivityAttributes.swift
+    dependencies:
+      - target: CarrotLEDLiveActivity
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tw.example.carrotledprobe
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info.plist
+  CarrotLEDLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - LiveActivity/CarrotLEDActivity.swift
+      - LEDActivityAttributes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tw.example.carrotledprobe.liveactivity
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: LiveActivity/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+schemes:
+  CarrotLEDProbe:
+    build:
+      targets:
+        CarrotLEDProbe: all
