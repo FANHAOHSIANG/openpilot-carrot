@@ -1,11 +1,17 @@
-# C4 / iPhone / Mac 後窗 LED
+# C4 / iPhone / Android / Mac 後窗 LED
 
 2026-11-06 整合至 `carrot-wip`。
 
+## 下載 App 與安裝說明
+
+**[Android APK、iPhone 專案包與繁體中文安裝步驟](downloads/README.md)**
+
+Android 0.1.2 可直接下載 APK 安裝到手機或車機；iPhone 0.19 為 Xcode 專案 ZIP，需由 Mac 簽署並安裝，不是可直接點擊安裝的 IPA。下載頁包含 C4 金鑰位置、Xcode 兩個 Target 設定、背景連動及保留舊設定的更新步驟。
+
 ## 程式位置與啟動
 
-- `ios/`：CarrotLEDProbe iPhone 原生 App 原始碼（0.14）。Mac 使用 XcodeGen 的 `project.yml` 重新產生含 Live Activity extension 的專案，再簽署並安裝；不能只替換舊專案的 Swift 主檔。C4 與 iPhone 接入同一區網，iPhone 以 BLE 控制 LOY PLAY 屏幕。
-- `android/`：Android 8 以上原生 App（0.1.1），使用常駐通知的 connectedDevice 前景服務接收 C4 車況並透過 BLE 傳送。含可側載 APK 建置腳本與停車驗證清單；實機背景穩定度尚待確認。
+- `ios/`：CarrotLEDProbe iPhone 原生 App 原始碼（0.19）。Mac 使用 XcodeGen 的 `project.yml` 重新產生含 Live Activity extension 的專案，再簽署並安裝；不能只替換舊專案的 Swift 主檔。C4 與 iPhone 接入同一區網，iPhone 以 BLE 控制 LOY PLAY 屏幕。
+- `android/`：Android 8 以上原生 App（0.1.2），使用常駐通知的 connectedDevice 前景服務接收 C4 車況並透過 BLE 傳送。含可側載 APK 建置腳本與停車驗證清單；實機背景穩定度尚待確認。
 - `mac/`：既有 Mac LED / Carrot HUD 測試工具（0.4.1），執行 `START.command`。Mac 與 iPhone 是兩個獨立客戶端；Mac 不包含後續只在 iPhone 加入的全部 UI 功能。
 - `openpilot/selfdrive/carrot/iphone_led_bridge.py`：C4 正式橋接入口。manager 僅在 TICI/C4、行車介面已啟動且 `/data/iphone-led/token` 存在時執行，使用獨立 spawn 程序並在崩潰後重啟。
 - `c4_carstate_bridge.py` 和 `ios/c4_carstate_bridge.py`：可單獨執行的相同橋接副本，支援 `CARROT_LED_TOKEN` 或上述固定金鑰檔。
@@ -38,3 +44,4 @@
 - 此環境沒有 Xcode；本次未編譯或安裝 iPhone App。BLE 動畫仍是手機逐格傳送，尚未驗證為屏幕原生跑馬燈；iOS 可能暫停背景網路與動畫。
 
 GitHub 更新不代表 C4、iPhone 或 Mac 已更新。C4 停車後以正常分支更新／重啟流程安裝；iPhone 另以 Xcode 安裝，Mac 另使用本目錄的工具。
+
