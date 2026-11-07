@@ -21,6 +21,11 @@ jobs:
         run: |
           swiftc IslandAlertPolicy.swift tests/IslandAlertPolicyTests.swift -o /tmp/island-alert-tests
           /tmp/island-alert-tests
+      - name: Test iPixel packet encoding
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc IPixelProtocol.swift tests/IPixelProtocolTests.swift -o /tmp/ipixel-tests
+          /tmp/ipixel-tests
       - name: Generate project
         working-directory: tools/iphone_led/ios
         run: |

@@ -62,10 +62,13 @@ final class LedRenderer {
   static List<byte[]> render(Settings settings, Settings.Style style, long tick) {
     int w = settings.width(), h = settings.height(), fh = settings.fontHeight();
     List<byte[]> commands = new ArrayList<>();
-    commands.add(new byte[] {0x30, 1, (byte) 0x90});
-    commands.add(LoyProtocol.clear(w, h));
-    if (style == null || style.text.isEmpty() || (style.effect == 1 && tick % 2 == 1))
+    if (settings.ipixel() && h != 16) throw new IllegalArgumentException("iPixel height must be 16");
+    if (!settings.ipixel()) commands.add(new byte[] {0x30, 1, (byte) 0x90});
+    if (!settings.ipixel()) commands.add(LoyProtocol.clear(w, h));
+    if (style == null || style.text.isEmpty() || (!settings.ipixel() && style.effect == 1 && tick % 2 == 1)) {
+      if (settings.ipixel()) commands.add(IPixelProtocol.text(new byte[((w+7)/8)*h],w,h,0,0));
       return commands;
+    }
     Paint p = new Paint();
     p.setColor(Color.WHITE);
     p.setTextSize(64);
@@ -88,7 +91,10 @@ final class LedRenderer {
     }
     Rect bounds = new Rect();
     p.getTextBounds(style.text, 0, style.text.length(), bounds);
-    if (bounds.height() == 0) return commands;
+    if (bounds.height() == 0) {
+      if (settings.ipixel()) commands.add(IPixelProtocol.text(new byte[((w+7)/8)*h],w,h,0,0));
+      return commands;
+    }
     float scale = (float) fh / bounds.height();
     float sx = scale * settings.fontWidth() / 100f;
     float advance = p.measureText(style.text);
@@ -97,11 +103,13 @@ final class LedRenderer {
     int textWidth = style.effect >= 6 ? w * 68 / 96 : w;
     if (!scrolling && natural * sx > textWidth) sx = textWidth / natural;
     int tw = Math.max(1, (int) Math.ceil(natural * sx));
+    boolean nativeScroll = settings.ipixel() && scrolling;
+    if (nativeScroll) w = Math.min(2040, ((tw+7)/8)*8);
     Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
     Canvas c = new Canvas(bitmap);
     c.drawColor(Color.BLACK);
     float y = (h - fh) / 2f;
-    if (scrolling) {
+    if (scrolling && !nativeScroll) {
       int span = tw + w;
       int progress = (int) ((tick * 2) % span);
       float x = style.effect == 2 ? w - progress : progress - tw;
@@ -112,11 +120,11 @@ final class LedRenderer {
       c.restore();
     } else {
       c.save();
-      c.translate((w - tw) / 2f, y);
+      c.translate(nativeScroll ? 0 : (w - tw) / 2f, y);
       c.scale(sx, scale);
       c.drawText(style.text, -Math.min(0, bounds.left), -bounds.top, p);
     }
-    if (!scrolling) c.restore();
+    if (!scrolling || nativeScroll) c.restore();
     if (style.effect >= 6) pattern(c, p, style.effect, tick, w, h);
     byte[] bits = new byte[((w + 7) / 8) * h];
     for (int yy = 0; yy < h; yy++)
@@ -125,7 +133,7 @@ final class LedRenderer {
           bits[yy * ((w + 7) / 8) + x / 8] |= (byte) (128 >> (x % 8));
     bitmap.recycle();
     int color = style.color;
-    if (style.effect == 4) {
+    if (!settings.ipixel() && style.effect == 4) {
       double[] levels = {.25, .4, .6, .8, 1, .8, .6, .4};
       double n = levels[(int) (tick % 8)];
       color =
@@ -134,8 +142,9 @@ final class LedRenderer {
               (int) (Color.green(color) * n),
               (int) (Color.blue(color) * n));
     }
-    if (style.effect == 5) color = Color.HSVToColor(new float[] {(tick % 12) * 30, 1, 1});
-    commands.addAll(LoyProtocol.pixels(bits, w, h, color));
+    if (!settings.ipixel() && style.effect == 5) color = Color.HSVToColor(new float[] {(tick % 12) * 30, 1, 1});
+    if (settings.ipixel()) commands.add(IPixelProtocol.text(bits,w,h,color,style.effect));
+    else commands.addAll(LoyProtocol.pixels(bits, w, h, color));
     return commands;
   }
 }

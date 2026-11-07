@@ -174,7 +174,7 @@ public final class MainActivity extends Activity {
     body = panel();
     controls.addView(body);
     text("Carrot LED", 26);
-    text(wide ? "車機橫向介面 · 0.1.2" : "自適應介面 · 0.1.2", 14);
+    text(wide ? "車機橫向介面 · 0.1.3" : "自適應介面 · 0.1.3", 14);
     state = new TextView(this);
     state.setTextSize(16);
     state.setPadding(dp(8), dp(8), dp(8), dp(8));
@@ -294,6 +294,17 @@ public final class MainActivity extends Activity {
         "屏幕",
         () -> {
           text("屏幕控制", 22);
+          button("屏幕類型：選擇 LOY / iPixel Color", () -> {
+            if (LedService.running) { toast("請先停止背景連動再切換屏幕類型"); return; }
+            new android.app.AlertDialog.Builder(this).setTitle("選擇屏幕類型")
+              .setSingleChoiceItems(new String[]{"LOY PLAY · 96 × 16", "iPixel Color · 64 × 16（測試）"}, settings.ipixel()?1:0,
+                (dialog, which) -> {
+                  boolean ip=which==1;
+                  settings.p.edit().putBoolean("ipixel",ip).putInt("width",ip?64:96).putInt("height",16).putInt("fontHeight",16).apply();
+                  dialog.dismiss(); toast("已設定 " + (ip?"iPixel 64 × 16":"LOY 96 × 16") + "，重新開始後掃描屏幕");
+                }).setNegativeButton("取消",null).show();
+          });
+          text("iPixel 本版支援 16 排：原生左右跑馬燈、閃爍、呼吸；圖案效果仍為逐格更新。首次請掃描後選擇設備。",16);
           button(
               "掃描屏幕",
               () -> {
@@ -766,6 +777,7 @@ public final class MainActivity extends Activity {
                             hh = Integer.parseInt(h.getText().toString()),
                             ff = Integer.parseInt(fh.getText().toString()),
                             width = Integer.parseInt(fw.getText().toString());
+                        if (settings.ipixel() && hh != 16) { toast("iPixel 此版需設定 16 排，這款請用 64 × 16"); return; }
                         if (ww < 8
                             || ww > 256
                             || hh < 8

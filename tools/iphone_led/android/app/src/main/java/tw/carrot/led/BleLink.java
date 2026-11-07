@@ -22,6 +22,12 @@ final class BleLink {
   BluetoothGatt gatt;
   BluetoothGattCharacteristic writer;
   BluetoothLeScanner scanner;
+  final boolean ipixel;
+  boolean awaitingAck = false, ackSeen = false, finalAckRequired = false;
+  long ackGeneration = 0;
+  final ArrayDeque<byte[]> packets = new ArrayDeque<>();
+  String deviceKey() { return ipixel ? "ipixelDevice" : "device"; }
+  int writeType() { return ipixel ? BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT : BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE; }
   int mtu = 23;
   boolean discovering = false, writing = false;
   long lastWrite = 0;
@@ -34,6 +40,7 @@ final class BleLink {
     context = c;
     h = handler;
     settings = s;
+    ipixel = s.ipixel();
   }
 
   BluetoothAdapter adapter() {
@@ -42,7 +49,7 @@ final class BleLink {
 
   void start() {
     closed = false;
-    String address = settings.p.getString("device", "");
+    String address = settings.p.getString(deviceKey(), "");
     if (BluetoothAdapter.checkBluetoothAddress(address)) connect(address);
     else scan();
   }
@@ -60,9 +67,9 @@ final class BleLink {
       devices.clear();
       scanner = a.getBluetoothLeScanner();
       scanning = true;
-      status = "掃描 LOY 屏幕；請讓 iPhone／LOY PLAY 先斷線";
+      status = ipixel ? "掃描 iPixel；請讓原廠 App 先斷線" : "掃描 LOY 屏幕；請讓 iPhone／LOY PLAY 先斷線";
       scanner.startScan(
-          Collections.singletonList(
+          ipixel ? Collections.emptyList() : Collections.singletonList(
               new ScanFilter.Builder().setServiceUuid(new ParcelUuid(uuid("fff0"))).build()),
           new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(),
           scanCallback);
@@ -98,10 +105,11 @@ final class BleLink {
               () -> {
                 if (closed || !scanning) return;
                 String name = r.getScanRecord() != null ? r.getScanRecord().getDeviceName() : null;
-                if (name == null) name = "LOY 屏幕";
+                if (name == null) name = "未命名藍牙設備";
+
                 String address = r.getDevice().getAddress();
                 devices.put(address, name);
-                if (name.equals("YS5255140425")) connect(address);
+                if (!ipixel && name.equals("YS5255140425")) connect(address);
               });
         }
 
@@ -186,16 +194,18 @@ final class BleLink {
               () -> {
                 if (g != gatt) return;
                 BluetoothGattService svc = g.getService(uuid("fff0"));
+                if (ipixel) { svc = null; for (BluetoothGattService candidate : g.getServices())
+                  if (candidate.getCharacteristic(uuid("fa02")) != null && candidate.getCharacteristic(uuid("fa03")) != null) { svc=candidate;break; } }
                 if (code != 0 || svc == null) {
-                  fail("找不到 LOY FFF0 通道");
+                  fail(ipixel ? "找不到 iPixel FA02/FA03 通道，請確認屏幕類型" : "找不到 LOY FFF0 通道");
                   return;
                 }
-                writer = svc.getCharacteristic(uuid("fff2"));
-                BluetoothGattCharacteristic notify = svc.getCharacteristic(uuid("fff1"));
+                writer = svc.getCharacteristic(uuid(ipixel?"fa02":"fff2"));
+                BluetoothGattCharacteristic notify = svc.getCharacteristic(uuid(ipixel?"fa03":"fff1"));
                 if (writer == null
                     || notify == null
                     || (writer.getProperties()
-                            & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)
+                            & (ipixel ? BluetoothGattCharacteristic.PROPERTY_WRITE : BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE))
                         == 0
                     || (notify.getProperties() & BluetoothGattCharacteristic.PROPERTY_NOTIFY)
                         == 0) {
@@ -221,10 +231,24 @@ final class BleLink {
                   return;
                 }
                 ready = true;
-                settings.p.edit().putString("device", g.getDevice().getAddress()).apply();
-                status = "屏幕藍牙已連線（尚非畫面回讀確認）";
+                settings.p.edit().putString(deviceKey(), g.getDevice().getAddress()).apply();
+                status = (ipixel ? "iPixel" : "LOY") + " 藍牙已連線（尚非畫面回讀確認）";
                 onReady.run();
               });
+        }
+
+        public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c) {
+          received(g, c, c.getValue());
+        }
+        public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c, byte[] value) {
+          received(g, c, value);
+        }
+        private void received(BluetoothGatt g, BluetoothGattCharacteristic c, byte[] value) {
+          byte[] copy = value == null ? null : value.clone();
+          h.post(() -> {
+            if (g != gatt || !ipixel || !c.getUuid().equals(uuid("fa03")) || !awaitingAck) return;
+            if (IPixelProtocol.ack(copy) && (!finalAckRequired || copy[4] == 3)) { ackSeen = true; status = "iPixel 已回覆接收（非畫面回讀）"; pump(); }
+          });
         }
 
         public void onCharacteristicWrite(
@@ -250,18 +274,25 @@ final class BleLink {
 
   void pump() {
     if (!ready || writing || closed) return;
-    if (chunks.isEmpty() && pending != null) {
-      List<byte[]> next = pending;
-      pending = null;
-      for (byte[] command : next) {
-        byte[] frame = protocol.frame(command);
-        int limit = Math.max(20, Math.min(180, mtu - 3));
-        for (int i = 0; i < frame.length; i += limit)
-          chunks.add(Arrays.copyOfRange(frame, i, Math.min(frame.length, i + limit)));
+    if (chunks.isEmpty() && awaitingAck) {
+      if (!ackSeen) return;
+      awaitingAck=false; ackSeen=false; ackGeneration++;
+    }
+    if (chunks.isEmpty() && packets.isEmpty() && pending != null) {
+      packets.addAll(pending); pending=null;
+    }
+    if (chunks.isEmpty() && !packets.isEmpty()) {
+      byte[] command=packets.removeFirst();
+      byte[] frame=ipixel ? command : protocol.frame(command);
+      int limit=Math.max(20,Math.min(ipixel?244:180,mtu-3));
+      for (int i=0;i<frame.length;i+=limit) chunks.add(Arrays.copyOfRange(frame,i,Math.min(frame.length,i+limit)));
+      if (ipixel) {
+        awaitingAck=true;ackSeen=false;finalAckRequired=command.length>5;long ticket=++ackGeneration;
+        h.postDelayed(() -> { if (awaitingAck && ackGeneration==ticket) fail("iPixel 接收回覆逾時，重新連接；請確認屏幕畫面"); },15000);
       }
     }
     if (chunks.isEmpty()) return;
-    writer.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+    writer.setWriteType(writeType());
     writer.setValue(chunks.removeFirst());
     writing = true;
     lastWrite = SystemClock.elapsedRealtime();
@@ -279,7 +310,7 @@ final class BleLink {
   }
 
   boolean idle() {
-    return !writing && chunks.isEmpty() && pending == null;
+    return !writing && !awaitingAck && chunks.isEmpty() && packets.isEmpty() && pending == null;
   }
 
   void fail(String text) {
@@ -292,7 +323,7 @@ final class BleLink {
     ready = false;
     writer = null;
     writing = false;
-    chunks.clear();
+    chunks.clear(); packets.clear(); awaitingAck=false; ackSeen=false; ackGeneration++;
     pending = null;
     mtu = 23;
     discovering = false;

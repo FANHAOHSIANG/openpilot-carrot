@@ -27,6 +27,15 @@ struct CarrotLEDProbeApp: App {
                     Text(model.values).font(.system(.caption, design: .monospaced))
                     DrivingSessionView(session: model.drivingSession) { model.startDrivingSession() }
                     Divider()
+                    Picker("屏幕類型", selection: Binding(get: { model.ipixel }, set: { model.selectScreenType($0) })) {
+                        Text("LOY PLAY").tag(false)
+                        Text("iPixel Color · 64 × 16").tag(true)
+                    }.pickerStyle(.segmented)
+                    Text(model.ipixel ? "iPixel 測試適配：先關閉原廠 App，掃描後選擇屏幕。" : "LOY PLAY 原有協定")
+                        .font(.caption)
+                    ForEach(model.screens.keys.sorted(by: { $0.uuidString < $1.uuidString }), id: \.self) { id in
+                        Button("連接：\(model.screens[id] ?? id.uuidString)") { model.connectScreen(id) }
+                    }
                     Button("掃描並連接屏幕") { model.scan() }
                     Label(model.ready ? "屏幕藍牙已連線" : "屏幕尚未連線", systemImage: model.ready ? "checkmark.circle.fill" : "circle.dashed")
                         .foregroundColor(model.ready ? .green : .gray)
@@ -76,7 +85,7 @@ struct CarrotLEDProbeApp: App {
                     }
                     Button("套用像素設定") { model.applyDisplaySettings() }
                     Text(model.settingsStatus).font(.footnote)
-                    Text("你的屏幕：寬 96 × 高 16 燈珠。字高 16 代表盡量使用 16 排，字寬 100% 為原比例；靜態文字過長會自動縮窄。")
+                    Text("屏幕：寬 \(model.widthDraft) × 高 \(model.heightDraft) 燈珠。字高 16 代表盡量使用 16 排，字寬 100% 為原比例；靜態文字過長會自動縮窄。")
                         .font(.footnote).foregroundStyle(.secondary)
                     Divider()
                     Text("五組自訂文字").font(.headline)
@@ -446,6 +455,17 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     @Published var values = "等待車況"
     @Published var bluetoothStatus = "藍牙尚未連線"
     @Published var currentLabel = "清屏"
+    @Published var ipixel = UserDefaults.standard.bool(forKey: "ledIPixel")
+    @Published var screens: [UUID: String] = [:]
+    private var discoveredScreens: [UUID: CBPeripheral] = [:]
+    private var screenIDKey: String { ipixel ? "ledIPixelID" : "ledID" }
+    private var ipixelPackets: [[UInt8]] = []
+    private var ipixelWriting = false
+    private var ipixelAwaitingAck = false
+    private var ipixelAckSeen = false
+    private var ipixelFinalAckRequired = false
+    private var scanGeneration = UUID()
+    private var txGeneration = UUID()
     @Published var ready = false
     @Published var enabled = false
     @Published var vehicleFont = UserDefaults.standard.string(forKey: "ledVehicleFont") ?? "standard" {
@@ -642,61 +662,105 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if autoC4 && timer == nil && !host.isEmpty && !token.isEmpty { connectC4() }
         if central.state == .poweredOn && !ready && !reconnectAttempt { reconnectScreen() }
     }
+    func selectScreenType(_ value: Bool) {
+        guard value != ipixel else { return }
+        central.stopScan()
+        let old = peripheral; peripheral = nil
+        if let old { central.cancelPeripheralConnection(old) }
+        resetTransmission(); ready = false; reconnectAttempt = false
+        writeCharacteristic = nil; notifyCharacteristic = nil
+        screens = [:]; discoveredScreens = [:]
+        ipixel = value; UserDefaults.standard.set(value, forKey: "ledIPixel")
+        widthDraft = value ? "64" : "96"; heightDraft = "16"; fontHeightDraft = "16"
+        applyDisplaySettings()
+        bluetoothStatus = "已切換屏幕類型，請掃描並選擇屏幕；舊屏幕請目視確認已關閉"
+    }
+    private func resetTransmission() {
+        txGeneration = UUID(); frames = []; ipixelPackets = []
+        sending = false; ipixelWriting = false; ipixelAwaitingAck = false; ipixelAckSeen = false
+        queuedLabel = nil; lastDisplayKey = nil; lastLabel = nil; drawActive = false
+    }
     private func reconnectScreen() {
         guard central.state == .poweredOn, !ready, !reconnectAttempt else { return }
-        if let saved = UserDefaults.standard.string(forKey: "ledID"), let uuid = UUID(uuidString: saved),
+        if let saved = UserDefaults.standard.string(forKey: screenIDKey), let uuid = UUID(uuidString: saved),
            let device = central.retrievePeripherals(withIdentifiers: [uuid]).first {
-            reconnectAttempt = true; peripheral = device; device.delegate = self
-            bluetoothStatus = "正在重新連接屏幕"
-            central.connect(device)
-        } else { scan() }
+            discoveredScreens[uuid] = device; connectScreen(uuid)
+        } else if !inBackground { scan() }
     }
-
+    func connectScreen(_ id: UUID) {
+        guard let device = discoveredScreens[id], central.state == .poweredOn else { return }
+        central.stopScan()
+        if let old = peripheral, old.identifier != id { central.cancelPeripheralConnection(old) }
+        resetTransmission(); ready = false; writeCharacteristic = nil; notifyCharacteristic = nil
+        peripheral = device; device.delegate = self; reconnectAttempt = true
+        bluetoothStatus = "正在連接 \(device.name ?? "屏幕")"
+        central.connect(device)
+        let ticket = txGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now()+15) { [weak self] in
+            guard let self, self.txGeneration == ticket, !self.ready else { return }
+            self.bluetoothStatus = "屏幕握手逾時；請確認類型及原廠 App 已斷線"
+            self.central.cancelPeripheralConnection(device)
+        }
+    }
     func scan() {
         guard central.state == .poweredOn else { bluetoothStatus = "請開啟藍牙並允許 App 使用藍牙"; return }
-        bluetoothStatus = "掃描中；請先讓 LOY PLAY 與 Mac 斷線"
-        central.scanForPeripherals(withServices: [CBUUID(string: "FFF0")])
+        guard !ready else { bluetoothStatus = "屏幕已連線"; return }
+        guard !reconnectAttempt else { bluetoothStatus = "正在連線，請稍候"; return }
+        central.stopScan(); screens = [:]; discoveredScreens = [:]
+        scanGeneration = UUID(); let scanTicket = scanGeneration
+        bluetoothStatus = "掃描中；請先讓 iPixel Color／LOY PLAY 與其他裝置斷線"
+        central.scanForPeripherals(withServices: ipixel ? nil : [CBUUID(string: "FFF0")])
+        DispatchQueue.main.asyncAfter(deadline: .now()+12) { [weak self] in
+            guard let self, self.scanGeneration == scanTicket, !self.ready, !self.reconnectAttempt else { return }
+            self.central.stopScan(); self.bluetoothStatus = "掃描結束，請從列表選擇屏幕；未找到可再掃描"
+        }
     }
     nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        Task { @MainActor in if central.state == .poweredOn { self.reconnectScreen() } }
+        Task { @MainActor in
+            if central.state == .poweredOn { self.reconnectScreen() }
+            else { self.ready = false; self.reconnectAttempt = false; self.writeCharacteristic = nil; self.notifyCharacteristic = nil; self.resetTransmission(); self.bluetoothStatus = "藍牙不可用，請開啟藍牙" }
+        }
     }
     nonisolated func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
-        guard let device = (dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral])?.first else { return }
+        let devices = (dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral]) ?? []
         Task { @MainActor in
+            guard let saved = UserDefaults.standard.string(forKey: self.screenIDKey),
+                  let device = devices.first(where: { $0.identifier.uuidString == saved }) else { return }
             self.peripheral = device; device.delegate = self
-            if device.state == .connected { device.discoverServices([CBUUID(string: "FFF0")]) }
+            if device.state == .connected { device.discoverServices(nil) }
             else { self.reconnectAttempt = false; self.reconnectScreen() }
         }
     }
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                                     advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        guard peripheral.name == "YS5255140425" else { return }
+        let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name ?? "未命名設備"
         Task { @MainActor in
-            central.stopScan(); self.peripheral = peripheral; peripheral.delegate = self
-            self.reconnectAttempt = true
-            self.bluetoothStatus = "正在連接屏幕"; central.connect(peripheral)
+            guard !self.ready && !self.reconnectAttempt else { return }
+            self.discoveredScreens[peripheral.identifier] = peripheral
+            self.screens[peripheral.identifier] = name
+            if !self.ipixel && name == "YS5255140425" { self.connectScreen(peripheral.identifier) }
         }
     }
     nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.delegate = self
-        peripheral.discoverServices([CBUUID(string: "FFF0")])
         Task { @MainActor in
-            self.reconnectAttempt = false
-            UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: "ledID")
+            guard self.peripheral === peripheral else { return }
+            peripheral.delegate = self; peripheral.discoverServices(nil)
         }
     }
     nonisolated func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
-            self.reconnectAttempt = false
-            self.bluetoothStatus = "屏幕連線失敗，稍後重試"
+            guard self.peripheral === peripheral else { return }
+            self.reconnectAttempt = false; self.bluetoothStatus = "屏幕連線失敗，稍後重新連線"
+            let ticket = self.txGeneration
             try? await Task.sleep(nanoseconds: 5_000_000_000)
-            self.scan()
+            guard self.txGeneration == ticket else { return }
+            self.reconnectScreen()
         }
     }
     nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         Task { @MainActor in
-            self.ready = false; self.writeCharacteristic = nil; self.drawActive = false
-            self.frames = []; self.sending = false; self.lastLabel = nil; self.lastDisplayKey = nil
+            guard self.peripheral === peripheral else { return }
+            self.ready = false; self.writeCharacteristic = nil; self.notifyCharacteristic = nil; self.resetTransmission()
             self.bluetoothStatus = "屏幕已斷線，正在重新連接；請確認是否留有畫面"
             self.reconnectAttempt = false
             try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -704,49 +768,70 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         }
     }
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        peripheral.services?.filter { $0.uuid == CBUUID(string: "FFF0") }.forEach {
-            peripheral.discoverCharacteristics([CBUUID(string: "FFF1"), CBUUID(string: "FFF2")], for: $0)
+        Task { @MainActor in
+            guard self.peripheral === peripheral, error == nil else { return }
+            for service in peripheral.services ?? [] {
+                if self.ipixel || service.uuid == CBUUID(string: "FFF0") {
+                    peripheral.discoverCharacteristics(nil, for: service)
+                }
+            }
         }
     }
     nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        let write = service.characteristics?.first { $0.uuid == CBUUID(string: "FFF2") && $0.properties.contains(.writeWithoutResponse) }
-        let notify = service.characteristics?.first { $0.uuid == CBUUID(string: "FFF1") && $0.properties.contains(.notify) }
-        guard let write, let notify, error == nil else {
-            Task { @MainActor in self.bluetoothStatus = "屏幕通道不完整，請重新連線" }
-            return
-        }
         Task { @MainActor in
+            guard self.peripheral === peripheral, self.writeCharacteristic == nil, error == nil else { return }
+            let writeID = CBUUID(string: self.ipixel ? "FA02" : "FFF2")
+            let notifyID = CBUUID(string: self.ipixel ? "FA03" : "FFF1")
+            let property: CBCharacteristicProperties = self.ipixel ? .write : .writeWithoutResponse
+            guard let write = service.characteristics?.first(where: { $0.uuid == writeID && $0.properties.contains(property) }),
+                  let notify = service.characteristics?.first(where: { $0.uuid == notifyID && $0.properties.contains(.notify) }) else { return }
             self.writeCharacteristic = write; self.notifyCharacteristic = notify
             self.bluetoothStatus = "已連上藍牙，正在確認屏幕通知…"
             peripheral.setNotifyValue(true, for: notify)
         }
     }
     nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
-        guard characteristic.uuid == CBUUID(string: "FFF1") else { return }
         Task { @MainActor in
+            guard self.peripheral === peripheral, characteristic === self.notifyCharacteristic else { return }
             guard error == nil && characteristic.isNotifying && self.writeCharacteristic != nil else {
-                self.ready = false
-                self.bluetoothStatus = "屏幕通知訂閱失敗，請重新連線"
-                return
+                self.ready = false; self.bluetoothStatus = "屏幕通知訂閱失敗，請重新連線"; return
             }
-            self.ready = true
-            self.firstScreenConnection = false
-            self.lastLabel = nil; self.lastDisplayKey = nil
-            self.power(true)
-            self.enabled = true
-            self.bluetoothStatus = "屏幕已連線，車況連動已啟用；等待有效 C4 資料"
+            self.ready = true; self.reconnectAttempt = false; self.firstScreenConnection = false
+            UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: self.screenIDKey)
+            self.lastLabel = nil; self.lastDisplayKey = nil; self.power(true); self.enabled = true
+            self.bluetoothStatus = "\(self.ipixel ? "iPixel" : "LOY") 已連線，車況連動已啟用；等待有效 C4 資料"
         }
     }
     nonisolated func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
-        Task { @MainActor in self.pump() }
+        Task { @MainActor in if self.peripheral === peripheral { self.pump() } }
+    }
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+        Task { @MainActor in
+            guard self.peripheral === peripheral, self.ipixel, characteristic === self.writeCharacteristic else { return }
+            if error != nil { self.bluetoothStatus = "iPixel 寫入失敗"; self.central.cancelPeripheralConnection(peripheral); return }
+            self.ipixelWriting = false; self.pump()
+        }
+    }
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        let data = characteristic.value.map { Array($0) } ?? []
+        Task { @MainActor in
+            guard self.peripheral === peripheral, self.ipixel, characteristic === self.notifyCharacteristic,
+                  error == nil, self.ipixelAwaitingAck, IPixelProtocol.ack(data),
+                  !self.ipixelFinalAckRequired || data[4] == 3 else { return }
+            self.ipixelAckSeen = true; self.bluetoothStatus = "iPixel 已回覆接收（非畫面回讀）"; self.pump()
+        }
     }
     func power(_ on: Bool) {
         endPreview()
         guard ready else { return }
         if !on { enabled = false; queuedLabel = nil }
         lastDisplayKey = nil
-        if drawActive { enqueue([0x30, 0x01, 0x65]); drawActive = false }
-        enqueue([4, 2, 0, on ? 1 : 0]); lastLabel = nil
+        if ipixel { enqueue(IPixelProtocol.power(on)) }
+        else {
+            if drawActive { enqueue([0x30, 0x01, 0x65]); drawActive = false }
+            enqueue([4, 2, 0, on ? 1 : 0])
+        }
+        lastLabel = nil
         bluetoothStatus = on ? "已送開屏指令，請目視確認" : "已送關屏指令，請目視確認"
         currentLabel = on ? "已送開屏指令" : "已送關屏指令"
         updateDrivingSession()
@@ -799,8 +884,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
               let fh = Int(fontHeightDraft), (1...h).contains(fh), let fw = Int(fontWidthDraft), (50...200).contains(fw) else {
             settingsStatus = "寬 8–256、高 8–64，字高不可超過屏幕高，字寬 50–200%。"; return
         }
+        if ipixel && h != 16 { settingsStatus = "iPixel 此版僅支援 16 排；請設定 64 × 16"; return }
         guard !sending && frames.isEmpty else { settingsStatus = "正在傳送，請稍後再按套用。"; return }
-        if ready && drawActive { enqueue(clearCommand()) }
+        if ready && drawActive && !ipixel { enqueue(clearCommand()) }
         panelWidth = w; panelHeight = h; fontHeight = fh; fontWidthPercent = fw
         UserDefaults.standard.set(w, forKey: "ledPanelWidth"); UserDefaults.standard.set(h, forKey: "ledPanelHeight")
         UserDefaults.standard.set(fh, forKey: "ledFontHeight"); UserDefaults.standard.set(fw, forKey: "ledFontWidthPercent")
@@ -816,6 +902,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         drawCommand([0x01,0,0,0,0] + word(0) + word(0) + word(panelWidth - 1) + word(panelHeight - 1))
     }
     private func drawPixels(_ pixels: [UInt8], color: [UInt8]) {
+        if ipixel {
+            if let data = IPixelProtocol.text(pixels,width:panelWidth,height:panelHeight,rgb:color) { enqueue(data) }
+            return
+        }
         let rowBytes = (panelWidth + 7) / 8
         let rowsPerPacket = max(1, 240 / rowBytes)
         for y in stride(from: 0, to: panelHeight, by: rowsPerPacket) {
@@ -828,7 +918,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         guard ready else { return }
         endPreview()
         enabled = false; activeSlot = nil; queuedLabel = nil; lastDisplayKey = nil
-        if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
+        if !ipixel && !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
         let rowBytes = (panelWidth + 7) / 8
         var pixels = [UInt8](repeating: 255, count: rowBytes * panelHeight)
         if panelWidth % 8 != 0 {
@@ -977,7 +1067,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         let vehicleStyle = label == "__preview__" ? previewStyle : vehicleStyles[label]
         let tick = Int(Date().timeIntervalSince1970 * 3)
         let effect = slot?.effect ?? vehicleStyle?.effect ?? "static"
-        let phase = effect == "static" ? 0 : tick
+        let phase = effect == "static" || (ipixel && ["left","right","blink","breathe","rainbow"].contains(effect)) ? 0 : tick
         let turn = label == "左轉彎" || label == "右轉彎"
         let fontChoice = slot?.font ?? vehicleStyle?.font ?? vehicleFont
         let displayText = slot?.text ?? vehicleStyle?.text ?? label
@@ -988,7 +1078,18 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         lastDisplayKey = key; lastLabel = label
         let text = displayText
         currentLabel = text.isEmpty ? "清屏" : text
-        if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
+        if ipixel {
+            let nativeScroll = effect == "left" || effect == "right"
+            let bold = slot?.bold ?? vehicleStyle?.bold ?? !turn
+            let width = nativeScroll ? nativeStripWidth(text, bold: bold, choice: fontChoice) : panelWidth
+            let pixels = text.isEmpty ? [UInt8](repeating: 0,count:((width+7)/8)*16)
+                : bitmap(text,customBold:bold,fontChoice:fontChoice,pattern:effect,phase:tick,nativeWidth:width,nativeStrip:nativeScroll)
+            let color = UInt32(colorCode,radix:16) ?? 0xffb400
+            let rgb = [UInt8((color>>16)&255),UInt8((color>>8)&255),UInt8(color&255)]
+            if let pixels, let data = IPixelProtocol.text(pixels,width:width,height:panelHeight,rgb:rgb,effect:effect) { enqueue(data) }
+            return
+        }
+        if !ipixel && !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
         let scrolling = effect == "left" || effect == "right"
         // The screen may treat zero bits as transparent; clear each frame before drawing.
         // This is a software fallback, not a confirmed native marquee command.
@@ -1011,17 +1112,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         }
         drawPixels(pixels, color: rgb)
     }
-    private func bitmap(_ text: String, offset: Int = 0, customBold: Bool? = nil,
-                        fontChoice: String = "standard", pattern: String = "static", phase: Int = 0, scrolling: Bool = false) -> [UInt8]? {
-        let size = CGSize(width: CGFloat(panelWidth), height: CGFloat(panelHeight))
-        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
-        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
-            UIColor.black.setFill(); context.fill(CGRect(origin: .zero, size: size))
-            // Measure actual glyph ink, then scale it to the panel height.
-            // The typographic width includes spaces; preserve those advances.
-            let turnMessage = (pattern == "turnLeft" || pattern == "turnRight")
-            let useBold = customBold ?? !turnMessage
-            let weight: UIFont.Weight = useBold ? .bold : .regular
+    private func selectedFont(_ fontChoice: String, bold: Bool) -> UIFont {
+        let weight: UIFont.Weight = bold ? .bold : .regular
             let base = UIFont.systemFont(ofSize: 32, weight: weight)
             let font: UIFont
             switch fontChoice {
@@ -1038,6 +1130,28 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             default:
                 font = base
             }
+        return font
+    }
+    private func nativeStripWidth(_ text: String, bold: Bool, choice: String) -> Int {
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string:text.replacingOccurrences(of:" ",with:"\u{00A0}"),attributes:[.font:selectedFont(choice,bold:bold)]))
+        let bounds = CTLineGetBoundsWithOptions(line, [.useGlyphPathBounds])
+        let advance = CGFloat(CTLineGetTypographicBounds(line,nil,nil,nil))
+        guard bounds.height > 0, advance.isFinite else { return panelWidth }
+        let width = Int(ceil(max(advance,bounds.maxX) * CGFloat(fontHeight) / bounds.height * CGFloat(fontWidthPercent)/100)) + 8
+        return min(2040,max(8,((width+7)/8)*8))
+    }
+    private func bitmap(_ text: String, offset: Int = 0, customBold: Bool? = nil,
+                        fontChoice: String = "standard", pattern: String = "static", phase: Int = 0, scrolling: Bool = false, nativeWidth: Int? = nil, nativeStrip: Bool = false) -> [UInt8]? {
+        let panelWidth = nativeWidth ?? self.panelWidth
+        let size = CGSize(width: CGFloat(panelWidth), height: CGFloat(panelHeight))
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.black.setFill(); context.fill(CGRect(origin: .zero, size: size))
+            // Measure actual glyph ink, then scale it to the panel height.
+            // The typographic width includes spaces; preserve those advances.
+            let turnMessage = (pattern == "turnLeft" || pattern == "turnRight")
+            let useBold = customBold ?? !turnMessage
+            let font = selectedFont(fontChoice, bold: useBold)
             var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.white]
             if useBold && fontChoice.hasPrefix("font:") {
                 attributes[.strokeColor] = UIColor.white
@@ -1053,12 +1167,12 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             let inkHeight = max(CGFloat(1), bounds.height)
             let scaleY = CGFloat(fontHeight) / inkHeight
             var scaleX = scaleY * CGFloat(fontWidthPercent) / 100
-            if !scrolling { scaleX = min(scaleX, availableWidth / max(CGFloat(1), width)) }
+            if !scrolling && !nativeStrip { scaleX = min(scaleX, availableWidth / max(CGFloat(1), width)) }
             let textWidth = width * scaleX
             let baseline = (CGFloat(panelHeight) - bounds.height * scaleY) / 2 + bounds.maxY * scaleY
             let period = max(CGFloat(panelWidth + 24), textWidth + 24)
             let distance = CGFloat(abs(offset)).truncatingRemainder(dividingBy: period)
-            let start: CGFloat = scrolling ? (offset <= 0 ? CGFloat(panelWidth) - distance : -textWidth + distance) : (CGFloat(panelWidth) - textWidth) / 2
+            let start: CGFloat = nativeStrip ? 0 : scrolling ? (offset <= 0 ? CGFloat(panelWidth) - distance : -textWidth + distance) : (CGFloat(panelWidth) - textWidth) / 2
             let copies: [CGFloat] = scrolling ? [start - period, start, start + period] : [start]
             for x in copies {
                 context.cgContext.saveGState()
@@ -1136,6 +1250,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     private func enqueue(_ payload: [UInt8]) {
         guard let peripheral, let characteristic = writeCharacteristic else { return }
+        if ipixel {
+            ipixelPackets.append(payload)
+            if !sending { sending = true; pump() }
+            return
+        }
         let length = payload.count + 6
         var frame: [UInt8] = [0xaa,0x55,0xff,0xff, UInt8(length & 255), UInt8((length >> 8) & 255),
                               UInt8(sequence & 255), UInt8(sequence >> 8), 0xc1, 2]
@@ -1150,8 +1269,35 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         _ = characteristic
         if !sending { sending = true; DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { self.pump() } }
     }
+    private func pumpIPixel(_ device: CBPeripheral, _ characteristic: CBCharacteristic) {
+        guard !ipixelWriting else { return }
+        if frames.isEmpty && ipixelAwaitingAck {
+            guard ipixelAckSeen else { return }
+            ipixelAwaitingAck = false; ipixelAckSeen = false; txGeneration = UUID()
+        }
+        if frames.isEmpty && !ipixelPackets.isEmpty {
+            let data = ipixelPackets.removeFirst()
+            let limit = max(1,min(244,device.maximumWriteValueLength(for:.withResponse)))
+            for start in stride(from:0,to:data.count,by:limit) { frames.append(Data(data[start..<min(start+limit,data.count)])) }
+            ipixelAwaitingAck = true; ipixelAckSeen = false; ipixelFinalAckRequired = data.count > 5
+            let ticket = UUID(); txGeneration = ticket
+            DispatchQueue.main.asyncAfter(deadline:.now()+15) { [weak self] in
+                guard let self,self.txGeneration == ticket,self.ipixelAwaitingAck else { return }
+                self.bluetoothStatus = "iPixel 接收回覆逾時，重新連接；請確認畫面"
+                self.central.cancelPeripheralConnection(device)
+            }
+        }
+        guard !frames.isEmpty else {
+            sending = false
+            if let label = queuedLabel { queuedLabel = nil; requestDisplay(label) }
+            return
+        }
+        ipixelWriting = true
+        device.writeValue(frames.removeFirst(),for:characteristic,type:.withResponse)
+    }
     private func pump() {
         guard ready, let peripheral, let characteristic = writeCharacteristic else { sending = false; return }
+        if ipixel { pumpIPixel(peripheral, characteristic); return }
         guard peripheral.canSendWriteWithoutResponse else { return }
         guard !frames.isEmpty else {
             sending = false

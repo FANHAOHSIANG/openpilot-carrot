@@ -1,25 +1,44 @@
 # Carrot LED 下載與安裝
 
-更新日期：2026-11-07。這裡提供 Android 安裝 APK 與 iPhone Xcode 專案包。
+更新日期：2026-11-08。這裡提供 Android 安裝 APK 與 iPhone Xcode 專案包。
 
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
-| Android 手機／車機 | [CarrotLED-0.1.2.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.2.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.19-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.19-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| Android 手機／車機 | [CarrotLED-0.1.3.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.3.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
+| iPhone | [CarrotLED-iOS-0.20-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.20-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
+
+## iPixel Color 64 × 16 適配（Android 0.1.3 / iOS 0.20）
+
+保留 LOY PLAY，新增獨立 iPixel BLE 協定。C4 橋接與金鑰不用更換。
+
+1. 先讓 iPixel Color 原廠 App、另一支手機或車機斷開這塊屏幕。
+2. Android：先停止背景連動，到「屏幕」頁按「屏幕類型」，選 iPixel Color，再開始背景連動並掃描。iPhone：到「編輯與連線設定」選 iPixel Color，再掃描。
+3. 從掃描列表選自己的屏幕。此類型會列出附近 BLE 設備；只有提供 FA02 寫入及 FA03 通知通道的屏幕才可完成連線。
+4. 選擇 iPixel 時自動套用寬 64、高 16、字高 16。這款共 1024 顆燈，不能沿用 LOY 的 96 × 16。此適配限定 16 排，並非支援所有 iPixel 機型。
+5. 先用「開啟／關閉屏幕」「燈珠全亮測試」「清除屏幕」驗證；再以自訂「左轉彎」「右轉彎」測試靜態、左右跑馬燈、閃爍及呼吸。
+6. C4 有有效資料且自動車況開啟後，測試方向燈、煞車／動能回收、R 檔及雙黃燈。既有車況文字、顏色、字型與優先規則保留。
+
+靜態、跑馬燈、閃爍、呼吸及變色使用 iPixel 原生文字效果，手機只在內容或樣式改變時重新傳送；箭頭、波浪、愛心及警示圖案仍為手機逐格繪製。不是把 iPixel Color 原廠 App 的全部圖庫、GIF 或音樂律動匯入。
+
+字型會先由手機渲染成 16 排點陣，再送入屏幕。64 欄比原本 96 欄窄，較長靜態文字會縮窄，建議用跑馬燈或短字詞。跑馬燈以 8 像素區塊傳輸，末尾可能有少量補齊空白。
+
+「藍牙已連線」表示通道已就緒；「已回覆接收」表示收到協定回覆，都不是讀回實體屏幕畫面的證明。文字上傳會等候完成回覆後才傳下一筆；失敗會顯示逾時並重連。清屏傳送暫存空白內容，不會使用清除屏幕 ROM 的指令。連線中斷時仍可能留下舊畫面。
+
+驗證：Android APK 已編譯、沿用原簽章；37 項既有核心檢查與 6 種效果的上游封包對照，以及清屏／開關／ACK／尺寸邊界測試通過。iPhone 完整編譯以 GitHub Actions 或本機 Xcode 結果為準。**尚未在這塊實體 iPixel 屏幕驗證，這是供實機測試的適配版本。**
 
 ## 安裝前
 
 - C4 需已有可用的 LED 車況橋接。已成功連動的 C4 沿用原設定，這次下載與安裝手機 App 不需重裝 C4。尚未設定者先看[橋接說明](../README.md)。
 - C4 與使用中的手機／車機接入同一個可互通的區域網路；不要使用隔離裝置的訪客網路。
-- 同一塊 LED 先只交給一個客戶端連接；請先讓 LOY PLAY、Mac 或另一支手機斷開。
-- 這款屏幕設定為**寬 96、高 16**，不是車機螢幕的 1920 × 720。請停車完成設定與測試。
+- 同一塊 LED 先只交給一個客戶端連接；請先讓 iPixel Color、LOY PLAY、Mac 或另一支手機斷開。
+- LOY 屏幕設定為**寬 96、高 16**，新 iPixel 屏幕為**寬 64、高 16**，不是車機螢幕的 1920 × 720。請停車完成設定與測試。
 
 ## Android 車機安裝（包含 Android 15）
 
 1. 在車機瀏覽器下載上方 APK；也可以先在電腦下載，再用 USB 隨身碟傳到車機。
-2. 用車機「檔案管理」開啟 `CarrotLED-0.1.2.apk`。若系統阻擋，依提示允許該瀏覽器或檔案管理器「安裝未知應用程式／允許此來源」，返回後安裝。
+2. 用車機「檔案管理」開啟 `CarrotLED-0.1.3.apk`。若系統阻擋，依提示允許該瀏覽器或檔案管理器「安裝未知應用程式／允許此來源」，返回後安裝。
 3. 開啟 **Carrot LED**，允許「附近裝置／藍牙」與通知權限。Android 11 以下另需掃描所需的位置權限與位置開關。
 4. 進入「連線」頁，輸入 **C4 目前的區網 IP** 與 **橋接金鑰**，按「儲存連線設定」。已儲存金鑰時欄位可留空；IP 欄只填位址，不加 `http://` 或連接埠。
 5. 按「開始背景連動」，到「屏幕」頁掃描／選擇 LED；曾選過的屏幕會嘗試重連。確認狀態區的 C4 車況與藍牙都連通，再打開「自動車況」。
@@ -106,8 +125,8 @@ ip -4 -o addr show wlan0
 
 ## 本次檔案與驗證範圍
 
-- Android：0.1.2，versionCode 3，套件 `tw.carrot.led`。提供既有已建置並簽署的 APK，本次沒有重新建置或改動功能。
-- iPhone：0.19，主 App 與 extension build 19。ZIP 內 13 個檔案逐一比對 GitHub 提交 `bdcdf68c111e8ff3a0cfb9f0c275e39d2eb78529`，內容一致；本次沒有完成 Xcode 編譯或 iPhone 實機驗證。
+- Android：0.1.3，versionCode 3，套件 `tw.carrot.led`。提供既有已建置並簽署的 APK，本次沒有重新建置或改動功能。
+- iPhone：0.20，主 App 與 extension build 19。ZIP 內 13 個檔案逐一比對 GitHub 提交 `bdcdf68c111e8ff3a0cfb9f0c275e39d2eb78529`，內容一致；本次沒有完成 Xcode 編譯或 iPhone 實機驗證。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
 - 既有版背景連動曾有使用者成功回報；不同車機、iPhone 系統及新版動態島修正仍需實機確認。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 

@@ -14,6 +14,7 @@ targets:
       - CarrotLEDProbe.swift
       - DrivingSession.swift
       - IslandAlertPolicy.swift
+      - IPixelProtocol.swift
       - path: Resources/IslandSilent.wav
         buildPhase: resources
       - LEDActivityAttributes.swift

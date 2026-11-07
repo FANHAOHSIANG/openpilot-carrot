@@ -54,7 +54,7 @@ public final class LedService extends Service {
         () -> {
           lastKey = "";
           automatic = true;
-          ble.offer(Collections.singletonList(new byte[] {4, 2, 0, 1}));
+          ble.offer(Collections.singletonList(settings.ipixel() ? IPixelProtocol.power(true) : new byte[] {4, 2, 0, 1}));
         };
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
@@ -167,7 +167,7 @@ public final class LedService extends Service {
       }
       lastKey = "";
       ble.offer(
-          Arrays.asList(new byte[] {0x30, 1, 0x65}, new byte[] {4, 2, 0, (byte) (on ? 1 : 0)}));
+          settings.ipixel() ? Collections.singletonList(IPixelProtocol.power(on)) : Arrays.asList(new byte[] {0x30, 1, 0x65}, new byte[] {4, 2, 0, (byte) (on ? 1 : 0)}));
       display = on ? "已送開屏" : "已送關屏";
     }
     if (TEST.equals(a)) {
@@ -179,8 +179,8 @@ public final class LedService extends Service {
       byte[] bits = new byte[((w + 7) / 8) * height];
       Arrays.fill(bits, (byte) 255);
       List<byte[]> c = new ArrayList<>();
-      c.add(new byte[] {0x30, 1, (byte) 0x90});
-      c.addAll(LoyProtocol.pixels(bits, w, height, 0xffffff));
+      if (settings.ipixel()) c.add(IPixelProtocol.text(bits,w,height,0xffffff,0));
+      else { c.add(new byte[] {0x30,1,(byte)0x90}); c.addAll(LoyProtocol.pixels(bits,w,height,0xffffff)); }
       ble.offer(c);
       lastKey = "test";
       display = "全亮測試，按清屏結束";
@@ -338,11 +338,12 @@ public final class LedService extends Service {
                     + style.font
                     + style.bold
                     + style.effect
-                    + (style.effect == 0 ? 0 : phase));
+                    + (style.effect == 0 || (settings.ipixel() && style.effect <= 5) ? 0 : phase));
     if (!force && signature.equals(lastKey)) return;
     lastKey = signature;
     display = style == null ? "清屏" : style.text;
-    ble.offer(LedRenderer.render(settings, style, phase));
+    try { ble.offer(LedRenderer.render(settings, style, phase)); }
+    catch (IllegalArgumentException e) { screen = "iPixel 僅支援高 16；請停止服務並重新選屏幕類型"; }
   }
 
   private Notification notification(String text) {

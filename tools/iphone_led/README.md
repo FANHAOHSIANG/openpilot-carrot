@@ -45,3 +45,8 @@ Android 0.1.2 可直接下載 APK 安裝到手機或車機；iPhone 0.19 為 Xco
 
 GitHub 更新不代表 C4、iPhone 或 Mac 已更新。C4 停車後以正常分支更新／重啟流程安裝；iPhone 另以 Xcode 安裝，Mac 另使用本目錄的工具。
 
+
+
+## iPixel Color 屏幕
+
+新增 64×16 測試適配，詳見 [iPixel 設定](IPIXEL_SETUP.md)。下載新版 [Android APK 與 iPhone 專案](downloads/README.md)。C4 橋接不需因更換屏幕而更新。

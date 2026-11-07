@@ -33,6 +33,8 @@ final class Settings {
     return p.getString("host", "");
   }
 
+  boolean ipixel() { return p.getBoolean("ipixel", false); }
+
   int width() {
     return p.getInt("width", 96);
   }
