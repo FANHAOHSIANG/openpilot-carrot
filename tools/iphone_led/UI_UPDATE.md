@@ -15,3 +15,5 @@ Android 0.1.4 / iPhone 0.21。C4 橋接與金鑰沿用，更新手機 App 即可
 安裝：Android 覆蓋安裝同簽章 APK；iPhone 解壓完整專案，執行 `xcodegen generate`，兩個 Target 選原開發團隊與 Bundle ID 後 Run。不需刪除舊 App。
 
 驗證包含核心規則、眼睛優先切換／資料失效、點陣邊界與動畫、iPixel 封包、兩平台編譯，以及模擬器介面截圖。實體屏幕動畫、藍牙電源切換與特定車機背景限制需裝置確認。
+
+[查看新版介面與眼睛預覽](design/README.md) · [下載與安裝](downloads/README.md)
