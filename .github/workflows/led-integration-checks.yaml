@@ -48,7 +48,9 @@ jobs:
               '.github/workflows/iphone-led-build.yaml',
               '.github/workflows/android-led-build.yaml',
           }
-          paths = git('diff', '--name-only', base, imported).splitlines()
+          # NUL delimiters preserve Unicode, whitespace and embedded newlines;
+          # Git's default quoted display paths must not be treated as filenames.
+          paths = subprocess.check_output(['git', 'diff', '--name-only', '-z', base, imported], text=True).split('\0')[:-1]
           assert paths and all(p.startswith('tools/iphone_led/') or p in exact for p in paths), paths
           for path in sorted(exact | {'tools/iphone_led'}):
               assert git('rev-parse', f'{imported}:{path}') == git('rev-parse', f'{source}:{path}'), path
