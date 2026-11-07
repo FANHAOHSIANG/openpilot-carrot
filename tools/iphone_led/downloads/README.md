@@ -30,7 +30,7 @@
 
 「藍牙已連線」表示通道已就緒；「已回覆接收」表示收到協定回覆，都不是讀回實體屏幕畫面的證明。文字上傳會等候完成回覆後才傳下一筆；失敗會顯示逾時並重連。清屏傳送暫存空白內容，不會使用清除屏幕 ROM 的指令。連線中斷時仍可能留下舊畫面。
 
-驗證：Android APK 已編譯、沿用原簽章；37 項既有核心檢查與 6 種效果的上游封包對照，以及清屏／開關／ACK／尺寸邊界測試通過。iPhone 完整編譯以 GitHub Actions 或本機 Xcode 結果為準。**尚未在這塊實體 iPixel 屏幕驗證，這是供實機測試的適配版本。**
+初次適配驗證（歷史紀錄；本版結果見本文末）：Android APK 已編譯、沿用原簽章；37 項既有核心檢查與 6 種效果的上游封包對照，以及清屏／開關／ACK／尺寸邊界測試通過。iPhone 完整編譯以 GitHub Actions 或本機 Xcode 結果為準。**尚未在這塊實體 iPixel 屏幕驗證，這是供實機測試的適配版本。**
 
 ## 安裝前
 
@@ -130,7 +130,7 @@ ip -4 -o addr show wlan0
 ## 本次檔案與驗證範圍
 
 - Android：0.1.6，versionCode 7，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，42 項核心檢查、291 筆車況重播、眼睛點陣及 iPixel 文字／GIF 封包測試通過。
-- iPhone：0.23，主 App 與 extension build 23。ZIP 已逐檔核對本次原始碼；完整 App 與 extension 編譯、車況重播、iPixel 文字／GIF 封包及動態島測試由 GitHub Actions 驗證，後續狀態請見 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)。尚未在使用者的 iPixel 屏幕上實測。
+- iPhone：0.23，主 App 與 extension build 23。ZIP 已逐檔核對本次原始碼；完整 App 與 extension 編譯、車況重播、iPixel 文字／GIF 封包及動態島策略測試均已通過，iPhone 模擬器啟動與畫面已確認，見 [本版驗證](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/42401366431)。尚未在使用者的 iPixel 屏幕上實測。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
 - 既有版背景連動曾有使用者成功回報；不同車機、iPhone 系統及新版動態島修正仍需實機確認。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 

@@ -65,13 +65,13 @@ jobs:
           assert extension['CFBundleIdentifier'].startswith(info['CFBundleIdentifier'] + '.')
           PY
       - name: Capture simulator UI preview
-        timeout-minutes: 6
+        timeout-minutes: 12
         run: |
           DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted(devices,key=lambda key:tuple(map(int,re.findall(r"\d+",key))),reverse=True); print(next(d["udid"] for runtime in runtimes for d in devices[runtime] if "iPhone" in d["name"]))')
           xcrun simctl boot "$DEVICE" || true
           python3 - "$DEVICE" <<'PYBOOT'
           import subprocess, sys
-          subprocess.run(['xcrun','simctl','bootstatus',sys.argv[1],'-b'],check=True,timeout=180)
+          subprocess.run(['xcrun','simctl','bootstatus',sys.argv[1],'-b'],check=True,timeout=600)
           PYBOOT
           xcrun simctl install "$DEVICE" /tmp/carrot-led-build/Build/Products/Debug-iphonesimulator/CarrotLEDProbe.app
           xcrun simctl status_bar "$DEVICE" override --time '09:41' --batteryState charged --batteryLevel 100

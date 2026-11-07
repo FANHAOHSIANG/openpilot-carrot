@@ -16,6 +16,6 @@ Android 0.1.6（versionCode 7）／iPhone 0.23（build 23）。原六款保留�
 
 Android 可覆蓋安裝同簽章 APK。iPhone 請下載完整專案、執行 `xcodegen generate`，沿用兩個 Target 的開發團隊與 Bundle ID 再 Run；本次含新增 GIF 資源，不能只更換 Swift 檔。C4 不用更新。
 
-驗證：資源解碼、循環接縫、左右眼配色、轉換前後差異及 upstream GIF 封包比對；兩平台編譯與模擬器畫面由 GitHub Actions 檢查。實體屏幕的解碼速度及顯示效果仍待實機確認。
+驗證通過：資源解碼、循環接縫、左右眼配色、轉換前後差異及 upstream GIF 封包比對；Android APK、iPhone App 與 Live Activity extension 均編譯成功，兩平台模擬器畫面已檢查。實體屏幕的解碼速度及顯示效果仍待實機確認。
 
 [下載與安裝](請見 GitHub tools/iphone_led/downloads/README.md) · [動畫預覽](請見 GitHub tools/iphone_led/design/sasuke-eyes-preview.gif)

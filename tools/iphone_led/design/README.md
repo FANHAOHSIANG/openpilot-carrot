@@ -6,6 +6,12 @@ Android 0.1.6／iPhone 0.23 新增兩款，原六款保留。下方為 64×16 �
 
 [更新與安裝說明](../SASUKE_EYES_UPDATE.md)
 
+## iPhone 畫面
+
+使用明確標示的介面示範資料，並非實體 C4／屏幕連線回報；佐助兩款排在最前面。
+
+<img src="iphone-sasuke.png" width="360" alt="iPhone 佐助眼睛快捷頁，模擬資料">
+
 ## Android 15 車機畫面
 
 尚未連線的模擬器畫面，按鈕呈灰色；佐助兩款排在最前面。
