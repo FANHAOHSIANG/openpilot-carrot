@@ -61,7 +61,7 @@ struct LEDStatusPill: View {
 
 struct LEDDashboard: View {
     @ObservedObject var model: CarrotLED
-    @State private var group = 0
+    @State private var group = ProcessInfo.processInfo.arguments.contains("--eyes-preview") ? 2 : 0
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
     var body: some View {
         ScrollView {
@@ -189,7 +189,7 @@ struct LEDEffectPicker: View {
 }
 struct LEDStylePage: View {
     @ObservedObject var model: CarrotLED
-    @State private var group = 0
+    @State private var group = ProcessInfo.processInfo.arguments.contains("--eyes-preview") ? 2 : 0
     var body: some View {
         Form {
             Section { Picker("分類", selection: $group) { Text("車況").tag(0); Text("自訂文字").tag(1); Text("眼睛").tag(2) }.pickerStyle(.segmented) }

@@ -49,6 +49,7 @@ public final class MainActivity extends Activity {
   void selectPage(int index) {
     hideKeyboard();
     selectedPage = index;
+    if(index==0 && quickArea!=null)populateQuick();
     for (int i = 0; i < pages.size(); i++) {
       pages.get(i).setVisibility(i == index ? View.VISIBLE : View.GONE);
       tabs.get(i).setTextColor(i == index ? ACCENT : MUTED);
