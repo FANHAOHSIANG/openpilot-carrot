@@ -408,6 +408,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var frames: [Data] = []
     private var queuedLabel: String?
     private var sending = false
+    private var loyPumpScheduled = false
+    private var loyPumpGeneration = UUID()
+    private var nextLoyWrite: TimeInterval = 0
     private var drawActive = false
     private var autoC4 = true
     private var reconnectAttempt = false
@@ -472,11 +475,20 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             bluetoothStatus = "背景藍牙未啟用，前景仍可連線"
         }
         if !host.isEmpty && !token.isEmpty { connectC4() }
+        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.ready, self.screenPowerOn,
+                      !self.inBackground || self.drivingSession.active else { return }
+                if self.startup.active { self.tickStartup(); return }
+                guard !self.ipixel, self.previewStyle == nil, self.idleLabel == "__eyes__",
+                      !self.enabled || (self.vehicleIsFresh && self.latestVehicleLabel.isEmpty) else { return }
+                self.requestDisplay("__eyes__")
+            }
+        }
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 if self.startup.active {
-                    self.tickStartup()
                     self.updateDrivingSession()
                     if self.startup.active { return }
                 }
@@ -561,6 +573,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private func resetTransmission() {
         startup.cancel()
         txGeneration = UUID(); frames = []; ipixelPackets = []
+        loyPumpGeneration = UUID(); loyPumpScheduled = false; nextLoyWrite = 0
         sending = false; ipixelWriting = false; ipixelAwaitingAck = false; ipixelAckSeen = false
         queuedLabel = nil; lastDisplayKey = nil; lastLabel = nil; drawActive = false
     }
@@ -794,17 +807,13 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private func clearCommand() -> [UInt8] {
         drawCommand([0x01,0,0,0,0] + word(0) + word(0) + word(panelWidth - 1) + word(panelHeight - 1))
     }
-    private func drawPixels(_ pixels: [UInt8], color: [UInt8]) {
+    private func drawPixels(_ pixels: [UInt8], color: [UInt8], compact: Bool = false) {
         if ipixel {
             if let data = IPixelProtocol.text(pixels,width:panelWidth,height:panelHeight,rgb:color) { enqueue(data) }
             return
         }
-        let rowBytes = (panelWidth + 7) / 8
-        let rowsPerPacket = max(1, 240 / rowBytes)
-        for y in stride(from: 0, to: panelHeight, by: rowsPerPacket) {
-            let end = min(panelHeight, y + rowsPerPacket)
-            let header = [UInt8(0)] + color + word(0) + word(y) + word(panelWidth - 1) + word(end - 1)
-            enqueue(drawCommand(header + Array(pixels[(y * rowBytes)..<(end * rowBytes)])))
+        for command in LoyBitmap.pixels(pixels, width: panelWidth, height: panelHeight, color: color, compact: compact) {
+            enqueue(command)
         }
     }
     func testAllPixels() {
@@ -936,7 +945,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if label == "__eyes__" {
             let native = ipixel && nativeEyes && panelWidth == 64 && panelHeight == 16
                 && (peripheral?.maximumWriteValueLength(for:.withResponse) ?? 0) >= 100
-            let phase = Int(ProcessInfo.processInfo.systemUptime*5)
+            let phase = Int(ProcessInfo.processInfo.systemUptime * (ipixel ? 5 : 20))
             let key = "eyes|\(eyesVariant)|\(eyesColor)|\(native ? 0 : phase)|\(native)"
             if sending || !frames.isEmpty { queuedLabel = label; return }
             guard key != lastDisplayKey else { return }; lastDisplayKey = key
@@ -949,7 +958,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 eyePlaybackStatus = "iPixel 原生動畫 · 20 fps 素材，屏幕循環播放"
                 enqueue(packet)
             } else {
-                eyePlaybackStatus = "相容播放 · 目標 5 fps，依藍牙吞吐量調整"
+                eyePlaybackStatus = ipixel ? "相容播放 · 目標 5 fps，依藍牙吞吐量調整" : "LOY 流暢播放 · 最高目標 20 fps，忙碌時跳格"
                 guard let rgba = EyeAnimations.raster(eyesVariant,color:color,width:panelWidth,height:panelHeight,time:ProcessInfo.processInfo.systemUptime) else { return }
                 if !ipixel {
                     if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
@@ -1014,7 +1023,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             && (peripheral?.maximumWriteValueLength(for: .withResponse) ?? 0) >= 100
         let frame = startup.step(Int64(ProcessInfo.processInfo.systemUptime*1000), ready: ready,
             power: screenPowerOn, interrupt: enabled && vehicleIsFresh && !latestVehicleLabel.isEmpty,
-            idle: idle, nativeMode: native)
+            idle: idle, nativeMode: native, intervalMs: ipixel ? 200 : 50)
         if frame == StartupPlayback.native {
             if let data = StartupArtwork.gif(), let packet = IPixelProtocol.gif(data) {
                 currentLabel = "胡蘿蔔車開走 · 開屏動畫"; enqueue(packet)
@@ -1030,7 +1039,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                     if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
                     enqueue(clearCommand())
                     for i in 1..<4 where layers[i].contains(where: { $0 != 0 }) {
-                        drawPixels(layers[i], color: StartupArtwork.colors[i])
+                        drawPixels(layers[i], color: StartupArtwork.colors[i], compact: true)
                     }
                 }
             } else { startup.cancel(); bluetoothStatus = "開屏素材缺失，請更新完整 App" }
@@ -1205,7 +1214,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             drawPixels(merged,color:fixed ? [255,34,54] : base.map { UInt8($0) })
         } else { for (level,layer) in layers.enumerated() {
             let rgb: [UInt8] = fixed ? palette[level].map { UInt8($0) } : level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
-            drawPixels(layer,color:rgb)
+            drawPixels(layer,color:rgb,compact:true)
         } }
     }
     private func enqueue(_ payload: [UInt8]) {
@@ -1227,7 +1236,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             frames.append(Data(frame[start..<min(start + limit, frame.count)]))
         }
         _ = characteristic
-        if !sending { sending = true; DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { self.pump() } }
+        if !sending { sending = true; scheduleLoyPump() }
     }
     private func pumpIPixel(_ device: CBPeripheral, _ characteristic: CBCharacteristic) {
         guard !ipixelWriting else { return }
@@ -1255,6 +1264,17 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         ipixelWriting = true
         device.writeValue(frames.removeFirst(),for:characteristic,type:.withResponse)
     }
+    private func scheduleLoyPump() {
+        guard !loyPumpScheduled else { return }
+        loyPumpScheduled = true
+        let ticket = loyPumpGeneration
+        let delay = max(0, nextLoyWrite - ProcessInfo.processInfo.systemUptime)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.loyPumpGeneration == ticket else { return }
+            self.loyPumpScheduled = false
+            self.pump()
+        }
+    }
     private func pump() {
         guard ready, let peripheral, let characteristic = writeCharacteristic else { sending = false; return }
         if ipixel { pumpIPixel(peripheral, characteristic); return }
@@ -1264,8 +1284,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             if let label = queuedLabel { queuedLabel = nil; requestDisplay(label) }
             return
         }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now >= nextLoyWrite else { scheduleLoyPump(); return }
         let next = frames.removeFirst()
+        nextLoyWrite = now + 0.005
         peripheral.writeValue(next, for: characteristic, type: .withoutResponse)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { self.pump() }
+        scheduleLoyPump()
     }
 }

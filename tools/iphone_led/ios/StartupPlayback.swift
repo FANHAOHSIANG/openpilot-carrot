@@ -9,7 +9,7 @@ final class StartupPlayback {
     private var lastFrame = -1
     func begin(_ now: Int64) { active = true; requested = now; started = -1; awaitingDelivery = false; lastFrame = -1 }
     func cancel() { active = false; awaitingDelivery = false }
-    func step(_ now: Int64, ready: Bool, power: Bool, interrupt: Bool, idle: Bool, nativeMode: Bool) -> Int {
+    func step(_ now: Int64, ready: Bool, power: Bool, interrupt: Bool, idle: Bool, nativeMode: Bool, intervalMs: Int64 = 50) -> Int {
         guard active else { return Self.none }
         if !ready || !power || interrupt || now < requested || now-requested >= 12000 {
             cancel(); return Self.none
@@ -26,7 +26,7 @@ final class StartupPlayback {
         let elapsed = now-started
         if elapsed >= Self.durationMs { cancel(); return Self.none }
         guard !nativeMode, idle else { return Self.wait }
-        let frame = Int(elapsed/200)*4
+        let frame = Int(elapsed/intervalMs)*(Int(intervalMs)/50)
         guard frame != lastFrame else { return Self.wait }
         lastFrame = frame; return frame
     }

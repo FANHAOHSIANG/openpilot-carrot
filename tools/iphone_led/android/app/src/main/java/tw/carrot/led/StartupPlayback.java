@@ -12,6 +12,9 @@ final class StartupPlayback {
   void cancel() { active=false; awaitingDelivery=false; }
 
   int step(long now, boolean ready, boolean power, boolean interrupt, boolean idle, boolean nativeMode) {
+    return step(now,ready,power,interrupt,idle,nativeMode,50);
+  }
+  int step(long now, boolean ready, boolean power, boolean interrupt, boolean idle, boolean nativeMode, int intervalMs) {
     if (!active) return NONE;
     if (!ready || !power || interrupt || now < requested || now-requested >= 12000) {
       cancel(); return NONE;
@@ -28,7 +31,7 @@ final class StartupPlayback {
     long elapsed=now-started;
     if (elapsed >= DURATION_MS) { cancel(); return NONE; }
     if (nativeMode || !idle) return WAIT;
-    int frame=(int)(elapsed/200)*4;
+    int frame=(int)(elapsed/intervalMs)*(intervalMs/50);
     if (frame == lastFrame) return WAIT;
     lastFrame=frame; return frame;
   }

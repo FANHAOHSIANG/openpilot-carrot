@@ -30,7 +30,8 @@ final class BleLink {
   int writeType() { return ipixel ? BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT : BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE; }
   int mtu = 23;
   boolean discovering = false, writing = false;
-  long lastWrite = 0;
+  long lastWrite = 0, nextLoyWrite = 0, pumpGeneration = 0;
+  boolean pumpScheduled = false;
   final ArrayDeque<byte[]> chunks = new ArrayDeque<>();
   List<byte[]> pending;
   final LoyProtocol protocol = new LoyProtocol();
@@ -262,7 +263,7 @@ final class BleLink {
                 }
                 writing = false;
                 // With-response writes already provide backpressure. Avoid a second artificial delay for GIFs.
-                h.postDelayed(() -> pump(), ipixel ? 0 : 20);
+                pump();
               });
         }
       };
@@ -276,6 +277,16 @@ final class BleLink {
     if (!ready) return;
     pending = commands;
     pump();
+  }
+
+  private void scheduleLoyPump(long delay) {
+    if (pumpScheduled) return;
+    pumpScheduled = true;
+    long ticket = pumpGeneration;
+    h.postDelayed(() -> {
+      if (ticket != pumpGeneration) return;
+      pumpScheduled = false; pump();
+    }, delay);
   }
 
   void pump() {
@@ -298,11 +309,14 @@ final class BleLink {
       }
     }
     if (chunks.isEmpty()) return;
+    long now = SystemClock.elapsedRealtime();
+    if (!ipixel && now < nextLoyWrite) { scheduleLoyPump(nextLoyWrite - now); return; }
     writer.setWriteType(writeType());
     writer.setValue(chunks.removeFirst());
     writing = true;
     lastWrite = SystemClock.elapsedRealtime();
     long started = lastWrite;
+    if (!ipixel) nextLoyWrite = lastWrite + 5;
     if (!gatt.writeCharacteristic(writer)) {
       writing = false;
       fail("屏幕傳送忙碌，重新連接");
@@ -330,6 +344,7 @@ final class BleLink {
     ready = false;
     writer = null;
     writing = false;
+    pumpGeneration++; pumpScheduled = false; nextLoyWrite = 0;
     chunks.clear(); packets.clear(); awaitingAck=false; ackSeen=false; ackGeneration++;
     pending = null;
     mtu = 23;

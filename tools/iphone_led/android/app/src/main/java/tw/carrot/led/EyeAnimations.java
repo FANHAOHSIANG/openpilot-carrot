@@ -28,11 +28,17 @@ final class EyeAnimations {
       if(cache.size()>=24)cache.clear();cache.put(key,data);return data;
     }catch(IOException e){return null;}
   }
-  static Movie movie(Context context,int variant,int color){byte[] b=gif(context,variant,color);return b==null?null:Movie.decodeByteArray(b,0,b.length);}
+  private static final Map<String,Movie> movies=new HashMap<>();
+  static synchronized Movie movie(Context context,int variant,int color){
+    String key=index(variant)+":"+(color&0xffffff);
+    if(movies.containsKey(key))return movies.get(key);
+    byte[] b=gif(context,variant,color);Movie movie=b==null?null:Movie.decodeByteArray(b,0,b.length);
+    if(movie!=null){if(movies.size()>=24)movies.clear();movies.put(key,movie);}return movie;
+  }
   static Bitmap raster(Context context,int variant,int color,int width,int height,long time){
     Movie movie=movie(context,variant,color);if(movie==null)return null;
     Bitmap bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
     Canvas canvas=new Canvas(bitmap);canvas.drawColor(Color.BLACK);canvas.scale(width/64f,height/16f);
-    movie.setTime((int)(time%Math.max(1,movie.duration())));movie.draw(canvas,0,0);return bitmap;
+    synchronized(movie){movie.setTime((int)(time%Math.max(1,movie.duration())));movie.draw(canvas,0,0);}return bitmap;
   }
 }

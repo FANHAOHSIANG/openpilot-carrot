@@ -14,6 +14,8 @@ public final class StartupTests {
       if(result!=Integer.parseInt(c[7]) || p.active!=c[8].equals("1"))throw new AssertionError(line+" got "+result+"/"+p.active);
       checks++;
     }
+    p.begin(0);
+    if(p.step(0,true,true,false,true,false,200)!=0 || p.step(50,true,true,false,true,false,200)!=-2 || p.step(200,true,true,false,true,false,200)!=4)throw new AssertionError("iPixel compatibility cadence");
     byte[] gif=Files.readAllBytes(Path.of("app/src/main/assets/startup/startup_car.gif"));
     byte[] packet=IPixelProtocol.gif(gif);
     String[] golden=Files.readString(Path.of("tests/startup_gif.csv")).trim().split(",");

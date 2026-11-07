@@ -71,7 +71,7 @@ final class LedRenderer {
     }
     if (style.effect >= 11 && style.effect < 11+EyeAnimations.NAMES.length) {
       if(nativeEyes){commands.add(IPixelProtocol.gif(EyeAnimations.gif(settings.context,style.effect-11,style.color)));return commands;}
-      Bitmap eye=EyeAnimations.raster(settings.context,style.effect-11,style.color,w,h,tick*200);
+      Bitmap eye=EyeAnimations.raster(settings.context,style.effect-11,style.color,w,h,tick*(settings.ipixel()?200:50));
       if(eye==null)throw new IllegalArgumentException("eyes asset unavailable");
       byte[][] layers=new byte[4][((w+7)/8)*h];
       boolean fixed=style.effect>=17;
@@ -95,7 +95,7 @@ final class LedRenderer {
         commands.add(IPixelProtocol.text(merged,w,h,fixed?0xff2236:style.color,0));
       }else for(int level=0;level<4;level++){
         int color=fixed?palette[level]:level==3?Color.WHITE:Color.rgb(Color.red(style.color)*(level+1)/3,Color.green(style.color)*(level+1)/3,Color.blue(style.color)*(level+1)/3);
-        commands.addAll(LoyProtocol.pixels(layers[level],w,h,color));
+        commands.addAll(LoyProtocol.animationPixels(layers[level],w,h,color));
       }
       return commands;
     }

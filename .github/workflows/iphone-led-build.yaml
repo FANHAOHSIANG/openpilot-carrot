@@ -26,6 +26,11 @@ jobs:
         run: |
           swiftc IPixelProtocol.swift tests/IPixelProtocolTests.swift -o /tmp/ipixel-tests
           /tmp/ipixel-tests
+      - name: Test LOY compact animation encoding
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc LoyBitmap.swift tests/LoyBitmapTests.swift -o /tmp/loy-bitmap-tests
+          /tmp/loy-bitmap-tests
       - name: Test eyes animation
         working-directory: tools/iphone_led/ios
         run: |

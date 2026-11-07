@@ -12,7 +12,7 @@ import pathlib,sys
 text=pathlib.Path('app/src/main/AndroidManifest.xml').read_text()
 pathlib.Path(sys.argv[1]).write_text(text.replace('<manifest ', '<manifest package="tw.carrot.led" ',1))
 PYMANIFEST
-"$bt/aapt2" link -o "$out/base.apk" -I "$platform" --manifest "$out/AndroidManifest.xml" --version-code 8 --version-name 0.1.7 "$out/resources.zip"
+"$bt/aapt2" link -o "$out/base.apk" -I "$platform" --manifest "$out/AndroidManifest.xml" --version-code 9 --version-name 0.1.8 "$out/resources.zip"
 find app/src/main/java -name '*.java' -print > "$out/sources.txt"
 javac -encoding UTF-8 -source 17 -target 17 -classpath "$platform" -d "$out/classes" @"$out/sources.txt"
 jar cf "$out/classes.jar" -C "$out/classes" .
@@ -32,6 +32,6 @@ if [ ! -f "$key" ]; then
   keytool -genkeypair -keystore "$key" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
   chmod 600 "$key"
 fi
-"$bt/apksigner" sign --ks "$key" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$out/CarrotLED-0.1.7.apk" "$out/aligned.apk"
-"$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.7.apk"
-echo "APK: $out/CarrotLED-0.1.7.apk"
+"$bt/apksigner" sign --ks "$key" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$out/CarrotLED-0.1.8.apk" "$out/aligned.apk"
+"$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.8.apk"
+echo "APK: $out/CarrotLED-0.1.8.apk"

@@ -1,4 +1,6 @@
-最新版本：Android 0.1.7／iPhone 0.24，胡蘿蔔車 App 圖示與開屏動畫，保留 LOY PLAY 96×16。[更新說明](STARTUP_UPDATE.md)。
+最新版本：Android 0.1.8／iPhone 0.25，LOY 最高目標 20 fps、裁切空白色層與加快傳送。[更新說明](LOY_SMOOTH_UPDATE.md)。
+
+上一版：Android 0.1.7／iPhone 0.24，胡蘿蔔車 App 圖示與開屏動畫，保留 LOY PLAY 96×16。[更新說明](STARTUP_UPDATE.md)。
 
 上一版：Android 0.1.6／iPhone 0.23，新增兩款佐助變化動畫。[更新說明](SASUKE_EYES_UPDATE.md)。
 # C4 / iPhone / Android / Mac 後窗 LED

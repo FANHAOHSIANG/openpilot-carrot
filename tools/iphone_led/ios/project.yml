@@ -15,6 +15,7 @@ targets:
       - DrivingSession.swift
       - IslandAlertPolicy.swift
       - IPixelProtocol.swift
+      - LoyBitmap.swift
       - LEDInterface.swift
       - EyesBitmap.swift
       - EyeAnimations.swift

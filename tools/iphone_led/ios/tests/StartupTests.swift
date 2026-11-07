@@ -12,6 +12,10 @@ import CryptoKit
             precondition(result == Int(c[7])! && p.active == (c[8] == "1"), "\(row) got \(result)/\(p.active)")
             checks += 1
         }
+        p.begin(0)
+        precondition(p.step(0,ready:true,power:true,interrupt:false,idle:true,nativeMode:false,intervalMs:200) == 0)
+        precondition(p.step(50,ready:true,power:true,interrupt:false,idle:true,nativeMode:false,intervalMs:200) == -2)
+        precondition(p.step(200,ready:true,power:true,interrupt:false,idle:true,nativeMode:false,intervalMs:200) == 4)
         let gif = try Data(contentsOf:URL(fileURLWithPath:"Resources/Startup/startup_car.gif"))
         let packet = IPixelProtocol.gif(gif)!
         let golden = try String(contentsOfFile:"tests/startup_gif.csv",encoding:.utf8).trimmingCharacters(in:.whitespacesAndNewlines).components(separatedBy:",")

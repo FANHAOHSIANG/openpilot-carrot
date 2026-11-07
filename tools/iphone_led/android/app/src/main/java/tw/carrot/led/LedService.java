@@ -34,7 +34,7 @@ public final class LedService extends Service {
   PowerManager.WakeLock wake;
   volatile boolean stopping = false;
   boolean polling = false;
-  long lastSample = -1, startTime, lastNotification = 0, lastRender = 0;
+  long lastSample = -1, startTime, lastNotification = 0, lastRender = 0, lastPoll = -200;
   int generation = 0, slot = -1;
   String previewKey = "";
   long previewUntil = 0;
@@ -222,8 +222,8 @@ public final class LedService extends Service {
             status = "C4 資料過期，嘗試清屏";
             lastKey = "";
           }
-          if (!polling) poll();
-          if (now - lastRender >= 200) {
+          if (!polling && now - lastPoll >= 200) { lastPoll = now; poll(); }
+          if (now - lastRender >= 50) {
             lastRender = now;
             if (!previewKey.isEmpty() && now >= previewUntil) {
               previewKey = "";
@@ -242,7 +242,7 @@ public final class LedService extends Service {
             getSystemService(NotificationManager.class)
                 .notify(7, notification(status + " · " + (ble.ready ? "藍牙已連線" : "屏幕未連線")));
           }
-          h.postDelayed(this, 200);
+          h.postDelayed(this, 50);
         }
       };
 
@@ -347,7 +347,7 @@ public final class LedService extends Service {
     if (startup.active) {
       int frame = startup.step(SystemClock.elapsedRealtime(), ble.ready, powerOn,
           automatic && fresh && !label.isEmpty(), ble.idle(),
-          settings.ipixel() && settings.width()==64 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady());
+          settings.ipixel() && settings.width()==64 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady(), settings.ipixel()?200:50);
       if (frame >= 0 || frame == StartupPlayback.NATIVE) {
         try { ble.offer(StartupArtwork.commands(settings,frame)); display="胡蘿蔔車開走 · 開屏動畫"; }
         catch (IllegalArgumentException e) { startup.cancel(); screen="開屏動畫略過："+e.getMessage(); }
@@ -360,7 +360,10 @@ public final class LedService extends Service {
             automatic, fresh, label, slot, previewKey, previewUntil, SystemClock.elapsedRealtime());
     Settings.Style style = key.isEmpty() ? null : settings.style(key);
     boolean nativeEyes=key.equals("eyes") && settings.ipixel() && settings.width()==64 && settings.height()==16 && settings.p.getBoolean("eyes.native",true) && ble.nativeEyesReady();
-    long phase = SystemClock.elapsedRealtime() / (key.equals("eyes")?200:333);
+    // Never queue old animation bitmaps behind a busy link. Sample the current
+    // animation time only once the previous frame and any vehicle alert are done.
+    if (key.equals("eyes") && !nativeEyes && !ble.idle()) return;
+    long phase = SystemClock.elapsedRealtime() / (key.equals("eyes")?(settings.ipixel()?200:50):333);
     String signature =
         key
             + (style == null

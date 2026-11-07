@@ -51,11 +51,27 @@ public final class LoyProtocol {
   }
 
   public static List<byte[]> pixels(byte[] packed, int w, int h, int color) {
+    return pixels(packed, w, h, color, false);
+  }
+
+  // Animation frames are cleared first. Omit transparent rows and empty layers;
+  // retain the existing full-width bitmap command and its original coordinates.
+  public static List<byte[]> animationPixels(byte[] packed, int w, int h, int color) {
+    return pixels(packed, w, h, color, true);
+  }
+
+  private static List<byte[]> pixels(byte[] packed, int w, int h, int color, boolean compact) {
+    if (w <= 0 || w > 256 || h <= 0 || h > 64) throw new IllegalArgumentException("bitmap size");
     int row = (w + 7) / 8, step = Math.max(1, 240 / row);
     List<byte[]> out = new ArrayList<>();
     if (packed.length != row * h) throw new IllegalArgumentException("bitmap size");
-    for (int y = 0; y < h; y += step) {
-      int end = Math.min(h, y + step);
+    int first = 0, last = h;
+    if (compact) {
+      while (first < last && emptyRow(packed, first, row)) first++;
+      while (last > first && emptyRow(packed, last - 1, row)) last--;
+    }
+    for (int y = first; y < last; y += step) {
+      int end = Math.min(last, y + step);
       ByteArrayOutputStream b = new ByteArrayOutputStream();
       add(b, 0, (color >> 16) & 255, (color >> 8) & 255, color & 255);
       word(b, 0);
@@ -66,5 +82,10 @@ public final class LoyProtocol {
       out.add(draw(b.toByteArray()));
     }
     return out;
+  }
+
+  private static boolean emptyRow(byte[] data, int y, int stride) {
+    for (int i = y * stride; i < (y + 1) * stride; i++) if (data[i] != 0) return false;
+    return true;
   }
 }

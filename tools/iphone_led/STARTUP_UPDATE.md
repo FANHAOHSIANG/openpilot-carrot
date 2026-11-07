@@ -1,3 +1,5 @@
+> 後續版本：Android 0.1.8／iPhone 0.25 已提升 LOY 動畫更新頻率，見 [流暢動畫更新](LOY_SMOOTH_UPDATE.md)。下方為 0.1.7／0.24 的歷史說明。
+
 # 胡蘿蔔車圖示與 LED 開屏動畫
 
 Android 0.1.7（versionCode 8）／iPhone 0.24（App 與 extension build 24）。

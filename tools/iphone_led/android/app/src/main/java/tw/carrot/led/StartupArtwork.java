@@ -34,7 +34,7 @@ final class StartupArtwork {
       out.add(IPixelProtocol.text(merged,w,16,COLORS[1],0));
     }else{
       out.add(new byte[]{0x30,1,(byte)0x90});out.add(LoyProtocol.clear(w,16));
-      for(int k=1;k<4;k++)if(used[k])out.addAll(LoyProtocol.pixels(layers[k],w,16,COLORS[k]));
+      for(int k=1;k<4;k++)if(used[k])out.addAll(LoyProtocol.animationPixels(layers[k],w,16,COLORS[k]));
     }
     return out;
   }

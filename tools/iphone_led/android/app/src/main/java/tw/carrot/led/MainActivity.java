@@ -281,7 +281,7 @@ public final class MainActivity extends Activity {
       text("五組自訂文字",20);for(int i=0;i<5;i++){final int n=i;button("自訂 "+(i+1)+" · 編輯與顯示",()->editStyle("slot"+n,true,n));}
       text("眼睛動畫",20);button("選擇眼睛顏色",()->colorPicker(settings.p.getInt("eyes.color",0xff00dcc8),c->{settings.p.edit().putInt("eyes.color",c).apply();populateQuick();if(LedService.running)send(LedService.RELOAD);}));
       Switch nativeEyes=new Switch(this);nativeEyes.setText("iPixel 原生平順動畫");nativeEyes.setTextColor(INK);nativeEyes.setMinHeight(dp(56));nativeEyes.setChecked(settings.p.getBoolean("eyes.native",true));nativeEyes.setOnCheckedChangeListener((v,value)->{settings.p.edit().putBoolean("eyes.native",value).apply();if(LedService.running)send(LedService.RELOAD);});body.addView(nativeEyes);
-      text("共八款，新增佐助「寫輪眼 → 萬花筒」及「萬花筒 → 輪迴眼」。佐助兩款固定紅／紫配色；調色盤只調整原六款。iPixel 64×16 原生模式為 20 fps 素材，屏幕循環播放；其他模式目標 5 fps。若原生模式不相容可關閉。車況優先，清屏停止動畫。",14);
+      text("共八款，新增佐助「寫輪眼 → 萬花筒」及「萬花筒 → 輪迴眼」。佐助兩款固定紅／紫配色；調色盤只調整原六款。iPixel 64×16 原生模式為 20 fps 素材，屏幕循環播放；LOY 流暢模式最高目標 20 fps，傳輸忙碌時跳格；iPixel 相容模式目標 5 fps。若原生模式不相容可關閉。車況優先，清屏停止動畫。",14);
     });
     addPage(content,navigation,"連線設定",()->{
       text("連線設定",26);text("C4 車況橋接",20);
