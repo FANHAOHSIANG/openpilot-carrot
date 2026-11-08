@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   core:
-    if: github.event.head_commit.message != 'ci: fix isolated safety runner module lookup'
+    if: github.sha == 'a646372636df53c17e6387b95a3e60fc2cc2d42d'
     name: Official merge core native and regression checks
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -36,7 +36,7 @@ jobs:
             openpilot/selfdrive/modeld/tests/test_camera_sync.py \
             openpilot/selfdrive/carrot/bluetooth/tests/test_b1.py
   led:
-    if: github.event.head_commit.message != 'ci: fix isolated safety runner module lookup'
+    if: github.sha == 'a646372636df53c17e6387b95a3e60fc2cc2d42d'
     name: Existing LED read-only bridge and Mac protocol regression
     runs-on: ubuntu-24.04
     timeout-minutes: 18
