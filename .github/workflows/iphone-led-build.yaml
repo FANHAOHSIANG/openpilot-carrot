@@ -31,7 +31,7 @@ jobs:
           subprocess.run(['sudo', 'xcode-select', '-s', str(chosen)], check=True)
           subprocess.run(['xcodebuild', '-version'], check=True)
           PY
-      - name: Test bounded drive sessions and polling recovery
+      - name: Test sessions beyond one hour and polling recovery
         working-directory: tools/iphone_led/ios
         run: |
           swiftc DriveWorkBudget.swift tests/DriveWorkBudgetTests.swift -o /tmp/drive-work-tests

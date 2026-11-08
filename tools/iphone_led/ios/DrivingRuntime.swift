@@ -9,11 +9,12 @@ final class DrivingRuntime: ObservableObject {
     @Published private(set) var active = false
     @Published private(set) var requesting = false
     @Published private(set) var message = "尚未開始；切換 App 前請啟動行車連動"
-    @Published private(set) var remainingMinutes = 0
+    @Published private(set) var elapsedMinutes = 0
     private var identifier: String?
     private var task: BGTask?
     private var budget: DriveWorkBudget?
     private var lastProgress = -Double.infinity
+    private var lastTitleUpdate = -Double.infinity
     var onEnded: (() -> Void)?
 
     // Called ONLY by the foreground Start button, never by timers or reconnect.
@@ -52,11 +53,10 @@ final class DrivingRuntime: ObservableObject {
                     }
                 }
                 self.budget = DriveWorkBudget(now: ProcessInfo.processInfo.systemUptime)
-                self.active = true; self.requesting = false; self.remainingMinutes = 60
-                self.lastProgress = -.infinity
-                work.progress.totalUnitCount = 18_000 // up to 60 minutes at 5 Hz
-                work.progress.completedUnitCount = 0
-                self.message = "iOS 已允許行車連動，可切換 App（最多 60 分鐘）"
+                self.active = true; self.requesting = false; self.elapsedMinutes = 0
+                self.lastProgress = -.infinity; self.lastTitleUpdate = -.infinity
+                self.budget?.reportProgress(work.progress)
+                self.message = "iOS 已允許行車連動，可切換 App（無固定時限）"
             }
         }
         guard registered else {
@@ -65,7 +65,7 @@ final class DrivingRuntime: ObservableObject {
         }
         do {
             let request = BGContinuedProcessingTaskRequest(identifier: id, title: "Carrot LED 行車連動",
-                subtitle: "最多 60 分鐘；接收並處理 C4 車況")
+                subtitle: "持續接收 C4 車況；可隨時停止")
             request.strategy = .fail // never leave a job queued for a later drive
             try BGTaskScheduler.shared.submit(request)
         } catch {
@@ -89,29 +89,33 @@ final class DrivingRuntime: ObservableObject {
         guard active, let budget else { return }
         let now = ProcessInfo.processInfo.systemUptime
         if let end = budget.end(now: now) {
-            finish(end == .duration ? "本次 60 分鐘連動已完成；請回 App 開始下一次" : "C4 已連續 30 秒無有效車況；背景任務已結束",
-                   success: end == .duration && budget.samples > 0)
+            finish(end == .invalidClock ? "連動計時狀態異常；請回 App 再開始" : "C4 已連續 30 秒無有效車況；背景任務已結束",
+                   success: false)
             return
         }
-        let minutes = Int(ceil(Double(budget.remaining(now: now)) / 60))
-        if remainingMinutes != minutes { remainingMinutes = minutes }
+        let minutes = budget.elapsedMinutes(now: now)
+        if elapsedMinutes != minutes { elapsedMinutes = minutes }
         guard now - lastProgress >= 1 else { return }; lastProgress = now
         #if compiler(>=6.2)
         if #available(iOS 26.0, *), let work = task as? BGContinuedProcessingTask {
-            work.progress.completedUnitCount = budget.samples
+            budget.reportProgress(work.progress)
+            if now - lastTitleUpdate >= 5 {
+                lastTitleUpdate = now
+                work.updateTitle("Carrot LED 行車連動", subtitle: "已接收 \(budget.samples) 筆車況；\(minutes) 分鐘，可隨時停止")
+            }
         }
         #endif
     }
-    func stop() { finish("行車連動已停止；可回到前景再次開始", success: false) }
+    func stop() { finish("背景連動已停止；前景車況仍可使用", success: active && (budget?.samples ?? 0) > 0) }
     private func finish(_ text: String, success: Bool) {
         guard identifier != nil || active || requesting else { return }
         let id = identifier, work = task, count = budget?.samples ?? 0
         identifier = nil; task = nil; budget = nil
-        active = false; requesting = false; remainingMinutes = 0; message = text
+        active = false; requesting = false; elapsedMinutes = 0; message = text
         work?.expirationHandler = nil
         #if compiler(>=6.2)
         if #available(iOS 26.0, *), success, let continued = work as? BGContinuedProcessingTask {
-            // The acquisition window is complete: report only samples really processed.
+            // The user ended acquisition: only now is the final sample total known.
             continued.progress.totalUnitCount = max(1, count)
             continued.progress.completedUnitCount = count
         }

@@ -256,7 +256,7 @@ struct LEDSettingsPage: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("自動啟動與背景") {
-                Text("開 App 自動重連。要切換到其他 App，請先按下方「開始 60 分鐘連動」，等待 iOS 允許；動態島顯示與背景執行是兩件事。")
+                Text("開 App 自動重連。要切換到其他 App，請先按下方「開始背景連動」，等待 iOS 允許。程式不設連動時限；動態島顯示與背景執行是兩件事。")
                     .font(.footnote).foregroundStyle(.secondary)
                 DrivingSessionView(session: model.drivingSession, runtime: model.drivingRuntime,
                     start: { model.startDrivingSession() }, stop: { model.stopDrivingSession() })

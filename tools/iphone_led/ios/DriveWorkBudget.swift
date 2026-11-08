@@ -1,14 +1,14 @@
 import Foundation
 
-/// One user-started acquisition session. No automatic renewal, no synthetic work.
+/// One user-started acquisition session with no app-imposed duration limit.
+/// System expiration and loss of real samples still end the session.
 struct DriveWorkBudget {
-    enum End: Equatable { case duration, disconnected }
+    enum End: Equatable { case disconnected, invalidClock }
     let startedAt: Double
-    let duration: Double
     private(set) var samples: Int64 = 0
     private(set) var lastSample: Double
-    init(now: Double, duration: Double = 3600) {
-        startedAt = now; lastSample = now; self.duration = duration
+    init(now: Double) {
+        startedAt = now; lastSample = now
     }
     mutating func received(now: Double) {
         guard now.isFinite, now >= lastSample, end(now: now) == nil else { return }
@@ -17,11 +17,20 @@ struct DriveWorkBudget {
         samples += 1; lastSample = now
     }
     func end(now: Double) -> End? {
-        if !now.isFinite || now < startedAt || now - startedAt >= duration { return .duration }
+        if !now.isFinite || now < lastSample { return .invalidClock }
         if now - lastSample >= 30 { return .disconnected }
         return nil
     }
-    func remaining(now: Double) -> Int { max(0, Int(ceil(duration - max(0, now - startedAt)))) }
+    func elapsedMinutes(now: Double) -> Int {
+        guard now.isFinite, now >= startedAt else { return 0 }
+        return Int((now - startedAt) / 60)
+    }
+    func reportProgress(_ progress: Progress) {
+        // The user decides when the stream ends, so its total is unknown.
+        // Do not invent a target, elapsed-time percentage, or recurring deadline.
+        progress.totalUnitCount = -1
+        progress.completedUnitCount = samples
+    }
 }
 
 /// A stale URLSession completion must not release a newer in-flight request.

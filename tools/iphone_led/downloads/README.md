@@ -5,15 +5,15 @@
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
 | Android 手機／車機 | [CarrotLED-0.1.8.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.8.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.27-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.27-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| iPhone | [CarrotLED-iOS-0.28-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.28-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
 
 ## 本版新增
 
-**App 留在前景畫面時可持續連動，沒有 60 分鐘限制，也不用按背景開始鍵。** 以下限時模式只針對切換其他 App／鎖屏；背景任務到期不會停掉前景車況。
+**0.28 取消程式設定的背景 60 分鐘上限。** 前景可直接持續連動；切換其他 App／鎖屏前仍需按開始並等 iOS 允許。畫面改顯示已連動多久，沒有倒數；系統仍可能結束任務。
 
-iPhone **0.27** 新增由使用者開始的背景任務，並修正回前景後舊車況請求卡住。需 **Xcode 26+／iOS 26+**；連線就緒後，到「連線設定 → 自動啟動與背景」按「開始 60 分鐘連動」，等「iOS 已允許」才切換 App。60 分鐘是本次上限，系統可能提早收回；到期或取消後須重新按開始。動態島顯示本身不代表背景任務已允許。詳見 [背景連動更新與驗證](../BACKGROUND_UPDATE.md)。
+iPhone **0.28** 保留由使用者開始的背景任務與回前景後的連線恢復，移除固定時長與固定樣本配額。需 **Xcode 26+／iOS 26+**；連線就緒後，到「連線設定 → 自動啟動與背景」按「開始背景連動」，等「iOS 已允許」才切換 App。持續有有效車況時不因時間經過而停止；系統收回、使用者取消或連續 30 秒無有效車況時仍會結束。動態島顯示本身不代表背景任務已允許。詳見 [背景連動更新與驗證](../BACKGROUND_UPDATE.md)。
 
 iPhone 0.26 改為 LOY 局部更新、合併繪圖封包與相同畫格去重，減少先清整屏造成的閃動。最高目標仍為 20 fps，實體效果待確認；不是 LOY 內建 GIF 播放。Android 下載版仍為 0.1.8。[iPhone 更新與傳輸量驗證](../LOY_DELTA_UPDATE.md)。
 
@@ -107,7 +107,7 @@ open CarrotLEDProbe.xcodeproj
 1. Xcode 上方 Scheme 選 **CarrotLEDProbe**，旁邊執行裝置選**自己的實體 iPhone**。
 2. 按左上角 ▶ 或 `Command + R`，等待編譯、安裝、開啟完成。App 會出現在 iPhone 主畫面／App 資料庫；不是安裝到「檔案」App。
 3. 允許 App 的藍牙與區域網路權限。在 App 的設定頁填入 C4 IP 與原本橋接金鑰，按「連接 C4」，再按「掃描屏幕」，從列表點選自己的屏幕。
-4. 確認收到 C4 車況及屏幕連線、開屏且自動車況已啟用；在「快捷」頁點方塊預覽。要切換 App，先到「連線設定 → 自動啟動與背景」按「開始 60 分鐘連動」，等顯示「iOS 已允許行車連動」才離開 App。動態島可自動顯示，背景任務須每次手動開始。
+4. 確認收到 C4 車況及屏幕連線、開屏且自動車況已啟用；在「快捷」頁點方塊預覽。要切換 App，先到「連線設定 → 自動啟動與背景」按「開始背景連動」，等顯示「iOS 已允許行車連動」才離開 App。動態島可自動顯示，背景任務須每次手動開始。
 5. 要使用換字提示可開啟「換字時展開動態島」。實際展開、收合及更新呈現由 iOS 管理；App 的「最近完成提交」時間不是實體屏幕或動態島已顯示的確認。
 
 若 Xcode 提示 Developer Mode disabled，回到上述開發者模式步驟；若出現開發者磁碟映像無法掛載，先處理 Xcode 裝置準備／系統版本支援，再重新 Run，不需要更動 C4 金鑰。若要求存取 Mac「登入」鑰匙圈，通常是 Mac 的登入鑰匙圈密碼，不是 C4 橋接金鑰。
@@ -135,15 +135,15 @@ ip -4 -o addr show wlan0
 | 藍牙顯示已連線，但 LED 不亮 | 先按開啟屏幕，再按顯示預覽；確認 iPixel 為 64 × 16、LOY 為 96 × 16，其他客戶端已斷開 |
 | C4 資料中斷 | 確認目前 C4 IP、同一區網、橋接已啟動與車況持續更新；這與藍牙連線是兩件事 |
 | 自訂文字被車況取代 | 自動車況開啟時，車況提示優先，結束後才回到選用的自訂文字 |
-| 切背景後停止 | Android 檢查服務通知與車機省電設定；iPhone 回 App 查看背景任務是否已允許、到期或遭系統取消；重新確認資料再按「開始 60 分鐘連動」；強制關閉 App 不等於一般切背景 |
+| 切背景後停止 | Android 檢查服務通知與車機省電設定；iPhone 回 App 查看背景任務是否已允許、車況中斷或遭系統取消；重新確認資料再按「開始背景連動」；強制關閉 App 不等於一般切背景 |
 
 車況七項為 R檔、左方向燈、右方向燈、煞車、雙黃燈、感謝燈、急煞提示。每項及五組自訂文字均可獨立儲存文字樣式。iPhone 與 Android 的系統字型不同，效果不一定完全相同；iPixel 的跑馬燈、閃爍及呼吸採原生文字命令；LOY 仍沿用逐格繪製。實際流暢度需在屏幕驗證。
 
 ## 本次檔案與驗證範圍
 
 - Android：0.1.8，versionCode 9，套件 `tw.carrot.led`。沿用前次已編譯的同簽章 APK，42 項核心檢查、291 筆車況重播、46 筆開屏狀態、2,204 次 LOY 裁切編碼／畫面還原檢查、眼睛點陣及 iPixel 文字／GIF 封包測試通過。
-- iPhone：0.27，主 App 與 extension build 27。新增 18,016 項限時背景工作與輪詢恢復檢查，保留 15,270 項局部更新／合併封包／復原檢查；96×16 開屏素材的協定傳輸量減少約 74%（非實測 fps）。ZIP 已逐檔核對本次原始碼，包含 AppIcon 與開屏素材；完整 App、extension、開屏狀態、車況及封包測試由 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)驗證。實體屏幕效果仍需裝置確認。
+- iPhone：0.28，主 App 與 extension build 28。加入虛擬 24 小時樣本重播、無固定時限／不定總量進度及輪詢恢復檢查，保留 15,270 項局部更新／合併封包／復原檢查；96×16 開屏素材的協定傳輸量減少約 74%（非實測 fps）。ZIP 已逐檔核對本次原始碼，包含 AppIcon 與開屏素材；完整 App、extension、開屏狀態、車況及封包測試由 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)驗證。實體屏幕效果仍需裝置確認。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
-- 0.27 的背景、鎖屏與中斷恢復仍需實體 iPhone 驗證，不能以模擬器或過去版本的成功回報代替。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
+- 0.28 的背景、鎖屏與中斷恢復仍需實體 iPhone 驗證，不能以模擬器或過去版本的成功回報代替。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 
 安裝步驟參考：[Apple 實機執行](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices)、[Apple 開發者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)、[XcodeGen](https://github.com/yonaskolb/XcodeGen)。
