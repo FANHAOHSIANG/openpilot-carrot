@@ -42,7 +42,7 @@ final class DrivingSession: ObservableObject {
         UserDefaults.standard.set(value, forKey: "ledAutoBackground")
         nextAutoAttempt = .distantPast
         if !value { stop() }
-        else { message = "等待 C4 車況與屏幕連線，會自動啟動背景連動" }
+        else { message = "等待連線後自動顯示動態島；背景連動需另外按開始" }
     }
 
     private func tryAutoStart(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String) {
@@ -76,7 +76,7 @@ final class DrivingSession: ObservableObject {
             cancelUpdates()
             alertPolicy.reset(text: displayText)
             activity = item; active = true; lastState = state; lastUpdate = .distantPast
-            message = "行車即時動態已開始，可切換至背景"
+            message = "動態島已顯示；請確認背景任務已允許再切換 App"
             observer = Task { [weak self] in
                 for await state in item.activityStateUpdates {
                     guard !Task.isCancelled else { return }
@@ -84,9 +84,12 @@ final class DrivingSession: ObservableObject {
                         guard let self, self.activity?.id == item.id else { return }
                         self.cancelUpdates()
                         self.activity = nil; self.active = false
-                        self.autoStart = false
-                        UserDefaults.standard.set(false, forKey: "ledAutoBackground")
-                        self.message = "行車即時動態已結束；自動啟動已關閉，可回 App 重新開啟"
+                        if state == .dismissed {
+                            self.autoStart = false
+                            UserDefaults.standard.set(false, forKey: "ledAutoBackground")
+                        }
+                        self.nextAutoAttempt = Date().addingTimeInterval(30)
+                        self.message = "動態島已結束；背景任務狀態請看行車連動區"
                         self.onEnded?()
                         return
                     }
@@ -159,23 +162,27 @@ final class DrivingSession: ObservableObject {
 
 struct DrivingSessionView: View {
     @ObservedObject var session: DrivingSession
+    @ObservedObject var runtime: DrivingRuntime
     let start: () -> Void
+    let stop: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("背景行車連動").font(.headline)
-            Toggle("自動啟動背景連動", isOn: Binding(get: { session.autoStart }, set: { session.setAutoStart($0) }))
+            Toggle("自動顯示行車動態島", isOn: Binding(get: { session.autoStart }, set: { session.setAutoStart($0) }))
             Toggle("換字時展開動態島", isOn: $session.expandOnChange)
             Text("背景換字時暫時展開，至少間隔 2 秒；停留與收合由 iOS 決定。")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
-                Button("立即啟動", action: start).disabled(session.active)
-                Button("停止並關閉自動啟動") { session.stop() }.disabled(!session.active && !session.autoStart)
+                Button("開始 60 分鐘連動", action: start).disabled(runtime.active || runtime.requesting)
+                Button("停止背景連動", action: stop).disabled(!runtime.active && !runtime.requesting && !session.active)
             }
+            Text(runtime.message).font(.footnote).foregroundStyle(runtime.active ? Color.green : Color.orange)
+            if runtime.active { Text("本次最多剩餘 \(runtime.remainingMinutes) 分鐘").font(.caption) }
             Text(session.message).font(.footnote)
             Text(session.islandUpdateStatus).font(.caption)
             Text("提交完成不等於 iOS 已刷新畫面。動態島更新逾時與 C4 車況中斷會分開標示。")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("開啟 App，等 C4 車況與屏幕連線就緒，即會自動啟動；顯示已開始後可切換 App。這不是開機自啟或強制關閉後重啟。背景執行仍受 iOS 管理。")
+            Text("先連接 C4 與屏幕，再按「開始 60 分鐘連動」。等顯示「iOS 已允許」才切換 App。需要 iOS 26／Xcode 26 以上，系統可能提早收回背景時間；到期或取消後須回 App 再按開始。動態島本身不提供持續執行時間。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

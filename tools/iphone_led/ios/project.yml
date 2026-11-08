@@ -13,6 +13,8 @@ targets:
     sources:
       - CarrotLEDProbe.swift
       - DrivingSession.swift
+      - DrivingRuntime.swift
+      - DriveWorkBudget.swift
       - IslandAlertPolicy.swift
       - IPixelProtocol.swift
       - LoyBitmap.swift

@@ -16,6 +16,26 @@ jobs:
       - uses: actions/checkout@v6
         with:
           sparse-checkout: tools/iphone_led/ios
+      - name: Select Xcode with iOS 26 background-task support
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess
+          candidates = []
+          for path in pathlib.Path('/Applications').glob('Xcode*.app'):
+              version = re.search(r'Xcode_(\d+(?:\.\d+)*)', path.name)
+              if version and int(version[1].split('.')[0]) >= 26 and 'beta' not in path.name.lower():
+                  candidates.append((tuple(map(int, version[1].split('.'))), path))
+          if not candidates:
+              raise SystemExit('Xcode 26+ required to verify the real background-task code path')
+          chosen = sorted(candidates)[-1][1] / 'Contents/Developer'
+          subprocess.run(['sudo', 'xcode-select', '-s', str(chosen)], check=True)
+          subprocess.run(['xcodebuild', '-version'], check=True)
+          PY
+      - name: Test bounded drive sessions and polling recovery
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc DriveWorkBudget.swift tests/DriveWorkBudgetTests.swift -o /tmp/drive-work-tests
+          /tmp/drive-work-tests
       - name: Test island alert transitions
         working-directory: tools/iphone_led/ios
         run: |
@@ -78,6 +98,9 @@ jobs:
           assert info['CFBundleDisplayName'] == 'Carrot LED'
           assert info['CFBundleIcons']['CFBundlePrimaryIcon']['CFBundleIconName'] == 'AppIcon'
           assert 'bluetooth-central' in info['UIBackgroundModes']
+          assert 'processing' in info['UIBackgroundModes']
+          assert info['CFBundleIdentifier'] + '.ledDrive.*' in info['BGTaskSchedulerPermittedIdentifiers']
+          assert b'BGContinuedProcessingTaskRequest' in (app / 'CarrotLEDProbe').read_bytes()
           widgets = list((app / 'PlugIns').glob('*.appex/Info.plist'))
           assert len(widgets) == 1
           extension = plistlib.loads(widgets[0].read_bytes())
