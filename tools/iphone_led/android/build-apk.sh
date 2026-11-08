@@ -27,11 +27,27 @@ with zipfile.ZipFile(p/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
 PY
 "$bt/zipalign" -f 4 "$out/unsigned.apk" "$out/aligned.apk"
 key="${CARROT_ANDROID_KEYSTORE:-$HOME/.android/debug.keystore}"
-if [ ! -f "$key" ]; then
+alias="${CARROT_ANDROID_KEY_ALIAS:-androiddebugkey}"
+password="pass:android"
+if [ "${CARROT_ANDROID_RELEASE:-0}" = 1 ]; then
+  : "${CARROT_ANDROID_KEYSTORE:?Release builds require an existing signing key}"
+  : "${CARROT_ANDROID_PASSWORD_FILE:?Release builds require a private password file}"
+  test -f "$key"
+  test -f "$CARROT_ANDROID_PASSWORD_FILE"
+  password="file:$CARROT_ANDROID_PASSWORD_FILE"
+elif [ ! -f "$key" ]; then
   mkdir -p "$(dirname "$key")"
-  keytool -genkeypair -keystore "$key" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+  keytool -genkeypair -keystore "$key" -storepass android -keypass android -alias "$alias" -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
   chmod 600 "$key"
 fi
-"$bt/apksigner" sign --ks "$key" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "$out/CarrotLED-0.1.9.apk" "$out/aligned.apk"
+"$bt/apksigner" sign --ks "$key" --ks-key-alias "$alias" --ks-pass "$password" --out "$out/CarrotLED-0.1.9.apk" "$out/aligned.apk"
 "$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.9.apk"
+if [ "${CARROT_ANDROID_RELEASE:-0}" = 1 ]; then
+  actual=$("$bt/apksigner" verify --print-certs "$out/CarrotLED-0.1.9.apk" | sed -n 's/Signer #1 certificate SHA-256 digest: //p')
+  expected=$(tr -d '\r\n' < signing-certificate.sha256)
+  if [ "$actual" != "$expected" ]; then
+    echo "Signing certificate mismatch; do not distribute this APK" >&2
+    exit 1
+  fi
+fi
 echo "APK: $out/CarrotLED-0.1.9.apk"
