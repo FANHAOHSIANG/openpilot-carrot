@@ -100,7 +100,9 @@ jobs:
           assert 'bluetooth-central' in info['UIBackgroundModes']
           assert 'processing' in info['UIBackgroundModes']
           assert info['CFBundleIdentifier'] + '.ledDrive.*' in info['BGTaskSchedulerPermittedIdentifiers']
-          assert b'BGContinuedProcessingTaskRequest' in (app / 'CarrotLEDProbe').read_bytes()
+          # Xcode 26 debug builds place application code in a companion dylib.
+          executables = [app / 'CarrotLEDProbe', *app.glob('*.dylib')]
+          assert any(b'BGContinuedProcessingTaskRequest' in binary.read_bytes() for binary in executables)
           widgets = list((app / 'PlugIns').glob('*.appex/Info.plist'))
           assert len(widgets) == 1
           extension = plistlib.loads(widgets[0].read_bytes())
