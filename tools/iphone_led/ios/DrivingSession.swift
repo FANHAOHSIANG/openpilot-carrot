@@ -173,16 +173,16 @@ struct DrivingSessionView: View {
             Text("背景換字時暫時展開，至少間隔 2 秒；停留與收合由 iOS 決定。")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
-                Button("開始 60 分鐘連動", action: start).disabled(runtime.active || runtime.requesting)
+                Button("開始背景連動", action: start).disabled(runtime.active || runtime.requesting)
                 Button("停止背景連動", action: stop).disabled(!runtime.active && !runtime.requesting && !session.active)
             }
             Text(runtime.message).font(.footnote).foregroundStyle(runtime.active ? Color.green : Color.orange)
-            if runtime.active { Text("本次最多剩餘 \(runtime.remainingMinutes) 分鐘").font(.caption) }
+            if runtime.active { Text("已連動 \(runtime.elapsedMinutes) 分鐘 · 無固定時限").font(.caption) }
             Text(session.message).font(.footnote)
             Text(session.islandUpdateStatus).font(.caption)
             Text("提交完成不等於 iOS 已刷新畫面。動態島更新逾時與 C4 車況中斷會分開標示。")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("先連接 C4 與屏幕，再按「開始 60 分鐘連動」。等顯示「iOS 已允許」才切換 App。需要 iOS 26／Xcode 26 以上，系統可能提早收回背景時間；到期或取消後須回 App 再按開始。動態島本身不提供持續執行時間。")
+            Text("先連接 C4 與屏幕，再按「開始背景連動」。等顯示「iOS 已允許」才切換 App。沒有程式設定的時間上限；仍可能因系統收回、手動停止或連續 30 秒無有效車況而結束。需要 iOS 26／Xcode 26 以上；系統結束後須回 App 再按開始。前景連動不需開始背景任務。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
