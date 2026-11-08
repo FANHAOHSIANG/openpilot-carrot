@@ -5,15 +5,15 @@
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
 | Android 手機／車機 | [CarrotLED-0.1.8.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.8.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.28-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.28-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| iPhone | [CarrotLED-iOS-0.29-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.29-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
 
 ## 本版新增
 
-**0.28 取消程式設定的背景 60 分鐘上限。** 前景可直接持續連動；切換其他 App／鎖屏前仍需按開始並等 iOS 允許。畫面改顯示已連動多久，沒有倒數；系統仍可能結束任務。
+**0.29 加入真實橋接心跳，完全無回覆時延長為 5 分鐘重連等待。** C4 有回覆但暫無有效車況時，繼續等待而不偽造車況。保留無固定總時限；切換其他 App／鎖屏前仍需按開始並等 iOS 允許。
 
-iPhone **0.28** 保留由使用者開始的背景任務與回前景後的連線恢復，移除固定時長與固定樣本配額。需 **Xcode 26+／iOS 26+**；連線就緒後，到「連線設定 → 自動啟動與背景」按「開始背景連動」，等「iOS 已允許」才切換 App。持續有有效車況時不因時間經過而停止；系統收回、使用者取消或連續 30 秒無有效車況時仍會結束。動態島顯示本身不代表背景任務已允許。詳見 [背景連動更新與驗證](../BACKGROUND_UPDATE.md)。
+iPhone **0.29** 保留由使用者開始的背景任務與回前景連線恢復，分開顯示橋接連線與有效車況。需 **Xcode 26+／iOS 26+**；連線就緒後，到「連線設定 → 自動啟動與背景」按「開始背景連動」，等「iOS 已允許」才切換 App。橋接有真實回覆就繼續等待；完全無回覆超過 5 分鐘、系統收回或使用者取消時仍會結束。車況過期仍嘗試清屏，心跳不延長舊資料時效。動態島顯示本身不代表背景任務已允許。詳見 [背景連動更新與驗證](../BACKGROUND_UPDATE.md)。
 
 iPhone 0.26 改為 LOY 局部更新、合併繪圖封包與相同畫格去重，減少先清整屏造成的閃動。最高目標仍為 20 fps，實體效果待確認；不是 LOY 內建 GIF 播放。Android 下載版仍為 0.1.8。[iPhone 更新與傳輸量驗證](../LOY_DELTA_UPDATE.md)。
 
@@ -142,8 +142,8 @@ ip -4 -o addr show wlan0
 ## 本次檔案與驗證範圍
 
 - Android：0.1.8，versionCode 9，套件 `tw.carrot.led`。沿用前次已編譯的同簽章 APK，42 項核心檢查、291 筆車況重播、46 筆開屏狀態、2,204 次 LOY 裁切編碼／畫面還原檢查、眼睛點陣及 iPixel 文字／GIF 封包測試通過。
-- iPhone：0.28，主 App 與 extension build 28。加入虛擬 24 小時樣本重播、無固定時限／不定總量進度及輪詢恢復檢查，保留 15,270 項局部更新／合併封包／復原檢查；96×16 開屏素材的協定傳輸量減少約 74%（非實測 fps）。ZIP 已逐檔核對本次原始碼，包含 AppIcon 與開屏素材；完整 App、extension、開屏狀態、車況及封包測試由 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)驗證。實體屏幕效果仍需裝置確認。
+- iPhone：0.29，主 App 與 extension build 29。加入虛擬 24 小時樣本重播、心跳與車況分離、5 分鐘重連及輪詢恢復檢查，保留 15,270 項局部更新／合併封包／復原檢查；96×16 開屏素材的協定傳輸量減少約 74%（非實測 fps）。ZIP 已逐檔核對本次原始碼，包含 AppIcon 與開屏素材；完整 App、extension、開屏狀態、車況及封包測試由 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)驗證。實體屏幕效果仍需裝置確認。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
-- 0.28 的背景、鎖屏與中斷恢復仍需實體 iPhone 驗證，不能以模擬器或過去版本的成功回報代替。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
+- 0.29 的背景、鎖屏與中斷恢復仍需實體 iPhone 驗證，不能以模擬器或過去版本的成功回報代替。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 
 安裝步驟參考：[Apple 實機執行](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices)、[Apple 開發者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)、[XcodeGen](https://github.com/yonaskolb/XcodeGen)。
