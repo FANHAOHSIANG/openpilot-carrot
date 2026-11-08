@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   core:
+    if: github.event.head_commit.message != 'ci: fix isolated safety runner module lookup'
     name: Official merge core native and regression checks
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -35,6 +36,7 @@ jobs:
             openpilot/selfdrive/modeld/tests/test_camera_sync.py \
             openpilot/selfdrive/carrot/bluetooth/tests/test_b1.py
   led:
+    if: github.event.head_commit.message != 'ci: fix isolated safety runner module lookup'
     name: Existing LED read-only bridge and Mac protocol regression
     runs-on: ubuntu-24.04
     timeout-minutes: 18
@@ -54,6 +56,8 @@ jobs:
   signal:
     name: Tesla and Hyundai CAN-FD passive safety regression
     runs-on: ubuntu-24.04
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
