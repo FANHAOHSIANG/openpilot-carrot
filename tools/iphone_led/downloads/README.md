@@ -1,3 +1,5 @@
+iPhone 最新：0.30，背景輪詢與錯誤診斷。Android 0.1.9 原始碼已更新；原簽章未取回，APK 下載仍為 0.1.8（不含新通知）。
+
 # Carrot LED 下載與安裝
 
 更新日期：2026-11-08。這裡提供 Android 安裝 APK 與 iPhone Xcode 專案包。

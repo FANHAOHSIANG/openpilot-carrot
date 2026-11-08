@@ -1,3 +1,4 @@
+0.30 背景輪詢更新：請先閱讀 BACKGROUND_UPDATE.txt。
 Carrot LED iPhone 0.29 安裝說明
 
 本版加入真實 C4 橋接心跳判斷，並把完全無回覆的重連等待從 30 秒延長到 5 分鐘。背景總時長仍不設上限。Android 沿用 0.1.8；C4 不需重裝，原金鑰沿用。詳細說明見同目錄 BACKGROUND_UPDATE.txt。
