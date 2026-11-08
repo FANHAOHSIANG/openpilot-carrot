@@ -365,6 +365,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     var automaticBinding: Binding<Bool> {
         Binding(get: { self.enabled }, set: { value in
             if value && !self.screenPowerOn { self.power(true) }; self.startup.cancel(); self.endPreview(); self.enabled = value; self.lastDisplayKey = nil
+            if !value { self.drivingRuntime.stop() }
             if self.ready { self.requestDisplay(!value ? self.idleLabel : "") }
         })
     }
@@ -397,9 +398,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var sequence: UInt16 = 1
     private var timer: Timer?
     let drivingSession = DrivingSession()
+    let drivingRuntime = DrivingRuntime()
     private var inBackground = false
     private var lastSample = Date.distantPast
-    private var isPolling = false
+    private var pollLease = PollLease()
+    private var pollTask: Task<Void, Never>?
     private var generation = UUID()
     private let vehicleRules = VehicleRules()
     private let startup = StartupPlayback()
@@ -421,9 +424,11 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
 
     override init() {
         super.init()
-        drivingSession.onEnded = { [weak self] in
+        // The display activity and the execution task have independent lifetimes.
+        drivingRuntime.onEnded = { [weak self] in
             guard let self, self.inBackground else { return }
-            self.invalidate()
+            self.pollTask?.cancel(); self.pollTask = nil; self.pollLease.reset()
+            self.startup.cancel(); self.invalidate()
         }
         if !UserDefaults.standard.bool(forKey: "ledUI21AutoStartConfigured") {
             drivingSession.setAutoStart(true)
@@ -480,7 +485,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.ready, self.screenPowerOn,
-                      !self.inBackground || self.drivingSession.active else { return }
+                      !self.inBackground || self.drivingRuntime.active else { return }
                 if self.startup.active { self.tickStartup(); return }
                 guard !self.ipixel, self.previewStyle == nil, self.idleLabel == "__eyes__",
                       !self.enabled || (self.vehicleIsFresh && self.latestVehicleLabel.isEmpty) else { return }
@@ -490,6 +495,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                self.drivingRuntime.tick()
                 if self.startup.active {
                     self.updateDrivingSession()
                     if self.startup.active { return }
@@ -502,7 +508,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 }
                 if self.enabled && Date().timeIntervalSince(self.lastSample) >= 0.9 { self.invalidate() }
                 self.updateDrivingSession()
-                guard !self.inBackground || self.drivingSession.active else { return }
+                guard !self.inBackground || self.drivingRuntime.active else { return }
                 guard self.ready, self.screenPowerOn, !self.enabled, !self.idleLabel.isEmpty else { return }
                 self.requestDisplay(self.idleLabel)
             }
@@ -536,7 +542,14 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
     func startDrivingSession() {
+        guard ready, enabled, screenPowerOn, vehicleIsFresh else {
+            vehicleStatus = "請先連接 C4 與屏幕、開屏並啟用自動車況，再開始行車連動"; return
+        }
+        drivingRuntime.start()
         drivingSession.start(sampledAt: lastSample, connected: ready, automatic: enabled, displayText: currentLabel)
+    }
+    func stopDrivingSession() {
+        drivingRuntime.stop(); drivingSession.stop()
     }
     private func updateDrivingSession() {
         drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled, displayText: currentLabel)
@@ -546,9 +559,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         endPreview()
         if wasPreview && ready { requestDisplay("") }
         inBackground = true
-        // Only the explicit experiment may continue polling in background.
-        // Suspension still prevents the watchdog from guaranteeing a LED clear.
-        if !drivingSession.active { startup.cancel(); invalidate() }
+        // A Live Activity is not a CPU/network grant. Only a started task permits
+        // this application's background polling; expiration cannot auto-renew it.
+        if !drivingRuntime.active { startup.cancel(); invalidate() }
     }
     func returnToForeground() {
         inBackground = false
@@ -556,11 +569,12 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         lastSample = .distantPast
         lastDisplayKey = nil
         if enabled && ready { lastLabel = nil; requestDisplay("") }
-        if autoC4 && timer == nil && !host.isEmpty && !token.isEmpty { connectC4() }
+        if autoC4 && !host.isEmpty && !token.isEmpty { connectC4() }
         if central.state == .poweredOn && !ready && !reconnectAttempt { reconnectScreen() }
     }
     func selectScreenType(_ value: Bool) {
         guard value != ipixel else { return }
+        drivingRuntime.stop()
         central.stopScan()
         let old = peripheral; peripheral = nil
         if let old { central.cancelPeripheralConnection(old) }
@@ -734,7 +748,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         guard ready else { return }
         let wasOn = screenPowerOn
         screenPowerOn = on
-        if !on { startup.cancel() }
+        if !on { startup.cancel(); drivingRuntime.stop() }
         if on && !wasOn && StartupArtwork.supported(width: panelWidth, height: panelHeight) {
             queuedLabel = nil
             startup.begin(Int64(ProcessInfo.processInfo.systemUptime*1000))
@@ -753,6 +767,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
 
     func clearScreen() {
+        drivingRuntime.stop()
         startup.cancel()
         endPreview()
         guard ready else { return }
@@ -879,7 +894,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         if ready && !enabled { requestDisplay("") }
     }
     func connectC4() {
-        disconnectC4()
+        disconnectC4(stopRuntime: false)
         let address = host.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !address.isEmpty, !token.isEmpty,
               let url = URL(string: "http://\(address):18765/carstate"), url.host == address else {
@@ -892,25 +907,35 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         let id = generation
         vehicleStatus = "正在連接 C4"
         timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.poll(url, id: id) }
+            Task { @MainActor in self?.schedulePoll(url, id: id) }
         }
     }
-    func disconnectC4() {
+    func disconnectC4(stopRuntime: Bool = true) {
+        if stopRuntime { drivingRuntime.stop() }
+        pollTask?.cancel(); pollTask = nil; pollLease.reset()
         autoC4 = false
         generation = UUID(); timer?.invalidate(); timer = nil
         lastSample = .distantPast; vehicleRules.reset()
         vehicleStatus = "C4 已斷線"; values = "等待車況"
         if enabled { requestDisplay("") }
     }
-    private func poll(_ url: URL, id: UUID) async {
-        guard generation == id, !isPolling, !inBackground || drivingSession.active else { return }
-        isPolling = true; defer { isPolling = false }
+    private func schedulePoll(_ url: URL, id: UUID) {
+        guard generation == id, !inBackground || drivingRuntime.active,
+              let ticket = pollLease.begin(now: ProcessInfo.processInfo.systemUptime) else { return }
+        pollTask?.cancel()
+        pollTask = Task { [weak self] in await self?.poll(url, id: id, ticket: ticket) }
+    }
+    private func poll(_ url: URL, id: UUID, ticket: UUID) async {
+        guard generation == id, pollLease.ticket == ticket, !inBackground || drivingRuntime.active else { return }
+        defer {
+            if pollLease.ticket == ticket { pollLease.finish(ticket); pollTask = nil }
+        }
         let requestedAt = Date()
         var request = URLRequest(url: url, timeoutInterval: 0.7)
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard generation == id, !inBackground || drivingSession.active else { return }
+            guard generation == id, pollLease.ticket == ticket, !Task.isCancelled, !inBackground || drivingRuntime.active else { return }
             guard Date().timeIntervalSince(requestedAt) < 0.9 else { invalidate(); return }
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if response.statusCode == 401 {
@@ -926,6 +951,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 invalidate(); return
             }
             let now = Date(); lastSample = now
+            drivingRuntime.receivedSample()
+            guard !inBackground || drivingRuntime.active else { return }
             vehicleStatus = "已收到 C4 車況"
             values = String(format: "%.1f km/h  %.2f m/s²  檔位 %@\n煞車 %d  左燈 %d  右燈 %d", speed * 3.6, accel, gear, brake ? 1 : 0, left ? 1 : 0, right ? 1 : 0)
             let label = vehicleRules.choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: Int64(ProcessInfo.processInfo.systemUptime*1000))
@@ -933,7 +960,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             if enabled && vehicleRules.emergencyActive && previewStyle != nil { endPreview() }
             if enabled && ready { requestDisplay(label.isEmpty ? idleLabel : label) }
         } catch {
-            guard generation == id, !inBackground || drivingSession.active else { return }
+            guard generation == id, pollLease.ticket == ticket, !Task.isCancelled, !inBackground || drivingRuntime.active else { return }
             if Date().timeIntervalSince(lastSample) > 0.9 { invalidate() }
         }
     }

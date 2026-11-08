@@ -73,7 +73,7 @@ struct LEDDashboard: View {
                 HStack(spacing: 8) {
                     LEDStatusPill(title: model.vehicleIsFresh ? "C4 已連線" : "C4 等待中", online: model.vehicleIsFresh)
                     LEDStatusPill(title: model.ready ? "屏幕已連線" : "屏幕未連線", online: model.ready)
-                    LEDBackgroundPill(session: model.drivingSession)
+                    LEDBackgroundPill(runtime: model.drivingRuntime)
                 }
                 LEDPanel {
                     VStack(alignment: .leading, spacing: 14) {
@@ -140,8 +140,8 @@ struct LEDDashboard: View {
 }
 
 struct LEDBackgroundPill: View {
-    @ObservedObject var session: DrivingSession
-    var body: some View { LEDStatusPill(title: session.active ? "背景運作" : "背景待命", online: session.active) }
+    @ObservedObject var runtime: DrivingRuntime
+    var body: some View { LEDStatusPill(title: runtime.active ? "背景任務已允許" : runtime.requesting ? "背景申請中" : "前景模式", online: runtime.active) }
 }
 struct LEDQuickTile: View {
     let title: String; let detail: String; let icon: String; let color: Color; let action: () -> Void
@@ -256,9 +256,10 @@ struct LEDSettingsPage: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("自動啟動與背景") {
-                Text("已有 IP、金鑰與藍牙授權時，開 App 自動重連並啟用車況。背景連動等待兩端就緒後自動開始。")
+                Text("開 App 自動重連。要切換到其他 App，請先按下方「開始 60 分鐘連動」，等待 iOS 允許；動態島顯示與背景執行是兩件事。")
                     .font(.footnote).foregroundStyle(.secondary)
-                DrivingSessionView(session: model.drivingSession) { model.startDrivingSession() }
+                DrivingSessionView(session: model.drivingSession, runtime: model.drivingRuntime,
+                    start: { model.startDrivingSession() }, stop: { model.stopDrivingSession() })
             }
             Section("屏幕與文字像素") {
                 pixelField("屏幕寬（燈珠）", value: $model.widthDraft)
