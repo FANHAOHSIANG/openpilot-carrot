@@ -932,6 +932,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         }
         let requestedAt = Date()
         var request = URLRequest(url: url, timeoutInterval: 0.7)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -945,14 +947,19 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             }
             guard response.statusCode == 200 else { throw URLError(.badServerResponse) }
             let state = try JSONDecoder().decode(CarState.self, from: data)
-            guard state.valid, let speed = state.speed, let accel = state.accel,
+            if !state.valid {
+                // A fresh, decoded bridge reply is a real liveness check, not carState.
+                drivingRuntime.receivedBridgeResponse(hasVehicle: false)
+                invalidate(); return
+            }
+            guard let speed = state.speed, let accel = state.accel,
                   let brake = state.brake, let left = state.left, let right = state.right,
                   let gear = state.gear, speed.isFinite, accel.isFinite else {
                 invalidate(); return
             }
-            let now = Date(); lastSample = now
             drivingRuntime.receivedSample()
             guard !inBackground || drivingRuntime.active else { return }
+            let now = Date(); lastSample = now
             vehicleStatus = "已收到 C4 車況"
             values = String(format: "%.1f km/h  %.2f m/s²  檔位 %@\n煞車 %d  左燈 %d  右燈 %d", speed * 3.6, accel, gear, brake ? 1 : 0, left ? 1 : 0, right ? 1 : 0)
             let label = vehicleRules.choose(speed: speed, accel: accel, brake: brake, left: left, right: right, gear: gear.lowercased(), now: Int64(ProcessInfo.processInfo.systemUptime*1000))

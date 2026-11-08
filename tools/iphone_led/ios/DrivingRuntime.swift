@@ -10,6 +10,7 @@ final class DrivingRuntime: ObservableObject {
     @Published private(set) var requesting = false
     @Published private(set) var message = "尚未開始；切換 App 前請啟動行車連動"
     @Published private(set) var elapsedMinutes = 0
+    @Published private(set) var connectionStatus = ""
     private var identifier: String?
     private var task: BGTask?
     private var budget: DriveWorkBudget?
@@ -54,6 +55,7 @@ final class DrivingRuntime: ObservableObject {
                 }
                 self.budget = DriveWorkBudget(now: ProcessInfo.processInfo.systemUptime)
                 self.active = true; self.requesting = false; self.elapsedMinutes = 0
+                self.connectionStatus = "等待下一筆 C4 回覆"
                 self.lastProgress = -.infinity; self.lastTitleUpdate = -.infinity
                 self.budget?.reportProgress(work.progress)
                 self.message = "iOS 已允許行車連動，可切換 App（無固定時限）"
@@ -81,41 +83,48 @@ final class DrivingRuntime: ObservableObject {
     #endif
 
     func receivedSample() {
+        receivedBridgeResponse(hasVehicle: true)
+    }
+    func receivedBridgeResponse(hasVehicle: Bool) {
         guard active else { return }
-        budget?.received(now: ProcessInfo.processInfo.systemUptime)
+        budget?.receivedResponse(hasVehicle: hasVehicle, now: ProcessInfo.processInfo.systemUptime)
         tick()
     }
     func tick() {
         guard active, let budget else { return }
         let now = ProcessInfo.processInfo.systemUptime
         if let end = budget.end(now: now) {
-            finish(end == .invalidClock ? "連動計時狀態異常；請回 App 再開始" : "C4 已連續 30 秒無有效車況；背景任務已結束",
+            finish(end == .invalidClock ? "連動計時狀態異常；請回 App 再開始" : "C4 已連續 5 分鐘無橋接回覆；背景任務已結束",
                    success: false)
             return
         }
         let minutes = budget.elapsedMinutes(now: now)
         if elapsedMinutes != minutes { elapsedMinutes = minutes }
+        let status = budget.hasFreshVehicle(now: now) ? "C4 車況持續更新" : budget.hasRecentResponse(now: now)
+            ? "C4 心跳正常，等待有效車況；過期車況不顯示" : "C4 回覆中斷，正在重試（最多等待 5 分鐘）"
+        if connectionStatus != status { connectionStatus = status }
         guard now - lastProgress >= 1 else { return }; lastProgress = now
         #if compiler(>=6.2)
         if #available(iOS 26.0, *), let work = task as? BGContinuedProcessingTask {
             budget.reportProgress(work.progress)
             if now - lastTitleUpdate >= 5 {
                 lastTitleUpdate = now
-                work.updateTitle("Carrot LED 行車連動", subtitle: "已接收 \(budget.samples) 筆車況；\(minutes) 分鐘，可隨時停止")
+                work.updateTitle("Carrot LED 行車連動", subtitle: "橋接回覆 \(budget.responses) 筆／有效車況 \(budget.samples) 筆；\(minutes) 分鐘")
             }
         }
         #endif
     }
-    func stop() { finish("背景連動已停止；前景車況仍可使用", success: active && (budget?.samples ?? 0) > 0) }
+    func stop() { finish("背景連動已停止；前景車況仍可使用", success: active && (budget?.responses ?? 0) > 0) }
     private func finish(_ text: String, success: Bool) {
         guard identifier != nil || active || requesting else { return }
-        let id = identifier, work = task, count = budget?.samples ?? 0
+        let id = identifier, work = task, count = budget?.responses ?? 0
         identifier = nil; task = nil; budget = nil
         active = false; requesting = false; elapsedMinutes = 0; message = text
+        connectionStatus = ""
         work?.expirationHandler = nil
         #if compiler(>=6.2)
         if #available(iOS 26.0, *), success, let continued = work as? BGContinuedProcessingTask {
-            // The user ended acquisition: only now is the final sample total known.
+            // The user ended the session: the actual response total is now known.
             continued.progress.totalUnitCount = max(1, count)
             continued.progress.completedUnitCount = count
         }

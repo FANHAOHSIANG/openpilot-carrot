@@ -1,25 +1,40 @@
 import Foundation
 
 /// One user-started acquisition session with no app-imposed duration limit.
-/// System expiration and loss of real samples still end the session.
+/// Bridge liveness is separate from vehicle-data freshness. A real response
+/// without carState may keep the session open, but never validates a vehicle sample.
 struct DriveWorkBudget {
     enum End: Equatable { case disconnected, invalidClock }
+    static let reconnectGrace: Double = 300
     let startedAt: Double
     private(set) var samples: Int64 = 0
+    private(set) var responses: Int64 = 0
     private(set) var lastSample: Double
+    private(set) var lastResponse: Double
+    private(set) var lastResponseHasVehicle = false
     init(now: Double) {
-        startedAt = now; lastSample = now
+        startedAt = now; lastSample = now; lastResponse = now
     }
     mutating func received(now: Double) {
-        guard now.isFinite, now >= lastSample, end(now: now) == nil else { return }
+        receivedResponse(hasVehicle: true, now: now)
+    }
+    mutating func receivedResponse(hasVehicle: Bool, now: Double) {
+        guard now.isFinite, now >= lastResponse, end(now: now) == nil else { return }
         // The bridge polls at 5 Hz; duplicate callbacks cannot inflate progress.
-        guard samples == 0 || now - lastSample >= 0.15 else { return }
-        samples += 1; lastSample = now
+        guard responses == 0 || now - lastResponse >= 0.15 else { return }
+        responses += 1; lastResponse = now; lastResponseHasVehicle = hasVehicle
+        if hasVehicle { samples += 1; lastSample = now }
     }
     func end(now: Double) -> End? {
-        if !now.isFinite || now < lastSample { return .invalidClock }
-        if now - lastSample >= 30 { return .disconnected }
+        if !now.isFinite || now < lastResponse { return .invalidClock }
+        if now - lastResponse >= Self.reconnectGrace { return .disconnected }
         return nil
+    }
+    func hasRecentResponse(now: Double) -> Bool {
+        responses > 0 && now >= lastResponse && now - lastResponse < 0.9
+    }
+    func hasFreshVehicle(now: Double) -> Bool {
+        samples > 0 && lastResponseHasVehicle && now >= lastSample && now - lastSample < 0.9
     }
     func elapsedMinutes(now: Double) -> Int {
         guard now.isFinite, now >= startedAt else { return 0 }
@@ -29,7 +44,7 @@ struct DriveWorkBudget {
         // The user decides when the stream ends, so its total is unknown.
         // Do not invent a target, elapsed-time percentage, or recurring deadline.
         progress.totalUnitCount = -1
-        progress.completedUnitCount = samples
+        progress.completedUnitCount = responses
     }
 }
 
