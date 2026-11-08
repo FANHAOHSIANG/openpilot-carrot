@@ -1,0 +1,90 @@
+name: Isolated Test candidate verification 2026-11-08
+on:
+  push:
+    branches:
+      - 'validation/test-upstream-8e117140-20261108'
+permissions:
+  contents: read
+jobs:
+  core:
+    name: Official merge core native and regression checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - run: ./tools/op.sh setup
+      - name: Build native runtime without operating devices
+        run: scons -j2
+      - name: Source and combined regression tests
+        run: |
+          python -m pytest -o addopts='' -q \
+            openpilot/selfdrive/controls/tests/test_tesla_traffic_stop_integration.py \
+            openpilot/selfdrive/car/tests/test_tesla_lane_signals.py \
+            openpilot/selfdrive/controls/tests/test_tesla_auto_signal_intent.py \
+            openpilot/selfdrive/controls/tests/test_tesla_turn_journey.py \
+            openpilot/selfdrive/controls/tests/test_desire_helper_stalk.py \
+            openpilot/selfdrive/modeld/tests/test_jetlink_prepare_only_regression.py \
+            openpilot/selfdrive/modeld/tests/test_conflated_extra_camera.py \
+            openpilot/selfdrive/locationd/tests/test_calibration_odom_guard.py \
+            openpilot/selfdrive/carrot/server/tests/test_google_share.py \
+            openpilot/selfdrive/modeld/tests/test_jetlink.py \
+            openpilot/selfdrive/modeld/tests/test_camera_sync.py \
+            openpilot/selfdrive/carrot/bluetooth/tests/test_b1.py
+  led:
+    name: Existing LED read-only bridge and Mac protocol regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest -r tools/iphone_led/mac/requirements.txt
+      - run: PYTHONPATH=tools/iphone_led/mac python -m unittest discover -s tools/iphone_led/mac/tests -v
+      - run: python -m unittest discover -s tools/iphone_led/ios -p test_bridge.py -v
+      - run: python -m pytest -o addopts='' --confcutdir=openpilot/system/manager/test -q openpilot/system/manager/test/test_python_process_spawn.py
+      - run: |
+          python -m compileall -q tools/iphone_led openpilot/selfdrive/carrot/iphone_led_bridge.py
+          cmp openpilot/selfdrive/carrot/iphone_led_bridge.py tools/iphone_led/c4_carstate_bridge.py
+          cmp openpilot/selfdrive/carrot/iphone_led_bridge.py tools/iphone_led/ios/c4_carstate_bridge.py
+  signal:
+    name: Tesla and Hyundai CAN-FD passive safety regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Build offline CAN decoder and safety test library
+        run: |
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+          cd opendbc_repo/opendbc/safety
+          gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -I. -Iboard tests/libsafety/safety.c -o tests/libsafety/libsafety.so
+      - name: Exercise original Hyundai and new Tesla safety semantics
+        run: |
+          python tools/signal_validation/run.py \
+            openpilot/selfdrive/car/tests/test_camera_scc_steering_intent.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_carstate_buttons.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_alt_buttons.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_spas.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_spas.py \
+            openpilot/selfdrive/car/tests/test_hyundai_spas.py \
+            openpilot/selfdrive/car/tests/test_spas_interface.py \
+            opendbc_repo/opendbc/car/tesla/tests \
+            opendbc_repo/opendbc/safety/tests/test_tesla.py \
+            opendbc_repo/opendbc/safety/tests/test_tesla_turn_signals.py \
+            openpilot/selfdrive/car/tests/test_tesla_turn_signals.py \
+            openpilot/selfdrive/car/tests/test_tesla_signal_card.py \
+            openpilot/selfdrive/car/tests/test_tesla_lane_signals.py \
+            openpilot/selfdrive/controls/tests/test_tesla_auto_signal_intent.py \
+            openpilot/selfdrive/controls/tests/test_tesla_turn_journey.py \
+            openpilot/selfdrive/controls/tests/test_tesla_traffic_stop.py \
+            openpilot/selfdrive/controls/tests/test_desire_helper_stalk.py \
+            tools/jetlink/test_blinker.py
