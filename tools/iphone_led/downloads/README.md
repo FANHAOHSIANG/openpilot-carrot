@@ -5,11 +5,13 @@
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
 | Android 手機／車機 | [CarrotLED-0.1.8.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.8.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.25-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.25-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| iPhone | [CarrotLED-iOS-0.26-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.26-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
 
 ## 本版新增
+
+iPhone 0.26 改為 LOY 局部更新、合併繪圖封包與相同畫格去重，減少先清整屏造成的閃動。最高目標仍為 20 fps，實體效果待確認；不是 LOY 內建 GIF 播放。Android 下載版仍為 0.1.8。[iPhone 更新與傳輸量驗證](../LOY_DELTA_UPDATE.md)。
 
 LOY 眼睛與開屏改為最高目標 **20 fps**，減少空白資料傳送、縮短封包間隔並略過忙碌時的舊影格。實體屏幕 fps 尚未量測。詳見 [LOY 流暢動畫更新](../LOY_SMOOTH_UPDATE.md)。
 
@@ -136,7 +138,7 @@ ip -4 -o addr show wlan0
 ## 本次檔案與驗證範圍
 
 - Android：0.1.8，versionCode 9，套件 `tw.carrot.led`。本次已重新編譯、沿用原測試簽章，42 項核心檢查、291 筆車況重播、46 筆開屏狀態、2,204 次 LOY 裁切編碼／畫面還原檢查、眼睛點陣及 iPixel 文字／GIF 封包測試通過。
-- iPhone：0.25，主 App 與 extension build 25。ZIP 已逐檔核對本次原始碼，包含 AppIcon 與開屏素材；完整 App、extension、開屏狀態、車況及封包測試由 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)驗證。實體屏幕效果仍需裝置確認。
+- iPhone：0.26，主 App 與 extension build 26。新增 15,270 項局部更新／合併封包／復原檢查；96×16 開屏素材的協定傳輸量減少約 74%（非實測 fps）。ZIP 已逐檔核對本次原始碼，包含 AppIcon 與開屏素材；完整 App、extension、開屏狀態、車況及封包測試由 [GitHub Actions](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/workflows/iphone-led-build.yaml)驗證。實體屏幕效果仍需裝置確認。
 - 兩份下載檔均通過 ZIP 完整性檢查。[SHA256SUMS](SHA256SUMS)供核對下載檔案。檔案上傳 GitHub 不代表裝置已自動更新。
 - 既有版背景連動曾有使用者成功回報；不同車機、iPhone 系統及新版動態島修正仍需實機確認。連線標示與 App 最近送出內容都不是 LED 硬體顯示回讀。
 

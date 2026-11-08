@@ -1,3 +1,5 @@
+0.26 更新：LOY 局部更新與合併傳送，詳見 LOY_DELTA_UPDATE.txt。必須重新執行 xcodegen generate，包含新增的 LoyCanvas.swift。
+
 最新版本：iPhone 0.24／Android 0.1.7，胡蘿蔔車 App 圖示與開屏動畫；LOY PLAY 96×16 仍支援。請看同目錄 STARTUP_UPDATE.txt，解壓完整專案後重新執行 xcodegen generate。
 
 上一版：iPhone 0.23／Android 0.1.6，新增兩款佐助變化動畫。請見同目錄 SASUKE_EYES_UPDATE.txt，並以完整專案重新產生及安裝。
