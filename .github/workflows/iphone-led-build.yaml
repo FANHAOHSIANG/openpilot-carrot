@@ -36,6 +36,11 @@ jobs:
         run: |
           swiftc EyesBitmap.swift tests/EyesTests.swift -o /tmp/eyes-tests
           /tmp/eyes-tests
+      - name: Replay LOY delta canvas and batched updates
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc LoyBitmap.swift LoyCanvas.swift tests/LoyCanvasTests.swift -o /tmp/loy-canvas-tests
+          /tmp/loy-canvas-tests
       - name: Replay emergency brake scenarios
         working-directory: tools/iphone_led/ios
         run: |

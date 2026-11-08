@@ -412,6 +412,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var loyPumpGeneration = UUID()
     private var nextLoyWrite: TimeInterval = 0
     private var drawActive = false
+    private let loyCanvas = LoyCanvas()
+    private var loyBatch = true
     private var autoC4 = true
     private var reconnectAttempt = false
     private var firstScreenConnection = true
@@ -572,6 +574,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     private func resetTransmission() {
         startup.cancel()
+        loyCanvas.reset(); loyBatch = true
         txGeneration = UUID(); frames = []; ipixelPackets = []
         loyPumpGeneration = UUID(); loyPumpScheduled = false; nextLoyWrite = 0
         sending = false; ipixelWriting = false; ipixelAwaitingAck = false; ipixelAckSeen = false
@@ -712,8 +715,16 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         let data = characteristic.value.map { Array($0) } ?? []
         Task { @MainActor in
-            guard self.peripheral === peripheral, self.ipixel, characteristic === self.notifyCharacteristic,
-                  error == nil, self.ipixelAwaitingAck, IPixelProtocol.ack(data),
+            guard self.peripheral === peripheral, characteristic === self.notifyCharacteristic, error == nil else { return }
+            if !self.ipixel {
+                if let status = LoyCanvas.ackStatus(data), status != 0 {
+                    self.loyCanvas.reset(); self.lastDisplayKey = nil
+                    if status == 3 { self.loyBatch = false }
+                    self.bluetoothStatus = "LOY 拒絕繪圖指令，正在重新同步畫面"
+                }
+                return
+            }
+            guard self.ipixelAwaitingAck, IPixelProtocol.ack(data),
                   !self.ipixelFinalAckRequired || data[4] == 3 else { return }
             self.ipixelAckSeen = true; self.bluetoothStatus = "iPixel 已回覆接收（非畫面回讀）"; self.pump()
         }
@@ -949,7 +960,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             let key = "eyes|\(eyesVariant)|\(eyesColor)|\(native ? 0 : phase)|\(native)"
             if sending || !frames.isEmpty { queuedLabel = label; return }
             guard key != lastDisplayKey else { return }; lastDisplayKey = key
-            currentLabel = EyeAnimations.names[EyeAnimations.index(eyesVariant)]
+            let name = EyeAnimations.names[EyeAnimations.index(eyesVariant)]
+            if currentLabel != name { currentLabel = name }
             let color = UInt32(eyesColor,radix:16) ?? 0x00dcc8
             if native {
                 guard let data = EyeAnimations.gif(eyesVariant,color:color), let packet = IPixelProtocol.gif(data) else {
@@ -958,12 +970,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 eyePlaybackStatus = "iPixel 原生動畫 · 20 fps 素材，屏幕循環播放"
                 enqueue(packet)
             } else {
-                eyePlaybackStatus = ipixel ? "相容播放 · 目標 5 fps，依藍牙吞吐量調整" : "LOY 流暢播放 · 最高目標 20 fps，忙碌時跳格"
+                let status = ipixel ? "相容播放 · 目標 5 fps，依藍牙吞吐量調整" : "LOY 局部更新 · 最高目標 20 fps，實際以屏幕為準"
+                if eyePlaybackStatus != status { eyePlaybackStatus = status }
                 guard let rgba = EyeAnimations.raster(eyesVariant,color:color,width:panelWidth,height:panelHeight,time:ProcessInfo.processInfo.systemUptime) else { return }
-                if !ipixel {
-                    if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
-                    enqueue(clearCommand())
-                }
                 drawEyeRGBA(rgba,color:color,fixed:eyesVariant>=6)
             }
             return
@@ -994,12 +1003,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             if let pixels, let data = IPixelProtocol.text(pixels,width:width,height:panelHeight,rgb:rgb,effect:effect) { enqueue(data) }
             return
         }
-        if !ipixel && !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
         let scrolling = effect == "left" || effect == "right"
-        // The screen may treat zero bits as transparent; clear each frame before drawing.
-        // This is a software fallback, not a confirmed native marquee command.
-        enqueue(clearCommand())
-        if text.isEmpty || (effect == "blink" && tick % 2 == 1) { return }
+        if text.isEmpty || (effect == "blink" && tick % 2 == 1) {
+            sendLoyFrame(layers: [], colors: []); return
+        }
         let offset = effect == "left" ? -(tick * 2) : effect == "right" ? (tick * 2) : 0
         guard let pixels = bitmap(text, offset: offset, customBold: slot?.bold ?? vehicleStyle?.bold ?? !turn, fontChoice: fontChoice, pattern: effect, phase: tick, scrolling: scrolling) else { return }
         var rgb: [UInt8] = [255,180,0]
@@ -1015,7 +1022,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 rgb = [UInt8(r*255), UInt8(g*255), UInt8(b*255)]
             }
         }
-        drawPixels(pixels, color: rgb)
+        sendLoyFrame(layers: [pixels], colors: [rgb])
     }
     private func tickStartup() {
         let idle = !sending && frames.isEmpty && ipixelPackets.isEmpty && !ipixelWriting && !ipixelAwaitingAck
@@ -1030,17 +1037,13 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             } else { startup.cancel(); bluetoothStatus = "開屏素材缺失，請更新完整 App" }
         } else if frame >= 0 {
             if let layers = StartupArtwork.layers(width: panelWidth, frame: frame) {
-                currentLabel = "胡蘿蔔車開走 · 開屏動畫"
+                if currentLabel != "胡蘿蔔車開走 · 開屏動畫" { currentLabel = "胡蘿蔔車開走 · 開屏動畫" }
                 if ipixel {
                     var merged = layers[1]
                     for layer in layers.dropFirst(2) { for i in merged.indices { merged[i] |= layer[i] } }
                     drawPixels(merged, color: StartupArtwork.colors[1])
                 } else {
-                    if !drawActive { enqueue([0x30,0x01,0x90]); drawActive = true }
-                    enqueue(clearCommand())
-                    for i in 1..<4 where layers[i].contains(where: { $0 != 0 }) {
-                        drawPixels(layers[i], color: StartupArtwork.colors[i], compact: true)
-                    }
+                    sendLoyFrame(layers: Array(layers.dropFirst()), colors: Array(StartupArtwork.colors.dropFirst()))
                 }
             } else { startup.cancel(); bluetoothStatus = "開屏素材缺失，請更新完整 App" }
         }
@@ -1212,18 +1215,38 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             var merged = layers[0]
             for layer in layers.dropFirst() { for i in merged.indices { merged[i] |= layer[i] } }
             drawPixels(merged,color:fixed ? [255,34,54] : base.map { UInt8($0) })
-        } else { for (level,layer) in layers.enumerated() {
-            let rgb: [UInt8] = fixed ? palette[level].map { UInt8($0) } : level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
-            drawPixels(layer,color:rgb,compact:true)
-        } }
+        } else {
+            let colors: [[UInt8]] = (0..<4).map { level in
+                fixed ? palette[level].map { UInt8($0) } : level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
+            }
+            sendLoyFrame(layers: layers, colors: colors)
+        }
     }
-    private func enqueue(_ payload: [UInt8]) {
+    private func sendLoyFrame(layers: [[UInt8]], colors: [[UInt8]]) {
+        guard ready, !ipixel, layers.count == colors.count else { return }
+        let row = (panelWidth + 7) / 8
+        guard layers.allSatisfy({ $0.count == row * panelHeight }), colors.allSatisfy({ $0.count == 3 }) else { return }
+        if !drawActive { enqueue([0x30, 0x01, 0x90]); drawActive = true }
+        var canvas = [UInt32](repeating: 0, count: panelWidth * panelHeight)
+        for (index, layer) in layers.enumerated() {
+            let rgb = colors[index]
+            let color = UInt32(rgb[0]) << 16 | UInt32(rgb[1]) << 8 | UInt32(rgb[2])
+            for y in 0..<panelHeight { for x in 0..<panelWidth where layer[y * row + x / 8] & UInt8(128 >> (x % 8)) != 0 {
+                canvas[y * panelWidth + x] = color
+            } }
+        }
+        for packet in loyCanvas.update(canvas, width: panelWidth, height: panelHeight, now: ProcessInfo.processInfo.systemUptime, batch: loyBatch) {
+            enqueue(packet, canvasUpdate: true)
+        }
+    }
+    private func enqueue(_ payload: [UInt8], canvasUpdate: Bool = false) {
         guard let peripheral, let characteristic = writeCharacteristic else { return }
         if ipixel {
             ipixelPackets.append(payload)
             if !sending { sending = true; pump() }
             return
         }
+        if !canvasUpdate { loyCanvas.reset() }
         let length = payload.count + 6
         var frame: [UInt8] = [0xaa,0x55,0xff,0xff, UInt8(length & 255), UInt8((length >> 8) & 255),
                               UInt8(sequence & 255), UInt8(sequence >> 8), 0xc1, 2]
@@ -1231,7 +1254,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         let sum = frame.reduce(UInt32(0)) { $0 + UInt32($1) } & 0xffff
         frame += [UInt8(sum & 255), UInt8(sum >> 8)]
         sequence &+= 1
-        let limit = max(1, min(180, peripheral.maximumWriteValueLength(for: .withoutResponse)))
+        let limit = max(1, min(244, peripheral.maximumWriteValueLength(for: .withoutResponse)))
         for start in stride(from: 0, to: frame.count, by: limit) {
             frames.append(Data(frame[start..<min(start + limit, frame.count)]))
         }
