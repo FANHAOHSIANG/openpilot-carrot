@@ -40,6 +40,7 @@ public final class LedService extends Service {
   long previewUntil = 0;
   public static volatile String previewStatus = "";
   String host = "", token = "", label = "", lastKey = "";
+  final VehicleNotificationPolicy vehicleNotifications = new VehicleNotificationPolicy();
   final VehicleRules rules = new VehicleRules();
   final StartupPlayback startup = new StartupPlayback();
 
@@ -58,6 +59,9 @@ public final class LedService extends Service {
           ble.controls(Collections.singletonList(settings.ipixel() ? IPixelProtocol.power(true) : new byte[] {4, 2, 0, 1}));
           if(StartupArtwork.supported(settings.width(),settings.height())) startup.begin(SystemClock.elapsedRealtime());
         };
+    NotificationChannel events = new NotificationChannel("vehicle_events", "背景車況變更", NotificationManager.IMPORTANCE_HIGH);
+    events.setDescription("已收到的車況變更；可在系統設定關閉聲音或橫幅");
+    getSystemService(NotificationManager.class).createNotificationChannel(events);
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
             new NotificationChannel("drive", "行車 LED 連動", NotificationManager.IMPORTANCE_LOW));
@@ -237,10 +241,25 @@ public final class LedService extends Service {
           connected = ble.ready;
           if (!connected) { powerOn = false; startup.cancel(); }
           discovered = Collections.unmodifiableMap(new LinkedHashMap<>(ble.devices));
+          boolean fresh = lastSample >= 0 && now - lastSample < 900;
+          boolean eligible = !MainActivity.visible && automatic && powerOn && fresh && previewKey.isEmpty()
+              && settings.p.getBoolean("vehicleNotifications", true);
+          String event = vehicleNotifications.next(label, eligible, now);
+          NotificationManager notifications = getSystemService(NotificationManager.class);
+          if (!eligible || label.isEmpty()) notifications.cancel(8);
+          if (!event.isEmpty()) {
+            Settings.Style style = settings.style(event);
+            String title = style == null ? event : style.text;
+            PendingIntent open = PendingIntent.getActivity(LedService.this, 0, new Intent(LedService.this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            notifications.notify(8, new Notification.Builder(LedService.this, "vehicle_events")
+                .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth).setContentTitle("車況：" + title)
+                .setContentText("App 已收到 · " + (ble.ready ? "藍牙已連線（非屏幕回讀）" : "屏幕未連線"))
+                .setContentIntent(open).setAutoCancel(true).setTimeoutAfter(6000).build());
+          }
           if (now - lastNotification >= 2000) {
             lastNotification = now;
             getSystemService(NotificationManager.class)
-                .notify(7, notification(status + " · " + (ble.ready ? "藍牙已連線" : "屏幕未連線")));
+                .notify(7, notification((fresh ? "車況：" + display : "等待新車況") + " · " + status + " · " + (ble.ready ? "藍牙已連線" : "屏幕未連線")));
           }
           h.postDelayed(this, 50);
         }
@@ -415,6 +434,7 @@ public final class LedService extends Service {
   private void shutdown() {
     if (stopping) return;
     stopping = true;
+    getSystemService(NotificationManager.class).cancel(8);
     previewKey = "";
     previewStatus = "";
     generation++;
@@ -440,6 +460,7 @@ public final class LedService extends Service {
 
   public void onDestroy() {
     stopping = true;
+    getSystemService(NotificationManager.class).cancel(8);
     running = false;
     connected = false;
     powerOn = false;
