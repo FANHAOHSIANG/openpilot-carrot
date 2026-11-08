@@ -396,7 +396,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     private var writeCharacteristic: CBCharacteristic?
     private var notifyCharacteristic: CBCharacteristic?
     private var sequence: UInt16 = 1
-    private var timer: Timer?
+    private var pollingLoop: Task<Void, Never>?
     let drivingSession = DrivingSession()
     let drivingRuntime = DrivingRuntime()
     private var inBackground = false
@@ -425,6 +425,10 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     override init() {
         super.init()
         // The display activity and the execution task have independent lifetimes.
+        drivingRuntime.onStarted = { [weak self] in
+            guard let self, self.autoC4 else { return }
+            self.connectC4()
+        }
         drivingRuntime.onEnded = { [weak self] in
             guard let self, self.inBackground else { return }
             self.pollTask?.cancel(); self.pollTask = nil; self.pollLease.reset()
@@ -906,15 +910,23 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         generation = UUID()
         let id = generation
         vehicleStatus = "正在連接 C4"
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.schedulePoll(url, id: id) }
+        // Task.sleep does not depend on the UI RunLoop's default timer mode.
+        // This is still subject to the actual iOS execution grant, not a keepalive.
+        pollingLoop = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.generation == id else { return }
+                self.drivingRuntime.tick()
+                if self.enabled && Date().timeIntervalSince(self.lastSample) >= 0.9 { self.invalidate() }
+                self.schedulePoll(url, id: id)
+                do { try await Task.sleep(nanoseconds: 200_000_000) } catch { return }
+            }
         }
     }
     func disconnectC4(stopRuntime: Bool = true) {
         if stopRuntime { drivingRuntime.stop() }
         pollTask?.cancel(); pollTask = nil; pollLease.reset()
         autoC4 = false
-        generation = UUID(); timer?.invalidate(); timer = nil
+        generation = UUID(); pollingLoop?.cancel(); pollingLoop = nil
         lastSample = .distantPast; vehicleRules.reset()
         vehicleStatus = "C4 已斷線"; values = "等待車況"
         if enabled { requestDisplay("") }
@@ -930,6 +942,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         defer {
             if pollLease.ticket == ticket { pollLease.finish(ticket); pollTask = nil }
         }
+        drivingRuntime.requestStarted(background: inBackground)
         let requestedAt = Date()
         var request = URLRequest(url: url, timeoutInterval: 0.7)
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -938,8 +951,9 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard generation == id, pollLease.ticket == ticket, !Task.isCancelled, !inBackground || drivingRuntime.active else { return }
-            guard Date().timeIntervalSince(requestedAt) < 0.9 else { invalidate(); return }
+            guard Date().timeIntervalSince(requestedAt) < 0.9 else { drivingRuntime.requestFailed("回覆超過 0.9 秒，已捨棄"); invalidate(); return }
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+            if response.statusCode != 200 { drivingRuntime.requestFailed("HTTP \(response.statusCode)") }
             if response.statusCode == 401 {
                 invalidate()
                 vehicleStatus = "橋接金鑰錯誤或已變更，請重新輸入"
@@ -968,6 +982,8 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             if enabled && ready { requestDisplay(label.isEmpty ? idleLabel : label) }
         } catch {
             guard generation == id, pollLease.ticket == ticket, !Task.isCancelled, !inBackground || drivingRuntime.active else { return }
+            let failure = error as NSError
+            drivingRuntime.requestFailed("\(failure.domain) \(failure.code)")
             if Date().timeIntervalSince(lastSample) > 0.9 { invalidate() }
         }
     }

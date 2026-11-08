@@ -292,6 +292,9 @@ public final class MainActivity extends Activity {
       sessionButton=button("開始背景連動",()->{if(LedService.running)send(LedService.STOP);else startSession();});
       Switch launch=new Switch(this);launch.setText("開啟 App 自動開始連動");launch.setTextColor(INK);launch.setMinHeight(dp(56));launch.setChecked(settings.p.getBoolean("autoLaunch",true));launch.setOnCheckedChangeListener((v,value)->settings.p.edit().putBoolean("autoLaunch",value).apply());body.addView(launch);
       text("已有連線設定及授權時自動啟動；首次請輸入 IP 與金鑰。這不是車機開機自啟。",14);
+      Switch alerts=new Switch(this); alerts.setText("背景車況變更通知"); alerts.setTextColor(INK); alerts.setChecked(settings.p.getBoolean("vehicleNotifications",true)); alerts.setOnCheckedChangeListener((v,value)->settings.p.edit().putBoolean("vehicleNotifications",value).apply()); body.addView(alerts);
+      button("車況通知與橫幅設定",()->startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName())));
+      text("需允許通知；相同車況不重複提醒，變更最多每 3 秒一次。通知表示 App 收到車況，非屏幕回讀。",14);
       text("LED 屏幕",20);
       button("屏幕類型 · LOY / iPixel Color",()->{
         if(LedService.running){toast("請先停止背景連動再切換屏幕類型");return;}
@@ -301,7 +304,7 @@ public final class MainActivity extends Activity {
       text("像素與字型",20);button("調整屏幕／文字像素",()->pixels());button("匯入中文字型 TTF / OTF",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),55));
       button("App 系統與背景權限",()->startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+getPackageName()))));
       text("DUDU 車機請允許背景執行。每次連動最多 8 小時，休眠或強制停止後請重新確認連線。",14);
-      text("Carrot LED 0.1.6 · Android "+Build.VERSION.RELEASE,13);
+      text("Carrot LED 0.1.9 · Android "+Build.VERSION.RELEASE,13);
     });
     selectPage(b==null?0:Math.max(0,Math.min(2,b.getInt("page",0))));
     ui.post(()->autoStartIfReady());
@@ -331,12 +334,16 @@ public final class MainActivity extends Activity {
         }
       };
 
+  public static volatile boolean visible = false;
+
   protected void onResume() {
+    visible = true;
     super.onResume();
     ui.post(refresh);
   }
 
   protected void onPause() {
+    visible = false;
     ui.removeCallbacks(refresh);
     super.onPause();
   }

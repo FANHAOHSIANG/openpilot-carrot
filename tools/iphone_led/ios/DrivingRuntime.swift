@@ -11,6 +11,11 @@ final class DrivingRuntime: ObservableObject {
     @Published private(set) var message = "尚未開始；切換 App 前請啟動行車連動"
     @Published private(set) var elapsedMinutes = 0
     @Published private(set) var connectionStatus = ""
+    @Published private(set) var diagnostic = ""
+    private var requests = 0
+    private var backgroundRequests = 0
+    private var watchdog: Task<Void, Never>?
+    var onStarted: (() -> Void)?
     private var identifier: String?
     private var task: BGTask?
     private var budget: DriveWorkBudget?
@@ -58,7 +63,16 @@ final class DrivingRuntime: ObservableObject {
                 self.connectionStatus = "等待下一筆 C4 回覆"
                 self.lastProgress = -.infinity; self.lastTitleUpdate = -.infinity
                 self.budget?.reportProgress(work.progress)
-                self.message = "iOS 已允許行車連動，可切換 App（無固定時限）"
+                self.message = "背景任務已啟動；請留在 App 等待有效車況"
+                self.requests = 0; self.backgroundRequests = 0; self.diagnostic = "尚未發出請求"
+                self.onStarted?()
+                self.watchdog = Task { @MainActor [weak self] in
+                    while !Task.isCancelled {
+                        do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
+                        guard let self, self.identifier == id, self.active else { return }
+                        self.tick()
+                    }
+                }
             }
         }
         guard registered else {
@@ -82,11 +96,22 @@ final class DrivingRuntime: ObservableObject {
     }
     #endif
 
+    func requestStarted(background: Bool) {
+        guard active else { return }
+        requests += 1
+        if background { backgroundRequests += 1 }
+    }
+    func requestFailed(_ reason: String) {
+        guard active else { return }
+        diagnostic = "請求 \(requests)／背景 \(backgroundRequests)：\(reason)"
+    }
     func receivedSample() {
         receivedBridgeResponse(hasVehicle: true)
     }
     func receivedBridgeResponse(hasVehicle: Bool) {
         guard active else { return }
+        diagnostic = "請求 \(requests)／背景 \(backgroundRequests)：" + (hasVehicle ? "收到有效車況" : "橋接回覆 valid=false")
+        if hasVehicle { message = "已收到有效車況，可切換 App；背景持續性仍由 iOS 決定" }
         budget?.receivedResponse(hasVehicle: hasVehicle, now: ProcessInfo.processInfo.systemUptime)
         tick()
     }
@@ -107,7 +132,7 @@ final class DrivingRuntime: ObservableObject {
         #if compiler(>=6.2)
         if #available(iOS 26.0, *), let work = task as? BGContinuedProcessingTask {
             budget.reportProgress(work.progress)
-            if now - lastTitleUpdate >= 5 {
+            if now - lastTitleUpdate >= 30 {
                 lastTitleUpdate = now
                 work.updateTitle("Carrot LED 行車連動", subtitle: "橋接回覆 \(budget.responses) 筆／有效車況 \(budget.samples) 筆；\(minutes) 分鐘")
             }
@@ -118,6 +143,7 @@ final class DrivingRuntime: ObservableObject {
     private func finish(_ text: String, success: Bool) {
         guard identifier != nil || active || requesting else { return }
         let id = identifier, work = task, count = budget?.responses ?? 0
+        watchdog?.cancel(); watchdog = nil
         identifier = nil; task = nil; budget = nil
         active = false; requesting = false; elapsedMinutes = 0; message = text
         connectionStatus = ""

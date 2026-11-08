@@ -178,12 +178,12 @@ struct DrivingSessionView: View {
             }
             Text(runtime.message).font(.footnote).foregroundStyle(runtime.active ? Color.green : Color.orange)
             if runtime.active { Text("已連動 \(runtime.elapsedMinutes) 分鐘 · 無固定時限").font(.caption) }
-            if runtime.active { Text(runtime.connectionStatus).font(.caption) }
+            if runtime.active { Text(runtime.connectionStatus).font(.caption); Text(runtime.diagnostic).font(.caption).textSelection(.enabled) }
             Text(session.message).font(.footnote)
             Text(session.islandUpdateStatus).font(.caption)
             Text("提交完成不等於 iOS 已刷新畫面。動態島更新逾時與 C4 車況中斷會分開標示。")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("先連接 C4 與屏幕，再按「開始背景連動」。等顯示「iOS 已允許」才切換 App。沒有固定時限；橋接有回覆就等待車況，完全無回覆時最多重試 5 分鐘。心跳不會讓過期車況繼續顯示。需要 iOS 26／Xcode 26 以上；系統仍可能結束任務，結束後須回 App 再按開始。前景連動不需開始背景任務。")
+            Text("先連接 C4 與屏幕，再按「開始背景連動」。等顯示「已收到有效車況」才切換 App。沒有固定時限；橋接有回覆就等待車況，完全無回覆時最多重試 5 分鐘。心跳不會讓過期車況繼續顯示。需要 iOS 26／Xcode 26 以上；系統仍可能結束任務，結束後須回 App 再按開始。前景連動不需開始背景任務。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

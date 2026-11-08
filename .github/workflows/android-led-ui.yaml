@@ -38,7 +38,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             mkdir -p /tmp/carrot-led-ui
-            adb install tools/iphone_led/android/build-cli/CarrotLED-0.1.8.apk
+            adb install tools/iphone_led/android/build-cli/CarrotLED-0.1.9.apk
             adb shell wm size 1080x2400
             adb shell wm density 420
             adb shell am start -n tw.carrot.led/.MainActivity
