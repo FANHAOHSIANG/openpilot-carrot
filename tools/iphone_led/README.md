@@ -1,4 +1,6 @@
-最新版本：Android 0.1.8／iPhone 0.25，LOY 最高目標 20 fps、裁切空白色層與加快傳送。[更新說明](LOY_SMOOTH_UPDATE.md)。
+最新 iPhone：0.26，LOY 局部更新、合併傳送、減少清屏閃動。[更新與驗證](LOY_DELTA_UPDATE.md)。Android 仍為 0.1.8。
+
+上一版：Android 0.1.8／iPhone 0.25，LOY 最高目標 20 fps、裁切空白色層與加快傳送。[更新說明](LOY_SMOOTH_UPDATE.md)。
 
 上一版：Android 0.1.7／iPhone 0.24，胡蘿蔔車 App 圖示與開屏動畫，保留 LOY PLAY 96×16。[更新說明](STARTUP_UPDATE.md)。
 

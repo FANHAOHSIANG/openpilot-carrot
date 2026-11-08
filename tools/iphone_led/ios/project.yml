@@ -16,6 +16,7 @@ targets:
       - IslandAlertPolicy.swift
       - IPixelProtocol.swift
       - LoyBitmap.swift
+      - LoyCanvas.swift
       - LEDInterface.swift
       - EyesBitmap.swift
       - EyeAnimations.swift
