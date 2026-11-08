@@ -1216,8 +1216,14 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
             for layer in layers.dropFirst() { for i in merged.indices { merged[i] |= layer[i] } }
             drawPixels(merged,color:fixed ? [255,34,54] : base.map { UInt8($0) })
         } else {
-            let colors: [[UInt8]] = (0..<4).map { level in
-                fixed ? palette[level].map { UInt8($0) } : level == 3 ? [255,255,255] : base.map { UInt8($0*(level+1)/3) }
+            var colors: [[UInt8]] = []
+            for level in 0..<4 {
+                if fixed { colors.append(palette[level].map { UInt8($0) }) }
+                else if level == 3 { colors.append([255,255,255]) }
+                else {
+                    let factor = level + 1
+                    colors.append(base.map { UInt8($0 * factor / 3) })
+                }
             }
             sendLoyFrame(layers: layers, colors: colors)
         }
