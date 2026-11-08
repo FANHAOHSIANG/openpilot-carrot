@@ -1,6 +1,36 @@
+Carrot LED iPhone 0.27 安裝說明
+
+這次修正切換 App 後的背景連動與回前景重連，保留 0.26 的 LOY 局部更新。Android 沿用 0.1.8。C4 不需重裝，原金鑰沿用。
+完整更新說明見同目錄 BACKGROUND_UPDATE.txt；以下 0.27 步驟取代後面的舊版背景啟動方式。
+
+前景持續連動：
+App 留在前景畫面，只要 C4／屏幕連線正常且自動車況開啟，就會持續連動，不必按背景開始鍵，也沒有 60 分鐘限制。下方 60 分鐘只指手動開始的背景任務；它到期不會停掉前景車況。切去其他 App 或鎖屏仍屬背景，並不是沒滑掉 App 就一定會持續執行。
+
+安裝：
+1. Mac 使用 Xcode 26 以上，解壓完整 0.27 專案。
+2. 終端機進入含 project.yml 的 iphone_led_lan 資料夾，執行：
+   xcodegen generate
+   open CarrotLEDProbe.xcodeproj
+   若找不到 xcodegen，已有 Homebrew 時先執行 brew install xcodegen。
+3. CarrotLEDProbe 與 CarrotLEDLiveActivity 兩個 Target 選原本同一個 Personal Team，勾 Automatically manage signing；主 App 沿用原 Bundle Identifier，extension 為相同前綴加 .liveactivity。不要刪舊 App。
+4. 選實體 iPhone，按 Command + R 安裝；允許藍牙與區域網路。App 最低 iOS 16.2，背景模式需要 iOS 26。
+5. C4 車況、屏幕就緒後，開屏、開自動車況。進「連線設定 → 自動啟動與背景」按「開始 60 分鐘連動」，留在 App 等「iOS 已允許行車連動」才切換 App。
+
+「自動顯示行車動態島」只控制顯示，不會自動取得背景執行時間。每次最多 60 分鐘，系統可能提早收回；到期或取消後須回 App 再按開始。回前景會自動重建已設定的 C4 連線。實機背景與鎖屏穩定度仍待驗證。
+
+取得 C4 金鑰與 IP：
+已用 SSH 登入 C4 後，在 C4 終端機執行：
+   cat /data/iphone-led/token
+   ip -4 -o addr show wlan0
+第一行完整字串填入 App 金鑰欄；第二行取 inet 後的 IP，去掉 /24 等後綴。IP 不加 http:// 或連接埠。這是 C4 橋接金鑰，不是 Apple、Wi-Fi 或 Mac 密碼。請自行保管，不要公開。
+金鑰檔若不存在，先依 GitHub tools/iphone_led/README.md 完成橋接設定；原本已能連動者不必重新產生金鑰。
+
+以下僅為歷史版本紀錄；背景使用方式以最上方 0.27 為準。
+----------------------------------------------------------------
+
 0.26 更新：LOY 局部更新與合併傳送，詳見 LOY_DELTA_UPDATE.txt。必須重新執行 xcodegen generate，包含新增的 LoyCanvas.swift。
 
-最新版本：iPhone 0.24／Android 0.1.7，胡蘿蔔車 App 圖示與開屏動畫；LOY PLAY 96×16 仍支援。請看同目錄 STARTUP_UPDATE.txt，解壓完整專案後重新執行 xcodegen generate。
+歷史版本：iPhone 0.24／Android 0.1.7，胡蘿蔔車 App 圖示與開屏動畫；LOY PLAY 96×16 仍支援。請看同目錄 STARTUP_UPDATE.txt，解壓完整專案後重新執行 xcodegen generate。
 
 上一版：iPhone 0.23／Android 0.1.6，新增兩款佐助變化動畫。請見同目錄 SASUKE_EYES_UPDATE.txt，並以完整專案重新產生及安裝。
 

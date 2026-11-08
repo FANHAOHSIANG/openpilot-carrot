@@ -1,4 +1,6 @@
-最新 iPhone：0.26，LOY 局部更新、合併傳送、減少清屏閃動。[更新與驗證](LOY_DELTA_UPDATE.md)。Android 仍為 0.1.8。
+最新 iPhone：0.27，加入須手動開始的限時背景連動，修正回前景後輪詢卡住。需要 Xcode 26+／iOS 26+；詳見 [背景更新](BACKGROUND_UPDATE.md)與[下載安裝](downloads/README.md)。Android 仍為 0.1.8。
+
+上一版 iPhone：0.26，LOY 局部更新、合併傳送、減少清屏閃動。[更新與驗證](LOY_DELTA_UPDATE.md)。Android 仍為 0.1.8。
 
 上一版：Android 0.1.8／iPhone 0.25，LOY 最高目標 20 fps、裁切空白色層與加快傳送。[更新說明](LOY_SMOOTH_UPDATE.md)。
 
@@ -13,12 +15,12 @@
 
 **[Android APK、iPhone 專案包與繁體中文安裝步驟](downloads/README.md)**
 
-Android 0.1.2 可直接下載 APK 安裝到手機或車機；iPhone 0.19 為 Xcode 專案 ZIP，需由 Mac 簽署並安裝，不是可直接點擊安裝的 IPA。下載頁包含 C4 金鑰位置、Xcode 兩個 Target 設定、背景連動及保留舊設定的更新步驟。
+Android 0.1.8 可直接下載 APK 安裝到手機或車機；iPhone 0.27 為 Xcode 專案 ZIP，需由 Mac 簽署並安裝，不是可直接點擊安裝的 IPA。下載頁包含 C4 金鑰位置、Xcode 兩個 Target 設定、背景連動及保留舊設定的更新步驟。
 
 ## 程式位置與啟動
 
-- `ios/`：CarrotLEDProbe iPhone 原生 App 原始碼（0.19）。Mac 使用 XcodeGen 的 `project.yml` 重新產生含 Live Activity extension 的專案，再簽署並安裝；不能只替換舊專案的 Swift 主檔。C4 與 iPhone 接入同一區網，iPhone 以 BLE 控制 LOY PLAY 屏幕。
-- `android/`：Android 8 以上原生 App（0.1.2），使用常駐通知的 connectedDevice 前景服務接收 C4 車況並透過 BLE 傳送。含可側載 APK 建置腳本與停車驗證清單；實機背景穩定度尚待確認。
+- `ios/`：CarrotLEDProbe iPhone 原生 App 原始碼（0.27）。Mac 使用 XcodeGen 的 `project.yml` 重新產生含 Live Activity extension 的專案，再簽署並安裝；不能只替換舊專案的 Swift 主檔。C4 與 iPhone 接入同一區網，iPhone 以 BLE 控制 LOY PLAY 屏幕。
+- `android/`：Android 8 以上原生 App（0.1.8），使用常駐通知的 connectedDevice 前景服務接收 C4 車況並透過 BLE 傳送。含可側載 APK 建置腳本與停車驗證清單；實機背景穩定度尚待確認。
 - `mac/`：既有 Mac LED / Carrot HUD 測試工具（0.4.1），執行 `START.command`。Mac 與 iPhone 是兩個獨立客戶端；Mac 不包含後續只在 iPhone 加入的全部 UI 功能。
 - `openpilot/selfdrive/carrot/iphone_led_bridge.py`：C4 正式橋接入口。manager 僅在 TICI/C4、行車介面已啟動且 `/data/iphone-led/token` 存在時執行，使用獨立 spawn 程序並在崩潰後重啟。
 - `c4_carstate_bridge.py` 和 `ios/c4_carstate_bridge.py`：可單獨執行的相同橋接副本，支援 `CARROT_LED_TOKEN` 或上述固定金鑰檔。
@@ -43,7 +45,7 @@ Android 0.1.2 可直接下載 APK 安裝到手機或車機；iPhone 0.19 為 Xco
 
 真正的外部導航仍具有優先權，即使沒有當下轉彎指令；外部來源失效或斷開時重新計算已儲存座標路線。GPS 有效性和既有減速計算不變。schema、發布者及 navd 必須一起更新並正常重新啟動 C4 程序。沒有整批合併測試分支中的官方更新、其他車型或控制實驗。
 
-## 驗證範圍
+## 原始整合時的驗證紀錄（非目前手機版本）
 
 - Python：184 項通過，另 2 個 subtests；LED 協定／畫面／HUD 連動、橋接認證及資料過期、座標 API、Google 分享配對、navd 來源切換、車況來源發布、Jetlink prepare-only、HUD 導航圖及 Mac N16 傳輸。
 - Node：10 項通過；分享確認、座標直接送出、無效輸入、取消確認及地圖狀態。
