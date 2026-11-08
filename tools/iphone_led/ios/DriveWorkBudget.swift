@@ -20,6 +20,9 @@ struct DriveWorkBudget {
     }
     mutating func receivedResponse(hasVehicle: Bool, now: Double) {
         guard now.isFinite, now >= lastResponse, end(now: now) == nil else { return }
+        // Invalidation takes effect even if two replies arrive close enough
+        // to coalesce their progress count after a variable network delay.
+        if !hasVehicle { lastResponseHasVehicle = false }
         // The bridge polls at 5 Hz; duplicate callbacks cannot inflate progress.
         guard responses == 0 || now - lastResponse >= 0.15 else { return }
         responses += 1; lastResponse = now; lastResponseHasVehicle = hasVehicle

@@ -61,6 +61,8 @@ import Foundation
         check(!recovery.hasFreshVehicle(now:299.2),"invalid response immediately marks vehicle unavailable")
         recovery.received(now:299.4)
         check(recovery.samples == 3 && recovery.hasFreshVehicle(now:299.4),"valid carState recovers after heartbeat-only period")
+        recovery.receivedResponse(hasVehicle:false,now:299.45)
+        check(!recovery.hasFreshVehicle(now:299.45) && recovery.responses == 4,"coalesced heartbeat still invalidates vehicle freshness")
         var waiting = DriveWorkBudget(now:0)
         check(waiting.end(now:31) == nil && waiting.end(now:300) == .disconnected,"failed polling alone never extends the five-minute grace")
         waiting.reportProgress(progress)
