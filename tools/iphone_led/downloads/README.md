@@ -7,7 +7,7 @@ iPhone 最新：0.30，背景輪詢與錯誤診斷。Android 0.1.9 原始碼已�
 | 平台 | 下載檔案 | 如何安裝 |
 | --- | --- | --- |
 | Android 手機／車機 | [CarrotLED-0.1.8.apk](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-0.1.8.apk) | 在 Android 裝置下載，開啟 APK 安裝 |
-| iPhone | [CarrotLED-iOS-0.29-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.29-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
+| iPhone | [CarrotLED-iOS-0.30-Source.zip](https://github.com/FANHAOHSIANG/openpilot-carrot/raw/refs/heads/carrot-wip/tools/iphone_led/downloads/CarrotLED-iOS-0.30-Source.zip) | 在 Mac 解壓，用 Xcode 簽署並安裝到 iPhone |
 
 **iPhone 的 ZIP 是原始碼專案，不是 IPA，也不是 TestFlight 安裝連結。請在 Mac 下載。** 若進入 GitHub 檔案頁，按右上角「Download raw file」下載。不要下載整個 openpilot 倉庫來安裝手機 App。
 
@@ -15,7 +15,7 @@ iPhone 最新：0.30，背景輪詢與錯誤診斷。Android 0.1.9 原始碼已�
 
 **0.29 加入真實橋接心跳，完全無回覆時延長為 5 分鐘重連等待。** C4 有回覆但暫無有效車況時，繼續等待而不偽造車況。保留無固定總時限；切換其他 App／鎖屏前仍需按開始並等 iOS 允許。
 
-iPhone **0.29** 保留由使用者開始的背景任務與回前景連線恢復，分開顯示橋接連線與有效車況。需 **Xcode 26+／iOS 26+**；連線就緒後，到「連線設定 → 自動啟動與背景」按「開始背景連動」，等「iOS 已允許」才切換 App。橋接有真實回覆就繼續等待；完全無回覆超過 5 分鐘、系統收回或使用者取消時仍會結束。車況過期仍嘗試清屏，心跳不延長舊資料時效。動態島顯示本身不代表背景任務已允許。詳見 [背景連動更新與驗證](../BACKGROUND_UPDATE.md)。
+iPhone **0.30** 保留由使用者開始的背景任務與回前景連線恢復，分開顯示橋接連線與有效車況。需 **Xcode 26+／iOS 26+**；連線就緒後，到「連線設定 → 自動啟動與背景」按「開始背景連動」，等「已收到有效車況」才切換 App。橋接有真實回覆就繼續等待；完全無回覆超過 5 分鐘、系統收回或使用者取消時仍會結束。車況過期仍嘗試清屏，心跳不延長舊資料時效。動態島顯示本身不代表背景任務已允許。詳見 [背景連動更新與驗證](../BACKGROUND_UPDATE.md)。
 
 iPhone 0.26 改為 LOY 局部更新、合併繪圖封包與相同畫格去重，減少先清整屏造成的閃動。最高目標仍為 20 fps，實體效果待確認；不是 LOY 內建 GIF 播放。Android 下載版仍為 0.1.8。[iPhone 更新與傳輸量驗證](../LOY_DELTA_UPDATE.md)。
 
