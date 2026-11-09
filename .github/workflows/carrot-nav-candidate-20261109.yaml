@@ -1,0 +1,27 @@
+name: External navigation priority candidate validation
+on:
+  push:
+    branches:
+      - sync/verify-external-nav-priority-20261109
+permissions:
+  contents: read
+jobs:
+  navigation-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test dependencies
+        run: pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests aiohttp pycryptodome zstandard pyserial parameterized
+      - name: Native build including changed cereal schema
+        run: |
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+      - name: External navigation and Google coordinate regression tests
+        run: |
+          python tools/signal_validation/run.py             openpilot/selfdrive/navigation/tests/test_route_engine.py             openpilot/selfdrive/carrot/tests/test_external_navigation_priority.py             openpilot/selfdrive/carrot/server/tests/test_navigation_map.py             openpilot/selfdrive/navd/tests/test_instruction_serialization.py             openpilot/common/tests/test_params.py::TestParams::test_temporary_navigation_destination_lifecycle
