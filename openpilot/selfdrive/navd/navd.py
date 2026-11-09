@@ -119,7 +119,10 @@ class RouteEngine:
       self.send_route()
       self.resend_at = time.monotonic() + 5.
     self.poll_route()
-    if self.sm.valid['carrotMan'] and self.sm.alive['carrotMan'] and self.sm['carrotMan'].activeCarrot > 0:
+    # Only a fresh external session suppresses the coordinate route. Camera, bump,
+    # school-zone and speed-limit warnings can change activeCarrot independently.
+    if (self.sm.valid['carrotMan'] and self.sm.alive['carrotMan']
+        and self.sm['carrotMan'].externalNavigationActive):
       self.was_external = True
       self.pm.send('navInstruction', messaging.new_message('navInstruction', valid=False))
       return

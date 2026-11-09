@@ -54,7 +54,42 @@ def navigation_update(monkeypatch):
     serv.update_navi("", sm, pm, 200., [], [], 200., "gpsLocationExternal")
     return sent["carrotMan"].carrotMan
 
+  update.sm = sm
+  update.sent = sent
   return serv, CS, update
+
+
+def test_source_flag_tracks_external_connection_and_expiry(navigation_update):
+  serv, _, update = navigation_update
+  assert not update().externalNavigationActive
+  serv.active_count = 80
+  assert update().externalNavigationActive
+  serv.active_count = 1
+  assert not update().externalNavigationActive
+
+
+@pytest.mark.parametrize('warning,active', [('camera', 0), ('bump', 5), ('school', 6), ('section', 4)])
+def test_stock_warning_keeps_mapbox_instruction(navigation_update, warning, active):
+  _, CS, update = navigation_update
+  message = carrot_serv.messaging.new_message('navInstruction', valid=True)
+  message.navInstruction.maneuverPrimaryText = 'Coordinate destination'
+  update.sm['navInstruction'] = message.navInstruction
+  update.sm.alive['navInstruction'] = True
+  update.sm.valid = {'navInstruction': True}
+  if warning == 'camera':
+    CS.speedLimit, CS.speedLimitDistance = 30, 10
+  elif warning == 'bump':
+    CS.speedBumpDistance = 30
+  elif warning == 'school':
+    CS.schoolZoneActive = True
+  else:
+    CS.vehicleNaviSectionActive, CS.vehicleNaviSpeed = True, 30
+  state = update()
+  assert state.activeCarrot == active
+  assert not state.externalNavigationActive
+  instruction = update.sent['navInstructionCarrot']
+  assert instruction.valid
+  assert instruction.navInstructionCarrot.maneuverPrimaryText == 'Coordinate destination'
 
 
 @pytest.mark.parametrize("sdi_type", (75, 76))
