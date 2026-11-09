@@ -43,3 +43,22 @@ jobs:
       - run: python -m pip install pytest
       - name: GC and memory sampler regressions
         run: python -m pytest -c /dev/null --rootdir=. --noconftest -q openpilot/system/tests/test_memory_trace.py
+
+  native_control_regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - run: ./tools/op.sh setup
+      - name: Native cereal and full openpilot build
+        run: scons
+      - name: Combined Test production publish, Hyundai CAN-FD stop object and fault gates
+        run: |
+          python -m pytest -o addopts='' -q \
+            openpilot/selfdrive/controls/tests/test_publish_plan_age.py \
+            openpilot/selfdrive/controls/tests/test_controlsd_publish.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_casper_fault_reporting.py \
+            openpilot/selfdrive/selfdrived/tests/test_vehicle_faults.py
