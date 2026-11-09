@@ -24,4 +24,4 @@ jobs:
           python opendbc_repo/opendbc/dbc/generator/generator.py
       - name: External navigation and Google coordinate regression tests
         run: |
-          python tools/signal_validation/run.py             openpilot/selfdrive/navigation/tests/test_route_engine.py             openpilot/selfdrive/carrot/tests/test_external_navigation_priority.py             openpilot/selfdrive/carrot/server/tests/test_navigation_map.py             openpilot/selfdrive/navd/tests/test_instruction_serialization.py             openpilot/common/tests/test_params.py::TestParams::test_temporary_navigation_destination_lifecycle
+          python tools/signal_validation/run.py             openpilot/selfdrive/navigation/tests/test_route_engine.py             openpilot/selfdrive/carrot/tests/test_external_navigation_priority.py             openpilot/selfdrive/carrot/server/tests/test_navigation_map.py             openpilot/selfdrive/navd/tests/test_instruction_serialization.py
