@@ -1,0 +1,85 @@
+{
+  "scope": "software interface smoke test; three previously available 336x190 thumbnails repeated three times each; NOT video, tracking accuracy, on-device performance or vehicle validation",
+  "weights_sha256": "f8d996eec31105011940113a5880734cc7300cc0b43283ceedffc28a6398be82",
+  "environment": {
+    "python": "3.12.14",
+    "ultralytics": "8.4.208",
+    "torch": "2.15.0+cpu",
+    "opencv": "5.0.0",
+    "device": "cpu"
+  },
+  "samples": [
+    {
+      "sample": "04",
+      "image_sha256": "9681d100606b802b0e9cbd4c833259a00bef9a06355c68b9922a496ddcd3403d",
+      "resolution": [
+        336,
+        190
+      ],
+      "truck_track_ids_by_repetition": [
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ],
+      "stable_truck_id": true
+    },
+    {
+      "sample": "17",
+      "image_sha256": "ec8ccf6a964cbf293ec66f3243074b69c4bc03e067e5efaad5be7f9f68681cfb",
+      "resolution": [
+        336,
+        190
+      ],
+      "truck_track_ids_by_repetition": [
+        [
+          1
+        ],
+        [
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "stable_truck_id": true
+    },
+    {
+      "sample": "55",
+      "image_sha256": "e3a8c930a1d641197492ba7aa141c60f0cff0b6cc1a748806d63b7e188856ddd",
+      "resolution": [
+        336,
+        190
+      ],
+      "truck_track_ids_by_repetition": [
+        [
+          1,
+          3,
+          4,
+          5
+        ],
+        [
+          1,
+          3,
+          4,
+          5
+        ],
+        [
+          1,
+          3,
+          4,
+          5
+        ]
+      ],
+      "stable_truck_id": true
+    }
+  ]
+}
