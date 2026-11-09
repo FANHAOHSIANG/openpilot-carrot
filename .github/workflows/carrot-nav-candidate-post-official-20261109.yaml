@@ -1,0 +1,33 @@
+name: Verify navigation custom on post-e318 Test
+on:
+  push:
+    branches: ['sync/verify-nav-post-e318-20261109']
+permissions:
+  contents: read
+env:
+  CI: 1
+jobs:
+  native-navigation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install official openpilot dependencies
+        run: ./tools/op.sh setup
+      - name: Full native and cereal build
+        run: scons
+      - name: Verify external navigation, temporary destinations and latest upstream safety regressions
+        run: |
+          python -m pytest -o addopts='' -q \
+            openpilot/common/tests/test_params.py::TestParams::test_temporary_navigation_destination_lifecycle \
+            openpilot/selfdrive/navigation/tests/test_route_engine.py \
+            openpilot/selfdrive/carrot/tests/test_external_navigation_priority.py \
+            openpilot/selfdrive/carrot/server/tests/test_navigation_map.py \
+            openpilot/selfdrive/navd/tests/test_instruction_serialization.py \
+            openpilot/selfdrive/selfdrived/tests/test_vehicle_faults.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_casper_fault_reporting.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py \
+            openpilot/selfdrive/ui/tests/test_stop_object.py
