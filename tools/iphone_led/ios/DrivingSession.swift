@@ -58,9 +58,6 @@ final class DrivingSession: ObservableObject {
 
     func start(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String) {
         guard !active, cleanupComplete else { return }
-        guard #available(iOS 26.0, *) else {
-            message = "背景藍牙即時動態測試需要 iOS 26 或以上"; return
-        }
         guard UIApplication.shared.applicationState == .active else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             message = "即時動態未獲允許，請在 iPhone 設定中開啟此 App 的即時動態"; return
@@ -98,13 +95,13 @@ final class DrivingSession: ObservableObject {
         } catch { message = "無法開始即時動態：\(error.localizedDescription)" }
     }
 
-    func update(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String) {
+    func update(sampledAt: Date, connected: Bool, automatic: Bool, displayText: String, gpsSpeedKmh: Double? = nil, tripDistanceKm: Double? = nil, gpsSampledAt: Date? = nil) {
         tryAutoStart(sampledAt: sampledAt, connected: connected, automatic: automatic, displayText: displayText)
         guard let item = activity, active else { return }
         let now = Date()
         let fresh = now.timeIntervalSince(sampledAt) < 0.9
         let state = LEDActivityAttributes.ContentState(sampledAt: sampledAt, fresh: fresh,
-                                                       screenConnected: connected, automatic: automatic, displayText: displayText)
+                                                       screenConnected: connected, automatic: automatic, displayText: displayText, gpsSpeedKmh: gpsSpeedKmh, tripDistanceKm: tripDistanceKm, gpsSampledAt: gpsSampledAt)
         let isControl = displayText.isEmpty || ["清屏", "清屏中", "已送開屏指令", "已送關屏指令"].contains(displayText) || displayText.hasSuffix("全亮測試")
         let eligible = expandOnChange && connected && fresh && !isControl
             && UIApplication.shared.applicationState == .background
@@ -168,6 +165,9 @@ struct DrivingSessionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("背景行車連動").font(.headline)
+            Toggle("行車定位模式：GPS 速度與本次里程", isOn: $runtime.useTripLocation).disabled(runtime.active || runtime.requesting)
+            Text("啟用後，行車期間持續使用定位並顯示定位指示；位置只在記憶體計算本次里程，不儲存／上傳軌跡。停止連動即停止定位。關閉此模式才使用實驗性處理任務。").font(.caption)
+            if runtime.useTripLocation { Text(runtime.tripStatus).font(.caption) }
             Toggle("自動顯示行車動態島", isOn: Binding(get: { session.autoStart }, set: { session.setAutoStart($0) }))
             Toggle("換字時展開動態島", isOn: $session.expandOnChange)
             Text("背景換字時暫時展開，至少間隔 2 秒；停留與收合由 iOS 決定。")
@@ -183,7 +183,7 @@ struct DrivingSessionView: View {
             Text(session.islandUpdateStatus).font(.caption)
             Text("提交完成不等於 iOS 已刷新畫面。動態島更新逾時與 C4 車況中斷會分開標示。")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("先連接 C4 與屏幕，再按「開始背景連動」。等顯示「已收到有效車況」才切換 App。沒有固定時限；橋接有回覆就等待車況，完全無回覆時最多重試 5 分鐘。心跳不會讓過期車況繼續顯示。需要 iOS 26／Xcode 26 以上；系統仍可能結束任務，結束後須回 App 再按開始。前景連動不需開始背景任務。")
+            Text("先連接 C4 與屏幕，再按「開始背景連動」。行車定位模式等 GPS 與 C4 都已更新後再切換 App。沒有固定時限；橋接有回覆就等待車況，完全無回覆時最多重試 5 分鐘。心跳不會讓過期車況繼續顯示。關閉行車定位模式時，實驗性處理任務需要 iOS 26／Xcode 26 以上；系統仍可能結束任務，結束後須回 App 再按開始。前景連動不需開始背景任務。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

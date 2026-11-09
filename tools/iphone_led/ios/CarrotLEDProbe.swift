@@ -556,7 +556,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
         drivingRuntime.stop(); drivingSession.stop()
     }
     private func updateDrivingSession() {
-        drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled, displayText: currentLabel)
+        drivingSession.update(sampledAt: lastSample, connected: ready, automatic: enabled, displayText: currentLabel, gpsSpeedKmh: drivingRuntime.gpsSpeedKmh, tripDistanceKm: drivingRuntime.tripDistanceKm, gpsSampledAt: drivingRuntime.gpsSampledAt)
     }
     func enterBackground() {
         let wasPreview = previewStyle != nil
@@ -569,6 +569,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     func returnToForeground() {
         inBackground = false
+        drivingRuntime.resumedForeground()
         // Previous data is never considered fresh after suspension.
         lastSample = .distantPast
         lastDisplayKey = nil
@@ -917,6 +918,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
                 guard let self, self.generation == id else { return }
                 self.drivingRuntime.tick()
                 if self.enabled && Date().timeIntervalSince(self.lastSample) >= 0.9 { self.invalidate() }
+                self.updateDrivingSession()
                 self.schedulePoll(url, id: id)
                 do { try await Task.sleep(nanoseconds: 200_000_000) } catch { return }
             }

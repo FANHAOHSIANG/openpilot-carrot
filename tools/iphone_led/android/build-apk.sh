@@ -12,7 +12,7 @@ import pathlib,sys
 text=pathlib.Path('app/src/main/AndroidManifest.xml').read_text()
 pathlib.Path(sys.argv[1]).write_text(text.replace('<manifest ', '<manifest package="tw.carrot.led" ',1))
 PYMANIFEST
-"$bt/aapt2" link -o "$out/base.apk" -I "$platform" --manifest "$out/AndroidManifest.xml" --version-code 10 --version-name 0.1.9 "$out/resources.zip"
+"$bt/aapt2" link -o "$out/base.apk" -I "$platform" --manifest "$out/AndroidManifest.xml" --version-code 11 --version-name 0.1.10 "$out/resources.zip"
 find app/src/main/java -name '*.java' -print > "$out/sources.txt"
 javac -encoding UTF-8 -source 17 -target 17 -classpath "$platform" -d "$out/classes" @"$out/sources.txt"
 jar cf "$out/classes.jar" -C "$out/classes" .
@@ -40,14 +40,14 @@ elif [ ! -f "$key" ]; then
   keytool -genkeypair -keystore "$key" -storepass android -keypass android -alias "$alias" -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
   chmod 600 "$key"
 fi
-"$bt/apksigner" sign --ks "$key" --ks-key-alias "$alias" --ks-pass "$password" --out "$out/CarrotLED-0.1.9.apk" "$out/aligned.apk"
-"$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.9.apk"
+"$bt/apksigner" sign --ks "$key" --ks-key-alias "$alias" --ks-pass "$password" --out "$out/CarrotLED-0.1.10.apk" "$out/aligned.apk"
+"$bt/apksigner" verify --verbose "$out/CarrotLED-0.1.10.apk"
 if [ "${CARROT_ANDROID_RELEASE:-0}" = 1 ]; then
-  actual=$("$bt/apksigner" verify --print-certs "$out/CarrotLED-0.1.9.apk" | sed -n 's/Signer #1 certificate SHA-256 digest: //p')
+  actual=$("$bt/apksigner" verify --print-certs "$out/CarrotLED-0.1.10.apk" | sed -n 's/Signer #1 certificate SHA-256 digest: //p')
   expected=$(tr -d '\r\n' < signing-certificate.sha256)
   if [ "$actual" != "$expected" ]; then
     echo "Signing certificate mismatch; do not distribute this APK" >&2
     exit 1
   fi
 fi
-echo "APK: $out/CarrotLED-0.1.9.apk"
+echo "APK: $out/CarrotLED-0.1.10.apk"

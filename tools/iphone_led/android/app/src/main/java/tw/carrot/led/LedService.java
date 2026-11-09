@@ -23,6 +23,9 @@ public final class LedService extends Service {
       POWER = "POWER",
       RELOAD = "RELOAD",
       TEST = "TEST", EYES = "EYES";
+  public static volatile String networkStats = "請求 0／橋接回覆 0／有效車況 0／失敗 0";
+  private long requestCount, replyCount, validCount, failedCount;
+  public static volatile String networkStatus = "尚未連線", notificationStatus = "";
   public static volatile String status = "服務未啟動", details = "", screen = "屏幕尚未連線", display = "清屏";
   public static volatile boolean running = false, connected = false, automatic = false, powerOn = false;
   public static volatile Map<String, String> discovered = Collections.emptyMap();
@@ -242,22 +245,20 @@ public final class LedService extends Service {
           if (!connected) { powerOn = false; startup.cancel(); }
           discovered = Collections.unmodifiableMap(new LinkedHashMap<>(ble.devices));
           boolean fresh = lastSample >= 0 && now - lastSample < 900;
-          boolean eligible = !MainActivity.visible && automatic && powerOn && fresh && previewKey.isEmpty()
+          boolean eligible = !MainActivity.visible && automatic && fresh && previewKey.isEmpty()
               && settings.p.getBoolean("vehicleNotifications", true);
           String event = vehicleNotifications.next(label, eligible, now);
           NotificationManager notifications = getSystemService(NotificationManager.class);
-          if (!eligible || label.isEmpty()) notifications.cancel(8);
+          if (!eligible) notifications.cancel(8);
           if (!event.isEmpty()) {
             Settings.Style style = settings.style(event);
             String title = style == null ? event : style.text;
-            PendingIntent open = PendingIntent.getActivity(LedService.this, 0, new Intent(LedService.this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-            notifications.notify(8, new Notification.Builder(LedService.this, "vehicle_events")
-                .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth).setContentTitle("車況：" + title)
-                .setContentText("App 已收到 · " + (ble.ready ? "藍牙已連線（非屏幕回讀）" : "屏幕未連線"))
-                .setContentIntent(open).setAutoCancel(true).setTimeoutAfter(6000).build());
+            VehicleNotifications.show(LedService.this, "收到車況：" + title,
+                "App 已收到 · " + (ble.ready ? "藍牙已連線（非屏幕回讀）" : "屏幕未連線"), 8);
           }
           if (now - lastNotification >= 2000) {
             lastNotification = now;
+            notificationStatus = VehicleNotifications.status(LedService.this);
             getSystemService(NotificationManager.class)
                 .notify(7, notification((fresh ? "車況：" + display : "等待新車況") + " · " + status + " · " + (ble.ready ? "藍牙已連線" : "屏幕未連線")));
           }
@@ -271,6 +272,7 @@ public final class LedService extends Service {
       return;
     }
     polling = true;
+    requestCount++;
     int id = generation;
     String address = host, bearer = token;
     long requested = SystemClock.elapsedRealtime();
@@ -282,23 +284,29 @@ public final class LedService extends Service {
           try {
             URL url = new URL("http://" + address + ":18765/carstate");
             ConnectivityManager cm = getSystemService(ConnectivityManager.class);
-            Network wifi = null;
+            Network selected = null;
+            int best = -1;
             for (Network n : cm.getAllNetworks()) {
               NetworkCapabilities caps = cm.getNetworkCapabilities(n);
-              if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                wifi = n;
-                break;
+              LinkProperties properties = cm.getLinkProperties(n);
+              if (caps == null || properties == null || caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue;
+              for (RouteInfo route : properties.getRoutes()) {
+                IpPrefix prefix = route.getDestination();
+                int match = LanRoute.match(address, prefix.getAddress().getHostAddress(), prefix.getPrefixLength());
+                if (match > best) { best = match; selected = n; }
               }
             }
-            c =
-                (HttpURLConnection)
-                    (wifi == null ? url.openConnection() : wifi.openConnection(url));
+            String routeName = selected == null ? "系統路由" : "C4 區網路由 /" + best;
+            networkStatus = routeName + " · 等待回覆";
+            c = (HttpURLConnection)(selected == null ? url.openConnection() : selected.openConnection(url));
             c.setConnectTimeout(600);
             c.setReadTimeout(600);
             c.setInstanceFollowRedirects(false);
             c.setUseCaches(false);
             c.setRequestProperty("Authorization", "Bearer " + bearer);
             int code = c.getResponseCode();
+            networkStatus = routeName + " · HTTP " + code + " · " + (SystemClock.elapsedRealtime()-requested) + " ms";
+            error = "橋接 HTTP " + code;
             if (code == 401) {
               error = "C4 金鑰錯誤，請重新輸入";
             } else if (code == 200) {
@@ -313,7 +321,9 @@ public final class LedService extends Service {
               }
               data = new JSONObject(b.toString("UTF-8"));
             }
-          } catch (Exception ignored) {
+          } catch (Exception failure) {
+            error = "區網連線失敗：" + failure.getClass().getSimpleName();
+            networkStatus = error + " · " + (SystemClock.elapsedRealtime()-requested) + " ms";
           } finally {
             if (c != null) c.disconnect();
           }
@@ -324,9 +334,11 @@ public final class LedService extends Service {
                 polling = false;
                 if (stopping || id != generation) return;
                 long now = SystemClock.elapsedRealtime();
+                if (result != null) replyCount++;
                 try {
-                  if (result == null || !result.getBoolean("valid") || now - requested >= 900)
-                    throw new JSONException("invalid");
+                  if (result == null) throw new JSONException("no response");
+                  if (!result.getBoolean("valid")) throw new JSONException("bridge has no fresh carState");
+                  if (now - requested >= 900) throw new JSONException("round trip over 900 ms");
                   double speed = result.getDouble("speed"), accel = result.getDouble("accel");
                   if (!Double.isFinite(speed) || !Double.isFinite(accel))
                     throw new JSONException("nonfinite");
@@ -335,6 +347,7 @@ public final class LedService extends Service {
                       right = result.getBoolean("right");
                   String gear = result.getString("gear").toLowerCase(Locale.ROOT);
                   lastSample = now;
+                  validCount++;
                   label = rules.choose(speed, accel, brake, left, right, gear, now);
                   if(automatic && rules.emergencyActive){previewKey="";previewStatus="";}
                   status = "已收到 C4 車況";
@@ -349,13 +362,15 @@ public final class LedService extends Service {
                           left,
                           right);
                 } catch (Exception e) {
+                  failedCount++;
                   lastSample = -1;
                   rules.reset();
                   label = "";
-                  status = message;
+                  status = result == null ? message : "橋接已回覆，但車況失效／格式錯誤：" + e.getMessage();
                   details = "等待有效車況";
                   if (automatic) render(true);
                 }
+                networkStats = "請求 " + requestCount + "／橋接回覆 " + replyCount + "／有效車況 " + validCount + "／失敗 " + failedCount;
               });
         });
   }

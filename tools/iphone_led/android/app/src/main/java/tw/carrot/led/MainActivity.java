@@ -295,6 +295,16 @@ public final class MainActivity extends Activity {
       Switch alerts=new Switch(this); alerts.setText("背景車況變更通知"); alerts.setTextColor(INK); alerts.setChecked(settings.p.getBoolean("vehicleNotifications",true)); alerts.setOnCheckedChangeListener((v,value)->settings.p.edit().putBoolean("vehicleNotifications",value).apply()); body.addView(alerts);
       button("車況通知與橫幅設定",()->startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName())));
       text("需允許通知；相同車況不重複提醒，變更最多每 3 秒一次。通知表示 App 收到車況，非屏幕回讀。",14);
+      button("3 秒後測試通知（不需要連 C4）",()->{
+        VehicleNotifications.create(this);
+        if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},43);toast("允許通知後，再按一次測試");return;}
+        toast("3 秒後送出測試通知，可先切換到導航");
+        ui.postDelayed(()->VehicleNotifications.show(this,"Carrot LED 測試通知","僅測試通知呈現；不是實際車況",9),3000);
+      });
+      button("複製連線與通知診斷",()->{
+        String report="Carrot LED 0.1.10 / Android "+Build.VERSION.RELEASE+"\n"+LedService.status+"\n"+LedService.networkStatus+"\n"+LedService.networkStats+"\n"+VehicleNotifications.status(this)+"\n"+LedService.screen;
+        ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Carrot LED 診斷",report));toast("已複製，不包含金鑰");
+      });
       text("LED 屏幕",20);
       button("屏幕類型 · LOY / iPixel Color",()->{
         if(LedService.running){toast("請先停止背景連動再切換屏幕類型");return;}
@@ -304,7 +314,7 @@ public final class MainActivity extends Activity {
       text("像素與字型",20);button("調整屏幕／文字像素",()->pixels());button("匯入中文字型 TTF / OTF",()->startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),55));
       button("App 系統與背景權限",()->startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,android.net.Uri.parse("package:"+getPackageName()))));
       text("DUDU 車機請允許背景執行。每次連動最多 8 小時，休眠或強制停止後請重新確認連線。",14);
-      text("Carrot LED 0.1.9 · Android "+Build.VERSION.RELEASE,13);
+      text("Carrot LED 0.1.10 · Android "+Build.VERSION.RELEASE,13);
     });
     selectPage(b==null?0:Math.max(0,Math.min(2,b.getInt("page",0))));
     ui.post(()->autoStartIfReady());
@@ -318,7 +328,7 @@ public final class MainActivity extends Activity {
           syncingAuto = false;
           for (Map.Entry<String, TextView> item : quickLabels.entrySet())
             item.getValue().setText(settings.style(item.getKey()).text);
-          state.setText(LedService.status+"\n"+LedService.screen+"\n"+LedService.details+"\n"+LedService.previewStatus);
+          state.setText(LedService.status+"\n"+LedService.screen+"\n"+LedService.details+"\n"+LedService.networkStatus+"\n"+LedService.networkStats+"\n"+VehicleNotifications.status(MainActivity.this)+"\n"+LedService.previewStatus);
           previewLabel.setText(LedService.display);
           c4Pill.setText(LedService.status.equals("已收到 C4 車況")?"● C4 已連線":"● C4 等待中");
           c4Pill.setTextColor(LedService.status.equals("已收到 C4 車況")?GREEN:MUTED);
@@ -336,8 +346,12 @@ public final class MainActivity extends Activity {
 
   public static volatile boolean visible = false;
 
+  public void onWindowFocusChanged(boolean focused) {
+    super.onWindowFocusChanged(focused); visible = focused;
+  }
+
   protected void onResume() {
-    visible = true;
+    visible = hasWindowFocus();
     super.onResume();
     ui.post(refresh);
   }
@@ -394,7 +408,7 @@ public final class MainActivity extends Activity {
 
   boolean permissions() {
     for (String p : required())
-      if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) return false;
+      if (!p.equals(Manifest.permission.POST_NOTIFICATIONS) && checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) return false;
     return true;
   }
 

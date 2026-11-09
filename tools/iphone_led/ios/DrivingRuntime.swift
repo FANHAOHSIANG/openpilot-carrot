@@ -1,11 +1,26 @@
 import BackgroundTasks
+import CoreLocation
 import SwiftUI
 import UIKit
 
 /// ActivityKit is presentation. This object owns the separate, user-initiated
 /// CPU/network task. Merely requesting one does not authorize background work.
 @MainActor
-final class DrivingRuntime: ObservableObject {
+final class DrivingRuntime: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var useTripLocation = UserDefaults.standard.object(forKey: "ledUseTripLocation") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(useTripLocation, forKey: "ledUseTripLocation") }
+    }
+    @Published private(set) var tripStatus = "行車定位尚未開始"
+    @Published private(set) var gpsSampledAt: Date?
+    private var metrics = TripMetrics()
+    private var previousLocation: CLLocation?
+    private let location = CLLocationManager()
+    var gpsSpeedKmh: Double? { guard let gpsSampledAt, Date().timeIntervalSince(gpsSampledAt) < 15 else { return nil }; return metrics.speedKmh }
+    var tripDistanceKm: Double? { active && useTripLocation ? metrics.metres / 1000 : nil }
+    override init() {
+        super.init()
+        location.delegate = self
+    }
     @Published private(set) var active = false
     @Published private(set) var requesting = false
     @Published private(set) var message = "尚未開始；切換 App 前請啟動行車連動"
@@ -26,10 +41,90 @@ final class DrivingRuntime: ObservableObject {
     // Called ONLY by the foreground Start button, never by timers or reconnect.
     func start() {
         guard !active, !requesting, UIApplication.shared.applicationState == .active else { return }
+        if useTripLocation { startTrip(); return }
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) { submit(); return }
         #endif
         message = "此模式需要 iOS 26 與 Xcode 26 以上；目前請保持 App 在前景"
+    }
+
+    private func startTrip() {
+        guard CLLocationManager.locationServicesEnabled() else { message = "請先開啟 iPhone 定位服務"; return }
+        guard let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String], modes.contains("location") else {
+            message = "缺少背景定位設定，請重新產生完整專案"; return
+        }
+        identifier = "location." + UUID().uuidString
+        requesting = true
+        switch location.authorizationStatus {
+        case .notDetermined:
+            message = "行車里程需要定位；請允許使用 App 期間定位"
+            location.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways: activateTrip()
+        default: finish("定位未允許；可到系統設定開啟，或關閉行車定位模式使用實驗性背景任務", success: false)
+        }
+    }
+    func resumedForeground() {
+        guard requesting, useTripLocation,
+              location.authorizationStatus == .authorizedWhenInUse || location.authorizationStatus == .authorizedAlways else { return }
+        activateTrip()
+    }
+    private func activateTrip() {
+        guard requesting, useTripLocation, UIApplication.shared.applicationState == .active else { return }
+        metrics = TripMetrics(); previousLocation = nil; gpsSampledAt = nil
+        location.activityType = .automotiveNavigation
+        location.desiredAccuracy = kCLLocationAccuracyBest
+        location.distanceFilter = kCLDistanceFilterNone
+        location.pausesLocationUpdatesAutomatically = false
+        location.showsBackgroundLocationIndicator = true
+        location.allowsBackgroundLocationUpdates = true
+        location.startUpdatingLocation()
+        active = true; requesting = false; elapsedMinutes = 0
+        requests = 0; backgroundRequests = 0
+        budget = DriveWorkBudget(now: ProcessInfo.processInfo.systemUptime)
+        message = "行車定位已開始；等待 GPS 與有效 C4 車況"
+        tripStatus = "等待手機 GPS；定位僅供本次速度／里程，不上傳或儲存軌跡"
+        onStarted?()
+        let id = identifier
+        watchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
+                guard let self, self.identifier == id, self.active else { return }
+                self.tick()
+            }
+        }
+    }
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        Task { @MainActor [weak self] in
+            guard let self, self.useTripLocation, self.active || self.requesting else { return }
+            switch self.location.authorizationStatus {
+            case .authorizedAlways, .authorizedWhenInUse:
+                if self.requesting { self.activateTrip() }
+            case .denied, .restricted: self.finish("定位權限已關閉；背景行車已停止", success: false)
+            default: break
+            }
+        }
+    }
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        Task { @MainActor [weak self] in
+            guard let self, self.active, self.useTripLocation, let fix = locations.last else { return }
+            let previous = self.previousLocation
+            if let previous, fix.timestamp <= previous.timestamp { return }
+            let accepted = self.metrics.record(speed: fix.speed, accuracy: fix.horizontalAccuracy,
+                age: Date().timeIntervalSince(fix.timestamp), distance: previous.map { fix.distance(from: $0) },
+                interval: previous.map { fix.timestamp.timeIntervalSince($0.timestamp) })
+            guard accepted else { return }
+            self.previousLocation = fix; self.gpsSampledAt = fix.timestamp
+            let speed = self.metrics.speedKmh.map { String(format: "%.0f km/h", $0) } ?? "速度未知"
+            self.tripStatus = String(format: "手機 GPS %@ · 本次約 %.2f km（非 C4 車速）", speed, self.metrics.metres / 1000)
+        }
+    }
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        let code = (error as NSError).code
+        Task { @MainActor [weak self] in
+            guard let self, self.active, self.useTripLocation else { return }
+            self.tripStatus = "手機定位暫不可用（\(code)）；不會拿定位代替 C4 車況"
+            if code == CLError.denied.rawValue { self.finish("定位服務已中止；請回 App 確認權限", success: false) }
+        }
     }
 
     #if compiler(>=6.2)
@@ -111,7 +206,9 @@ final class DrivingRuntime: ObservableObject {
     func receivedBridgeResponse(hasVehicle: Bool) {
         guard active else { return }
         diagnostic = "請求 \(requests)／背景 \(backgroundRequests)：" + (hasVehicle ? "收到有效車況" : "橋接回覆 valid=false")
-        if hasVehicle { message = "已收到有效車況，可切換 App；背景持續性仍由 iOS 決定" }
+        if hasVehicle {
+            message = useTripLocation ? (gpsSampledAt == nil ? "已收到 C4；等待手機 GPS，請留在 App" : "行車定位與 C4 已更新，可切換 App；系統仍可能中止") : "已收到有效車況，可切換 App；背景持續性仍由 iOS 決定"
+        }
         budget?.receivedResponse(hasVehicle: hasVehicle, now: ProcessInfo.processInfo.systemUptime)
         tick()
     }
@@ -143,6 +240,10 @@ final class DrivingRuntime: ObservableObject {
     private func finish(_ text: String, success: Bool) {
         guard identifier != nil || active || requesting else { return }
         let id = identifier, work = task, count = budget?.responses ?? 0
+        location.stopUpdatingLocation()
+        location.allowsBackgroundLocationUpdates = false
+        previousLocation = nil; gpsSampledAt = nil
+        tripStatus = "行車定位已停止"
         watchdog?.cancel(); watchdog = nil
         identifier = nil; task = nil; budget = nil
         active = false; requesting = false; elapsedMinutes = 0; message = text
@@ -155,7 +256,7 @@ final class DrivingRuntime: ObservableObject {
             continued.progress.completedUnitCount = count
         }
         #endif
-        if let id { BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: id) }
+        if let id, !id.hasPrefix("location.") { BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: id) }
         work?.setTaskCompleted(success: success)
         onEnded?()
     }

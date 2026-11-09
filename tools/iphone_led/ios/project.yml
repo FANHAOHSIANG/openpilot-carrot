@@ -15,6 +15,7 @@ targets:
       - DrivingSession.swift
       - DrivingRuntime.swift
       - DriveWorkBudget.swift
+      - TripMetrics.swift
       - IslandAlertPolicy.swift
       - IPixelProtocol.swift
       - LoyBitmap.swift
