@@ -1,3 +1,5 @@
+最新版本：iPhone 0.31 / Android 0.1.10。請優先閱讀 BACKGROUND_UPDATE 說明；以下包含歷史版本紀錄。
+
 0.30 背景輪詢更新：請先閱讀 BACKGROUND_UPDATE.txt。
 Carrot LED iPhone 0.29 安裝說明
 

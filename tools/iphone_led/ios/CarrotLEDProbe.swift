@@ -569,6 +569,7 @@ final class CarrotLED: NSObject, ObservableObject, CBCentralManagerDelegate, CBP
     }
     func returnToForeground() {
         inBackground = false
+        drivingRuntime.resumedForeground()
         // Previous data is never considered fresh after suspension.
         lastSample = .distantPast
         lastDisplayKey = nil

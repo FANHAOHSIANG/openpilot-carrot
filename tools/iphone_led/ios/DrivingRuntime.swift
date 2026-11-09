@@ -63,6 +63,11 @@ final class DrivingRuntime: NSObject, ObservableObject, CLLocationManagerDelegat
         default: finish("定位未允許；可到系統設定開啟，或關閉行車定位模式使用實驗性背景任務", success: false)
         }
     }
+    func resumedForeground() {
+        guard requesting, useTripLocation,
+              location.authorizationStatus == .authorizedWhenInUse || location.authorizationStatus == .authorizedAlways else { return }
+        activateTrip()
+    }
     private func activateTrip() {
         guard requesting, useTripLocation, UIApplication.shared.applicationState == .active else { return }
         metrics = TripMetrics(); previousLocation = nil; gpsSampledAt = nil
