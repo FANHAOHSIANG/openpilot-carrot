@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test dependencies
-        run: pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests aiohttp pycryptodome zstandard pyserial parameterized
+        run: pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests aiohttp pyzmq jeepney pycryptodome zstandard pyserial parameterized
       - name: Native build including changed cereal schema
         run: |
           scons -f tools/native_cpu/SConstruct -j2
