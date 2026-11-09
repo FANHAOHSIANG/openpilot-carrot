@@ -379,6 +379,7 @@ class Controls:
     hudControl.leadRelSpeed = leadOne.vRel if leadOne.status else 0
     hudControl.leadRadar = 1 if leadOne.radar else 0
     hudControl.leadDPath = leadOne.dPath
+    t_since_plan = (self.sm.frame - self.sm.recv_frame['longitudinalPlan']) * DT_CTRL
     hudControl.signalStopObject = signal_stop_object_requested(
       self.CP, CS, CC, lp, radarState,
       inputs_ready=self.sm.all_checks(['longitudinalPlan', 'radarState']) and
@@ -484,3 +485,4 @@ def main():
 
 if __name__ == "__main__":
   main()
+
