@@ -5,6 +5,7 @@ import hmac
 import json
 import math
 import os
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,6 +30,13 @@ class StateCache:
 
 def handler(cache, token):
     class Handler(BaseHTTPRequestHandler):
+        protocol_version = 'HTTP/1.1'
+        def setup(self):
+            super().setup()
+            # Reuse one connection per client; idle/partial requests cannot hold it forever.
+            self.connection.settimeout(2.0)
+            self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
         def log_message(self, *args):
             pass
         def do_GET(self):

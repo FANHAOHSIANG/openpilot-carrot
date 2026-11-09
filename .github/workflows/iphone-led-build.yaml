@@ -36,6 +36,11 @@ jobs:
         run: |
           swiftc DriveWorkBudget.swift tests/DriveWorkBudgetTests.swift -o /tmp/drive-work-tests
           /tmp/drive-work-tests
+      - name: Test GPS trip quality filters
+        working-directory: tools/iphone_led/ios
+        run: |
+          swiftc TripMetrics.swift tests/TripMetricsTests.swift -o /tmp/trip-metrics-tests
+          /tmp/trip-metrics-tests
       - name: Test island alert transitions
         working-directory: tools/iphone_led/ios
         run: |
@@ -99,6 +104,8 @@ jobs:
           assert info['CFBundleIcons']['CFBundlePrimaryIcon']['CFBundleIconName'] == 'AppIcon'
           assert 'bluetooth-central' in info['UIBackgroundModes']
           assert 'processing' in info['UIBackgroundModes']
+          assert 'location' in info['UIBackgroundModes']
+          assert info['NSLocationWhenInUseUsageDescription']
           assert info['CFBundleIdentifier'] + '.ledDrive.*' in info['BGTaskSchedulerPermittedIdentifiers']
           # Xcode 26 debug builds place application code in a companion dylib.
           executables = [app / 'CarrotLEDProbe', *app.glob('*.dylib')]

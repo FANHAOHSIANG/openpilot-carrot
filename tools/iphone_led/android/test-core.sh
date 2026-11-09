@@ -23,3 +23,6 @@ java -cp "$out" tw.carrot.led.LoyAnimationTests
 
 javac -encoding UTF-8 -d "$out" app/src/main/java/tw/carrot/led/VehicleNotificationPolicy.java tests/VehicleNotificationTests.java
 java -cp "$out" tw.carrot.led.VehicleNotificationTests
+
+javac -encoding UTF-8 -d "$out" app/src/main/java/tw/carrot/led/LanRoute.java tests/LanRouteTests.java
+java -cp "$out" tw.carrot.led.LanRouteTests

@@ -15,9 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.30</string>
+	<string>0.31</string>
 	<key>CFBundleVersion</key>
-	<string>30</string>
+	<string>31</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -33,6 +33,7 @@
 	<array>
 		<string>bluetooth-central</string>
 		<string>processing</string>
+		<string>location</string>
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
@@ -42,5 +43,7 @@
 	<dict/>
 	<key>CFBundleDisplayName</key>
 	<string>Carrot LED</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>行車時顯示手機 GPS 速度與本次里程，並接收背景定位更新以持續呈現行車動態。停止連動即停止定位，不上傳或保存位置軌跡。</string>
 </dict>
 </plist>

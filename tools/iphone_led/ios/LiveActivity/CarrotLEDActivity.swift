@@ -15,6 +15,7 @@ struct CarrotLEDActivity: Widget {
                 Text("最近送出：" + displayText(context)).font(.title2.bold())
                     .lineLimit(2).minimumScaleFactor(0.7)
                 Text(status(context)).font(.subheadline)
+                tripText(context).font(.caption)
                 Text(context.state.screenConnected ? "屏幕：最近回報藍牙已連線" : "屏幕：藍牙未連線")
                     .font(.caption)
                 HStack {
@@ -34,6 +35,7 @@ struct CarrotLEDActivity: Widget {
                     VStack(spacing: 4) {
                         Text(displayText(context)).font(.title2.bold()).lineLimit(2).minimumScaleFactor(0.7)
                         Text(status(context)).font(.caption)
+                        tripText(context).font(.caption2)
                         Text("App 最近送出內容，非屏幕回讀").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
@@ -45,6 +47,15 @@ struct CarrotLEDActivity: Widget {
             } minimal: {
                 Image(systemName: context.isStale || !context.state.fresh ? "exclamationmark.triangle" : "car.side.fill")
             }
+        }
+    }
+
+    @ViewBuilder private func tripText(_ context: ActivityViewContext<LEDActivityAttributes>) -> some View {
+        if let km = context.state.tripDistanceKm {
+            if !context.isStale, let at = context.state.gpsSampledAt, Date().timeIntervalSince(at) < 15,
+               let speed = context.state.gpsSpeedKmh {
+                Text(String(format: "手機 GPS %.0f km/h · 本次約 %.2f km", speed, km))
+            } else { Text(String(format: "手機 GPS 暫無新定位 · 本次約 %.2f km", km)) }
         }
     }
 
