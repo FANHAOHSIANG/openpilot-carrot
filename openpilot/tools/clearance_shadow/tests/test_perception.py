@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 
 from openpilot.tools.clearance_shadow.perception import detections_from_result, project_detection
+from openpilot.tools.clearance_shadow.policy import OffsetObserver
+from openpilot.tools.clearance_shadow.tests.test_policy import run, truck
 
 
 def camera():
@@ -46,3 +48,24 @@ def test_model_metadata_names_used_instead_of_coco_ids():
 def test_untracked_box_is_not_fabricated_as_track_zero():
   box = SimpleNamespace(cls=np.array(0), id=None, conf=np.array(0.9), xyxy=np.array([[1, 2, 3, 4]]))
   assert detections_from_result(SimpleNamespace(names={0: 'truck'}, boxes=[box]))[0]['track_id'] is None
+
+
+@pytest.mark.parametrize(('raw', 'canonical'), [
+  ('rider', 'person'), ('motor', 'motorcycle'), ('bike', 'bicycle'), ('train', 'train'),
+  ('person', 'person'), ('motorcycle', 'motorcycle'), ('bicycle', 'bicycle'),
+])
+def test_bdd_and_coco_road_actor_names_are_retained(raw, canonical):
+  box = SimpleNamespace(cls=np.array(3), id=np.array(7), conf=np.array(0.9), xyxy=np.array([[1, 2, 3, 4]]))
+  detection = detections_from_result(SimpleNamespace(names={3: raw}, boxes=[box]))[0]
+  assert detection['label'] == canonical
+  assert detection['raw_label'] == raw
+
+
+@pytest.mark.parametrize('raw', ['rider', 'motor', 'bike', 'train'])
+def test_bdd_actor_on_opposite_side_blocks_candidate(raw):
+  box = SimpleNamespace(cls=np.array(3), id=np.array(7), conf=np.array(0.9), xyxy=np.array([[1, 2, 3, 4]]))
+  actor = detections_from_result(SimpleNamespace(names={3: raw}, boxes=[box]))[0]
+  actor.update(x_m=12, y_min_m=-4.5, y_max_m=-2.1, geometry_valid=True)
+  outcome = run(OffsetObserver(), [truck(), actor])[-1]
+  assert outcome['reason'] == 'actors on both sides'
+  assert outcome['candidate_offset_m'] == 0 and outcome['applied_offset_m'] == 0

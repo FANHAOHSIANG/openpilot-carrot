@@ -3,7 +3,10 @@ import math
 
 import numpy as np
 
-ROAD_ACTORS = frozenset(('person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck'))
+ROAD_ACTORS = frozenset(('person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck', 'train'))
+# The user's BDD model names these classes differently from COCO. Preserve
+# riders and two-wheelers as blockers even when the alias is not a truck/bus.
+CLASS_ALIASES = {'rider': 'person', 'motor': 'motorcycle', 'bike': 'bicycle'}
 
 
 def project_detection(det, camera):
@@ -38,11 +41,12 @@ def detections_from_result(result):
   if result.boxes is None:
     return detections
   for box in result.boxes:
-    label = str(result.names[int(box.cls.item())]).lower().strip()
+    raw_label = str(result.names[int(box.cls.item())]).lower().strip()
+    label = CLASS_ALIASES.get(raw_label, raw_label)
     if label not in ROAD_ACTORS:
       continue
     track_id = int(box.id.item()) if box.id is not None else None
-    detections.append({'label': label, 'track_id': track_id, 'confidence': float(box.conf.item()),
+    detections.append({'label': label, 'raw_label': raw_label, 'track_id': track_id, 'confidence': float(box.conf.item()),
                        'box': [float(v) for v in box.xyxy[0].tolist()]})
   return detections
 

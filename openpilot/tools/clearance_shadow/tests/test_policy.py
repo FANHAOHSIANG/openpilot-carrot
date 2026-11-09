@@ -58,7 +58,7 @@ def test_gates(key, value):
   assert all(r['candidate_offset_m'] == 0 for r in out)
 
 
-@pytest.mark.parametrize('other', ['truck', 'bus', 'car', 'motorcycle', 'bicycle', 'person'])
+@pytest.mark.parametrize('other', ['truck', 'bus', 'car', 'motorcycle', 'bicycle', 'person', 'train'])
 def test_opposite_side_actors_block(other):
   out = run(OffsetObserver(), [truck(), truck('left', track=2, label=other)])
   assert out[-1]['reason'] == 'actors on both sides'

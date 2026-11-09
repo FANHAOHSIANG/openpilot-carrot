@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - 'experiment/clearance-shadow-*'
+      - 'test/truck-clearance-shadow-*'
     paths:
       - 'openpilot/tools/clearance_shadow/**'
       - '.github/workflows/clearance-shadow-checks.yml'
