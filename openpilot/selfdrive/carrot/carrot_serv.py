@@ -1515,6 +1515,7 @@ class CarrotServ:
     msg = messaging.new_message('carrotMan')
     msg.valid = True
     msg.carrotMan.activeCarrot = self.active_carrot
+    msg.carrotMan.externalNavigationActive = self.external_navigation_active
     msg.carrotMan.nRoadLimitSpeed = int(self.nRoadLimitSpeed)
     msg.carrotMan.remote = remote_ip
     msg.carrotMan.xSpdType = int(self.xSpdType)
@@ -1564,7 +1565,7 @@ class CarrotServ:
     pm.send('carrotMan', msg)
 
     inst = messaging.new_message('navInstructionCarrot', valid=False)
-    if self.active_carrot > 1 and self.active_kisa_count <= 0:
+    if self.external_navigation_active and self.active_carrot > 1 and self.active_kisa_count <= 0:
       inst.valid = True
 
       instruction = inst.navInstructionCarrot
