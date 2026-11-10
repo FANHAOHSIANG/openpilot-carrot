@@ -7,11 +7,13 @@
 
 ## 手動限時攝影機辨識觀察（預設關閉）
 
-新增獨立的研究用攝影機觀察程式。它不會隨 manager 或啟動車輛自動執行；需先安裝
-模型及相容的 CPU ONNX Runtime，再於 C4 確認 offroad、點火關閉連續 15 秒後手動啟用。
+此研究用攝影機觀察程式預設關閉。安裝模型及手動啟用都需 C4 確認 offroad、點火關閉
+連續 15 秒。
 程式有 5 分鐘最長啟用期限、最多 30 秒 CPU 時間，最多每秒處理一張最新路面影格；
-運算後依 CPU 時間延長等待。啟動模型所需資源仍可能影響裝置，必須先在停車狀態
-確認硬體與負載，這些限制不等於已證明行車運行安全。
+運算後依 CPU 時間延長等待。它和 C4 上的 Jetlink 傳輸共用 CPU 0–3，因此只有
+Jetlink 即時狀態顯示主機未連線，而且 USB eGPU 未連接或使用時才可觀察。
+若外接模型開始連線、準備、運行，或 Jetlink 狀態已過期，觀察程式會在下一次檢查時退出，
+並丟棄當次推論結果。狀態更新及單次推論可能延遲退出。C4 負載及共存表現仍待實機驗證。
 
 此版本只輸出貨車／巴士的框和信心值，不做 ByteTrack、不計算側距、不顯示在行車 UI，
 也不提供任何方向盤、煞車或規劃器控制輸出。無法得到新鮮有效的 `deviceState`／
@@ -19,13 +21,21 @@
 發生錯誤不會自動重啟。輸出位於 `/dev/shm/truck-shadow/latest.json` 及 cloudlog；
 這不是前述熄火 ZIP，也不保證關機後仍存在。`latest_fresh` 為 false 時勿將舊資料視為即時結果。
 
-模型獨立提供，不隨此公開 Git 分支散布，放置路徑必須是
-`/data/truck-shadow/truck-best.onnx`，SHA-256：
+程式隨分支更新，`truck-best.onnx` 以單一檔案提供。將模型傳到 C4 後，使用分支內建指令安裝：
+
+```bash
+cd /data/openpilot
+PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 -m openpilot.tools.clearance_shadow.live_observer install /tmp/truck-best.onnx
+```
+
+`install` 驗證模型並將完整檔案存到 `/data/truck-shadow/truck-best.onnx`。安裝與啟用分開。
+模型 SHA-256：
 `f320c020594a3988c118ff076711d45bb6cc45ffea8069fa06743bfc4bcca3de`。
 此 ONNX 由使用者 `best.pt` 以 Ultralytics 8.4.208、opset 17、固定 640×640 匯出。
-需要 Pillow、NumPy 及與 C4 Python／架構相容的 ONNX Runtime；可在獨立目錄
-`/data/truck-shadow/runtime` 配置。不要把電腦版 PyTorch 裝進 C4 駕駛環境。
-模型載入、攝影機取像、ARM runtime、CPU 使用量及 C4 與 Jetlink 共存都尚未在此裝置驗證。
+辨識可用分支既有的 OpenCV CPU 執行。已另行配置在 `/data/truck-shadow/runtime` 的
+CPU ONNX Runtime 也能繼續使用。桌面端用分支的 OpenCV 4.13.0 版本比對 60 張影片抽樣畫面，
+與 CPU ONNX Runtime 輸出的分類標籤一致。C4 的模型載入和攝影機取像仍待實機驗證。
 
 僅在安全停車、C4 確認 offroad 且模型和 runtime 已備妥後操作：
 
@@ -43,6 +53,9 @@ PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
 PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m openpilot.tools.clearance_shadow.live_observer status
 ```
+
+`yielded_to_driving_model` 表示外接駕駛模型優先。若要重新觀察，先執行 `off`，再於
+符合 offroad 和外接模型未連線的條件下執行 `arm`。
 
 要提早結束時使用：
 

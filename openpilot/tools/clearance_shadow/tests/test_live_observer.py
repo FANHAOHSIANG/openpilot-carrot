@@ -1,3 +1,4 @@
+import hashlib
 import json
 import resource
 import signal
@@ -103,12 +104,65 @@ def test_failed_launch_clears_arm(tmp_path):
   assert not (tmp_path / 'armed.json').exists()
 
 
+def test_model_install_verifies_hash_and_keeps_existing_file(tmp_path, monkeypatch):
+  payload = b'truck model fixture'
+  source = tmp_path / 'download.onnx'
+  destination = tmp_path / 'isolated' / 'truck-best.onnx'
+  monkeypatch.setattr(live, 'MODEL_BYTES', len(payload))
+  monkeypatch.setattr(live, 'MODEL_SHA256', hashlib.sha256(payload).hexdigest())
+  source.write_bytes(b'x' * len(payload))
+  with pytest.raises(ValueError, match='checksum mismatch'):
+    live.install_model(source, lambda: True, destination)
+  assert list(destination.parent.iterdir()) == []
+  source.write_bytes(payload)
+  assert live.install_model(source, lambda: True, destination) == str(destination)
+  assert live.install_model(source, lambda: True, destination) == str(destination)
+  assert destination.read_bytes() == payload
+  destination.write_bytes(b'y' * len(payload))
+  with pytest.raises(ValueError, match='checksum mismatch'):
+    live.install_model(source, lambda: True, destination)
+  assert destination.read_bytes() == b'y' * len(payload)
+
+
+def test_model_install_discards_staging_if_offroad_is_lost(tmp_path, monkeypatch):
+  payload = b'truck model fixture'
+  source = tmp_path / 'download.onnx'
+  destination = tmp_path / 'isolated' / 'truck-best.onnx'
+  monkeypatch.setattr(live, 'MODEL_BYTES', len(payload))
+  monkeypatch.setattr(live, 'MODEL_SHA256', hashlib.sha256(payload).hexdigest())
+  source.write_bytes(payload)
+  gate = iter([True, True, False])
+  with pytest.raises(RuntimeError, match='lost during model install'):
+    live.install_model(source, lambda: next(gate), destination)
+  assert list(destination.parent.iterdir()) == []
+
+
 class Params:
   def __init__(self, onroad=True, shutdown=False):
     self.values = {'IsOnroad': onroad, 'IsOffroad': not onroad, 'DoShutdown': shutdown}
 
   def get_bool(self, key):
     return self.values.get(key, False)
+
+
+@pytest.mark.parametrize(('link', 'model', 'usb_active', 'usb_detected', 'reason'), [
+  ({'state': 'waiting', 'peer': None}, {}, False, False, None),
+  ({}, {}, False, False, 'jetlink_status_unavailable'),
+  ({'state': 'loading'}, {}, False, False, 'jetlink_host_busy'),
+  ({'state': 'ready'}, {}, False, False, 'jetlink_host_busy'),
+  ({'state': 'waiting'}, {'active': True}, False, False, 'jetlink_model_active_or_ready'),
+  ({'state': 'waiting'}, {}, True, False, 'usb_gpu_present'),
+  ({'state': 'waiting'}, {}, False, True, 'usb_gpu_present'),
+])
+def test_external_models_take_priority(link, model, usb_active, usb_detected, reason, monkeypatch):
+  status_module = SimpleNamespace(LINK_STATUS='link', MODEL_STATUS='model',
+                                  _fresh=lambda path, *_args, **_kwargs: link if path == 'link' else model)
+  usb_module = SimpleNamespace(get_usbgpu_devices=lambda: [object()] if usb_detected else [])
+  monkeypatch.setitem(sys.modules, 'openpilot.common.jetlink_status', status_module)
+  monkeypatch.setitem(sys.modules, 'openpilot.system.hardware.usbgpu', usb_module)
+  params = Params()
+  params.values['UsbGpuActive'] = usb_active
+  assert live.external_model_block(params) == reason
 
 
 class Messages:
@@ -206,14 +260,18 @@ def test_invalid_output_never_produces_detections():
     decode_output(out, (1, 0, 0, 640, 640))
 
 
-@pytest.mark.parametrize('healthy_after_inference', [True, False])
-def test_live_frame_processing_fails_closed_when_health_is_lost(tmp_path, monkeypatch, healthy_after_inference):
-  active, events, runs = [True], [], []
+@pytest.mark.parametrize(('healthy_after_inference', 'blocked_at'), [
+  (True, None), (False, None), (True, 'startup'), (True, 'inference'),
+])
+def test_live_frame_processing_respects_health_and_driving_model(tmp_path, monkeypatch, healthy_after_inference, blocked_at):
+  active, events, loads, runs = [True], [], [], []
   monkeypatch.setattr(live, 'RUN_DIR', tmp_path)
   monkeypatch.setattr(live, 'requested', lambda: active[0])
   monkeypatch.setattr(live, 'configure_worker_scheduling', lambda: None)
   monkeypatch.setattr(live, 'configure_worker_limits', lambda: None)
-  monkeypatch.setattr(live, 'wait_or_disarm', lambda _: None)
+  monkeypatch.setattr(live, 'wait_or_disarm', lambda *_: True)
+  monkeypatch.setattr(live, 'external_model_block', lambda _: (
+    'jetlink_host_busy' if blocked_at == 'startup' or (blocked_at == 'inference' and runs) else None))
   health = iter([True, healthy_after_inference])
   monkeypatch.setattr(live, 'healthy', lambda *_: next(health))
 
@@ -226,7 +284,11 @@ def test_live_frame_processing_fails_closed_when_health_is_lost(tmp_path, monkey
       runs.append(True)
       return [output]
 
-  monkeypatch.setattr(live, 'load_session', lambda: (Session(), 'test'))
+  def load(path):
+    loads.append(path)
+    return Session(), 'test'
+
+  monkeypatch.setattr(live, 'load_session', load)
   frame = SimpleNamespace(frame_id=7, data=b'', width=64, height=64, stride=64, uv_offset=4096)
 
   class Client:
@@ -281,7 +343,13 @@ def test_live_frame_processing_fails_closed_when_health_is_lost(tmp_path, monkey
     monkeypatch.setitem(sys.modules, name, module)
   live.run()
   record = json.loads((tmp_path / 'latest.json').read_text())
-  assert len(runs) == 1 and len(events) == 1
   assert record['control_eligible'] is False and record['applied_offset_m'] == 0.0
-  assert record['state'] == ('observing' if healthy_after_inference else 'stale_or_unhealthy')
-  assert bool(record['detections']) is healthy_after_inference
+  if blocked_at is not None:
+    assert not events and not record['detections']
+    assert record['state'] == 'yielded_to_driving_model'
+    assert record['reason'] == 'jetlink_host_busy'
+    assert len(loads) == len(runs) == int(blocked_at == 'inference')
+  else:
+    assert len(runs) == 1 and len(events) == 1
+    assert record['state'] == ('observing' if healthy_after_inference else 'stale_or_unhealthy')
+    assert bool(record['detections']) is healthy_after_inference

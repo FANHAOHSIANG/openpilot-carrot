@@ -5,11 +5,13 @@ import json
 import math
 import os
 from pathlib import Path
+import tempfile
 import time
 
 from openpilot.tools.clearance_shadow.onnx_observer import MODEL_SHA256
 
 MODEL = Path('/data/truck-shadow/truck-best.onnx')
+MODEL_BYTES = 10_632_893
 RUNTIME = Path('/data/truck-shadow/runtime')
 RUN_DIR = Path('/dev/shm/truck-shadow')
 ARM_DURATION_NS = 300 * 1_000_000_000
@@ -30,13 +32,84 @@ def requested(directory=RUN_DIR, now_ns=None):
 
 
 def check_model(path=MODEL):
+  path = Path(path)
+  if not path.is_file() or path.stat().st_size != MODEL_BYTES:
+    raise ValueError('expected the pinned truck-best.onnx file')
   digest = hashlib.sha256()
-  with Path(path).open('rb') as src:
+  with path.open('rb') as src:
     for block in iter(lambda: src.read(1024 * 1024), b''):
       digest.update(block)
   if digest.hexdigest() != MODEL_SHA256:
     raise ValueError('truck model checksum mismatch')
   return str(path)
+
+
+def install_model(source, gate, destination=MODEL):
+  """Publish only a complete, verified file in the truck observer directory."""
+  from openpilot.tools.clearance_shadow.auto_capture import sync_directory
+
+  destination = Path(destination)
+  if not gate():
+    raise RuntimeError('offroad/ignition-off not confirmed')
+  if destination.parent.is_symlink() or destination.is_symlink():
+    raise ValueError('truck model destination must not be a symlink')
+  if destination.exists():
+    return check_model(destination)
+
+  source = Path(source)
+  if not source.is_file() or source.stat().st_size != MODEL_BYTES:
+    raise ValueError('expected the pinned truck-best.onnx file')
+  destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+  with source.open('rb') as original, tempfile.NamedTemporaryFile(dir=destination.parent, prefix='.truck-model-') as staged:
+    digest = hashlib.sha256()
+    remaining = MODEL_BYTES
+    while remaining:
+      if not gate():
+        raise RuntimeError('offroad/ignition-off lost during model install')
+      chunk = original.read(min(remaining, 1024 * 1024))
+      if not chunk:
+        raise ValueError('incomplete truck model file')
+      staged.write(chunk)
+      digest.update(chunk)
+      remaining -= len(chunk)
+    if original.read(1) or digest.hexdigest() != MODEL_SHA256:
+      raise ValueError('truck model checksum mismatch')
+    staged.flush()
+    os.fsync(staged.fileno())
+    if not gate():
+      raise RuntimeError('offroad/ignition-off lost during model install')
+    try:
+      os.link(staged.name, destination, follow_symlinks=False)
+    except FileExistsError:
+      if destination.is_symlink():
+        raise ValueError('truck model destination must not be a symlink') from None
+      return check_model(destination)
+    sync_directory(destination.parent)
+  return str(destination)
+
+
+def external_model_block(params):
+  """The C4's Jetlink transport shares cores 0–3 with this observer."""
+  try:
+    from openpilot.common.jetlink_status import LINK_STATUS, MODEL_STATUS, _fresh
+    from openpilot.system.hardware.usbgpu import get_usbgpu_devices
+
+    if any(params.get_bool(key) for key in ('UsbGpuPresent', 'UsbGpuLoading', 'UsbGpuActive')):
+      return 'usb_gpu_present'
+    now = time.monotonic()
+    model = _fresh(MODEL_STATUS, now)
+    if model.get('active') or model.get('ready'):
+      return 'jetlink_model_active_or_ready'
+    link = _fresh(LINK_STATUS, now, handshake=True)
+    if not link:
+      return 'jetlink_status_unavailable'
+    if link.get('state') != 'waiting' or link.get('peer') is not None:
+      return 'jetlink_host_busy'
+    # modeld clears its USB GPU flags offroad. Check enumeration without
+    # issuing any USB requests, so an attached GPU also blocks parked setup.
+    return 'usb_gpu_present' if get_usbgpu_devices() else None
+  except (ImportError, OSError, ValueError, TypeError):
+    return 'external_model_status_unavailable'
 
 
 def next_delay(wall_s, cpu_s):
@@ -46,10 +119,13 @@ def next_delay(wall_s, cpu_s):
   return max(.1, 1.0 - wall_s, 9.0 * cpu_s)
 
 
-def wait_or_disarm(delay):
+def wait_or_disarm(delay, keep_observing):
   end = time.monotonic() + delay
-  while requested() and time.monotonic() < end:
+  while time.monotonic() < end:
+    if not keep_observing():
+      return False
     time.sleep(min(.2, max(0, end - time.monotonic())))
+  return True
 
 
 def healthy(params, sm):
@@ -125,7 +201,8 @@ def configure_worker_limits():
 
 def load_session(path=MODEL):
   import sys
-  sys.path.insert(0, str(RUNTIME))
+  if RUNTIME.is_dir():
+    sys.path.insert(0, str(RUNTIME))
   import onnxruntime as ort
 
   path = check_model(path)
@@ -139,6 +216,26 @@ def load_session(path=MODEL):
       or len(session.get_outputs()) != 1 or session.get_outputs()[0].shape != [1, 14, 8400]):
     raise ValueError('unexpected model interface')
   return session, ort.__version__
+
+
+def load_detector(path=MODEL):
+  try:
+    session, version = load_session(path)
+  except ImportError:
+    import cv2
+
+    cv2.setNumThreads(1)
+    cv2.ocl.setUseOpenCL(False)
+    net = cv2.dnn.readNetFromONNX(check_model(path))
+    net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+    net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+    def infer(image):
+      net.setInput(image)
+      return net.forward()
+
+    return infer, f'OpenCV {cv2.__version__}'
+  return lambda image: session.run(None, {'images': image})[0], f'ONNX Runtime {version}'
 
 
 def run():
@@ -167,13 +264,25 @@ def run():
 
 def observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
             rgb_from_nv12, decode_output, letterbox_rgb):
-  write_status(RUN_DIR, {'state': 'loading_model', 'pid': os.getpid()})
-  session, runtime_version = load_session()
   params = Params()
+
+  def keep_observing():
+    if not requested():
+      return False
+    reason = external_model_block(params)
+    if reason:
+      write_status(RUN_DIR, {'state': 'yielded_to_driving_model', 'reason': reason, 'detections': []})
+      return False
+    return True
+
+  if not keep_observing():
+    return
+  write_status(RUN_DIR, {'state': 'loading_model', 'pid': os.getpid()})
+  infer, runtime_version = load_detector()
   sm = messaging.SubMaster(['deviceState', 'modelV2'])
   client = VisionIpcClient('camerad', VisionStreamType.VISION_STREAM_ROAD, True)
   previous_id = None
-  while requested():
+  while keep_observing():
     sm.update(100)
     if not healthy(params, sm):
       write_status(RUN_DIR, {'state': 'waiting_for_healthy_onroad'})
@@ -200,13 +309,20 @@ def observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
       write_status(RUN_DIR, {'state': 'stale_camera_frame'})
       time.sleep(.2)
       continue
+    if not keep_observing():
+      return
     rgb = rgb_from_nv12(frame.data, frame.width, frame.height, frame.stride, frame.uv_offset)
     if int(frame.frame_id) != frame_id:
       write_status(RUN_DIR, {'state': 'camera_buffer_reused'})
       time.sleep(.2)
       continue
     image, transform = letterbox_rgb(rgb)
-    boxes = decode_output(session.run(None, {'images': image})[0], transform)
+    if not keep_observing():
+      return
+    output = infer(image)
+    if not keep_observing():
+      return
+    boxes = decode_output(output, transform)
     wall, cpu = time.monotonic() - start, time.process_time() - cpu_start
     sm.update(0)
     result_age = (time.monotonic_ns() - eof) / 1e6
@@ -219,7 +335,8 @@ def observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
               'control_eligible': False, 'applied_offset_m': 0.0}
     write_status(RUN_DIR, record)
     cloudlog.event('truckShadowObservation', **record)
-    wait_or_disarm(next_delay(wall, cpu))
+    if not wait_or_disarm(next_delay(wall, cpu), keep_observing):
+      return
 
 
 def main():
@@ -234,12 +351,7 @@ def main():
       pass
 
 
-def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
-               clock_ns=time.monotonic_ns, pause=time.sleep):
-  """Arm only after a continuous offroad interval and a final post-setup check."""
-  directory = Path(directory)
-  if requested(directory, clock_ns()):
-    raise RuntimeError('already armed; turn off before arming again')
+def wait_for_offroad(gate, clock=time.monotonic, pause=time.sleep):
   start = clock()
   stable = None
   while clock() - start < 25:
@@ -250,6 +362,15 @@ def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
     pause(.5)
   else:
     raise RuntimeError('offroad/ignition-off was not stable for 15 seconds')
+
+
+def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
+               clock_ns=time.monotonic_ns, pause=time.sleep):
+  """Arm only after a continuous offroad interval and a final post-setup check."""
+  directory = Path(directory)
+  if requested(directory, clock_ns()):
+    raise RuntimeError('already armed; turn off before arming again')
+  wait_for_offroad(gate, clock, pause)
   prepare()
   if not gate():
     raise RuntimeError('offroad/ignition-off no longer confirmed')
@@ -267,10 +388,13 @@ def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
 
 def cli():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('command', choices=('arm', 'off', 'status', 'worker'))
+  parser.add_argument('command', choices=('install', 'arm', 'off', 'status', 'worker'))
+  parser.add_argument('model_file', nargs='?', type=Path, help='local truck-best.onnx for install')
   args = parser.parse_args()
+  if (args.command == 'install') != (args.model_file is not None):
+    parser.error('install requires exactly one local model file')
   directory = RUN_DIR
-  if args.command == 'arm':
+  if args.command in ('install', 'arm'):
     import importlib.util
     import subprocess
     import sys
@@ -279,14 +403,27 @@ def cli():
     from openpilot.common.params import Params
     from openpilot.tools.clearance_shadow.auto_capture import LiveOffroadGate
 
+    params = Params()
     sm = messaging.SubMaster(['deviceState', 'pandaStates'])
-    gate = LiveOffroadGate(Params(), sm, log.PandaState.PandaType.unknown)
+    gate = LiveOffroadGate(params, sm, log.PandaState.PandaType.unknown)
+    if args.command == 'install':
+      wait_for_offroad(gate)
+      installed = install_model(args.model_file, gate)
+      print(json.dumps({'installed_model': installed, 'model_sha256': MODEL_SHA256, **status_snapshot(directory)},
+                       ensure_ascii=False, indent=2))
+      return
 
     def prepare():
+      reason = external_model_block(params)
+      if reason:
+        raise RuntimeError(f'truck observation blocked by driving model: {reason}')
       check_model()
-      sys.path.insert(0, str(RUNTIME))
-      if importlib.util.find_spec('onnxruntime') is None or importlib.util.find_spec('PIL') is None:
-        raise RuntimeError('onnxruntime or Pillow runtime missing')
+      if RUNTIME.is_dir():
+        sys.path.insert(0, str(RUNTIME))
+      if importlib.util.find_spec('PIL') is None:
+        raise RuntimeError('Pillow runtime missing')
+      if importlib.util.find_spec('onnxruntime') is None and importlib.util.find_spec('cv2') is None:
+        raise RuntimeError('branch OpenCV runtime missing; check the branch startup log')
 
     def launch():
       subprocess.Popen([sys.executable, '-m', 'openpilot.tools.clearance_shadow.live_observer', 'worker'], stdin=subprocess.DEVNULL,
