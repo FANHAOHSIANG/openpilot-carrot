@@ -7,8 +7,7 @@
 
 ## 手動限時攝影機辨識觀察（預設關閉）
 
-此研究用攝影機觀察程式預設關閉。安裝模型及手動啟用都需 C4 確認 offroad、點火關閉
-連續 15 秒。
+此研究用攝影機觀察程式預設關閉。手動啟用需 C4 確認 offroad、點火關閉連續 15 秒。
 程式有 5 分鐘最長啟用期限、最多 30 秒 CPU 時間，最多每秒處理一張最新路面影格；
 運算後依 CPU 時間延長等待。它和 C4 上的 Jetlink 傳輸共用 CPU 0–3，因此只有
 Jetlink 即時狀態顯示主機未連線，而且 USB eGPU 未連接或使用時才可觀察。
@@ -21,15 +20,16 @@ Jetlink 即時狀態顯示主機未連線，而且 USB eGPU 未連接或使用�
 發生錯誤不會自動重啟。輸出位於 `/dev/shm/truck-shadow/latest.json` 及 cloudlog；
 這不是前述熄火 ZIP，也不保證關機後仍存在。`latest_fresh` 為 false 時勿將舊資料視為即時結果。
 
-程式隨分支更新，`truck-best.onnx` 以單一檔案提供。將模型傳到 C4 後，使用分支內建指令安裝：
+程式與 `models/truck-best.onnx` 一起包含在 truck 分支，模型是普通 Git 檔案。
+C4 正常更新 `test/truck-clearance-shadow-20261110` 並重新啟動後，辨識程式直接讀取
+分支內模型，**不必另行下載、scp 傳檔或執行 install**，也不需要安裝 PyTorch。
+每次載入會驗證固定大小與 SHA-256；缺檔或校驗失敗會停止辨識，
+不會改用 `/data/truck-shadow` 的舊模型。舊版 `install <本機檔案>` 指令仍保留，
+只建立獨立副本，不會變更這版預設使用的分支模型。
 
-```bash
-cd /data/openpilot
-PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
-  python3 -m openpilot.tools.clearance_shadow.live_observer install /tmp/truck-best.onnx
-```
-
-`install` 驗證模型並將完整檔案存到 `/data/truck-shadow/truck-best.onnx`。安裝與啟用分開。
+更新完成代表模型已備妥，**即時辨識仍需下方的限時 `arm` 操作**。
+用 `status` 可查看 `model.ready`、`model.path` 與校驗錯誤；
+`model.ready: true` 代表模型檔案完整，不代表已啟用辨識或通過 C4 實機測試。
 模型 SHA-256：
 `f320c020594a3988c118ff076711d45bb6cc45ffea8069fa06743bfc4bcca3de`。
 此 ONNX 由使用者 `best.pt` 以 Ultralytics 8.4.208、opset 17、固定 640×640 匯出。

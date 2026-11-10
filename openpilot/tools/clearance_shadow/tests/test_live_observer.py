@@ -1,7 +1,10 @@
 import hashlib
 import json
+import os
+from pathlib import Path
 import resource
 import signal
+import subprocess
 import sys
 import time
 from types import ModuleType
@@ -135,6 +138,57 @@ def test_model_install_discards_staging_if_offroad_is_lost(tmp_path, monkeypatch
   with pytest.raises(RuntimeError, match='lost during model install'):
     live.install_model(source, lambda: next(gate), destination)
   assert list(destination.parent.iterdir()) == []
+
+
+def test_checkout_bundles_the_pinned_model():
+  assert live.check_model() == str(live.BUNDLED_MODEL)
+  assert live.model_status()['ready']
+
+
+@pytest.mark.parametrize('damage', ['missing', 'truncated', 'checksum'])
+def test_broken_bundle_is_reported_without_legacy_fallback(tmp_path, monkeypatch, damage):
+  bundled = tmp_path / 'bundled.onnx'
+  payload = live.BUNDLED_MODEL.read_bytes()
+  legacy = tmp_path / 'legacy.onnx'
+  legacy.write_bytes(payload)
+  if damage == 'truncated':
+    bundled.write_bytes(payload[:-1])
+  elif damage == 'checksum':
+    bundled.write_bytes(bytes([payload[0] ^ 1]) + payload[1:])
+  monkeypatch.setattr(live, 'BUNDLED_MODEL', bundled)
+  monkeypatch.setattr(live, 'MODEL', legacy)
+  assert live.check_model(legacy) == str(legacy)
+  with pytest.raises(ValueError):
+    live.check_model()
+  status = live.model_status()
+  assert not status['ready'] and status['error']
+  assert status['path'] == str(bundled)
+
+
+def test_status_finds_bundle_from_another_directory_without_arming(tmp_path):
+  root = Path(live.__file__).resolve().parents[3]
+  env = dict(os.environ, PYTHONPATH=str(root))
+  result = subprocess.run([sys.executable, '-m', 'openpilot.tools.clearance_shadow.live_observer', 'status'],
+                          cwd=tmp_path, env=env, text=True, capture_output=True, check=True)
+  status = json.loads(result.stdout)
+  assert status['model']['ready']
+  assert status['model']['path'] == str(live.BUNDLED_MODEL)
+  assert status['model']['sha256'] == live.MODEL_SHA256
+  assert status['control_eligible'] is False and status['applied_offset_m'] == 0.0
+  assert list(tmp_path.iterdir()) == []
+
+
+def test_bundled_model_runs_with_opencv_without_external_runtime(tmp_path, monkeypatch):
+  pytest.importorskip('cv2')
+  monkeypatch.setattr(live, 'RUNTIME', tmp_path / 'no-runtime')
+  monkeypatch.setitem(sys.modules, 'onnxruntime', None)
+  infer, runtime = live.load_detector()
+  tensor, transform = letterbox_rgb(np.zeros((330, 526, 3), dtype=np.uint8))
+  output = infer(tensor)
+  assert runtime.startswith('OpenCV ')
+  assert output.shape == (1, 14, 8400)
+  assert np.isfinite(output).all()
+  assert isinstance(decode_output(output, transform), list)
 
 
 class Params:

@@ -10,7 +10,9 @@ import time
 
 from openpilot.tools.clearance_shadow.onnx_observer import MODEL_SHA256
 
+# Legacy explicit install destination; normal observation uses BUNDLED_MODEL.
 MODEL = Path('/data/truck-shadow/truck-best.onnx')
+BUNDLED_MODEL = Path(__file__).resolve().parent / 'models' / 'truck-best.onnx'
 MODEL_BYTES = 10_632_893
 RUNTIME = Path('/data/truck-shadow/runtime')
 RUN_DIR = Path('/dev/shm/truck-shadow')
@@ -31,7 +33,11 @@ def requested(directory=RUN_DIR, now_ns=None):
     return False
 
 
-def check_model(path=MODEL):
+def check_model(path=None):
+  # The branch carries the exact model it expects. Never silently use a stale
+  # /data copy when the bundled payload is missing or corrupt.
+  if path is None:
+    path = BUNDLED_MODEL
   path = Path(path)
   if not path.is_file() or path.stat().st_size != MODEL_BYTES:
     raise ValueError('expected the pinned truck-best.onnx file')
@@ -199,7 +205,7 @@ def configure_worker_limits():
   signal.alarm(330)
 
 
-def load_session(path=MODEL):
+def load_session(path=None):
   import sys
   if RUNTIME.is_dir():
     sys.path.insert(0, str(RUNTIME))
@@ -218,7 +224,7 @@ def load_session(path=MODEL):
   return session, ort.__version__
 
 
-def load_detector(path=MODEL):
+def load_detector(path=None):
   try:
     session, version = load_session(path)
   except ImportError:
@@ -386,6 +392,16 @@ def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
     raise
 
 
+def model_status():
+  """Report file readiness without loading a runtime or arming the observer."""
+  result = {'path': str(BUNDLED_MODEL), 'sha256': MODEL_SHA256, 'source': 'branch'}
+  try:
+    check_model()
+    return dict(result, ready=True)
+  except (OSError, ValueError) as error:
+    return dict(result, ready=False, error=str(error))
+
+
 def cli():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('command', choices=('install', 'arm', 'off', 'status', 'worker'))
@@ -435,7 +451,7 @@ def cli():
   elif args.command == 'worker':
     main()
     return
-  print(json.dumps(status_snapshot(directory), ensure_ascii=False, indent=2))
+  print(json.dumps(dict(status_snapshot(directory), model=model_status()), ensure_ascii=False, indent=2))
 
 
 if __name__ == '__main__':
