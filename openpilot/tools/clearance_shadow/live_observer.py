@@ -392,7 +392,7 @@ def wait_for_offroad(gate, clock=time.monotonic, pause=time.sleep):
 
 
 def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
-               clock_ns=time.monotonic_ns, pause=time.sleep):
+               clock_ns=time.monotonic_ns, pause=time.sleep, with_jetlink=False):
   """Arm only after a continuous offroad interval and a final post-setup check."""
   directory = Path(directory)
   if requested(directory, clock_ns()):
@@ -404,7 +404,8 @@ def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
   directory.mkdir(mode=0o700, parents=True, exist_ok=True)
   (directory / 'latest.json').unlink(missing_ok=True)
   tmp = directory / 'armed.tmp'
-  tmp.write_text(json.dumps({'version': 1, 'expires_monotonic_ns': clock_ns() + ARM_DURATION_NS}))
+  tmp.write_text(json.dumps({'version': 1, 'expires_monotonic_ns': clock_ns() + ARM_DURATION_NS,
+                            'with_jetlink': with_jetlink}))
   tmp.replace(directory / 'armed.json')
   try:
     launch()
@@ -425,18 +426,17 @@ def model_status():
 
 def cli():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('command', choices=('install', 'arm', 'off', 'status', 'worker'))
+  parser.add_argument('command', choices=('install', 'arm', 'off', 'status'))
   parser.add_argument('model_file', nargs='?', type=Path, help='local truck-best.onnx for install')
   parser.add_argument('--with-jetlink', action='store_true', help='allow a ready Mac Jetlink session in shadow mode')
   args = parser.parse_args()
-  if args.with_jetlink and args.command not in ('arm', 'worker'):
+  if args.with_jetlink and args.command != 'arm':
     parser.error('--with-jetlink requires arm')
   if (args.command == 'install') != (args.model_file is not None):
     parser.error('install requires exactly one local model file')
   directory = RUN_DIR
   if args.command in ('install', 'arm'):
     import importlib.util
-    import subprocess
     import sys
     from openpilot.cereal import log
     import openpilot.cereal.messaging as messaging
@@ -454,6 +454,8 @@ def cli():
       return
 
     def prepare():
+      if not params.get_bool('ShareData'):
+        raise RuntimeError('Enable the Carrot Web ONNX Vision service (ShareData) first')
       reason = external_model_block(params, args.with_jetlink)
       if reason:
         raise RuntimeError(f'truck observation blocked by driving model: {reason}')
@@ -462,22 +464,12 @@ def cli():
         sys.path.insert(0, str(RUNTIME))
       if importlib.util.find_spec('PIL') is None:
         raise RuntimeError('Pillow runtime missing')
-      if importlib.util.find_spec('onnxruntime') is None and importlib.util.find_spec('cv2') is None:
+      if importlib.util.find_spec('cv2') is None:
         raise RuntimeError('branch OpenCV runtime missing; check the branch startup log')
 
-    def launch():
-      command = [sys.executable, '-m', 'openpilot.tools.clearance_shadow.live_observer', 'worker']
-      if args.with_jetlink:
-        command.append('--with-jetlink')
-      subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL, start_new_session=True)
-
-    arm_worker(gate, prepare, launch, directory)
+    arm_worker(gate, prepare, lambda: None, directory, with_jetlink=args.with_jetlink)
   elif args.command == 'off':
     (directory / 'armed.json').unlink(missing_ok=True)
-  elif args.command == 'worker':
-    main(args.with_jetlink)
-    return
   print(json.dumps(dict(status_snapshot(directory), model=model_status()), ensure_ascii=False, indent=2))
 
 
