@@ -29,6 +29,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install numpy pytest ruff
+      - run: python -m pip install numpy pillow pytest ruff
       - run: python -m ruff check openpilot/tools/clearance_shadow
       - run: python -m pytest --confcutdir=openpilot/tools/clearance_shadow/tests -c openpilot/tools/clearance_shadow/pytest.ini openpilot/tools/clearance_shadow/tests

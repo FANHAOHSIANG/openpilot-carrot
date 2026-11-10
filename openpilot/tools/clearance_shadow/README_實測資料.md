@@ -5,6 +5,59 @@
 偏移數值只是離線候選；`applied_offset_m` 永遠為 0，`control_eligible` 為 false。
 這還不是能在實車上自動避讓的版本，C4 安裝與執行也尚未實機驗證。
 
+## 手動限時攝影機辨識觀察（預設關閉）
+
+新增獨立的研究用攝影機觀察程式。它不會隨 manager 或啟動車輛自動執行；需先安裝
+模型及相容的 CPU ONNX Runtime，再於 C4 確認 offroad、點火關閉連續 15 秒後手動啟用。
+程式有 5 分鐘最長啟用期限、最多 30 秒 CPU 時間，最多每秒處理一張最新路面影格；
+運算後依 CPU 時間延長等待。啟動模型所需資源仍可能影響裝置，必須先在停車狀態
+確認硬體與負載，這些限制不等於已證明行車運行安全。
+
+此版本只輸出貨車／巴士的框和信心值，不做 ByteTrack、不計算側距、不顯示在行車 UI，
+也不提供任何方向盤、煞車或規劃器控制輸出。無法得到新鮮有效的 `deviceState`／
+`modelV2`、溫度非 green、影像過舊或失去 onroad 狀態時，會停止提供有效結果；
+發生錯誤不會自動重啟。輸出位於 `/dev/shm/truck-shadow/latest.json` 及 cloudlog；
+這不是前述熄火 ZIP，也不保證關機後仍存在。`latest_fresh` 為 false 時勿將舊資料視為即時結果。
+
+模型獨立提供，不隨此公開 Git 分支散布，放置路徑必須是
+`/data/truck-shadow/truck-best.onnx`，SHA-256：
+`f320c020594a3988c118ff076711d45bb6cc45ffea8069fa06743bfc4bcca3de`。
+此 ONNX 由使用者 `best.pt` 以 Ultralytics 8.4.208、opset 17、固定 640×640 匯出。
+需要 Pillow、NumPy 及與 C4 Python／架構相容的 ONNX Runtime；可在獨立目錄
+`/data/truck-shadow/runtime` 配置。不要把電腦版 PyTorch 裝進 C4 駕駛環境。
+模型載入、攝影機取像、ARM runtime、CPU 使用量及 C4 與 Jetlink 共存都尚未在此裝置驗證。
+
+僅在安全停車、C4 確認 offroad 且模型和 runtime 已備妥後操作：
+
+```bash
+cd /data/openpilot
+PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 -m openpilot.tools.clearance_shadow.live_observer arm
+```
+
+`arm` 通過檢查後會啟動獨立程序；模型載入需要時間。請先用 `status` 確認
+`latest.state` 明確顯示 `waiting_for_healthy_onroad`，再安排由另一人監看測試。
+如果狀態為 `error` 或沒有資料，不要開始測試。`armed: true` 不代表程序已成功執行：
+
+```bash
+PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 -m openpilot.tools.clearance_shadow.live_observer status
+```
+
+要提早結束時使用：
+
+```bash
+PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 -m openpilot.tools.clearance_shadow.live_observer off
+```
+
+關閉請求會在當次推論返回後生效；未返回的運算由 CPU 時間限制及最長生命週期限制。
+
+使用者影片的 7 個抽樣畫面，以相同的正方形 RGB tensor 比較 PyTorch 與 ONNX 原始輸出，
+最大絕對差約 0.01。Pillow 與原測試的 OpenCV 縮放、640 正方形與原先長方形輸入會造成
+部分辨識分數和分類差異；這不是準確率、側距或實車安全的驗證。同一物件可能同時
+出現貨車／巴士兩個框，畫面邊界被裁切時也不能依框估算安全距離。
+
 ## 停車後自動打包
 
 此功能只在卡車研究分支運行。C4 進入 offroad，並連續 15 秒確認裝置狀態有效、
