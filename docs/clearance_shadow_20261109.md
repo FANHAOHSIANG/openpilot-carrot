@@ -1,12 +1,13 @@
 # HCOP 道路偏移與 YOLO 大車辨識：離線觀察版
 
-基底：`FANHAOHSIANG/openpilot-carrot` 的 `test/carrot-wip-upstream-20261104`，
+原研究版本基底：`FANHAOHSIANG/openpilot-carrot` 的 `test/carrot-wip-upstream-20261104`，
 `97830a1ffe5b079c1326da0b97ed065cbb4ea125`。
 
 這版可執行「錄影辨識 → 追蹤 → 車道幾何比較 → 偏移試算 → JSONL/影片檢查」。
 **尚未接入轉向控制，也不是可直接啟用的大車避讓版本。** 所有輸出固定包含
 `applied_offset_m: 0`、`control_eligible: false`。沒有修改 modeld、Jetlink、
-控制器、Panda、車型或預設開機程序。安裝這個分支本身不會啟動辨識或偏移。
+控制器、Panda 或車型。後續卡車實測分支新增 offroad 自動打包程序，詳見
+`openpilot/tools/clearance_shadow/README_實測資料.md`；它不會啟動辨識或偏移。
 
 ## 查到的現有實作
 

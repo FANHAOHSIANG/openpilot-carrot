@@ -148,6 +148,10 @@ procs = [
   PythonProcess("selfdrived", "openpilot.selfdrive.selfdrived.selfdrived", only_onroad),
   PythonProcess("card", "openpilot.selfdrive.car.card", only_onroad),
   PythonProcess("deleter", "openpilot.system.loggerd.deleter", always_run),
+  # Research branch only: closed road-camera segments are copied after
+  # confirmed offroad; never start this worker in the onroad manager state.
+  PythonProcess("truck_autopack", "openpilot.tools.clearance_shadow.auto_capture", only_offroad,
+                enabled=TICI, restart_if_crash=True, spawn=True),
   PythonProcess("dmonitoringd", "openpilot.selfdrive.monitoring.dm2d", enable_dm, enabled=(WEBCAM or not PC)),
   # Restart GPS without forking the running manager's IPC state.
   PythonProcess("qcomgpsd", "openpilot.system.qcomgpsd.qcomgpsd", qcomgps, enabled=TICI, spawn=True),
