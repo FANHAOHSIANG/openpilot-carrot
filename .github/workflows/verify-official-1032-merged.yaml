@@ -1,0 +1,51 @@
+name: Verify official 1032 on custom Test merge
+on:
+  push:
+    branches:
+      - sync/verify-official-1032-merged-20261110
+permissions:
+  contents: read
+jobs:
+  merged-indicators-and-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Pin provenance and require both parents
+        run: |
+          git merge-base --is-ancestor 3ad2e566c68d26a0b684f447529b124d7403040a HEAD
+          git merge-base --is-ancestor 1032f8641bca0a85c0cd3662fbd3d1eddc783684 HEAD
+          git diff --check 3ad2e566c68d26a0b684f447529b124d7403040a HEAD
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install offline Python and native test tools
+        run: |
+          python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized pillow
+      - name: Compile modified Python and native safety hooks
+        run: |
+          python -m compileall -q openpilot/selfdrive/controls/lib/desire_lib/indicator_observer.py openpilot/selfdrive/controls/lib/desire_helper.py openpilot/selfdrive/car/card.py tools/jetlink/blink_source.py
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+          (cd opendbc_repo/opendbc/safety && gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -I. -Iboard tests/libsafety/safety.c -o tests/libsafety/libsafety.so)
+      - name: Control, Hyundai, Tesla and indication regression
+        run: |
+          python tools/signal_validation/run.py \
+            tools/jetlink/test_indicator_reconstruction.py \
+            tools/jetlink/test_manual_turn_indicator.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_blink_hold.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_carstate_buttons.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_alt2_adas_buttons.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_alt_buttons.py \
+            openpilot/selfdrive/car/tests/test_tesla_turn_signals.py \
+            openpilot/selfdrive/controls/tests/test_tesla_auto_signal_intent.py \
+            openpilot/selfdrive/controls/tests/test_desire_helper_stalk.py \
+            openpilot/selfdrive/controls/tests/test_controlsd_publish.py \
+            openpilot/selfdrive/selfdrived/tests/test_vehicle_faults.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_casper_fault_reporting.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py
