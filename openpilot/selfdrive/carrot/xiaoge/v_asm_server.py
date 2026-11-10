@@ -20,6 +20,7 @@ if __package__ in (None, ""):
 import openpilot.cereal.messaging as messaging
 from openpilot.selfdrive.carrot.xiaoge.lane_inference import DEFAULT_LANE_MODEL_PATH, LaneInference, prepare_lane_image
 from openpilot.selfdrive.carrot.xiaoge.nv12 import nv12_y_plane, pack_nv12
+from openpilot.selfdrive.carrot.xiaoge.truck_shadow import TruckShadow
 from openpilot.selfdrive.carrot.xiaoge.v_asm_inference import DEFAULT_MODEL_PATH, VASMInference
 from openpilot.selfdrive.carrot.xiaoge.xiaoge_vision import XIAOGE_BLINDSPOT_TIMEOUT_NS, XIAOGE_LANE_TIMEOUT_NS
 
@@ -217,6 +218,7 @@ class VASMService:
       "updatedMonoTimeNanos": 0,
     }
     self.params = params if params is not None else create_params()
+    self.truck_shadow = TruckShadow(self.params)
     self.last_param_refresh_at = 0.0
     self._refresh_settings_from_params(force=True)
 
@@ -373,6 +375,7 @@ class VASMService:
       }
       return {
         "bsdEnabled": self.bsd_enabled,
+        "truckShadow": self.truck_shadow.status(),
         "standalone": False,
         "integrated": True,
         "model": {
@@ -559,6 +562,7 @@ class VASMService:
             self.vasm_result["side"] = ""
             self.vasm_result["updatedMonoTimeNanos"] = 0
             self.vasm_result["updatedMonoTimeNanosBySide"] = {"left": 0, "right": 0}
+        self.truck_shadow.offer(buffer, int(client.frame_id), int(client.timestamp_eof), self.config, now)
         if bsd_settings_changed:
           with self.vasm_inference_lock:
             self.inference.reset()
