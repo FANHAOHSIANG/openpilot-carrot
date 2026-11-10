@@ -94,7 +94,7 @@ def install_model(source, gate, destination=MODEL):
   return str(destination)
 
 
-def external_model_block(params):
+def external_model_block(params, with_jetlink=False):
   """The C4's Jetlink transport shares cores 0–3 with this observer."""
   try:
     from openpilot.common.jetlink_status import LINK_STATUS, MODEL_STATUS, _fresh
@@ -104,11 +104,16 @@ def external_model_block(params):
       return 'usb_gpu_present'
     now = time.monotonic()
     model = _fresh(MODEL_STATUS, now)
-    if model.get('active') or model.get('ready'):
-      return 'jetlink_model_active_or_ready'
     link = _fresh(LINK_STATUS, now, handshake=True)
     if not link:
       return 'jetlink_status_unavailable'
+    if with_jetlink and link.get('state') == 'ready':
+      from openpilot.common.jetlink_status import host_label
+
+      if host_label(link.get('peer'), link.get('transport', 'usb')) == 'MAC' and not model.get('error'):
+        return 'usb_gpu_present' if get_usbgpu_devices() else None
+    if model.get('active') or model.get('ready'):
+      return 'jetlink_model_active_or_ready'
     if link.get('state') != 'waiting' or link.get('peer') is not None:
       return 'jetlink_host_busy'
     # modeld clears its USB GPU flags offroad. Check enumeration without
@@ -144,6 +149,13 @@ def healthy(params, sm):
             and bool(sm['deviceState'].started) and str(sm['deviceState'].thermalStatus) == 'green')
   except Exception:
     return False
+
+
+def driving_model_headroom(model, now_ns):
+  age_ms = (now_ns - model.timestampEof) / 1e6
+  execution_ms = model.modelExecutionTime * 1000
+  return (0 <= age_ms <= 150 and 0 < execution_ms <= 75
+          and 0 <= model.frameDropPerc <= 1)
 
 
 def write_status(directory, record):
@@ -244,7 +256,7 @@ def load_detector(path=None):
   return lambda image: session.run(None, {'images': image})[0], f'ONNX Runtime {version}'
 
 
-def run():
+def run(with_jetlink=False):
   for name in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
     os.environ[name] = '1'
   configure_worker_scheduling()
@@ -265,17 +277,17 @@ def run():
     except BlockingIOError:
       return
     observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
-            rgb_from_nv12, decode_output, letterbox_rgb)
+            rgb_from_nv12, decode_output, letterbox_rgb, with_jetlink)
 
 
 def observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
-            rgb_from_nv12, decode_output, letterbox_rgb):
+            rgb_from_nv12, decode_output, letterbox_rgb, with_jetlink=False):
   params = Params()
 
   def keep_observing():
     if not requested():
       return False
-    reason = external_model_block(params)
+    reason = external_model_block(params, with_jetlink)
     if reason:
       write_status(RUN_DIR, {'state': 'yielded_to_driving_model', 'reason': reason, 'detections': []})
       return False
@@ -292,6 +304,10 @@ def observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
     sm.update(100)
     if not healthy(params, sm):
       write_status(RUN_DIR, {'state': 'waiting_for_healthy_onroad'})
+      time.sleep(.5)
+      continue
+    if with_jetlink and not driving_model_headroom(sm['modelV2'], time.monotonic_ns()):
+      write_status(RUN_DIR, {'state': 'waiting_for_driving_model_headroom'})
       time.sleep(.5)
       continue
     if not client.is_connected() and not client.connect(False):
@@ -333,21 +349,26 @@ def observe(VisionIpcClient, VisionStreamType, messaging, Params, cloudlog,
     sm.update(0)
     result_age = (time.monotonic_ns() - eof) / 1e6
     usable = requested() and healthy(params, sm) and 0 <= result_age <= 1500
-    record = {'state': 'observing' if usable else 'stale_or_unhealthy', 'pid': os.getpid(), 'frame_id': frame_id,
+    if with_jetlink:
+      usable = usable and driving_model_headroom(sm['modelV2'], time.monotonic_ns())
+    delay = next_delay(wall, cpu)
+    if with_jetlink:
+      delay = max(delay, 2.0 - wall, 19.0 * cpu)
+    record = {'with_jetlink': with_jetlink, 'state': 'observing' if usable else 'stale_or_unhealthy', 'pid': os.getpid(), 'frame_id': frame_id,
               'timestamp_eof_ns': eof, 'input_age_ms': age_ms, 'result_age_ms': result_age,
-              'work_ms': wall * 1000, 'cpu_ms': cpu * 1000, 'next_delay_s': next_delay(wall, cpu),
+              'work_ms': wall * 1000, 'cpu_ms': cpu * 1000, 'next_delay_s': delay,
               'image_size': [int(frame.width), int(frame.height)], 'model_sha256': MODEL_SHA256,
               'runtime': runtime_version, 'detections': boxes if usable else [],
               'control_eligible': False, 'applied_offset_m': 0.0}
     write_status(RUN_DIR, record)
     cloudlog.event('truckShadowObservation', **record)
-    if not wait_or_disarm(next_delay(wall, cpu), keep_observing):
+    if not wait_or_disarm(delay, keep_observing):
       return
 
 
-def main():
+def main(with_jetlink=False):
   try:
-    run()
+    run(with_jetlink)
   except Exception as error:
     from openpilot.common.swaglog import cloudlog
     cloudlog.exception('truck shadow observer disabled')
@@ -406,7 +427,10 @@ def cli():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('command', choices=('install', 'arm', 'off', 'status', 'worker'))
   parser.add_argument('model_file', nargs='?', type=Path, help='local truck-best.onnx for install')
+  parser.add_argument('--with-jetlink', action='store_true', help='allow a ready Mac Jetlink session in shadow mode')
   args = parser.parse_args()
+  if args.with_jetlink and args.command not in ('arm', 'worker'):
+    parser.error('--with-jetlink requires arm')
   if (args.command == 'install') != (args.model_file is not None):
     parser.error('install requires exactly one local model file')
   directory = RUN_DIR
@@ -430,7 +454,7 @@ def cli():
       return
 
     def prepare():
-      reason = external_model_block(params)
+      reason = external_model_block(params, args.with_jetlink)
       if reason:
         raise RuntimeError(f'truck observation blocked by driving model: {reason}')
       check_model()
@@ -442,14 +466,17 @@ def cli():
         raise RuntimeError('branch OpenCV runtime missing; check the branch startup log')
 
     def launch():
-      subprocess.Popen([sys.executable, '-m', 'openpilot.tools.clearance_shadow.live_observer', 'worker'], stdin=subprocess.DEVNULL,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+      command = [sys.executable, '-m', 'openpilot.tools.clearance_shadow.live_observer', 'worker']
+      if args.with_jetlink:
+        command.append('--with-jetlink')
+      subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, start_new_session=True)
 
     arm_worker(gate, prepare, launch, directory)
   elif args.command == 'off':
     (directory / 'armed.json').unlink(missing_ok=True)
   elif args.command == 'worker':
-    main()
+    main(args.with_jetlink)
     return
   print(json.dumps(dict(status_snapshot(directory), model=model_status()), ensure_ascii=False, indent=2))
 

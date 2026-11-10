@@ -9,10 +9,12 @@
 
 此研究用攝影機觀察程式預設關閉。手動啟用需 C4 確認 offroad、點火關閉連續 15 秒。
 程式有 5 分鐘最長啟用期限、最多 30 秒 CPU 時間，最多每秒處理一張最新路面影格；
-運算後依 CPU 時間延長等待。它和 C4 上的 Jetlink 傳輸共用 CPU 0–3，因此只有
-Jetlink 即時狀態顯示主機未連線，而且 USB eGPU 未連接或使用時才可觀察。
-若外接模型開始連線、準備、運行，或 Jetlink 狀態已過期，觀察程式會在下一次檢查時退出，
-並丟棄當次推論結果。狀態更新及單次推論可能延遲退出。C4 負載及共存表現仍待實機驗證。
+運算後依 CPU 時間延長等待。一般 `arm` 要求 Jetlink 主機未連線。手動加上
+`arm --with-jetlink` 可測試 C4 CPU 卡車辨識與 Mac Jetlink 模型並用，取樣最多每兩秒一張，
+並依 CPU 時間延長等待。請先在停車狀態等 Jetlink 顯示 Mac 已就緒再啟用。
+USB eGPU、Jetlink 連線中／重連、其他主機、狀態過期或模型錯誤都會阻擋觀察。
+並用時也檢查主模型輸出，輸出影格超過 150 ms、單次推論超過 75 ms 或掉幀比例超過 1% 時
+暫停取樣或捨棄當次結果。這些是初始測試門檻，C4 與 Mac 的共存效能仍待實機驗證。
 
 此版本只輸出貨車／巴士的框和信心值，不做 ByteTrack、不計算側距、不顯示在行車 UI，
 也不提供任何方向盤、煞車或規劃器控制輸出。無法得到新鮮有效的 `deviceState`／
@@ -44,6 +46,9 @@ cd /data/openpilot
 PYTHONPATH="$PWD/pydeps:$PWD${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m openpilot.tools.clearance_shadow.live_observer arm
 ```
+
+與 Mac N16 Nav 並用時，把上述指令尾端的 `arm` 改成 `arm --with-jetlink`。
+先量測 Jetlink 單獨運作，再以相同設定比較並用時的主模型更新率、掉幀、延遲與 C4 溫度。
 
 `arm` 通過檢查後會啟動獨立程序；模型載入需要時間。請先用 `status` 確認
 `latest.state` 明確顯示 `waiting_for_healthy_onroad`，再安排由另一人監看測試。

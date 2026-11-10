@@ -324,7 +324,7 @@ def test_live_frame_processing_respects_health_and_driving_model(tmp_path, monke
   monkeypatch.setattr(live, 'configure_worker_scheduling', lambda: None)
   monkeypatch.setattr(live, 'configure_worker_limits', lambda: None)
   monkeypatch.setattr(live, 'wait_or_disarm', lambda *_: True)
-  monkeypatch.setattr(live, 'external_model_block', lambda _: (
+  monkeypatch.setattr(live, 'external_model_block', lambda *_: (
     'jetlink_host_busy' if blocked_at == 'startup' or (blocked_at == 'inference' and runs) else None))
   health = iter([True, healthy_after_inference])
   monkeypatch.setattr(live, 'healthy', lambda *_: next(health))
@@ -407,3 +407,41 @@ def test_live_frame_processing_respects_health_and_driving_model(tmp_path, monke
     assert len(runs) == 1 and len(events) == 1
     assert record['state'] == ('observing' if healthy_after_inference else 'stale_or_unhealthy')
     assert bool(record['detections']) is healthy_after_inference
+
+
+@pytest.mark.parametrize(('age_ms', 'execution_ms', 'drop_pct', 'allowed'), [
+  (50, 40, 0, True), (151, 40, 0, False), (50, 76, 0, False),
+  (50, 40, 2, False), (-1, 40, 0, False), (50, float('nan'), 0, False),
+])
+def test_coexistence_driving_model_headroom(age_ms, execution_ms, drop_pct, allowed):
+  now = 1_000_000_000
+  sample = SimpleNamespace(timestampEof=now - age_ms * 1_000_000,
+                           modelExecutionTime=execution_ms / 1000, frameDropPerc=drop_pct)
+  assert live.driving_model_headroom(sample, now) is allowed
+
+
+def test_coexistence_only_admits_ready_mac_and_still_yields_to_egpu(monkeypatch):
+  link = {'state': 'ready', 'peer': {'carrot_host': 'mac'}, 'transport': 'usb'}
+  model = {'active': True}
+  status = ModuleType('openpilot.common.jetlink_status')
+  status.LINK_STATUS, status.MODEL_STATUS = 'link', 'model'
+  status._fresh = lambda path, *_args, **_kwargs: link if path == 'link' else model
+  status.host_label = lambda peer, _: {'mac': 'MAC', 'jetson': 'jetSON'}[peer['carrot_host']]
+  monkeypatch.setitem(sys.modules, status.__name__, status)
+  usb = ModuleType('openpilot.system.hardware.usbgpu')
+  usb.get_usbgpu_devices = lambda: []
+  monkeypatch.setitem(sys.modules, usb.__name__, usb)
+  params = SimpleNamespace(get_bool=lambda _: False)
+
+  assert live.external_model_block(params) == 'jetlink_model_active_or_ready'
+  assert live.external_model_block(params, True) is None
+  usb.get_usbgpu_devices = lambda: [object()]
+  assert live.external_model_block(params, True) == 'usb_gpu_present'
+  usb.get_usbgpu_devices = lambda: []
+  link['peer']['carrot_host'] = 'jetson'
+  assert live.external_model_block(params, True)
+  link['peer']['carrot_host'] = 'mac'
+  link['state'] = 'loading'
+  assert live.external_model_block(params, True)
+  link.clear()
+  assert live.external_model_block(params, True) == 'jetlink_status_unavailable'
