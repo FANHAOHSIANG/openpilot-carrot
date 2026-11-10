@@ -1,4 +1,4 @@
-import { loadOnnxVisionStatus } from "./api.js";
+import { loadOnnxVisionStatus, updateOnnxVisionSettings } from "./api.js";
 import { createConfidenceMeter } from "./components/confidence_meter.js";
 import { mountOnnxPolygonEditor } from "./components/polygon_editor.js";
 import { ONNX_VISION_STATE, normalizeOnnxVisionStatus } from "./model.js";
@@ -375,6 +375,12 @@ function createPanel(root) {
     "bsd",
     bsdRows,
   );
+  const truck = documentRoot.createElement("section");
+  truck.className = "setting-section-block ui-stagger-item";
+  truck.innerHTML = `
+    <label><input type="checkbox" data-role="truck-toggle"> 大車辨識</label>
+    <p data-role="truck-status" role="status"></p>
+  `;
   const advanced = documentRoot.createElement("details");
   advanced.className = "setting-section-block onnx-vision-advanced-settings ui-stagger-item";
   const advancedSummary = documentRoot.createElement("summary");
@@ -398,7 +404,7 @@ function createPanel(root) {
   advanced.style.setProperty("--i", "3");
   const contextPanel = root.querySelector(":scope > .setting-context");
   const fragment = documentRoot.createDocumentFragment();
-  fragment.append(editor.section, advanced);
+  fragment.append(truck, editor.section, advanced);
   root.insertBefore(fragment, contextPanel || null);
   return Object.freeze({
     editor,
@@ -407,7 +413,8 @@ function createPanel(root) {
     runtime,
     lane,
     bsd,
-    roots: [editor.section, advanced],
+    truck,
+    roots: [truck, editor.section, advanced],
     restoreRows() {
       placeholders.forEach(({ row, placeholder }) => {
         if (placeholder.isConnected) placeholder.replaceWith(row);
@@ -421,6 +428,10 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
   const view = createPanel(root);
   const editor = mountOnnxPolygonEditor(view.editor.host, { embedded: true });
   let loading = false;
+  let changingTruck = false;
+  let truckError = "";
+  const truckToggle = view.truck.querySelector('[data-role="truck-toggle"]');
+  const truckStatus = view.truck.querySelector('[data-role="truck-status"]');
   let current = normalizeOnnxVisionStatus({}, {
     enabled: enabled(setting),
     loading: enabled(setting),
@@ -435,6 +446,12 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
     if (showAdvancedWarning) setChip(view.advancedState, stateText(current.state), "warning");
     const serviceAvailable = ![ONNX_VISION_STATE.DISABLED, ONNX_VISION_STATE.UNAVAILABLE, ONNX_VISION_STATE.STARTING].includes(current.state);
     editor?.setCameraAvailable(serviceAvailable);
+    const truck = current.raw?.truckShadow;
+    truckToggle.checked = Boolean(truck?.armed);
+    truckToggle.disabled = !serviceAvailable || !truck || changingTruck;
+    truckStatus.textContent = truckError || (truck?.armed
+      ? (truck.latest?.error || (truck.latest_fresh ? "辨識中" : "已啟用，等待可用行車影像或主模型穩定"))
+      : "已關閉。請在車輛 READY、停妥時操作。");
   }
 
   view.runtime.card.querySelector('[data-role="diagnostics"]').addEventListener("click", () => openDiagnostics(current));
@@ -463,6 +480,24 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
       loading = false;
     }
   }
+
+  const onTruckToggle = async () => {
+    const desired = truckToggle.checked;
+    changingTruck = true;
+    truckError = "";
+    render();
+    try {
+      const payload = await updateOnnxVisionSettings({ truckShadowEnabled: desired }, globalThis, { signal: lifecycle.signal });
+      if (!lifecycle.destroyed) current = normalizeOnnxVisionStatus(payload, { enabled: enabled(setting) });
+    } catch (error) {
+      if (!lifecycle.destroyed && error?.name !== "AbortError") truckError = error.message;
+    } finally {
+      changingTruck = false;
+      if (!lifecycle.destroyed) render();
+    }
+  };
+  truckToggle.addEventListener("change", onTruckToggle);
+  lifecycle.addCleanup(() => truckToggle.removeEventListener("change", onTruckToggle));
 
   const toggle = setting.querySelector('input[type="checkbox"]');
   const onToggle = () => {

@@ -26,6 +26,9 @@ def requested(directory=RUN_DIR, now_ns=None):
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 512:
       return False
     info = json.loads(path.read_text())
+    if info['version'] == 2:
+      started = info['started_monotonic_ns']
+      return type(started) is int and 0 <= started <= now_ns
     expiry = info['expires_monotonic_ns']
     return (info['version'] == 1 and isinstance(expiry, int) and not isinstance(expiry, bool)
             and 0 < expiry - now_ns <= ARM_DURATION_NS)
@@ -392,7 +395,7 @@ def wait_for_offroad(gate, clock=time.monotonic, pause=time.sleep):
 
 
 def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
-               clock_ns=time.monotonic_ns, pause=time.sleep, with_jetlink=False):
+               clock_ns=time.monotonic_ns, pause=time.sleep, with_jetlink=False, continuous=False):
   """Arm only after a continuous offroad interval and a final post-setup check."""
   directory = Path(directory)
   if requested(directory, clock_ns()):
@@ -401,17 +404,28 @@ def arm_worker(gate, prepare, launch, directory=RUN_DIR, clock=time.monotonic,
   prepare()
   if not gate():
     raise RuntimeError('offroad/ignition-off no longer confirmed')
-  directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-  (directory / 'latest.json').unlink(missing_ok=True)
-  tmp = directory / 'armed.tmp'
-  tmp.write_text(json.dumps({'version': 1, 'expires_monotonic_ns': clock_ns() + ARM_DURATION_NS,
-                            'with_jetlink': with_jetlink}))
-  tmp.replace(directory / 'armed.json')
+  write_arm_ticket(directory, clock_ns(), with_jetlink, continuous)
   try:
     launch()
   except Exception:
     (directory / 'armed.json').unlink(missing_ok=True)
     raise
+
+
+def write_arm_ticket(directory, now_ns, with_jetlink, continuous):
+  directory = Path(directory)
+  directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+  (directory / 'latest.json').unlink(missing_ok=True)
+  ticket = ({'version': 2, 'started_monotonic_ns': now_ns} if continuous
+            else {'version': 1, 'expires_monotonic_ns': now_ns + ARM_DURATION_NS})
+  with tempfile.NamedTemporaryFile(mode='w', dir=directory, prefix='armed-', delete=False) as stream:
+    tmp = Path(stream.name)
+    try:
+      json.dump(dict(ticket, with_jetlink=with_jetlink), stream)
+      stream.flush()
+      tmp.replace(directory / 'armed.json')
+    finally:
+      tmp.unlink(missing_ok=True)
 
 
 def model_status():
@@ -429,9 +443,10 @@ def cli():
   parser.add_argument('command', choices=('install', 'arm', 'off', 'status', 'offset-on', 'offset-off'))
   parser.add_argument('model_file', nargs='?', type=Path, help='local truck-best.onnx for install')
   parser.add_argument('--with-jetlink', action='store_true', help='allow a ready Mac Jetlink session in shadow mode')
+  parser.add_argument('--continuous', action='store_true', help='observe until off or reboot')
   args = parser.parse_args()
-  if args.with_jetlink and args.command != 'arm':
-    parser.error('--with-jetlink requires arm')
+  if (args.with_jetlink or args.continuous) and args.command != 'arm':
+    parser.error('--with-jetlink and --continuous require arm')
   if (args.command == 'install') != (args.model_file is not None):
     parser.error('install requires exactly one local model file')
   directory = RUN_DIR
@@ -470,7 +485,7 @@ def cli():
       if importlib.util.find_spec('cv2') is None:
         raise RuntimeError('branch OpenCV runtime missing; check the branch startup log')
 
-    arm_worker(gate, prepare, lambda: None, directory, with_jetlink=args.with_jetlink)
+    arm_worker(gate, prepare, lambda: None, directory, with_jetlink=args.with_jetlink, continuous=args.continuous)
   elif args.command == 'off':
     (directory / 'armed.json').unlink(missing_ok=True)
   print(json.dumps(dict(status_snapshot(directory), model=model_status()), ensure_ascii=False, indent=2))

@@ -25,3 +25,10 @@ python3 -m openpilot.tools.clearance_shadow.live_observer arm --with-jetlink
 每筆 truckShadowObservation 會記錄 requested_offset_m、applied_offset_m 與 cancel_reason。
 請求是影像候選方向的試算值（向左為負，向右為正，幅度 0.15 m），沒有經過車道空間驗證。
 實際套用值固定為 0。車道可用空間與目標追蹤通過回放驗證前，這版僅供觀察。
+
+## Carrot Web 開關
+
+在 ONNX Vision 詳細頁使用「大車辨識」。請在車輛 READY、停妥時操作。這個頁面的 ONNX Vision 服務隨行車狀態啟動。
+網頁開關啟動持續觀察，關閉開關或 C4 重啟後結束，停車或主模型狀態不佳時暫停推論。
+舊的 SSH arm 指令仍是五分鐘模式。要從終端機啟用持續模式，在 arm 後加上 --continuous。
+持續模式沿用單一背景工作、至少兩秒取樣間隔與 CPU 用量冷卻時間。

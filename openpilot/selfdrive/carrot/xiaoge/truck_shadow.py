@@ -62,7 +62,9 @@ class TruckShadow:
       return None
     try:
       value = json.loads((RUN_DIR / 'armed.json').read_text())
-      return value['expires_monotonic_ns'], value.get('with_jetlink') is True
+      continuous = value['version'] == 2
+      timestamp = value['started_monotonic_ns'] if continuous else value['expires_monotonic_ns']
+      return timestamp, value.get('with_jetlink') is True, continuous
     except (OSError, ValueError, KeyError, TypeError):
       return None
 
@@ -81,7 +83,7 @@ class TruckShadow:
       self.failed = False
     if self.failed:
       return
-    if self.cpu_used >= 30:
+    if not ticket[2] and self.cpu_used >= 30:
       write_status(RUN_DIR, {'state': 'cpu_budget_exhausted'})
       self.failed = True
       self.infer = None
