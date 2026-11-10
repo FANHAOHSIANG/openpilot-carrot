@@ -11,6 +11,10 @@ import time
 PREPARE_TIMEOUT = 60
 
 
+def preparation_output_tail(output):
+  return os.pread(output.fileno(), 2000, max(0, os.fstat(output.fileno()).st_size - 2000)).decode(errors='replace').strip()
+
+
 class WarpPreparation:
   def __init__(self, width, height):
     self.future = Future()
@@ -40,10 +44,9 @@ class WarpPreparation:
               if self.cancelled.wait(.05):
                 raise InterruptedError('Jetlink adapter preparation cancelled')
               if time.monotonic() - started > PREPARE_TIMEOUT:
-                raise TimeoutError('Jetlink adapter preparation timed out')
+                raise TimeoutError('Jetlink adapter preparation timed out: ' + (preparation_output_tail(output) or 'no worker output'))
             if process.returncode:
-              output.seek(0)
-              raise RuntimeError('Jetlink adapter preparation failed: ' + output.read().decode(errors='replace')[-2000:])
+              raise RuntimeError('Jetlink adapter preparation failed: ' + preparation_output_tail(output))
             self.future.set_result((target.read_bytes(), time.monotonic() - started))
         finally:
           if process is not None and process.poll() is None:
@@ -69,8 +72,13 @@ def main():
   if ctypes.CDLL(None).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
     raise RuntimeError('Jetlink preparation parent unavailable')
   os.nice(19)
+  print('Jetlink warp worker: importing adapter', flush=True)
   from openpilot.selfdrive.modeld.jetlink.model import Warp
-  Warp(width, height).save_prepared(Path(sys.argv[4]), width, height)
+
+  print('Jetlink warp worker: building and validating camera warp', flush=True)
+  warp = Warp(width, height)
+  print('Jetlink warp worker: serializing and verifying restored warp', flush=True)
+  warp.save_prepared(Path(sys.argv[4]), width, height)
 
 
 if __name__ == '__main__':

@@ -156,6 +156,7 @@ class JoiningModel:
     self.frame = 0
     self.join_allowed = False
     self.next_join = 0.
+    self.warp_retry_delay = 30
     self.next_status = 0.
     self.ready = False
     self.reset = True
@@ -219,7 +220,8 @@ class JoiningModel:
           self.preparation.close()
           self.preparation = None
         self.error = str(exc)
-        self.next_join = time.monotonic() + 30
+        self.next_join = time.monotonic() + self.warp_retry_delay
+        self.warp_retry_delay = min(120, 2 * self.warp_retry_delay)
     if self.connection is not None and not (self.ready and self.join_allowed):
       self.connection.close()
       self.connection = None
