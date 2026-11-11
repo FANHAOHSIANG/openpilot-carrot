@@ -438,6 +438,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"HardwareC3xLite", {PERSISTENT, INT, "0"}},
     {"ShareData", {PERSISTENT, INT, "0"}},
     {"OnnxBsdEnabled", {PERSISTENT, INT, "0"}},
+    {"OnnxTruckEnabled", {PERSISTENT, BOOL, "0"}},
     {"TruckClearanceShadowEnabled", {PERSISTENT, BOOL, "0"}},
     {"OnnxLaneThreshold", {PERSISTENT, INT, "25"}},
     {"OnnxLaneIntervalMs", {PERSISTENT, INT, "400"}},
@@ -445,3 +446,4 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"OnnxBsdSmoothingMs", {PERSISTENT, INT, "200"}},
     {"OnnxBsdIntervalMs", {PERSISTENT, INT, "250"}},
 };
+

@@ -28,7 +28,9 @@ python3 -m openpilot.tools.clearance_shadow.live_observer arm --with-jetlink
 
 ## Carrot Web 開關
 
-在 ONNX Vision 詳細頁使用「大車辨識」。請在車輛 READY、停妥時操作。這個頁面的 ONNX Vision 服務隨行車狀態啟動。
-網頁開關啟動持續觀察，關閉開關或 C4 重啟後結束，停車或主模型狀態不佳時暫停推論。
+在 ONNX Vision 詳細頁使用「大車辨識」。開關可隨時操作，設定保存到 OnnxTruckEnabled，C4 重啟後也會保留。
+開啟時自動啟用 ONNX Vision 主服務。車輛啟動且有可用影像時持續辨識，停車或主模型狀態不佳時暫停推論。
+關閉開關即可停止，無需重新輸入 SSH 指令。
 舊的 SSH arm 指令仍是五分鐘模式。要從終端機啟用持續模式，在 arm 後加上 --continuous。
 持續模式沿用單一背景工作、至少兩秒取樣間隔與 CPU 用量冷卻時間。
+

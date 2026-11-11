@@ -55,9 +55,11 @@ class TruckShadow:
     self.failed = False
 
   def status(self):
-    return status_snapshot()
+    return status_snapshot(armed_override=True if self.params is not None and self.params.get_bool('OnnxTruckEnabled') else None)
 
   def ticket(self):
+    if self.params is not None and self.params.get_bool('OnnxTruckEnabled'):
+      return 0, True, True
     if not requested():
       return None
     try:
@@ -153,3 +155,4 @@ class TruckShadow:
       cpu = time.thread_time() - cpu_start
       self.cpu_used += cpu
       self.next_check = max(self.next_check, time.monotonic() + 19 * cpu)
+

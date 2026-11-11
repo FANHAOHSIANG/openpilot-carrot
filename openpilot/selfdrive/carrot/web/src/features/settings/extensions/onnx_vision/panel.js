@@ -1,4 +1,4 @@
-import { loadOnnxVisionStatus, updateOnnxVisionSettings } from "./api.js";
+import { loadOnnxVisionStatus } from "./api.js";
 import { createConfidenceMeter } from "./components/confidence_meter.js";
 import { mountOnnxPolygonEditor } from "./components/polygon_editor.js";
 import { ONNX_VISION_STATE, normalizeOnnxVisionStatus } from "./model.js";
@@ -429,6 +429,7 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
   const editor = mountOnnxPolygonEditor(view.editor.host, { embedded: true });
   let loading = false;
   let changingTruck = false;
+  let truckEnabled = false;
   let truckError = "";
   const truckToggle = view.truck.querySelector('[data-role="truck-toggle"]');
   const truckStatus = view.truck.querySelector('[data-role="truck-status"]');
@@ -447,17 +448,25 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
     const serviceAvailable = ![ONNX_VISION_STATE.DISABLED, ONNX_VISION_STATE.UNAVAILABLE, ONNX_VISION_STATE.STARTING].includes(current.state);
     editor?.setCameraAvailable(serviceAvailable);
     const truck = current.raw?.truckShadow;
-    truckToggle.checked = Boolean(truck?.armed);
-    truckToggle.disabled = !serviceAvailable || !truck || changingTruck;
-    truckStatus.textContent = truckError || (truck?.armed
-      ? (truck.latest?.error || (truck.latest_fresh ? "辨識中" : "已啟用，等待可用行車影像或主模型穩定"))
-      : "已關閉。請在車輛 READY、停妥時操作。");
+    truckToggle.checked = truckEnabled;
+    truckToggle.disabled = changingTruck;
+    truckStatus.textContent = truckError || (truckEnabled
+      ? (truck?.latest?.error || (truck?.latest_fresh ? "辨識中" : "已啟用，等待可用行車影像或主模型穩定"))
+      : "已關閉。開啟後會記住設定，有可用影像時自動辨識。");
   }
 
   view.runtime.card.querySelector('[data-role="diagnostics"]').addEventListener("click", () => openDiagnostics(current));
 
   async function refresh() {
     if (loading || lifecycle.destroyed || globalThis.document?.hidden) return;
+    try {
+      const response = await globalThis.fetch("/xiaoge/api/truck", { cache: "no-store", signal: lifecycle.signal });
+      if (!response.ok) throw new Error("無法讀取大車辨識設定");
+      const payload = await response.json();
+      if (!lifecycle.destroyed && !changingTruck) truckEnabled = payload.enabled === true;
+    } catch (error) {
+      if (!lifecycle.destroyed && error?.name !== "AbortError") truckError = error.message;
+    }
     const onnxEnabled = enabled(setting);
     if (!onnxEnabled) {
       current = normalizeOnnxVisionStatus({}, { enabled: false });
@@ -487,8 +496,13 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
     truckError = "";
     render();
     try {
-      const payload = await updateOnnxVisionSettings({ truckShadowEnabled: desired }, globalThis, { signal: lifecycle.signal });
-      if (!lifecycle.destroyed) current = normalizeOnnxVisionStatus(payload, { enabled: enabled(setting) });
+      const response = await globalThis.fetch("/xiaoge/api/truck", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: desired }), signal: lifecycle.signal,
+      });
+      if (!response.ok) throw new Error("無法儲存大車辨識設定");
+      const payload = await response.json();
+      if (!lifecycle.destroyed) truckEnabled = payload.enabled === true;
     } catch (error) {
       if (!lifecycle.destroyed && error?.name !== "AbortError") truckError = error.message;
     } finally {
@@ -530,3 +544,4 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
     },
   };
 }
+

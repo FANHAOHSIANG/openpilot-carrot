@@ -171,7 +171,7 @@ def write_status(directory, record):
   temporary.replace(directory / 'latest.json')
 
 
-def status_snapshot(directory=RUN_DIR, now_ns=None):
+def status_snapshot(directory=RUN_DIR, now_ns=None, armed_override=None):
   now_ns = time.monotonic_ns() if now_ns is None else now_ns
   latest = None
   try:
@@ -183,7 +183,7 @@ def status_snapshot(directory=RUN_DIR, now_ns=None):
     timestamp = latest['updated_monotonic_ns']
     if 0 <= timestamp <= now_ns:
       age_s = (now_ns - timestamp) / 1e9
-  armed = requested(directory, now_ns)
+  armed = requested(directory, now_ns) if armed_override is None else armed_override
   fresh = bool(armed and age_s is not None and age_s <= 3 and latest.get('state') == 'observing')
   if isinstance(latest, dict) and not fresh:
     latest = dict(latest, detections=[])
@@ -487,9 +487,12 @@ def cli():
 
     arm_worker(gate, prepare, lambda: None, directory, with_jetlink=args.with_jetlink, continuous=args.continuous)
   elif args.command == 'off':
+    from openpilot.common.params import Params
+    Params().put_bool('OnnxTruckEnabled', False)
     (directory / 'armed.json').unlink(missing_ok=True)
   print(json.dumps(dict(status_snapshot(directory), model=model_status()), ensure_ascii=False, indent=2))
 
 
 if __name__ == '__main__':
   cli()
+
