@@ -103,6 +103,32 @@ def test_stable_corridor_id_across_vertices_and_moving_local_window():
   assert len(set(ids)) == 1
 
 
+def test_cached_topology_keeps_current_heading_and_new_fork_checks():
+  roads = [Road(lonlat(road()), True)]
+  matcher = RoadMatcher()
+  assert matcher.match(roads, lonlat((0, 0)), 90)[1] == 'road_matched'
+  graph = matcher._graph
+  assert matcher.match(roads, lonlat((5, 0)), 90)[1] == 'road_matched'
+  assert matcher._graph is graph
+  assert matcher.match(roads, lonlat((5, 0)), 270)[1] == 'off_road'
+  branch = Road(lonlat(np.array([(100, 0), (110, -20), (130, -40)])))
+  points, status = matcher.match(roads + [branch], lonlat((5, 0)), 90)
+  assert matcher._graph is not graph
+  assert status == 'road_matched' and points[-1] == pytest.approx(lonlat((100, 0)))
+
+
+def test_topology_cache_expires_with_segment_window_or_replaced_tile():
+  roads = [Road(lonlat(np.column_stack([np.arange(-1000, 2005, 5), np.zeros(601)])), True)]
+  matcher = RoadMatcher()
+  matcher.match(roads, lonlat((0, 0)), 90)
+  graph = matcher._graph
+  matcher.match(roads, lonlat((100, 0)), 90)
+  assert matcher._graph is not graph
+  replacement = Road(roads[0].points.copy(), False)
+  assert matcher.match([replacement], lonlat((100, 0)), 270)[1] == 'road_matched'
+  assert matcher.match([], lonlat((100, 0)), 90)[1] == 'no_roads'
+
+
 def test_real_tile_format_atomic_install_and_cross_tile_query(tmp_path):
   archive = make_archive(tmp_path / 'good.tar.gz', [Road(lonlat(road()))])
   assert install_archive(archive, tmp_path / 'cache', (24, 120)) > 0
