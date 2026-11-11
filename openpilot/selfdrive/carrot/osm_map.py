@@ -188,6 +188,14 @@ def group_age(root, group, now=None):
 class Road:
   points: np.ndarray
   oneway: bool = False
+  lanes: int = 0
+  motorway: bool = False
+
+  @property
+  def lateral_allowance(self):
+    # Only divided mainline roads with explicit lane metadata. Never links,
+    # bidirectional ways or an inferred lane count. Cap at four lanes.
+    return 1.8 * self.lanes if self.oneway and self.motorway and 3 <= self.lanes <= 4 else 0.
 
 
 class TileStore:
@@ -220,7 +228,7 @@ class TileStore:
         points = np.array([(n.longitude, n.latitude) for n in way.nodes])
         if not np.isfinite(points).all() or np.any(np.abs(points) > [180, 85]):
           raise ValueError('invalid_way')
-        roads.append(Road(points, bool(way.oneWay)))
+        roads.append(Road(points, bool(way.oneWay), int(way.lanes), str(way.highwayClass) == 'motorway'))
         boxes.append([*points.min(axis=0), *points.max(axis=0)])
       self.cache[key] = (tuple(roads), np.asarray(boxes).reshape(-1, 4))
       while len(self.cache) > 4:
@@ -258,8 +266,10 @@ class RoadMatcher:
     self._road_nodes = {}
     self._graph_key = None
     self._graph = None
+    self.lateral_allowance = 0.
 
   def match(self, roads, position, heading):
+    self.lateral_allowance = 0.
     scale = np.array([METRES_PER_DEGREE * math.cos(math.radians(position[1])), METRES_PER_DEGREE])
     # TileStore returns immutable Road objects. Cache rounded node coordinates,
     # and reuse topology only when the exact included segments are unchanged.
@@ -276,10 +286,11 @@ class RoadMatcher:
                              & np.all(np.maximum(points[:-1], points[1:]) >= -750, axis=1))
       selected.append((road, cached[1], valid))
     self._road_nodes = road_nodes
-    key = tuple((id(road), road.oneway, valid.tobytes()) for road, _, valid in selected)
+    key = tuple((id(road), road.oneway, road.lateral_allowance, valid.tobytes()) for road, _, valid in selected)
     if key != self._graph_key:
       outgoing, incoming = defaultdict(set), defaultdict(set)
       nodes, indices = [], {}
+      widths = {}
 
       def node(key):
         if key not in indices:
@@ -292,15 +303,17 @@ class RoadMatcher:
           a, b = node(rounded[i]), node(rounded[i + 1])
           if a == b:
             continue
+          widths[a, b] = min(widths.get((a, b), road.lateral_allowance), road.lateral_allowance)
           outgoing[a].add(b)
           incoming[b].add(a)
           if not road.oneway:
+            widths[b, a] = 0.
             outgoing[b].add(a)
             incoming[a].add(b)
       coords = np.asarray(nodes).reshape(-1, 2)
       edges = np.asarray([(a, b) for a, targets in outgoing.items() for b in targets], dtype=int).reshape(-1, 2)
-      self._graph_key, self._graph = key, (coords, edges, outgoing, incoming)
-    coords, edges, outgoing, incoming = self._graph
+      self._graph_key, self._graph = key, (coords, edges, outgoing, incoming, widths)
+    coords, edges, outgoing, incoming, widths = self._graph
     if not len(edges):
       return (), 'no_roads'
     xy = (coords - position) * scale
@@ -311,7 +324,8 @@ class RoadMatcher:
     error = np.linalg.norm(a + t[:, None] * delta, axis=1)
     angle = math.radians(heading)
     alignment = delta @ [math.sin(angle), math.cos(angle)] / np.maximum(lengths, 1e-9)
-    candidates = np.flatnonzero((error <= 8) & (alignment >= math.cos(math.radians(30))))
+    allowances = np.array([widths[tuple(edge)] for edge in edges])
+    candidates = np.flatnonzero((error <= np.maximum(8., allowances + 2.)) & (alignment >= math.cos(math.radians(30))))
     if not len(candidates):
       return (), 'off_road'
     best = candidates[np.argmin(error[candidates])]
@@ -341,10 +355,11 @@ class RoadMatcher:
     extend(True)
     route_edges = set(zip(path[:-1], path[1:], strict=True))
     for candidate in candidates:
-      if error[candidate] <= error[best] + 3 and tuple(edges[candidate]) not in route_edges:
+      if (error[candidate] <= error[best] + 3 or allowances[best] > 0 or allowances[candidate] > 0) and tuple(edges[candidate]) not in route_edges:
         return (), 'ambiguous_road'
     if len(path) < 3:
       return (), 'short_road'
+    self.lateral_allowance = min(widths[edge] for edge in route_edges)
     points = tuple(map(tuple, coords[path]))
     best_edge = (tuple(coords[first]), tuple(coords[last]))
     old_edges = list(zip(self.previous[:-1], self.previous[1:], strict=True))

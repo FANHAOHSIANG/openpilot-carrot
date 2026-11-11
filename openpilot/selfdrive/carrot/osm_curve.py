@@ -55,6 +55,7 @@ class OsmCurveClient:
     self.response = {}
     self.status = 'starting'
     self.mode = None
+    self.lateral_allowance = 0.
 
   def update(self, *, now, onroad, enabled, wanted, wifi, position, heading, fix_time, speed):
     mode = (onroad, enabled, wanted, wifi)
@@ -68,6 +69,7 @@ class OsmCurveClient:
         self.response = read_message(self.root / 'response.json')
       except (OSError, ValueError, TypeError):
         self.response = {}
+    self.lateral_allowance = 0.
     response = self.response
     self.status = str(response.get('status', 'worker_wait'))[:80]
     if not enabled or not wanted or not onroad:
@@ -82,6 +84,11 @@ class OsmCurveClient:
       points = response.get('points', ())
       if not 3 <= len(points) <= 4096:
         return (), self.status
+      allowance = response.get('lateral_allowance', 0.)
+      if not isinstance(allowance, (int, float)) or not math.isfinite(allowance) or not 0 <= allowance <= 7.2:
+        self.status = 'invalid_road_width'
+        return (), self.status
+      self.lateral_allowance = allowance
       return points, str(response['id'])[:64]
     except (KeyError, TypeError, ValueError):
       self.status = 'worker_wait'

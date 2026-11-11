@@ -29,6 +29,8 @@ def make_archive(path, roads=(), *, missing=False, bad_path=False):
         ways = tile.init('ways', len(roads))
         for i, value in enumerate(roads):
           ways[i].id, ways[i].oneWay = i + 1, value.oneway
+          ways[i].lanes = value.lanes
+          ways[i].highwayClass = 'motorway' if value.motorway else 'unknown'
           nodes = ways[i].init('nodes', len(value.points))
           for n, (lon, lat) in zip(nodes, value.points, strict=True):
             n.longitude, n.latitude = float(lon), float(lat)
@@ -235,3 +237,55 @@ def test_malformed_mailbox_is_ignored(tmp_path):
   for value in ('broken', '[]', 'x' * 262145):
     path.write_text(value)
     assert read_message(path) == {}
+
+
+def test_known_four_lane_motorway_accepts_carriageway_not_unbounded_distance():
+  motorway = Road(lonlat(road()), True, 4, True)
+  matcher = RoadMatcher()
+  assert matcher.match([motorway], lonlat((0, 9)), 90)[1] == 'road_matched'
+  assert matcher.lateral_allowance == pytest.approx(7.2)
+  assert matcher.match([motorway], lonlat((0, 10)), 90)[1] == 'off_road'
+  assert matcher.lateral_allowance == 0.
+  # A nearby parallel road must not be hidden by the motorway's width.
+  parallel = Road(lonlat(road() + [0, 12]), True)
+  assert matcher.match([motorway, parallel], lonlat((0, 6)), 90)[1] == 'ambiguous_road'
+  assert matcher.lateral_allowance == 0.
+
+
+@pytest.mark.parametrize('oneway,lanes,motorway', [(False, 4, True), (True, 0, True), (True, 2, True),
+                                                (True, 4, False), (True, 8, True)])
+def test_unknown_width_links_and_two_way_roads_keep_original_limit(oneway, lanes, motorway):
+  matcher = RoadMatcher()
+  assert matcher.match([Road(lonlat(road()), oneway, lanes, motorway)], lonlat((0, 9)), 90)[1] == 'off_road'
+  assert matcher.lateral_allowance == 0.
+
+
+def test_corridor_with_unknown_width_does_not_export_lane_allowance():
+  first = Road(lonlat(np.array([(0, 0), (100, 0), (200, 0)])), True, 4, True)
+  exit_road = Road(lonlat(np.array([(200, 0), (300, 0), (400, 0)])), True)
+  matcher = RoadMatcher()
+  assert matcher.match([first, exit_road], lonlat((0, 0)), 90)[1] == 'road_matched'
+  assert matcher.lateral_allowance == 0.
+
+
+def test_tile_lane_metadata_survives_decoding(tmp_path):
+  archive = make_archive(tmp_path / 'lanes.tar.gz', [Road(lonlat(road()), True, 4, True)])
+  install_archive(archive, tmp_path / 'cache', (24, 120))
+  roads = TileStore(tmp_path / 'cache').nearby(lonlat((0, 0)))
+  assert roads and all(r.lateral_allowance == 7.2 for r in roads)
+
+
+def test_response_width_is_reset_on_expired_reply(tmp_path):
+  client = OsmCurveClient(tmp_path)
+  response = {'session': client.session, 'stamp': 10., 'status': 'road_matched',
+              'points': lonlat(road()).tolist(), 'id': 'road', 'lateral_allowance': 7.2}
+  write_message(tmp_path / 'response.json', response)
+  kwargs = dict(onroad=True, enabled=True, wanted=True, wifi=False, position=(121., 25.), heading=90., fix_time=10., speed=25.)
+  assert client.update(now=10., **kwargs)[0]
+  assert client.lateral_allowance == 7.2
+  assert not client.update(now=11.1, **kwargs)[0]
+  assert client.lateral_allowance == 0.
+  response.update(stamp=11.2, lateral_allowance=100.)
+  write_message(tmp_path / 'response.json', response)
+  assert not client.update(now=11.4, **kwargs)[0]
+  assert client.status == 'invalid_road_width' and client.lateral_allowance == 0.

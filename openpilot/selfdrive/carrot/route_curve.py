@@ -31,6 +31,7 @@ class RouteCurveResult:
   match_error: float = 0.0
   points: tuple = ()
   distances: tuple = ()
+  lateral_offset: float = 0.
 
 
 class RouteCurveSpeed:
@@ -90,7 +91,7 @@ class RouteCurveSpeed:
 
   def update(self, *, now, position, heading, position_time, model, model_time,
              v_ego, a_ego=0.0, speed_ratio=1.0, sensitivity=1.0,
-             map_factor=1.0, lower_limit_kph=30.0):
+             map_factor=1.0, lower_limit_kph=30.0, lateral_allowance=0.0):
     if not math.isfinite(now):
       return RouteCurveResult(self.speed, "invalid_time")
     dt = 0.0 if self.last_time is None else min(0.2, max(0.0, now - self.last_time))
@@ -105,7 +106,7 @@ class RouteCurveSpeed:
     if len(self.route) < 3:
       return invalid("no_route")
     values = (*position, heading, position_time, model_time, v_ego, a_ego,
-              speed_ratio, sensitivity, map_factor, lower_limit_kph)
+              speed_ratio, sensitivity, map_factor, lower_limit_kph, lateral_allowance)
     if not all(math.isfinite(v) for v in values) or not 2.0 <= v_ego <= 90 or sensitivity <= 0 or map_factor <= 0:
       return invalid("invalid_input")
     if not 0 <= now - position_time <= POSITION_MAX_AGE:
@@ -122,7 +123,7 @@ class RouteCurveSpeed:
     # Calibrated/model coordinates are forward, RIGHT, down.
     right = np.array([math.cos(angle), -math.sin(angle)])
     alignment = self.delta @ forward / self.lengths
-    candidates = np.flatnonzero((error <= 8.0) & (alignment >= math.cos(math.radians(30))))
+    candidates = np.flatnonzero((error <= max(8., min(7.2, max(0., lateral_allowance)) + 2.)) & (alignment >= math.cos(math.radians(30))))
     if not len(candidates):
       return invalid("off_route")
     best = candidates[np.argmin(error[candidates])]
@@ -145,6 +146,7 @@ class RouteCurveSpeed:
       return invalid("short_route")
     xy = np.column_stack([np.interp(s + distances, self.arc, self.route[:, i]) for i in range(2)]) - p
     relative = np.column_stack([xy @ forward, xy @ right])
+    lateral_offset = 0.
     try:
       mx, my = np.asarray(model.position.x, dtype=float), np.asarray(model.position.y, dtype=float)
       if len(mx) != 33 or len(my) != 33:
@@ -162,12 +164,20 @@ class RouteCurveSpeed:
         return invalid("invalid_model")
       if len(mx) < 2 or np.any(np.diff(mx) <= 0):
         return invalid("short_model")
-      # Compare actual lateral position, not just curvature: parallel roads and
-      # wrong fork branches must not be made to match by shifting the route.
-      residual = np.abs(ry - np.interp(rx, mx, my))
+      difference = ry - np.interp(rx, mx, my)
+      residual = np.abs(difference)
       match_error = float(np.max(residual))
       if np.any(residual > 3.0 + 0.04 * rx):
-        return invalid("model_mismatch")
+        # OSM's centreline is not a lane centre. Only a unique, explicitly
+        # tagged divided motorway corridor may account for its carriageway
+        # width. Do not rotate, fit slope or remove a wrong-fork shape.
+        offset = float(np.median(difference))
+        allowance = min(7.2, max(0., lateral_allowance))
+        if not (allowance > 0 and abs(offset) <= allowance
+                and np.all(np.abs(difference - offset) <= 1.5 + .01 * rx)):
+          result = invalid("model_mismatch")
+          return RouteCurveResult(result.speed_kph, result.reason, match_error=match_error)
+        lateral_offset = offset
     except (AttributeError, ValueError, TypeError):
       return invalid("invalid_model")
     # Three-point circumcircle over +/-10 m. Its curvature belongs to the
@@ -197,6 +207,8 @@ class RouteCurveSpeed:
     self.missing_since = None
     ratio = speed_ratio if 0.5 < speed_ratio <= 1.2 else 1.0
     budget = TARGET_LAT_ACCEL / float(np.clip(sensitivity, 0.5, 3.0))
+    # Use the tighter possible lane radius, never a faster centreline cap.
+    curve = curve / np.maximum(0.1, 1. - curve * max(0., min(7.2, lateral_allowance)))
     curve_ms = np.sqrt(budget / np.maximum(curve, 1e-9)) * float(np.clip(map_factor, 0.5, 3.0))
     curve_ms = np.maximum(curve_ms, max(5.0, lower_limit_kph) * ratio / 3.6)
     delay = RESPONSE_TIME + (max(0.0, a_ego) + APPROACH_DECEL) / (2 * APPROACH_JERK)
@@ -206,4 +218,4 @@ class RouteCurveSpeed:
     self.speed = min(target, self.speed + RELEASE_KPH_PER_SECOND * dt)
     return RouteCurveResult(self.speed, "matched", min(NO_LIMIT_KPH, float(curve_ms[index] * 3.6 / ratio)),
                             float(curve_distances[index]), match_error,
-                            tuple(map(tuple, relative[distances >= 0])), tuple(distances[distances >= 0]))
+                            tuple(map(tuple, relative[distances >= 0])), tuple(distances[distances >= 0]), lateral_offset)

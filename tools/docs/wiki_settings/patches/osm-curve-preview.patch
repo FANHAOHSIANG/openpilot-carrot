@@ -17,7 +17,7 @@
 +<!-- CARROT:SECTION:BEGIN REFERENCE -->
 +### Reference
 +
-+Road centerlines are not lane-level maps. Missing tiles, parallel-road ambiguity or stale position prevent new OSM constraints. This does not select directions, steer or supply navigation-model guidance. Physical C4 performance still requires validation.
++Road centerlines are not lane-level maps. Missing tiles, parallel-road ambiguity or stale position prevent new OSM constraints. This does not select directions, steer or supply navigation-model guidance. Fresh device GPS is required independently of phone navigation. Only unique one-way motorway corridors explicitly tagged with 3–4 lanes allow bounded centreline offsets, with near-path shape checks and a tighter lane-radius speed cap. `gps=device/lane=...` and mismatch `e...` aid diagnosis. Physical C4 performance still requires validation.
 +<!-- CARROT:SECTION:END REFERENCE -->
  <!-- CARROT:MANUAL:END OsmCurveSpeedEnabled -->
 --- a/KO-대만-OSM-커브-미리보기.md
@@ -39,6 +39,6 @@
 +<!-- CARROT:SECTION:BEGIN REFERENCE -->
 +### 참고
 +
-+도로 중심선은 차선 단위 지도가 아닙니다. 인접 타일 누락·평행 도로 모호성·오래된 위치에서는 새 상한을 만들지 않습니다. 방향 선택·조향·내비 모델 안내에는 쓰지 않으며 C4 실차 검증은 별도로 필요합니다.
++도로 중심선은 차선 단위 지도가 아닙니다. 인접 타일 누락·평행 도로 모호성·오래된 위치에서는 새 상한을 만들지 않습니다. 방향 선택·조향·내비 모델 안내에는 쓰지 않으며 최신 기기 GPS를 휴대전화 내비와 독립적으로 사용합니다. 3~4차선으로 명시된 유일한 일방향 고속도로 본선에만 제한된 중심선 편차를 허용하며 가까운 형상 검사와 더 작은 차선 반경 기준 속도 상한을 적용합니다. `gps=device/lane=...`와 불일치의 `e...`로 진단하며 C4 실차 검증은 별도로 필요합니다.
 +<!-- CARROT:SECTION:END REFERENCE -->
  <!-- CARROT:MANUAL:END OsmCurveSpeedEnabled -->

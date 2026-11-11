@@ -34,6 +34,7 @@ class OsmWorker:
   def publish(self, request, status, points=()):
     write_message(self.shared / 'response.json', {
       'session': request.get('session'), 'stamp': request.get('stamp', -1), 'status': status,
+      'lateral_allowance': self.matcher.lateral_allowance if points else 0.,
       'ready': self.ready, 'total': len(GROUPS), 'points': points, 'id': corridor_id(points) if len(points) else 'none'})
 
   def step(self, request, now):

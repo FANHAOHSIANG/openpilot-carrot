@@ -36,3 +36,16 @@ class GPSSources:
       if fix is not None and 0 <= now - fix.stamp < (2.5 if source == 'vehicle' else 3.):
         return source, fix
     return 'none', None
+
+  def device_preview(self, now, speed):
+    """One stable source for OSM; never bounce to phone on a missing fix."""
+    fix = self.fixes.get('device')
+    if (fix is None or fix.heading is None or not math.isfinite(now)
+        or not math.isfinite(speed) or not 0 <= speed <= 90
+        or not 0 <= now - fix.stamp <= 1.5):
+      return None
+    angle = math.radians(fix.heading)
+    distance = speed * (now - fix.stamp)
+    latitude = fix.latitude + math.degrees(distance * math.cos(angle) / 6371000.)
+    longitude = fix.longitude + math.degrees(distance * math.sin(angle) / (6371000. * math.cos(math.radians(fix.latitude))))
+    return Fix(latitude, longitude, fix.heading, speed, fix.stamp)

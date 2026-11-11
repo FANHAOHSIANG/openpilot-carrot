@@ -512,6 +512,13 @@ class CarrotMan:
     osm_disabled = getattr(self, 'osm_curve_enabled_last', enabled) and not enabled
     self.osm_curve_enabled_last = enabled
     position_time = serv.last_calculate_gps_time if getattr(serv, 'position_heading_valid', False) else -1.0
+    position, heading = (serv.vpPosPointLon, serv.vpPosPointLat), serv.bearing
+    # OSM is WGS84 geometry independent of the navigation owner's phone feed.
+    # Keep one device source rather than switching at each phone timeout.
+    if not self.navi_points_active:
+      fix = serv._gps_sources().device_preview(now, sm['carState'].vEgo)
+      position = (fix.longitude, fix.latitude) if fix else (0., 0.)
+      heading, position_time = (fix.heading, fix.stamp) if fix else (0., -1.)
     device = sm['deviceState']
     wifi = (sm.alive['deviceState'] and sm.valid['deviceState']
             and device.networkType == log.DeviceState.NetworkType.wifi and not device.networkMetered)
@@ -519,7 +526,7 @@ class CarrotMan:
     osm_points, osm_id = self.osm_curve.update(
       now=now, onroad=onroad, enabled=enabled,
       wanted=not self.navi_points_active and serv.turnSpeedControlMode in (2, 3, 4), wifi=wifi,
-      position=(serv.vpPosPointLon, serv.vpPosPointLat), heading=serv.bearing,
+      position=position, heading=heading,
       fix_time=position_time, speed=sm['carState'].vEgo,
     )
     if not onroad:
@@ -541,16 +548,17 @@ class CarrotMan:
     # GPS is updated by CarrotServ in the preceding 20 Hz iteration. Use the
     # actual fix timestamp, not the extrapolation or publish timestamp.
     result = tracker.update(
-      now=now, position=(serv.vpPosPointLon, serv.vpPosPointLat), heading=serv.bearing,
+      now=now, position=position, heading=heading,
       position_time=position_time, model=sm['modelV2'],
       model_time=sm.logMonoTime['modelV2'] / 1e9 if fresh else -1.0,
       v_ego=cs.vEgo, a_ego=cs.aEgo, speed_ratio=cs.vCluRatio,
       sensitivity=self.autoCurveSpeedFactor, map_factor=serv.mapTurnSpeedFactor,
       lower_limit_kph=serv.autoCurveSpeedLowerLimit,
+      lateral_allowance=self.osm_curve.lateral_allowance if source == 'osm' else 0.,
     )
     serv.route_curve_debug = f"{result.reason}:{result.distance:.0f}m/{result.curve_kph:.0f}kph/e{result.match_error:.1f}"
     if source == 'osm':
-      serv.route_curve_debug = f"osm/{self.osm_curve.status}/{serv.route_curve_debug}"
+      serv.route_curve_debug = f"osm/{self.osm_curve.status}/{serv.route_curve_debug}/gps=device/lane={result.lateral_offset:.1f}"
     # Model coordinates and naviPaths are both forward/right-positive.
     return list(result.points), list(result.distances), result.speed_kph
 

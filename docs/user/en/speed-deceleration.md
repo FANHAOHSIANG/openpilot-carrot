@@ -319,6 +319,8 @@ GPS/heading select a unique road corridor, which ends at a fork instead of guess
 
 `rc=osm/road_matched/matched:...` records successful participation in the logged road-name diagnostic. `desiredSource=route` remains the common geometry source for downstream compatibility. `python -m openpilot.selfdrive.carrot.osmd --status` shows download/cache status. Inferred roads are not navigation guidance, never sent to `navRoute`, and do not choose a direction or operate turn signals. OSM road centerlines are not lane-level maps. [Implementation, validation and limitations](../../osm_curve_preview_20261111.md).
 
+OSM matching uses fresh device GPS independently of the phone/navigation position and stops accepting new geometry when that fix is unavailable; it does not switch back and forth between sources. Only a unique one-way motorway corridor explicitly tagged with 3–4 lanes may account for its carriageway width (at most 7.2 m lateral offset). Near-path shape, heading, freshness, forks and parallel-road checks still apply. Curve speed uses the tighter possible lane radius. The diagnostic suffix `gps=device/lane=...` records the source and accepted centreline offset; mismatch `e...` now reports the measured error. This offset is for speed-preview validation, not a steering request.
+
 ### `MapTurnSpeedFactor`
 
     curve target = curvature-derived speed × factor / 100

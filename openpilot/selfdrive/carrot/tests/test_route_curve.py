@@ -235,3 +235,32 @@ def test_vehicle_progress_through_opening_curve_gradually_releases():
   assert speeds[40] < 50
   assert speeds[-1] > speeds[40] + 20
   assert max(np.diff(speeds[10:])) <= .180001
+
+
+def test_known_lane_width_accepts_translation_but_not_shape_or_excess_offset():
+  xy = road()
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), 1)
+  # Driving a lane offset from the motorway centreline, with the same near shape.
+  result = run(tracker, xy, position=(0, 6.5), model=model_for(xy), lateral_allowance=7.2)[-1]
+  assert result.reason == 'matched'
+  assert abs(result.lateral_offset) == pytest.approx(6.5, abs=.01)
+  baseline = RouteCurveSpeed()
+  baseline.set_route(lonlat(xy), 1)
+  assert result.speed_kph <= run(baseline, xy)[-1].speed_kph
+  for offset, slope in [(7.8, 0.), (6.5, .15)]:
+    tracker = RouteCurveSpeed()
+    tracker.set_route(lonlat(xy), 1)
+    model = model_for(xy)
+    model.position.y = np.asarray(model.position.y) + slope * np.asarray(model.position.x)
+    rejected = run(tracker, xy, position=(0, offset), model=model, lateral_allowance=7.2)[-1]
+    assert rejected.reason == 'model_mismatch'
+    assert rejected.match_error > 4.9
+
+
+def test_lane_allowance_does_not_bypass_stale_model_or_position():
+  xy = road()
+  for overrides, reason in [({'model_time': 8.}, 'stale_model'), ({'position_time': 8.}, 'stale_position')]:
+    tracker = RouteCurveSpeed()
+    tracker.set_route(lonlat(xy), 1)
+    assert run(tracker, xy, lateral_allowance=7.2, **overrides)[-1].reason == reason

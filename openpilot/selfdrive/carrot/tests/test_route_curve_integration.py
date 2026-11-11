@@ -228,3 +228,27 @@ def test_disabled_osm_does_not_reset_lost_navigation_cap(pipeline):
     pipeline()
   after = pipeline.man.route_curve_speed.speed
   assert before <= after < before + 4
+
+
+def test_osm_uses_device_with_phone_owner_and_known_motorway_width(pipeline, tmp_path):
+  pipeline.params['OsmCurveSpeedEnabled'] = 1
+  pipeline.man.navi_points = []
+  pipeline.man.navi_points_active = False
+  worker = OsmWorker(tmp_path / 'maps', pipeline.man.osm_curve.root)
+  worker.store.nearby = lambda _position: [Road(lonlat(road() + [0, 6.5]), True, 4, True)]
+  for _ in range(25):
+    pipeline.serv._gps_sources().put('phone', 25.1, 121.1, 180., 25., pipeline.now[0])
+    result = pipeline()
+    worker.step(read_message(worker.shared / 'request.json'), pipeline.now[0])
+  request = read_message(worker.shared / 'request.json')
+  assert result.positionSource == 'phone'  # navigation owner is unchanged
+  assert request['position'] == pytest.approx([121.0000124, 25.], abs=.000001)
+  assert result.desiredSource == 'route'
+  assert '/gps=device/lane=-6.5' in result.szPosRoadName
+  assert worker.matcher.lateral_allowance == pytest.approx(7.2)
+  pipeline.sm.valid['gpsLocation'] = False
+  for _ in range(8):
+    pipeline()
+    worker.step(read_message(worker.shared / 'request.json'), pipeline.now[0])
+  assert read_message(worker.shared / 'request.json')['fix_time'] == -1.
+  assert worker.matcher.lateral_allowance == 0.
