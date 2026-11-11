@@ -1,5 +1,20 @@
 # 7714 내비 감속 브랜치 비교
 
+## 2026-11-11 test branch: matched route-curve preview
+
+`test/truck-clearance-204f9cca` adds `route_curve.py`: selected 7713/7714/Mapbox
+geometry is matched to fresh position/heading and the near model path before it
+supplies a speed ceiling. Mode 2 no longer depends on the TBT +/-500 m gate;
+mode 3 also requires geometry agreement. Factor and floor apply to the curve
+target before the distance envelope. No-route values are never factor-scaled.
+The original source ownership is unchanged: an external session without a
+polyline does not borrow a saved Mapbox route. Confirmed easing and invalid-data
+release are bounded to 3.6 km/h/s; all existing speed selection and driver gas
+policies remain. `rc=` in `szPosRoadName` records admission/exclusion reasons.
+Tests: `test_route_curve.py`, `test_route_curve_integration.py`, `test_curve_speed.py`.
+This describes offline-tested candidate code, not measured vehicle performance.
+
+
 ## 2026-09-13 순정 거리 연결 및 외부 후면단속 유지
 
 `carrot-wip` 및 유지 중인 `carrot-*`는 현재 순정 카메라 경고를 같은 제한속도의 먼 미래 이벤트와

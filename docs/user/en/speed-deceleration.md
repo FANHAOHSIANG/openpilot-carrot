@@ -297,19 +297,23 @@ This floor applies to vision-curve and route-turn candidates. For vision curves,
 |---:|---:|---:|
 | `0` | Off | Off |
 | `1` | On | Off |
-| `2` | On | Near the turn point |
-| `3` | Off | Always included as a candidate |
+| `2` | On | Matched navigation route |
+| `3` | Off | Matched navigation route |
 
-In mode 2, route-turn speed enters only when turn distance is roughly between -500 m and +500 m. Mode 3 can cause unexpected slowing when route data is inaccurate.
+Modes 2 and 3 use the selected navigation polyline only after fresh position, heading and the near model path agree for at least 0.3 seconds. The preview extends up to 500 m where route geometry is available; a turn-by-turn instruction is not required. Missing, stale, coarse, ambiguous or mismatched data cannot create a new route constraint. Mode 2 keeps the lower vision-curve ceiling. A map match does not establish lane-level accuracy.
+
+The route ceiling tightens from curvature and remaining distance, including a response allowance. After confirmed easing it rises by at most 3.6 km/h per second; the longitudinal planner still controls acceleration and following. Lost route data briefly holds the old ceiling and then releases it at the same bounded rate. The recorded `rc=` reason distinguishes `matched`, `no_route`, `stale_position`, `model_mismatch` and other exclusions.
+
+Use a coordinate destination with Carrot navigation, or an external sender that actually supplies a polyline. External navigation without geometry remains the selected source; a saved Mapbox route is never substituted for it.
 
 > [!IMPORTANT]
 > Mode `0` does not disable every model-derived speed function. `ApplyModelSpeed` changes cruise set speed separately.
 
 ### `MapTurnSpeedFactor`
 
-    route-turn candidate = route speed × factor / 100
+    curve target = curvature-derived speed × factor / 100
 
-80% lowers the received value; 100% keeps it; 120% raises it. `AutoCurveSpeedLowerLimit` is then applied as the floor. Valid supported route-speed input is required.
+80% lowers the curve target; 100% keeps it; 120% raises it. `AutoCurveSpeedFactor` supplies the lateral-acceleration budget, then `AutoCurveSpeedLowerLimit` supplies the floor. The distance/response envelope is calculated after these adjustments. The factor does not scale a missing-route or straight-road no-limit result into an artificial limit. A valid matched polyline is required.
 
 ### `ApplyModelSpeed`
 

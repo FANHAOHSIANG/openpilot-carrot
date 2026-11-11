@@ -1,0 +1,96 @@
+--- a/EN-TurnSpeedControlMode.md
++++ b/EN-TurnSpeedControlMode.md
+@@ -28,6 +28,21 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN TurnSpeedControlMode -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### Behavior
++
++Mode 0 disables these curve candidates; mode 1 uses vision; mode 2 uses vision plus matched navigation geometry; mode 3 uses matched geometry only. Fresh position, heading and the near model path must agree before the route contributes.
++<!-- CARROT:SECTION:END BEHAVIOR -->
++<!-- CARROT:SECTION:BEGIN USAGE -->
++### Use
++
++Select mode 2 with an actual coordinate-navigation route or external polyline. Preview uses up to 500 m of available geometry without requiring a TBT instruction. Confirmed easing releases the route ceiling gradually.
++<!-- CARROT:SECTION:END USAGE -->
++<!-- CARROT:SECTION:BEGIN REFERENCE -->
++### Reference
++
++An external session without a polyline cannot borrow a saved Mapbox route. Road, lead and driver policies remain separate. Offline tests do not establish vehicle performance.
++<!-- CARROT:SECTION:END REFERENCE -->
+ <!-- CARROT:MANUAL:END TurnSpeedControlMode -->
+ 
+ <!-- CARROT:SETTING:END TurnSpeedControlMode -->
+--- a/KO-턴속도제어방법.md
++++ b/KO-턴속도제어방법.md
+@@ -28,6 +28,21 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN TurnSpeedControlMode -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 동작
++
++0은 커브 후보를 끄고 1은 비전, 2는 비전과 일치 확인된 내비 경로, 3은 일치 확인된 경로만 사용합니다. 최신 위치·방향과 가까운 모델 경로가 일치해야 경로 후보가 적용됩니다.
++<!-- CARROT:SECTION:END BEHAVIOR -->
++<!-- CARROT:SECTION:BEGIN USAGE -->
++### 사용
++
++좌표 내비 경로 또는 외부 폴리라인과 함께 모드 2를 사용합니다. TBT 없이 최대 500m 전방의 제공된 경로를 계산하며 완화가 확인되면 상한을 점진적으로 회복합니다.
++<!-- CARROT:SECTION:END USAGE -->
++<!-- CARROT:SECTION:BEGIN REFERENCE -->
++### 참고
++
++폴리라인 없는 외부 세션에 저장된 Mapbox 경로를 대신 넣지 않습니다. 다른 속도·차간·운전자 정책은 유지하며 오프라인 검증은 실차 성능 증명이 아닙니다.
++<!-- CARROT:SECTION:END REFERENCE -->
+ <!-- CARROT:MANUAL:END TurnSpeedControlMode -->
+ 
+ <!-- CARROT:SETTING:END TurnSpeedControlMode -->
+--- a/EN-MapTurnSpeedFactor.md
++++ b/EN-MapTurnSpeedFactor.md
+@@ -29,6 +29,21 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN MapTurnSpeedFactor -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### Behavior
++
++Lower values reduce the curvature-derived route target; higher values raise it. The factor and curve floor are applied before the distance and response allowance, using the curve sensitivity lateral budget.
++<!-- CARROT:SECTION:END BEHAVIOR -->
++<!-- CARROT:SECTION:BEGIN USAGE -->
++### Use
++
++Adjust only after a route is matched. A no-route or straight-road no-limit result is not scaled into a braking request.
++<!-- CARROT:SECTION:END USAGE -->
++<!-- CARROT:SECTION:BEGIN REFERENCE -->
++### Reference
++
++This changes a speed ceiling, not commanded acceleration. In mode 2 a lower vision curve ceiling still wins.
++<!-- CARROT:SECTION:END REFERENCE -->
+ <!-- CARROT:MANUAL:END MapTurnSpeedFactor -->
+ 
+ <!-- CARROT:SETTING:END MapTurnSpeedFactor -->
+--- a/KO-경로턴속도반영비율(100-).md
++++ b/KO-경로턴속도반영비율(100-).md
+@@ -29,6 +29,21 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN MapTurnSpeedFactor -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 동작
++
++낮추면 곡률 기반 경로 목표속도가 낮아지고 높이면 올라갑니다. 커브 민감도의 횡가속 예산을 사용하며 비율·최저값을 거리와 응답 여유 계산 전에 적용합니다.
++<!-- CARROT:SECTION:END BEHAVIOR -->
++<!-- CARROT:SECTION:BEGIN USAGE -->
++### 사용
++
++경로 일치 확인 후 조정합니다. 경로 없음이나 직선의 무제한 값을 비율로 낮춰 감속 요청을 만들지 않습니다.
++<!-- CARROT:SECTION:END USAGE -->
++<!-- CARROT:SECTION:BEGIN REFERENCE -->
++### 참고
++
++실제 가속 명령이 아니라 속도 상한을 조정합니다. 모드 2에서 더 낮은 비전 상한은 그대로 적용됩니다.
++<!-- CARROT:SECTION:END REFERENCE -->
+ <!-- CARROT:MANUAL:END MapTurnSpeedFactor -->
+ 
+ <!-- CARROT:SETTING:END MapTurnSpeedFactor -->

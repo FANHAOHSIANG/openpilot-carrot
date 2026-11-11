@@ -1472,13 +1472,10 @@ class CarrotServ:
     if self.turnSpeedControlMode in [1,2]:
       speed_n_sources.append((max(abs(vturn_speed), self.autoCurveSpeedLowerLimit), "vturn"))
 
-    route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)
-    if self.turnSpeedControlMode == 2:
-      if -500 < self.xDistToTurn < 500:
-        speed_n_sources.append((route_speed, "route"))
-    elif self.turnSpeedControlMode in [3, 4]:
+    # RouteCurveSpeed already applies factor/floor to curve speed before the
+    # distance envelope. A no-limit result must never be scaled into a limit.
+    if self.turnSpeedControlMode in [2, 3, 4] and math.isfinite(route_speed) and route_speed < 250:
       speed_n_sources.append((route_speed, "route"))
-      #speed_n_sources.append((self.calculate_current_speed(dist, speed * self.mapTurnSpeedFactor, 0, 1.2), "route"))
 
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
 
@@ -1487,7 +1484,7 @@ class CarrotServ:
         CS, desired_speed, source, v_ego_kph, road_speed_limit_changed,
       )
 
-      self.debugText += f"route={route_speed:.1f}"#f"desired={desired_speed:.1f},{source},g={self.gas_override_speed:.0f}"
+      self.debugText += f"route={route_speed:.1f} rc={getattr(self, 'route_curve_debug', 'unavailable')}"#f"desired={desired_speed:.1f},{source},g={self.gas_override_speed:.0f}"
 
     left_spd_sec = 100
     left_tbt_sec = 100
