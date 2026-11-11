@@ -321,6 +321,8 @@ GPS/heading select a unique road corridor, which ends at a fork instead of guess
 
 OSM matching uses fresh device GPS independently of the phone/navigation position and stops accepting new geometry when that fix is unavailable; it does not switch back and forth between sources. Only a unique one-way motorway corridor explicitly tagged with 3–4 lanes may account for its carriageway width (at most 7.2 m lateral offset). Near-path shape, heading, freshness, forks and parallel-road checks still apply. Curve speed uses the tighter possible lane radius. The diagnostic suffix `gps=device/lane=...` records the source and accepted centreline offset; mismatch `e...` now reports the measured error. This offset is for speed-preview validation, not a steering request.
 
+Exact forward OSM edge continuity may preserve visual confirmation when the map window advances; a changed fork, stale input or time gap must reconfirm. Sparse straight geometry never fabricates a bend or a new ceiling, but valid near-vision confirmation can continue. Short recent uniquely matched device trajectories may exclude a disconnected competing road; connected forks/merges remain rejected, and ambiguous observations cannot refresh that evidence. `road_tracked` identifies this bounded history-assisted match.
+
 ### `MapTurnSpeedFactor`
 
     curve target = curvature-derived speed × factor / 100

@@ -74,7 +74,7 @@ class OsmWorker:
     else:
       try:
         roads = self.store.nearby(request['position'])
-        points, status = self.matcher.match(roads, request['position'], request['heading'])
+        points, status = self.matcher.match(roads, request['position'], request['heading'], now=now, speed=request['speed'])
         self.publish(request, status, points)
       except Exception as error:
         reason = str(error) if isinstance(error, ValueError) else type(error).__name__

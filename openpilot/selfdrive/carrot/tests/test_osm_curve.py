@@ -289,3 +289,35 @@ def test_response_width_is_reset_on_expired_reply(tmp_path):
   write_message(tmp_path / 'response.json', response)
   assert not client.update(now=11.4, **kwargs)[0]
   assert client.status == 'invalid_road_width' and client.lateral_allowance == 0.
+
+
+def test_width_tag_does_not_create_ambiguity_for_distant_candidate():
+  main = Road(lonlat(road()), True, 4, True)
+  parallel = Road(lonlat(road() + [0, 7]), True)
+  matcher = RoadMatcher()
+  assert matcher.match([main, parallel], lonlat((0, 0)), 90)[1] == 'road_matched'
+  assert matcher.match([main, parallel], lonlat((0, 3.5)), 90)[1] == 'ambiguous_road'
+
+
+def test_unique_trajectory_can_exclude_disconnected_candidate_but_expires():
+  main = Road(lonlat(np.column_stack([np.arange(0, 205, 5), np.zeros(41)])), True)
+  alternative = Road(lonlat(np.array([(40., 2.), (80., 2.), (200., 2.)])), True)
+  matcher = RoadMatcher()
+  for now, x in [(10., 0), (10.2, 12), (10.4, 24)]:
+    assert matcher.match([main, alternative], lonlat((x, 0)), 90, now=now, speed=80)[1] == 'road_matched'
+  assert matcher.match([main, alternative], lonlat((40, 0)), 90, now=10.6, speed=80)[1] == 'road_tracked'
+  # A tracked result never renews the last unique anchor.
+  assert matcher.match([main, alternative], lonlat((40, 0)), 90, now=11.01, speed=80)[1] == 'ambiguous_road'
+
+
+def test_trajectory_cannot_choose_connected_merge_or_reuse_after_jump():
+  main = Road(lonlat(np.column_stack([np.arange(0, 205, 5), np.zeros(41)])), True)
+  alternative = Road(lonlat(np.array([(40., 2.), (80., 2.), (200., 2.)])), True)
+  for jump in (False, True):
+    matcher = RoadMatcher()
+    for now, x in [(10., 0), (10.2, 12), (10.4, 24)]:
+      matcher.match([main, alternative], lonlat((x, 0)), 90, now=now, speed=80)
+    roads = [main, alternative]
+    if not jump:
+      roads.append(Road(lonlat(np.array([(0., 0.), (40., 2.)])), True))
+    assert matcher.match(roads, lonlat((40, 0)), 90, now=10.41 if jump else 10.6, speed=80)[1] == 'ambiguous_road'

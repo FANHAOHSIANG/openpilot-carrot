@@ -3,7 +3,7 @@
 Mapd packed tiles are data only. Downloads and decoding belong in osmd, never
 the 20 Hz CarrotMan thread. No GPS coordinates are sent to the map server.
 """
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict, deque
 from contextlib import closing
 from dataclasses import dataclass
 import gzip
@@ -267,8 +267,9 @@ class RoadMatcher:
     self._graph_key = None
     self._graph = None
     self.lateral_allowance = 0.
+    self._history = deque(maxlen=12)
 
-  def match(self, roads, position, heading):
+  def match(self, roads, position, heading, *, now=None, speed=0.):
     self.lateral_allowance = 0.
     scale = np.array([METRES_PER_DEGREE * math.cos(math.radians(position[1])), METRES_PER_DEGREE])
     # TileStore returns immutable Road objects. Cache rounded node coordinates,
@@ -329,6 +330,7 @@ class RoadMatcher:
     if not len(candidates):
       return (), 'off_road'
     best = candidates[np.argmin(error[candidates])]
+    tracked = False
     first, last = map(int, edges[best])
     path, seen = [first, last], {first, last}
 
@@ -354,9 +356,56 @@ class RoadMatcher:
     extend(False)
     extend(True)
     route_edges = set(zip(path[:-1], path[1:], strict=True))
-    for candidate in candidates:
-      if (error[candidate] <= error[best] + 3 or allowances[best] > 0 or allowances[candidate] > 0) and tuple(edges[candidate]) not in route_edges:
+    competitors = [int(candidate) for candidate in candidates
+                   if (error[candidate] <= error[best] + 3 or error[best] > 8.)
+                   and tuple(edges[candidate]) not in route_edges]
+    if competitors:
+      # A width tag alone is not ambiguity. A truly competing corridor remains
+      # rejected unless several recent unique fixes exclude that disconnected
+      # road. Never use history to choose between connected fork/merge branches.
+      history = list(self._history)
+      recent = (now is not None and math.isfinite(now) and len(history) >= 3
+                and 0 <= now - history[-1][0] <= .6 and history[-1][0] - history[0][0] >= .4
+                and 0 <= speed <= 90 and error[best] <= 3.
+                and all(entry[2] <= 2. for entry in history)
+                and (tuple(coords[first]), tuple(coords[last])) in set(zip(self.previous[:-1], self.previous[1:])))
+      if recent:
+        movement = float(np.linalg.norm((np.asarray(position) - history[-1][1]) * scale))
+        recent = movement <= speed * (now - history[-1][0]) + 3.
+      if recent:
+        old_xy = (np.asarray([entry[1] for entry in history]) - position) * scale
+        route_indices = np.array([i for i, edge in enumerate(edges) if tuple(edge) in route_edges], dtype=int)
+        for anchor in old_xy:
+          fraction = np.clip(np.sum((anchor - a[route_indices]) * delta[route_indices], axis=1)
+                             / np.maximum(lengths[route_indices] ** 2, 1e-9), 0, 1)
+          if np.min(np.linalg.norm(a[route_indices] + fraction[:, None] * delta[route_indices] - anchor, axis=1)) > 3.:
+            recent = False
+            break
+        for candidate in competitors if recent else ():
+          component, pending = set(), [int(edges[candidate, 0])]
+          while pending and len(component) <= 4096:
+            node_id = pending.pop()
+            if node_id not in component:
+              component.add(node_id)
+              pending.extend((outgoing[node_id] | incoming[node_id]) - component)
+          if first in component or last in component or len(component) > 4096:
+            recent = False
+            break
+          alternative = np.array([i for i, edge in enumerate(edges) if int(edge[0]) in component], dtype=int)
+          # Every anchor must have been clearly outside the alternative road's
+          # acceptance width. Current ambiguity cannot refresh these anchors.
+          for old_position in old_xy:
+            fraction = np.clip(np.sum((old_position - a[alternative]) * delta[alternative], axis=1)
+                               / np.maximum(lengths[alternative] ** 2, 1e-9), 0, 1)
+            distances = np.linalg.norm(a[alternative] + fraction[:, None] * delta[alternative] - old_position, axis=1)
+            if np.any(distances <= np.maximum(8., allowances[alternative] + 2.) + 3.):
+              recent = False
+              break
+          if not recent:
+            break
+      if not recent:
         return (), 'ambiguous_road'
+      tracked = True
     if len(path) < 3:
       return (), 'short_road'
     self.lateral_allowance = min(widths[edge] for edge in route_edges)
@@ -370,9 +419,13 @@ class RoadMatcher:
       # Keep a stationary route ID while driving; otherwise every 5 m map
       # vertex would restart the multi-frame visual confirmation timer.
       if (remaining > 550 or self.previous[-1] == points[-1]) and all(edge in new_edges for edge in old_forward):
-        return self.previous, 'road_matched'
+        points = self.previous
     self.previous = points
-    return points, 'road_matched'
+    if now is not None and math.isfinite(now) and not tracked:
+      if self._history and (now <= self._history[-1][0] or now - self._history[-1][0] > .4):
+        self._history.clear()
+      self._history.append((now, tuple(position), float(error[best])))
+    return points, 'road_tracked' if tracked else 'road_matched'
 
 
 def corridor_id(points):

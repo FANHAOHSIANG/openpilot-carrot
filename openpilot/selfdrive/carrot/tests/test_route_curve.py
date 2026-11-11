@@ -120,7 +120,7 @@ def test_sparse_or_malformed_routes_are_not_interpreted_as_curves():
     tracker.set_route(points, 1)
     result = run(tracker, xy)[-1]
     assert result.speed_kph == 250
-    assert result.reason in ('no_route', 'coarse_route')
+    assert result.reason in ('no_route', 'coarse_route', 'coarse_straight')
 
 
 def test_repeated_model_cannot_confirm_or_release():
@@ -264,3 +264,42 @@ def test_lane_allowance_does_not_bypass_stale_model_or_position():
     tracker = RouteCurveSpeed()
     tracker.set_route(lonlat(xy), 1)
     assert run(tracker, xy, lateral_allowance=7.2, **overrides)[-1].reason == reason
+
+
+def test_osm_window_extension_retains_confirmation_but_changed_fork_does_not():
+  xy = road()
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy[:70]), ('osm', 'first'))
+  assert run(tracker, xy, position=(20, 0))[-1].reason == 'matched'
+  before = tracker.confirm_since
+  tracker.set_route(lonlat(xy[2:]), ('osm', 'extension'))
+  result = run(tracker, xy, position=(21, 0), start_time=10.45, frames=1)[0]
+  assert result.reason == 'matched' and tracker.confirm_since == before
+  replacement = xy[2:].copy()
+  replacement[-1, 1] += 3.
+  tracker.set_route(lonlat(replacement), ('osm', 'fork'))
+  assert tracker.confirm_since is None
+  tracker.set_route(lonlat(xy), ('nav', 'owner'))
+  assert tracker.confirm_since is None
+
+
+def test_sparse_near_straight_keeps_visual_confirmation_without_new_cap():
+  xy = np.array([(0., 0.), (150., 0.), (300., 0.)])
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), ('osm', 1))
+  result = run(tracker, xy, model=model_for(road()))[-1]
+  assert result.reason == 'coarse_straight' and result.speed_kph == 250.
+  assert tracker.confirm_frames >= 4 and tracker.confirm_since is not None
+  model = model_for(road())
+  model.position.y += 20.
+  result = run(tracker, xy, model=model, start_time=10.45, frames=1)[0]
+  assert result.reason == 'model_mismatch' and tracker.confirm_since is None
+
+
+def test_osm_window_continuity_does_not_bypass_time_gap():
+  xy = road()
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy[:70]), ('osm', 'first'))
+  assert run(tracker, xy, position=(20, 0))[-1].reason == 'matched'
+  tracker.set_route(lonlat(xy[2:]), ('osm', 'extension'))
+  assert run(tracker, xy, position=(21, 0), start_time=12., frames=1)[0].reason == 'confirming'

@@ -23,6 +23,7 @@ def replay(logs, schema_root, cache, source, lane_width):
   schema = capnp.load(str(schema_root / 'log.capnp'), imports=[str(schema_root)])
   store, matcher, tracker, gps_sources = TileStore(cache), RoadMatcher(), RouteCurveSpeed(), GPSSources()
   latest, counts, roads_without_width = {}, Counter(), {}
+  constraints, active = [], None
   next_match, points, status, allowance = 0., (), 'starting', 0.
   for path in sorted(logs):
     with path.open('rb') as stream, zstandard.ZstdDecompressor().stream_reader(stream) as reader:
@@ -36,12 +37,12 @@ def replay(logs, schema_root, cache, source, lane_width):
       latest[kind] = (now, value, valid)
       if kind != 'carrotMan' or not all(k in latest for k in ('carState', 'modelV2', 'gpsLocationExternal')):
         continue
-      _, cs, _ = latest['carState']
+      car_time, cs, car_valid = latest['carState']
       model_time, model, model_valid = latest['modelV2']
       gps_time, gps, gps_valid = latest['gpsLocationExternal']
-      position, heading, fix_time = (value['xPosLon'], value['xPosLat']), value['xPosAngle'], value['positionFixMonoTime'] / 1e9
+      position, heading, fix_time = (value['xPosLon'], value['xPosLat']), value['xPosAngle'], value.get('positionFixMonoTime', 0) / 1e9
       if source == 'device':
-        if gps_valid and gps['hasFix']:
+        if gps_valid and (gps.get('hasFix', False) or gps.get('flags', 0) & 1):
           gps_sources.put('device', gps['latitude'], gps['longitude'], gps['bearingDeg'], gps['speed'], gps_time)
         else:
           gps_sources.remove('device')
@@ -59,15 +60,27 @@ def replay(logs, schema_root, cache, source, lane_width):
             # Retain immutable identities to preserve matcher caching behavior.
             roads_without_width = {id(r): roads_without_width.get(id(r), (r, Road(r.points, r.oneway))) for r in roads}
             roads = [roads_without_width[id(r)][1] for r in roads]
-          points, status = matcher.match(roads, position, heading)
+          points, status = matcher.match(roads, position, heading, now=now, speed=cs['vEgo'])
           allowance = matcher.lateral_allowance if lane_width else 0.
         tracker.set_route(points, ('osm', corridor_id(points)))
       near_model = SimpleNamespace(position=SimpleNamespace(x=model['position']['x'], y=model['position']['y']))
       result = tracker.update(now=now, position=position, heading=heading, position_time=fix_time,
-                              model=near_model, model_time=model_time if model_valid else -1.,
+                              model=near_model, model_time=model_time if model_valid and car_valid and now - car_time < .1 else -1.,
                               v_ego=cs['vEgo'], a_ego=cs['aEgo'], speed_ratio=cs['vCluRatio'], lateral_allowance=allowance)
       counts[status + '/' + result.reason] += 1
-  return dict(samples=sum(counts.values()), source=source, lane_width=lane_width, statuses=dict(counts))
+      # Simulated OSM ceiling versus recorded speed, not actual brake actuation.
+      if result.speed_kph < cs['vEgo'] * 3.6:
+        if active is None or now - active['end'] > .5:
+          active = dict(start=now, end=now, minimum_cap_kph=result.speed_kph,
+                        onset_speed_kph=cs['vEgo'] * 3.6, onset_reason=status + '/' + result.reason, samples=0)
+          constraints.append(active)
+        active['end'] = now
+        active['samples'] += 1
+        active['minimum_cap_kph'] = min(active['minimum_cap_kph'], result.speed_kph)
+      else:
+        active = None
+  return dict(samples=sum(counts.values()), source=source, lane_width=lane_width, statuses=dict(counts), simulated_constraint_events=constraints,
+              limitation='OSM-only ceiling; other limits, braking actuation and false-positive ground truth are not replayed')
 
 
 if __name__ == '__main__':

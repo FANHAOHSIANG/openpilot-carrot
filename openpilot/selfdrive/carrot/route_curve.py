@@ -38,6 +38,7 @@ class RouteCurveSpeed:
   def __init__(self):
     self.route_id = None
     self.route = np.empty((0, 2))
+    self.points = ()
     self.progress = None
     self.match_time = None
     self.confirm_since = None
@@ -50,7 +51,11 @@ class RouteCurveSpeed:
   def set_route(self, points, route_id):
     if route_id == self.route_id:
       return
+    old_id, old_points = self.route_id, self.points
+    old_progress, old_arc = self.progress, getattr(self, 'arc', ())
+    old_state = (self.match_time, self.confirm_since, self.confirm_frames, self.last_model_time)
     self.route_id = route_id
+    self.points = ()
     self.route = np.empty((0, 2))
     self.progress = self.match_time = self.confirm_since = self.last_model_time = None
     self.confirm_frames = 0
@@ -68,10 +73,23 @@ class RouteCurveSpeed:
       xy = xy[keep]
       if len(xy) < 3:
         return
+      self.points = tuple(map(tuple, points[keep]))
       self.route = xy
       self.delta = np.diff(xy, axis=0)
       self.lengths = np.linalg.norm(self.delta, axis=1)
       self.arc = np.r_[0.0, np.cumsum(self.lengths)]
+      # A moving OSM window may trim only the already travelled prefix or add
+      # geometry after the entire old forward suffix. Preserve evidence only
+      # across exact, ordered edges, never a replacement fork or navigation owner.
+      if (isinstance(old_id, tuple) and isinstance(route_id, tuple) and old_id[:1] == route_id[:1] == ('osm',)
+          and old_progress is not None and len(old_points) >= 3):
+        i = min(len(old_points) - 2, int(np.searchsorted(old_arc, old_progress, side='right') - 1))
+        suffix = old_points[max(0, i):]
+        for j in range(max(0, len(self.points) - len(suffix) + 1)):
+          if self.points[j:j + len(suffix)] == suffix and old_arc[-1] - old_progress >= 60.:
+            self.progress = float(self.arc[j] + old_progress - old_arc[max(0, i)])
+            self.match_time, self.confirm_since, self.confirm_frames, self.last_model_time = old_state
+            break
     except (TypeError, ValueError, IndexError):
       return
 
@@ -180,6 +198,15 @@ class RouteCurveSpeed:
         lateral_offset = offset
     except (AttributeError, ValueError, TypeError):
       return invalid("invalid_model")
+    if self.last_model_time is None or model_time > self.last_model_time:
+      self.last_model_time = model_time
+      self.confirm_frames += 1
+      if self.confirm_since is None:
+        self.confirm_since = now
+    else:
+      return self._unconfirmed("repeated_model", now, dt)
+    if now - self.confirm_since < CONFIRM_SECONDS - 1e-9 or self.confirm_frames < 4:
+      return self._unconfirmed("confirming", now, dt)
     # Three-point circumcircle over +/-10 m. Its curvature belongs to the
     # middle point, not the end point or the original route origin.
     a, b, c = relative[:-4], relative[2:-2], relative[4:]
@@ -193,17 +220,11 @@ class RouteCurveSpeed:
     for i in np.flatnonzero(self.lengths > 60):
       usable &= ~((s + curve_distances + 15 >= self.arc[i]) & (s + curve_distances - 15 <= self.arc[i + 1]))
     if not np.any(usable):
-      return invalid("coarse_route")
+      # Near-path agreement is still valid evidence; sparse far-map geometry
+      # cannot create a speed cap or erase that independent confirmation.
+      near_straight = np.max(np.abs(np.diff(np.diff(ry)))) < .1 and np.ptp(ry) < 1.
+      return self._unconfirmed("coarse_straight" if near_straight else "coarse_route", now, dt)
     curve, curve_distances = curve[usable], curve_distances[usable]
-    if self.last_model_time is None or model_time > self.last_model_time:
-      self.last_model_time = model_time
-      self.confirm_frames += 1
-      if self.confirm_since is None:
-        self.confirm_since = now
-    else:
-      return self._unconfirmed("repeated_model", now, dt)
-    if now - self.confirm_since < CONFIRM_SECONDS - 1e-9 or self.confirm_frames < 4:
-      return self._unconfirmed("confirming", now, dt)
     self.missing_since = None
     ratio = speed_ratio if 0.5 < speed_ratio <= 1.2 else 1.0
     budget = TARGET_LAT_ACCEL / float(np.clip(sensitivity, 0.5, 3.0))
