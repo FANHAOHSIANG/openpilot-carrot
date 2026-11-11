@@ -255,40 +255,55 @@ class RoadMatcher:
   """
   def __init__(self):
     self.previous = ()
+    self._road_nodes = {}
+    self._graph_key = None
+    self._graph = None
 
   def match(self, roads, position, heading):
     scale = np.array([METRES_PER_DEGREE * math.cos(math.radians(position[1])), METRES_PER_DEGREE])
-    outgoing, incoming = defaultdict(set), defaultdict(set)
-    nodes, indices = [], {}
-
-    def node(point):
-      key = tuple(np.round(point, 7))
-      if key not in indices:
-        indices[key] = len(nodes)
-        nodes.append(key)
-      return indices[key]
-
+    # TileStore returns immutable Road objects. Cache rounded node coordinates,
+    # and reuse topology only when the exact included segments are unchanged.
+    # Position/heading projection and ambiguity checks still run every update.
+    selected, road_nodes = [], {}
     for road in roads:
+      identity = id(road)
+      cached = self._road_nodes.get(identity)
+      if cached is None or cached[0] is not road:
+        cached = (road, tuple(map(tuple, np.round(road.points, 7))))
+      road_nodes[identity] = cached  # owning reference prevents id reuse
       points = (road.points - position) * scale
-      # Exclude remote segments of long ways, retaining an ample junction margin.
       valid = np.flatnonzero(np.all(np.minimum(points[:-1], points[1:]) <= 750, axis=1)
                              & np.all(np.maximum(points[:-1], points[1:]) >= -750, axis=1))
-      for i in valid:
-        a, b = node(road.points[i]), node(road.points[i + 1])
-        if a == b:
-          continue
-        outgoing[a].add(b)
-        incoming[b].add(a)
-        if not road.oneway:
-          outgoing[b].add(a)
-          incoming[a].add(b)
-    if not nodes:
-      return (), 'no_roads'
-    coords = np.asarray(nodes)
-    xy = (coords - position) * scale
-    edges = np.asarray([(a, b) for a, targets in outgoing.items() for b in targets], dtype=int)
+      selected.append((road, cached[1], valid))
+    self._road_nodes = road_nodes
+    key = tuple((id(road), road.oneway, valid.tobytes()) for road, _, valid in selected)
+    if key != self._graph_key:
+      outgoing, incoming = defaultdict(set), defaultdict(set)
+      nodes, indices = [], {}
+
+      def node(key):
+        if key not in indices:
+          indices[key] = len(nodes)
+          nodes.append(key)
+        return indices[key]
+
+      for road, rounded, valid in selected:
+        for i in valid:
+          a, b = node(rounded[i]), node(rounded[i + 1])
+          if a == b:
+            continue
+          outgoing[a].add(b)
+          incoming[b].add(a)
+          if not road.oneway:
+            outgoing[b].add(a)
+            incoming[a].add(b)
+      coords = np.asarray(nodes).reshape(-1, 2)
+      edges = np.asarray([(a, b) for a, targets in outgoing.items() for b in targets], dtype=int).reshape(-1, 2)
+      self._graph_key, self._graph = key, (coords, edges, outgoing, incoming)
+    coords, edges, outgoing, incoming = self._graph
     if not len(edges):
       return (), 'no_roads'
+    xy = (coords - position) * scale
     a, b = xy[edges[:, 0]], xy[edges[:, 1]]
     delta = b - a
     lengths = np.linalg.norm(delta, axis=1)
