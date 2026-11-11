@@ -19,7 +19,8 @@
 
 ## 實際使用前提
 
-本功能使用 `TurnSpeedControlMode=2`，且 C4 必須收到當前導航來源的路線座標。
+導航來源的彎道預覽使用 `TurnSpeedControlMode=2`，且 C4 必須收到當前導航來源的路線座標。
+後續已加入 [全台離線 OSM 補充](osm_curve_preview_20261111.md)：沒有導航 polyline 時可使用本機配對道路，包含本島與離島。
 Carrot 自己依座標目的地計算出的 Mapbox 路線，或外部導航送來的 polyline 均可作為輸入。
 外部導航連線仍有最高來源優先權；沒有 polyline 的外部連線不會借用另一條儲存的 Mapbox 路線。
 使用 C4 自己規劃的路線時，要讓它成為現行導航來源，而非同時被外部導航連線占用。

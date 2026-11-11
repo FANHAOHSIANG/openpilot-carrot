@@ -5,7 +5,7 @@
 > [!NOTE]
 > This is the canonical English user guide maintained with the `carrot-wip` code. When user-visible behavior changes, update this document together with the related code and tests.
 
-This page explains all **23 speed and deceleration settings** in the current code: event targets, deceleration distance, stock-navigation CAN, road-limit adjustment, speed bumps, curve/route/model speed, and traffic-light stop adjustment.
+This page explains all **24 speed and deceleration settings** in the current code: event targets, deceleration distance, stock-navigation CAN, road-limit adjustment, speed bumps, curve/route/model speed, and traffic-light stop adjustment.
 
 Change them in **Carrot Web → Settings → Driving control → Speed and deceleration**.
 
@@ -308,6 +308,16 @@ Use a coordinate destination with Carrot navigation, or an external sender that 
 
 > [!IMPORTANT]
 > Mode `0` does not disable every model-derived speed function. `ApplyModelSpeed` changes cruise set speed separately.
+
+### `OsmCurveSpeedEnabled` — Taiwan offline preview
+
+Defaults ON in this test branch. With turn-speed mode 2 (vision + geometry, recommended) or 3, a missing navigation polyline can use resident OSM roads. Covers the main island, Penghu, Kinmen (including Wuqiu), and Matsu (including Dongyin); no destination or CP route transmission is required. A selected navigation route always takes priority.
+
+While parked on unmetered Wi-Fi, the separate CPU-only worker automatically downloads all eight map groups and retains only the coverage tiles. Initial validated cache is about 60 MiB at the 2026-11-11 snapshot; size changes with map updates. Completed groups persist across restarts; driving uses the cache without Internet. Downloads pause on startup or loss of Wi-Fi, retry failures after five minutes, refresh after 30 days, and stop using caches older than 90 days. A corrupt or partial archive never replaces a complete group.
+
+GPS/heading select a unique road corridor, which ends at a fork instead of guessing the destination. Fresh near-model geometry must then agree before the existing distance-based curve ceiling participates. Parallel-road ambiguity, missing neighboring tiles, stale position or a stopped worker suppress new OSM constraints. Existing constraints release gradually; turning this switch off removes the OSM constraint immediately. Vision, lead, cruise and other lower limits remain in effect.
+
+`rc=osm/road_matched/matched:...` records successful participation in the logged road-name diagnostic. `desiredSource=route` remains the common geometry source for downstream compatibility. `python -m openpilot.selfdrive.carrot.osmd --status` shows download/cache status. Inferred roads are not navigation guidance, never sent to `navRoute`, and do not choose a direction or operate turn signals. OSM road centerlines are not lane-level maps. [Implementation, validation and limitations](../../osm_curve_preview_20261111.md).
 
 ### `MapTurnSpeedFactor`
 

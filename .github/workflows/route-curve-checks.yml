@@ -3,6 +3,12 @@ on:
   pull_request:
     paths:
       - 'openpilot/selfdrive/carrot/route_curve.py'
+      - 'openpilot/selfdrive/carrot/osm*'
+      - 'openpilot/selfdrive/carrot/tests/test_osm_curve.py'
+      - 'openpilot/system/manager/process_config.py'
+      - 'openpilot/selfdrive/selfdrived/selfdrived.py'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
       - 'openpilot/selfdrive/carrot/curve_speed.py'
       - 'openpilot/selfdrive/carrot/carrot_man.py'
       - 'openpilot/selfdrive/carrot/carrot_serv.py'
@@ -12,6 +18,12 @@ on:
     branches: ['test/truck-clearance-204f9cca']
     paths:
       - 'openpilot/selfdrive/carrot/route_curve.py'
+      - 'openpilot/selfdrive/carrot/osm*'
+      - 'openpilot/selfdrive/carrot/tests/test_osm_curve.py'
+      - 'openpilot/system/manager/process_config.py'
+      - 'openpilot/selfdrive/selfdrived/selfdrived.py'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
       - 'openpilot/selfdrive/carrot/curve_speed.py'
       - 'openpilot/selfdrive/carrot/carrot_man.py'
       - 'openpilot/selfdrive/carrot/carrot_serv.py'
@@ -28,12 +40,15 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install numpy pytest pycapnp ruff
-      - run: python -m ruff check openpilot/selfdrive/carrot/route_curve.py openpilot/selfdrive/carrot/tests/test_route_curve*.py
+      - run: python -m ruff check openpilot/selfdrive/carrot/route_curve.py openpilot/selfdrive/carrot/osm*.py openpilot/selfdrive/carrot/tests/test_route_curve*.py openpilot/selfdrive/carrot/tests/test_osm_curve.py
+      - run: python -m compileall -q openpilot/selfdrive/carrot/osm_curve.py openpilot/selfdrive/carrot/osm_map.py openpilot/selfdrive/carrot/osmd.py openpilot/selfdrive/carrot/carrot_man.py openpilot/system/manager/process_config.py openpilot/selfdrive/selfdrived/selfdrived.py
       - run: >-
           python -m pytest --confcutdir=openpilot/selfdrive/carrot/tests -c /dev/null
+          openpilot/selfdrive/carrot/tests/test_osm_curve.py
           openpilot/selfdrive/carrot/tests/test_route_curve.py
           openpilot/selfdrive/carrot/tests/test_route_curve_integration.py
           openpilot/selfdrive/carrot/tests/test_curve_speed.py -q
         env:
           PYTHONPATH: .
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+      - run: python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q

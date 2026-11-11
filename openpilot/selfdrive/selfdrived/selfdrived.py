@@ -168,9 +168,11 @@ class SelfdriveD:
 
     # some comma three with NVMe experience NVMe dropouts mid-drive that
     # cause loggerd to crash on write, so ignore it only on that platform
-    self.ignored_processes = set()
+    # Optional map preview expires in CarrotMan if its worker stops. Its
+    # absence must not turn loss of map assistance into a control disengagement.
+    self.ignored_processes = {'osmd'}
     if HARDWARE.get_device_type() == 'tici' and os.path.exists('/dev/nvme0'):
-      self.ignored_processes = {'loggerd', }
+      self.ignored_processes.add('loggerd')
 
     # Determine startup event
     self.startup_event = EventName.startup #if build_metadata.openpilot.comma_remote and build_metadata.tested_channel else EventName.startupMaster

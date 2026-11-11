@@ -1,0 +1,44 @@
+--- a/EN-Taiwan-offline-OSM-curve-preview.md
++++ b/EN-Taiwan-offline-OSM-curve-preview.md
+@@ -28,3 +28,18 @@
+ <!-- CARROT:MANUAL:BEGIN OsmCurveSpeedEnabled -->
+-<!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:REVIEW reviewed-for="412daff89b1d6e92d57d1c93016994d460789ef483a1233aa895951023497507" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### Behavior
++
++Without a navigation polyline, a unique offline road corridor can supply curve speed preview. It ends at forks and requires fresh GPS, heading and near-vision agreement. Navigation geometry has priority; other lower speed limits remain active.
++<!-- CARROT:SECTION:END BEHAVIOR -->
++<!-- CARROT:SECTION:BEGIN USAGE -->
++### Use
++
++Keep this switch on and select turn-speed mode 2. While parked on unmetered Wi-Fi, all Taiwan map groups download automatically: main island, Penghu, Kinmen and Matsu. Completed regions work offline. Turning this switch off removes the OSM contribution.
++<!-- CARROT:SECTION:END USAGE -->
++<!-- CARROT:SECTION:BEGIN REFERENCE -->
++### Reference
++
++Road centerlines are not lane-level maps. Missing tiles, parallel-road ambiguity or stale position prevent new OSM constraints. This does not select directions, steer or supply navigation-model guidance. Physical C4 performance still requires validation.
++<!-- CARROT:SECTION:END REFERENCE -->
+ <!-- CARROT:MANUAL:END OsmCurveSpeedEnabled -->
+--- a/KO-대만-OSM-커브-미리보기.md
++++ b/KO-대만-OSM-커브-미리보기.md
+@@ -28,3 +28,18 @@
+ <!-- CARROT:MANUAL:BEGIN OsmCurveSpeedEnabled -->
+-<!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:REVIEW reviewed-for="412daff89b1d6e92d57d1c93016994d460789ef483a1233aa895951023497507" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 동작
++
++내비 폴리라인이 없으면 유일한 로컬 도로를 커브 속도 미리보기에 사용합니다. 갈림길에서 끝나며 최신 위치·방향·가까운 비전 일치가 필요합니다. 내비 경로와 다른 더 낮은 속도 상한은 우선합니다.
++<!-- CARROT:SECTION:END BEHAVIOR -->
++<!-- CARROT:SECTION:BEGIN USAGE -->
++### 사용
++
++스위치를 켜고 턴속도 모드 2를 선택합니다. 주차 중 비과금 Wi-Fi에서 본섬·펑후·진먼·마쭈의 모든 지도 묶음을 자동 다운로드합니다. 완료된 지역은 오프라인으로 사용하며 스위치를 끄면 OSM 상한이 제거됩니다.
++<!-- CARROT:SECTION:END USAGE -->
++<!-- CARROT:SECTION:BEGIN REFERENCE -->
++### 참고
++
++도로 중심선은 차선 단위 지도가 아닙니다. 인접 타일 누락·평행 도로 모호성·오래된 위치에서는 새 상한을 만들지 않습니다. 방향 선택·조향·내비 모델 안내에는 쓰지 않으며 C4 실차 검증은 별도로 필요합니다.
++<!-- CARROT:SECTION:END REFERENCE -->
+ <!-- CARROT:MANUAL:END OsmCurveSpeedEnabled -->

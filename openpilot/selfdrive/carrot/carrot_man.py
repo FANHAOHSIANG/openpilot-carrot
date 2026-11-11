@@ -36,6 +36,7 @@ from openpilot.common.constants import CV
 from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
 from openpilot.selfdrive.carrot.curve_speed import VisionCurveSpeed, curve_speed
 from openpilot.selfdrive.carrot.route_curve import RouteCurveSpeed
+from openpilot.selfdrive.carrot.osm_curve import OsmCurveClient
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
 from openpilot.selfdrive.carrot.server.services.web_settings import read_web_settings
 from openpilot.selfdrive.carrot.web_upload import (
@@ -329,6 +330,7 @@ class CarrotMan:
 
     self.vision_curve_speed = VisionCurveSpeed()
     self.route_curve_speed = RouteCurveSpeed()
+    self.osm_curve = OsmCurveClient()
     self.carrot_curve_speed_params()
 
     self.is_running = True
@@ -503,20 +505,41 @@ class CarrotMan:
       self.send_routes([{'latitude': lat, 'longitude': lon} for lat, lon in self.route_source.selected[1]], selected=True)
 
   def carrot_navi_route(self):
-    if not self.params.get_bool("IsOnroad"):
+    now = time.monotonic()
+    serv, sm = self.carrot_serv, self.sm
+    onroad = self.params.get_bool("IsOnroad")
+    enabled = self.params.get_bool("OsmCurveSpeedEnabled")
+    osm_disabled = getattr(self, 'osm_curve_enabled_last', enabled) and not enabled
+    self.osm_curve_enabled_last = enabled
+    position_time = serv.last_calculate_gps_time if getattr(serv, 'position_heading_valid', False) else -1.0
+    device = sm['deviceState']
+    wifi = (sm.alive['deviceState'] and sm.valid['deviceState']
+            and device.networkType == log.DeviceState.NetworkType.wifi and not device.networkMetered)
+    # A speed-only corridor never becomes navRoute or navigation/model guidance.
+    osm_points, osm_id = self.osm_curve.update(
+      now=now, onroad=onroad, enabled=enabled,
+      wanted=not self.navi_points_active and serv.turnSpeedControlMode in (2, 3, 4), wifi=wifi,
+      position=(serv.vpPosPointLon, serv.vpPosPointLat), heading=serv.bearing,
+      fix_time=position_time, speed=sm['carState'].vEgo,
+    )
+    if not onroad:
       # Keep geometry received before startup, but not a previous drive's cap.
       self.route_curve_speed = RouteCurveSpeed()
       self.carrot_serv.route_curve_debug = "offroad"
       return [], [], 300
-    now = time.monotonic()
+    if osm_disabled and getattr(self.route_curve_speed, 'route_id', None) is not None and self.route_curve_speed.route_id[0] == 'osm':
+      self.route_curve_speed = RouteCurveSpeed()
     tracker = self.route_curve_speed
-    tracker.set_route(self.navi_points if self.navi_points_active else [], self.nav_route_id)
-    serv, sm = self.carrot_serv, self.sm
+    if self.navi_points_active:
+      points, route_id, source = self.navi_points, ('nav', self.nav_route_id), 'route'
+    else:
+      points, route_id, source = osm_points, ('osm', osm_id), 'osm'
+    tracker.set_route(points, route_id)
+    serv.route_curve_source = source
     fresh = all(sm.alive[name] and sm.valid[name] for name in ('carState', 'modelV2'))
     cs = sm['carState']
     # GPS is updated by CarrotServ in the preceding 20 Hz iteration. Use the
     # actual fix timestamp, not the extrapolation or publish timestamp.
-    position_time = serv.last_calculate_gps_time if getattr(serv, 'position_heading_valid', False) else -1.0
     result = tracker.update(
       now=now, position=(serv.vpPosPointLon, serv.vpPosPointLat), heading=serv.bearing,
       position_time=position_time, model=sm['modelV2'],
@@ -526,6 +549,8 @@ class CarrotMan:
       lower_limit_kph=serv.autoCurveSpeedLowerLimit,
     )
     serv.route_curve_debug = f"{result.reason}:{result.distance:.0f}m/{result.curve_kph:.0f}kph/e{result.match_error:.1f}"
+    if source == 'osm':
+      serv.route_curve_debug = f"osm/{self.osm_curve.status}/{serv.route_curve_debug}"
     # Model coordinates and naviPaths are both forward/right-positive.
     return list(result.points), list(result.distances), result.speed_kph
 
@@ -536,6 +561,9 @@ class CarrotMan:
     isOnroad = self.params.get_bool("IsOnroad")
     msg['IsOnroad'] = isOnroad
     msg['CarrotRouteActive'] = self.navi_points_active
+    msg['OsmCurveStatus'] = self.osm_curve.status
+    msg['OsmMapsReady'] = self.osm_curve.response.get('ready', 0)
+    msg['OsmMapsTotal'] = self.osm_curve.response.get('total', 8)
     msg['ip'] = self.ip_address
     msg['port'] = self.carrot_man_port
     msg['navi_debug'] = 0

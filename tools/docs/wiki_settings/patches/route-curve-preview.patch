@@ -12,7 +12,7 @@
 +<!-- CARROT:SECTION:BEGIN USAGE -->
 +### Use
 +
-+Select mode 2 with an actual coordinate-navigation route or external polyline. Preview uses up to 500 m of available geometry without requiring a TBT instruction. Confirmed easing releases the route ceiling gradually.
++Select mode 2 with navigation geometry, or enable Taiwan offline OSM preview when no polyline is available. Preview uses up to 500 m of available geometry without requiring a TBT instruction. Confirmed easing releases the route ceiling gradually.
 +<!-- CARROT:SECTION:END USAGE -->
 +<!-- CARROT:SECTION:BEGIN REFERENCE -->
 +### Reference
@@ -36,7 +36,7 @@
 +<!-- CARROT:SECTION:BEGIN USAGE -->
 +### 사용
 +
-+좌표 내비 경로 또는 외부 폴리라인과 함께 모드 2를 사용합니다. TBT 없이 최대 500m 전방의 제공된 경로를 계산하며 완화가 확인되면 상한을 점진적으로 회복합니다.
++모드 2에서 내비 경로를 사용하며 폴리라인이 없으면 대만 OSM 미리보기를 켤 수 있습니다. TBT 없이 최대 500m 전방의 제공된 경로를 계산하며 완화가 확인되면 상한을 점진적으로 회복합니다.
 +<!-- CARROT:SECTION:END USAGE -->
 +<!-- CARROT:SECTION:BEGIN REFERENCE -->
 +### 참고

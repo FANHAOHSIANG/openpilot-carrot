@@ -181,6 +181,7 @@ procs = [
   # Recovery happens after manager's IPC threads are running. Do not fork that
   # live interpreter: a blocked restart also stops managerState publication.
   PythonProcess("carrot_man", "openpilot.selfdrive.carrot.carrot_man", always_run, restart_if_crash=True, spawn=True),
+  PythonProcess("osmd", "openpilot.selfdrive.carrot.osmd", always_run, enabled=TICI, restart_if_crash=True, spawn=True),
   # carrot_navi permanently owns TCP 7714 and publishes navigation data over cereal.
   PythonProcess("carrot_navi", "openpilot.selfdrive.carrot.carrot_navi", always_run, restart_if_crash=True),
 

@@ -19,6 +19,9 @@ from openpilot.common.filter_simple import MyMovingAverage
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
 from openpilot.selfdrive.carrot.gps_sources import GPSSources
 from openpilot.selfdrive.carrot.route_curve import RouteCurveSpeed
+from openpilot.selfdrive.carrot.osm_curve import OsmCurveClient, read_message
+from openpilot.selfdrive.carrot.osmd import OsmWorker
+from openpilot.selfdrive.carrot.osm_map import Road
 from openpilot.selfdrive.carrot.tests.test_route_curve import lonlat, model_for, road
 from openpilot.selfdrive.navigation.source import RouteSource
 
@@ -42,7 +45,7 @@ def load_class(filename, name, env):
 
 
 @pytest.fixture
-def pipeline():
+def pipeline(tmp_path):
   now = [10.]
   values = {'TurnSpeedControlMode': 2, 'MapTurnSpeedFactor': 100, 'AutoCurveSpeedLowerLimit': 30,
             'AutoNaviSpeedDecelRate': 100, 'AutoRoadSpeedLimitOffset': -1, 'IsMetric': 1, 'IsOnroad': 1}
@@ -84,14 +87,14 @@ def pipeline():
   class SM(dict):
     pass
 
-  sm = SM(carState=cs, selfdriveState=NS(distanceTraveled=0), gpsLocation=gps,
+  sm = SM(deviceState=log.DeviceState.new_message(), carState=cs, selfdriveState=NS(distanceTraveled=0), gpsLocation=gps,
           carrotNavi=new_message('carrotNavi').carrotNavi,
           navInstruction=new_message('navInstruction').navInstruction, modelV2=model_for(xy))
   sm.alive = sm.valid = {key: key not in ('carrotNavi', 'navInstruction') for key in sm}
   sm.updated = dict.fromkeys(sm, True)
   sm.logMonoTime = {'modelV2': int(now[0] * 1e9)}
   sm.recv_time = {'gpsLocation': now[0]}
-  man = NS(params=Params(), carrot_serv=serv, sm=sm, route_curve_speed=RouteCurveSpeed(),
+  man = NS(osm_curve=OsmCurveClient(tmp_path / 'ipc'), params=Params(), carrot_serv=serv, sm=sm, route_curve_speed=RouteCurveSpeed(),
            navi_points=lonlat(xy), navi_points_active=True, nav_route_id=1, autoCurveSpeedFactor=1.)
   sent = {}
   pm = NS(send=lambda name, msg: sent.update({name: msg}))
@@ -104,7 +107,7 @@ def pipeline():
     serv.update_navi('', sm, pm, vturn, coords, distances, speed, 'gpsLocation')
     return sent['carrotMan'].carrotMan
 
-  update.man, update.serv, update.params, update.sm = man, serv, values, sm
+  update.man, update.serv, update.params, update.sm, update.now = man, serv, values, sm, now
   return update
 
 
@@ -136,7 +139,7 @@ def test_missing_route_and_half_factor_do_not_create_braking(pipeline):
   for _ in range(12):
     result = pipeline()
   assert result.desiredSource == 'road' and result.desiredSpeed == 200
-  assert 'rc=no_route:' in result.szPosRoadName
+  assert '/no_route:' in result.szPosRoadName
 
 
 def test_external_without_geometry_never_borrows_saved_mapbox_route():
@@ -178,3 +181,50 @@ def test_offroad_resets_old_speed_and_retains_route(pipeline):
   assert pipeline.man.route_curve_speed.speed == 250
   assert len(pipeline.man.navi_points) > 0
   assert result.desiredSource != 'route'
+
+
+def test_osm_without_destination_through_full_control_pipeline(pipeline, tmp_path):
+  pipeline.params['OsmCurveSpeedEnabled'] = 1
+  pipeline.man.navi_points = []
+  pipeline.man.navi_points_active = False
+  worker = OsmWorker(tmp_path / 'maps', pipeline.man.osm_curve.root)
+  worker.store.nearby = lambda _position: [Road(lonlat(road()))]
+  for _ in range(25):
+    result = pipeline()
+    worker.step(read_message(worker.shared / 'request.json'), pipeline.now[0])
+  assert result.desiredSource == 'route'
+  assert 70 < result.desiredSpeed < 90
+  assert 'rc=osm/road_matched/matched:' in result.szPosRoadName
+  assert not pipeline.man.navi_points_active and not pipeline.man.navi_points
+  assert pipeline(45.).desiredSource == 'vturn'
+  pipeline.params['OsmCurveSpeedEnabled'] = 0
+  assert pipeline().desiredSource != 'route'
+  assert pipeline.man.route_curve_speed.speed == 250
+
+
+def test_navigation_geometry_takes_priority_over_osm(pipeline, tmp_path):
+  pipeline.params['OsmCurveSpeedEnabled'] = 1
+  worker = OsmWorker(tmp_path / 'maps', pipeline.man.osm_curve.root)
+
+  def forbidden(_position):
+    raise AssertionError('OSM must not replace an active navigation route')
+
+  worker.store.nearby = forbidden
+  for _ in range(12):
+    result = pipeline()
+    worker.step(read_message(worker.shared / 'request.json'), pipeline.now[0])
+  assert result.desiredSource == 'route'
+  assert 'rc=matched:' in result.szPosRoadName
+  assert read_message(worker.shared / 'response.json')['status'] == 'navigation_priority'
+
+
+def test_disabled_osm_does_not_reset_lost_navigation_cap(pipeline):
+  for _ in range(12):
+    pipeline()
+  before = pipeline.man.route_curve_speed.speed
+  pipeline.man.navi_points = []
+  pipeline.man.navi_points_active = False
+  for _ in range(20):
+    pipeline()
+  after = pipeline.man.route_curve_speed.speed
+  assert before <= after < before + 4
