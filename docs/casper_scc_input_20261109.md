@@ -309,3 +309,47 @@ evidence, comparison scripts, source snapshots and replay results are archived a
 - Segment 0 `588dbc23e7c7450da4f05fe15215582557e0b0ade41ea67249a517eb3bd0a98f`
 - Segment 1 `fc0384394ac52e106baa74225cea4792009d8685ed70ddf91892e4b82941060b`
 - Failure `34f00df4794598576bd59e5135c62501941109f4ae20da95e19521197175e781`
+
+### Owner's stock-control and intermittent-onset follow-up
+
+The owner additionally reports normal operation with stock SCC, and intermittent
+failures with recent software both immediately after starting and later during
+driving. These are owner-reported observations. The stock test's comma/harness
+connection state and the recent failing executable revision are awaiting clarification.
+Together with normal older-version operation, this increases the priority of
+software-dependent ECU interaction and startup/state transitions in the investigation.
+The received-byte evidence identifies where the abnormal content is observed.
+The cause can still involve software that influences the transmitting ECU.
+
+An additional offline check executed the actual `CarInterface.init` methods from
+2ea4415ac, b1c827468f and ecdd043934 with recorded Casper CP flags 67976,
+extFlags 20 and EnableRadarTracks=0. All three make only the same
+LongitudinalPersonalityMax=4 parameter write. None attempts ECU-disable, radar
+track enablement or blinker-ECU diagnostics in that configuration. Recorded
+CAMERA_SCC also excludes the periodic tester-present branch in all three.
+Params writes and CAN functions were captured by offline spies, with no device IO.
+This narrows those specific diagnostic paths. The earlier received-data replay
+and this initialization check leave full runtime/ECU interaction unresolved.
+
+The owner then clarifies that operation is normal when SCC data is used directly
+without blocking. This investigation interprets that description as forwarding
+stock SCC commands to the vehicle. The exact configuration or implementation of
+that successful path has not been supplied. This observation strengthens the
+priority of investigating command substitution and its ECU feedback effects.
+
+The actual `hyundai_fwd_hook` is byte-identical across 2ea4415ac, b1c827468f
+and the November 11 source. Accepted host SCC12 transmissions suppress forwarding
+of stock SCC11/SCC12/SCC14 for 400 ms. FCA11 has its own 400 ms suppression timer.
+The recorded host SCC12 maximum transmission gaps are 23.97, 23.78 and 23.64 ms
+in good segment 0, good segment 1 and the failure respectively. Normal older-version
+operation therefore already includes this substitution mechanism.
+
+After excluding the first 0.5 s following each segment's first host SCC12, original
+SCC11/SCC14 payloads have no matching vehicle-side TX echoes in any of the three
+logs. The sole failure SCC12 payload overlap also matches a preceding host send,
+so it does not establish stock passthrough. Stock SCC13 and FCA12 payloads continue
+through in all three windows, with no host replacements for those addresses.
+FCA11 echo identity alone cannot distinguish forwarding from a host copy with
+unchanged fields. This evidence narrows intermittent forwarding takeover as an
+explanation for the supplied windows. Timing or ECU interactions outside those
+windows remain unresolved. Private results are in `forwarding-followup.json`.
