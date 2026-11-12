@@ -67,7 +67,7 @@ jobs:
         run: python -m pip install pytest numpy pycapnp PyYAML
       - name: Check Tesla web settings catalogue and docs
         run: |
-          python -m pytest -o addopts='' -q \
+          python -m pytest -c /dev/null --noconftest -o addopts='' -q \
             openpilot/selfdrive/carrot/server/tests/test_settings_schema.py \
             tools/docs/wiki_settings/tests/test_ci_check.py \
             tools/docs/wiki_settings/tests/test_generate.py
