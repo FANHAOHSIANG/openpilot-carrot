@@ -64,7 +64,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install Python test dependencies
-        run: python -m pip install pytest numpy pycapnp PyYAML
+        run: python -m pip install pytest numpy pycapnp PyYAML aiohttp
       - name: Check Tesla web settings catalogue and docs
         run: |
           python -m pytest -c /dev/null --noconftest -o addopts='' -q \
