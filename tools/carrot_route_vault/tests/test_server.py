@@ -200,3 +200,92 @@ def test_cleanup_never_deletes_existing_openpilot_files(tmp_path: Path):
     assert existing.read_text(encoding="utf-8") == "keep"
 
   asyncio.run(run())
+
+
+def test_verified_duplicates_skip_upload_even_when_daily_quota_is_full(tmp_path):
+  import hashlib
+  from aiohttp import web
+  from openpilot.selfdrive.carrot.web_upload import upload_folder_to_web, UploadQuotaExceeded
+  import pytest
+
+  async def run():
+    calls = []
+    @web.middleware
+    async def count(request, handler):
+      if request.method == 'PUT':
+        calls.append(request.path)
+      return await handler(request)
+    app = create_app(config(tmp_path, quota=11), start_cleanup=False)
+    app.middlewares.append(count)
+    async with TestClient(TestServer(app)) as client:
+      token = await session(client, ip='127.0.0.1')
+      local = tmp_path / 'local'
+      local.mkdir()
+      video = local / 'qcamera.ts'
+      video.write_bytes(b'camera-data')
+      base = str(client.make_url('')).rstrip('/')
+      args = (str(local), DEVICE, 'route--0', base, token)
+      assert await upload_folder_to_web(*args)
+      assert len(calls) == 1
+      updates = []
+      assert await upload_folder_to_web(*args, on_progress=lambda *a: updates.append(a))
+      assert len(calls) == 1  # GET verified it; no duplicate transfer or reservation.
+      assert updates == [('qcamera.ts', 11, 11, 0)]
+      url = f'/api/v1/upload/{DEVICE}/route--0/qcamera.ts'
+      headers = {'Authorization': f'Bearer {token}', 'X-File-Size': '11',
+                 'X-File-SHA256': hashlib.sha256(b'camera-data').hexdigest()}
+      duplicate = await client.put(url, data=b'camera-data', headers=headers)
+      assert duplicate.status == 200 and (await duplicate.json())['skipped']
+      video.write_bytes(b'changed-abc')  # Same size is insufficient to skip.
+      with pytest.raises(UploadQuotaExceeded):
+        await upload_folder_to_web(*args)
+      assert len(calls) == 3  # One rejection, not two attempts.
+      response = await client.put(url, data=b'x', headers={'Authorization': f'Bearer {token}', 'X-File-Size': '1'})
+      assert response.status == 413
+      assert (await response.json())['code'] == 'daily_quota_exceeded'
+  asyncio.run(run())
+
+
+def test_upload_checksum_mismatch_never_installs_file(tmp_path):
+  async def run():
+    async with TestClient(TestServer(create_app(config(tmp_path), start_cleanup=False))) as client:
+      token = await session(client)
+      url = f'/api/v1/upload/{DEVICE}/route--0/qcamera.ts'
+      headers = {'Authorization': f'Bearer {token}', 'X-Forwarded-For': CLIENT_IP,
+                 'X-File-Size': '3', 'X-File-SHA256': '0' * 64}
+      response = await client.put(url, data=b'abc', headers=headers)
+      assert response.status == 400
+      status = await client.get(url, headers=headers)
+      assert (await status.json())['exists'] is False
+  asyncio.run(run())
+
+
+def test_old_receiver_existing_original_is_hash_verified_before_put(tmp_path):
+  from aiohttp import web
+  from openpilot.selfdrive.carrot.web_upload import upload_folder_to_web
+
+  async def run():
+    puts, downloads = [], []
+    @web.middleware
+    async def old_receiver(request, handler):
+      if request.method == 'GET' and request.path.startswith('/api/v1/upload/'):
+        return web.Response(status=405)
+      if request.method == 'PUT':
+        puts.append(request.path)
+      if '/files/' in request.path:
+        downloads.append(request.path)
+      return await handler(request)
+    app = create_app(config(tmp_path, quota=11), start_cleanup=False)
+    app.middlewares.append(old_receiver)
+    async with TestClient(TestServer(app)) as client:
+      token = await session(client, ip='127.0.0.1')
+      local = tmp_path / 'local'
+      local.mkdir()
+      (local / 'qcamera.ts').write_bytes(b'camera-data')
+      base = str(client.make_url('')).rstrip('/')
+      args = (str(local), DEVICE, '000003cc--8d19bf55d5--15', base, token)
+      assert await upload_folder_to_web(*args)
+      existing = f'{base}/routes/TEST%20{DEVICE}/'
+      assert await upload_folder_to_web(*args, existing_base_url=existing)
+      assert len(puts) == 1 and len(downloads) == 1
+  asyncio.run(run())

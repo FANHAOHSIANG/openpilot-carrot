@@ -596,6 +596,15 @@ class FakeResponse:
   async def text(self):
     return json.dumps(self._payload)
 
+  async def json(self):
+    return self._payload
+
+  async def __aenter__(self):
+    return self
+
+  async def __aexit__(self, *args):
+    return False
+
 
 class FakeRequestContext:
   def __init__(self, session, url, data, headers):
@@ -631,6 +640,9 @@ class FakeSession:
 
   async def __aexit__(self, exc_type, exc, tb):
     return False
+
+  def get(self, url):
+    return FakeResponse(405, {})
 
   def put(self, url, data, headers=None):
     return FakeRequestContext(self, url, data, headers or {})
@@ -800,3 +812,28 @@ def test_dashcam_web_upload_honors_cancellation_before_network(tmp_path: Path, m
       lambda: True,
     ))
   assert FakeSession.instances == []
+
+
+def test_daily_quota_stops_pending_segments_without_retry(monkeypatch, tmp_path):
+  (tmp_path / 'qcamera.ts').write_bytes(b'video')
+  (tmp_path / 'rlog.zst').write_bytes(b'log')
+  monkeypatch.setenv('CARROT_WEB_UPLOAD_CONCURRENCY', '1')
+  monkeypatch.setattr(upload_jobs, 'HAS_PARAMS', False)
+  monkeypatch.setattr(upload, 'upload_target_settings', lambda: ('https://upload.example', 'token'))
+  monkeypatch.setattr(upload, 'upload_metadata', lambda _: {'carName': 'TEST', 'dongleId': '0123456789abcdef'})
+  monkeypatch.setattr(upload, 'discord_webhook_url', lambda _: '')
+  monkeypatch.setattr(upload_jobs, 'segment_dir', lambda _: str(tmp_path))
+  calls = []
+  async def reject(*args, **kwargs):
+    calls.append(args[2])
+    raise web_upload.UploadQuotaExceeded('daily quota exhausted')
+  async def complete(*args, **kwargs):
+    return {'ok': True}
+  monkeypatch.setattr(upload_jobs, 'upload_folder_to_web', reject)
+  monkeypatch.setattr(upload_jobs, 'send_web_upload_complete', complete)
+  upload_jobs.jobs().clear()
+  job = upload_jobs.create_job([f'route--{i}' for i in range(36)])
+  asyncio.run(upload_jobs.run_job(job))
+  assert len(calls) == 1
+  assert len(job['result']['results']) == 36
+  assert all(not r['ok'] and 'daily quota' in r['error'] for r in job['result']['results'])
