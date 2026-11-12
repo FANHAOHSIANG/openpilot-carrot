@@ -8,8 +8,9 @@ supplies a speed ceiling. Mode 2 no longer depends on the TBT +/-500 m gate;
 mode 3 also requires geometry agreement. Factor and floor apply to the curve
 target before the distance envelope. No-route values are never factor-scaled.
 The original source ownership is unchanged: an external session without a
-polyline does not borrow a saved Mapbox route. Confirmed easing and invalid-data
-release are bounded to 3.6 km/h/s; all existing speed selection and driver gas
+polyline does not borrow a saved Mapbox route. Confirmed easing, supported by fresh matched frames spanning 0.2 s,
+releases at up to 7.2 km/h/s. Invalid-data release remains at 3.6 km/h/s after
+a 0.35 s hold; all existing speed selection and driver gas
 policies remain. `rc=` in `szPosRoadName` records admission/exclusion reasons.
 Tests: `test_route_curve.py`, `test_route_curve_integration.py`, `test_curve_speed.py`.
 This describes offline-tested candidate code, not measured vehicle performance.

@@ -4,6 +4,7 @@ Coordinates are WGS84 (longitude, latitude). No destination inference, route
 service calls or mixing of navigation owners happens here. Missing geometry
 cannot produce a preview. Control quantities are SI until the kph boundary.
 """
+from collections import deque
 from dataclasses import dataclass
 import math
 
@@ -11,6 +12,7 @@ import numpy as np
 
 from openpilot.selfdrive.carrot.curve_speed import (
   APPROACH_DECEL, APPROACH_JERK, NO_LIMIT_KPH, RESPONSE_TIME, TARGET_LAT_ACCEL,
+  GEOMETRY_MIN_SPAN, GEOMETRY_RELEASE_WINDOW, RELEASE_RATE_KPH,
 )
 
 METRES_PER_DEGREE = math.pi * 6371000.0 / 180.0
@@ -47,10 +49,12 @@ class RouteCurveSpeed:
     self.last_time = None
     self.missing_since = None
     self.speed = NO_LIMIT_KPH
+    self.release_geometry = deque()
 
   def set_route(self, points, route_id):
     if route_id == self.route_id:
       return
+    self.release_geometry.clear()
     old_id, old_points = self.route_id, self.points
     old_progress, old_arc = self.progress, getattr(self, 'arc', ())
     old_state = (self.match_time, self.confirm_since, self.confirm_frames, self.last_model_time)
@@ -99,6 +103,7 @@ class RouteCurveSpeed:
     return self._unconfirmed(reason, now, dt)
 
   def _unconfirmed(self, reason, now, dt):
+    self.release_geometry.clear()
     if self.missing_since is None:
       self.missing_since = now
     # Lost geometry is not proof of a straight road. Remove its old constraint
@@ -236,7 +241,22 @@ class RouteCurveSpeed:
     approach = np.sqrt(curve_ms**2 + 2 * APPROACH_DECEL * np.maximum(0, curve_distances - v_ego * delay)) * 3.6 / ratio
     index = int(np.argmin(approach))
     target = min(NO_LIMIT_KPH, float(approach[index]))
-    self.speed = min(target, self.speed + RELEASE_KPH_PER_SECOND * dt)
+    # Matching a road is not yet proof that a transient higher cap is an exit.
+    # Require independent, fresh matched frames, using the same short evidence
+    # window as vision. Keep loss/reacquisition on the slower fallback above.
+    if self.release_geometry and now - self.release_geometry[-1][0] > GEOMETRY_MIN_SPAN:
+      self.release_geometry.clear()
+    self.release_geometry.append((now, target))
+    while self.release_geometry and now - self.release_geometry[0][0] > GEOMETRY_RELEASE_WINDOW + 1e-9:
+      self.release_geometry.popleft()
+    confirmed_exit = len(self.release_geometry) >= 3 and now - self.release_geometry[0][0] >= GEOMETRY_MIN_SPAN - 1e-9
+    if target <= self.speed:
+      self.speed = target
+    elif confirmed_exit:
+      # This only relaxes a speed ceiling. Existing turn_accel, cruise/lead
+      # limits and MPC jerk control still determine the actual acceleration.
+      confirmed_target = min(speed for _, speed in self.release_geometry)
+      self.speed = max(self.speed, min(confirmed_target, self.speed + RELEASE_RATE_KPH * dt))
     return RouteCurveResult(self.speed, "matched", min(NO_LIMIT_KPH, float(curve_ms[index] * 3.6 / ratio)),
                             float(curve_distances[index]), match_error,
                             tuple(map(tuple, relative[distances >= 0])), tuple(distances[distances >= 0]), lateral_offset)

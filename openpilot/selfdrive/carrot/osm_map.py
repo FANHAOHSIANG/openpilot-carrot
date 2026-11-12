@@ -368,7 +368,7 @@ class RoadMatcher:
                 and 0 <= now - history[-1][0] <= .6 and history[-1][0] - history[0][0] >= .4
                 and 0 <= speed <= 90 and error[best] <= 3.
                 and all(entry[2] <= 2. for entry in history)
-                and (tuple(coords[first]), tuple(coords[last])) in set(zip(self.previous[:-1], self.previous[1:])))
+                and (tuple(coords[first]), tuple(coords[last])) in set(zip(self.previous[:-1], self.previous[1:], strict=True)))
       if recent:
         movement = float(np.linalg.norm((np.asarray(position) - history[-1][1]) * scale))
         recent = movement <= speed * (now - history[-1][0]) + 3.

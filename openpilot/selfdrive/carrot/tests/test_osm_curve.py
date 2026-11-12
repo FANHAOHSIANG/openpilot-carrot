@@ -280,7 +280,8 @@ def test_response_width_is_reset_on_expired_reply(tmp_path):
   response = {'session': client.session, 'stamp': 10., 'status': 'road_matched',
               'points': lonlat(road()).tolist(), 'id': 'road', 'lateral_allowance': 7.2}
   write_message(tmp_path / 'response.json', response)
-  kwargs = dict(onroad=True, enabled=True, wanted=True, wifi=False, position=(121., 25.), heading=90., fix_time=10., speed=25.)
+  kwargs = {'onroad': True, 'enabled': True, 'wanted': True, 'wifi': False,
+            'position': (121., 25.), 'heading': 90., 'fix_time': 10., 'speed': 25.}
   assert client.update(now=10., **kwargs)[0]
   assert client.lateral_allowance == 7.2
   assert not client.update(now=11.1, **kwargs)[0]

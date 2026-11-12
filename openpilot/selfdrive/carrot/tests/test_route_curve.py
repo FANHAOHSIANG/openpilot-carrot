@@ -172,8 +172,8 @@ def test_confirmed_opening_curve_releases_without_jumping_and_next_bend_tightens
   straight = np.column_stack([np.arange(0, 605, 5), np.zeros(121)])
   tracker.set_route(lonlat(straight), 2)
   results = run(tracker, straight, start_time=10.45, frames=40)
-  assert results[-1].speed_kph > first.speed_kph
-  assert max(np.diff([r.speed_kph for r in results])) <= .180001
+  assert results[-1].speed_kph > first.speed_kph + 8
+  assert max(np.diff([r.speed_kph for r in results])) <= .360001
   tight = road(start=25, radius=35)
   tracker.set_route(lonlat(tight), 3)
   result = run(tracker, tight, start_time=12.5)[-1]
@@ -234,7 +234,7 @@ def test_vehicle_progress_through_opening_curve_gradually_releases():
   assert set(reasons[10:]) == {'matched'}
   assert speeds[40] < 50
   assert speeds[-1] > speeds[40] + 20
-  assert max(np.diff(speeds[10:])) <= .180001
+  assert max(np.diff(speeds[10:])) <= .360001
 
 
 def test_known_lane_width_accepts_translation_but_not_shape_or_excess_offset():
@@ -303,3 +303,40 @@ def test_osm_window_continuity_does_not_bypass_time_gap():
   assert run(tracker, xy, position=(20, 0))[-1].reason == 'matched'
   tracker.set_route(lonlat(xy[2:]), ('osm', 'extension'))
   assert run(tracker, xy, position=(21, 0), start_time=12., frames=1)[0].reason == 'confirming'
+
+
+def test_single_higher_envelope_cannot_release_existing_cap():
+  xy = road(start=40)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), 1)
+  first = run(tracker, xy, frames=16)[-1]
+  # One transient larger radius/allowance must not undo established braking.
+  transient = run(tracker, xy, start_time=10.8, frames=1, map_factor=1.5)[0]
+  assert transient.reason == 'matched'
+  assert transient.speed_kph == first.speed_kph
+  recovered = run(tracker, xy, start_time=10.85, frames=8)[-1]
+  assert recovered.speed_kph == pytest.approx(first.speed_kph)
+
+
+def test_fresh_confirmed_release_is_faster_than_loss_and_still_bounded():
+  xy = road(start=40)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), 1)
+  first = run(tracker, xy, frames=16)[-1]
+  results = run(tracker, xy, start_time=10.8, frames=30, map_factor=1.5)
+  assert results[0].speed_kph == first.speed_kph
+  assert results[-1].speed_kph > first.speed_kph + 7
+  assert max(np.diff([r.speed_kph for r in results])) <= .360001
+  assert all(r.speed_kph <= r.curve_kph + 30 for r in results)
+  # An upcoming tighter cap still applies immediately, without release delay.
+  tighter = run(tracker, xy, start_time=12.3, frames=1, map_factor=.7)[0]
+  assert tighter.speed_kph < first.speed_kph
+  # Stale inputs never continue the faster release policy.
+  lost = run(tracker, xy, start_time=12.35, frames=20, position_time=1.)
+  assert lost[0].speed_kph == tighter.speed_kph
+  assert all(r.reason == 'stale_position' for r in lost)
+  assert max(np.diff([r.speed_kph for r in lost])) <= .180001
+  # A newly reacquired path must gather fresh release evidence again.
+  reacquired = run(tracker, xy, start_time=13.35, frames=7, map_factor=1.5)
+  assert reacquired[-1].reason == 'matched'
+  assert reacquired[-1].speed_kph - reacquired[-2].speed_kph <= .180001

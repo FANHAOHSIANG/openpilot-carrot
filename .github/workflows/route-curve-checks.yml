@@ -13,6 +13,7 @@ on:
       - 'openpilot/selfdrive/carrot/carrot_man.py'
       - 'openpilot/selfdrive/carrot/carrot_serv.py'
       - 'openpilot/selfdrive/carrot/tests/test_route_curve*.py'
+      - 'openpilot/selfdrive/controls/tests/test_turn_accel.py'
       - '.github/workflows/route-curve-checks.yml'
   push:
     branches: ['test/truck-clearance-204f9cca']
@@ -28,6 +29,7 @@ on:
       - 'openpilot/selfdrive/carrot/carrot_man.py'
       - 'openpilot/selfdrive/carrot/carrot_serv.py'
       - 'openpilot/selfdrive/carrot/tests/test_route_curve*.py'
+      - 'openpilot/selfdrive/controls/tests/test_turn_accel.py'
       - '.github/workflows/route-curve-checks.yml'
 permissions:
   contents: read
@@ -47,7 +49,8 @@ jobs:
           openpilot/selfdrive/carrot/tests/test_osm_curve.py
           openpilot/selfdrive/carrot/tests/test_route_curve.py
           openpilot/selfdrive/carrot/tests/test_route_curve_integration.py
-          openpilot/selfdrive/carrot/tests/test_curve_speed.py -q
+          openpilot/selfdrive/carrot/tests/test_curve_speed.py
+          openpilot/selfdrive/controls/tests/test_turn_accel.py -q
         env:
           PYTHONPATH: .
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'

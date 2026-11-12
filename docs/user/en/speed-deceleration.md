@@ -302,7 +302,7 @@ This floor applies to vision-curve and route-turn candidates. For vision curves,
 
 Modes 2 and 3 use the selected navigation polyline only after fresh position, heading and the near model path agree for at least 0.3 seconds. The preview extends up to 500 m where route geometry is available; a turn-by-turn instruction is not required. Missing, stale, coarse, ambiguous or mismatched data cannot create a new route constraint. Mode 2 keeps the lower vision-curve ceiling. A map match does not establish lane-level accuracy.
 
-The route ceiling tightens from curvature and remaining distance, including a response allowance. After confirmed easing it rises by at most 3.6 km/h per second; the longitudinal planner still controls acceleration and following. Lost route data briefly holds the old ceiling and then releases it at the same bounded rate. The recorded `rc=` reason distinguishes `matched`, `no_route`, `stale_position`, `model_mismatch` and other exclusions.
+The route ceiling tightens from curvature and remaining distance, including a response allowance. After fresh matched frames confirm easing for about 0.2 seconds, it rises by at most 7.2 km/h per second; the longitudinal planner still controls acceleration and following. Lost route data holds the old ceiling for 0.35 seconds and then releases it at most 3.6 km/h per second. Repeated model frames do not justify the faster release. The recorded `rc=` reason distinguishes `matched`, `no_route`, `stale_position`, `model_mismatch` and other exclusions.
 
 Use a coordinate destination with Carrot navigation, or an external sender that actually supplies a polyline. External navigation without geometry remains the selected source; a saved Mapbox route is never substituted for it.
 
