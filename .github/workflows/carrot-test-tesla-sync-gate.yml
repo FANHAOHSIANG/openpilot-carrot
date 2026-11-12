@@ -1,0 +1,73 @@
+name: Carrot Test Tesla official sync gate
+on:
+  push:
+    branches:
+      - sync/carrot-wip-official-ffa5723-to-test-20261112
+      - test/carrot-wip-upstream-20261104
+    paths:
+      - 'opendbc_repo/opendbc/car/tesla/**'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - 'openpilot/selfdrive/carrot/server/tests/test_settings_schema.py'
+      - '.github/workflows/carrot-test-tesla-sync-gate.yml'
+  pull_request:
+    branches:
+      - test/carrot-wip-upstream-20261104
+    paths:
+      - 'opendbc_repo/opendbc/car/tesla/**'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - 'openpilot/selfdrive/carrot/server/tests/test_settings_schema.py'
+      - '.github/workflows/carrot-test-tesla-sync-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tesla-native-safety:
+    name: Native CAN, Tesla speed-wheel and Hyundai safety regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install existing signal validation dependencies
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Build native CAN and Panda safety test hooks without vehicle I/O
+        shell: bash
+        run: |
+          set -euo pipefail
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+          cd opendbc_repo/opendbc/safety
+          gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -I. -Iboard tests/libsafety/safety.c -o tests/libsafety/libsafety.so
+      - name: Run Tesla speed-wheel safety and existing Hyundai stop regressions
+        run: |
+          python tools/signal_validation/run.py \
+            opendbc_repo/opendbc/car/tesla/tests \
+            opendbc_repo/opendbc/safety/tests/test_tesla.py \
+            opendbc_repo/opendbc/safety/tests/test_tesla_turn_signals.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py
+  tesla-settings:
+    name: Tesla settings schema and generated documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .:opendbc_repo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python test dependencies
+        run: python -m pip install pytest numpy pycapnp PyYAML
+      - name: Check Tesla web settings catalogue and docs
+        run: |
+          python -m pytest -o addopts='' -q \
+            openpilot/selfdrive/carrot/server/tests/test_settings_schema.py \
+            tools/docs/wiki_settings/tests/test_ci_check.py \
+            tools/docs/wiki_settings/tests/test_generate.py
