@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install aiohttp pytest numpy pycapnp zstandard requests jinja2
+      - run: pip install aiohttp pytest numpy pycapnp zstandard requests jinja2 pyserial
       - run: python tools/carrot_route_vault/run_upload_tests.py
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
