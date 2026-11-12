@@ -53,7 +53,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install numpy pytest pycapnp ruff requests setproctitle pyserial pycryptodome
+      - run: python -m pip install numpy pytest pycapnp ruff requests setproctitle pyserial pycryptodome zstandard pyzmq
       - run: python -m ruff check openpilot/selfdrive/carrot/route_curve.py openpilot/selfdrive/carrot/osm*.py openpilot/selfdrive/carrot/tests/test_route_curve*.py openpilot/selfdrive/carrot/tests/test_osm_curve.py
       - run: python -m compileall -q openpilot/selfdrive/carrot/osm_curve.py openpilot/selfdrive/carrot/osm_map.py openpilot/selfdrive/carrot/osmd.py openpilot/selfdrive/carrot/carrot_man.py openpilot/system/manager/process_config.py openpilot/selfdrive/selfdrived/selfdrived.py
       - run: >-
