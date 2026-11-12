@@ -4,9 +4,17 @@ on:
     branches:
       - sync/carrot-wip-official-162da468-to-test-20261112
       - test/carrot-wip-upstream-20261104
+    paths:
+      - 'tools/jetlink/**'
+      - 'openpilot/selfdrive/modeld/jetlink/**'
+      - '.github/workflows/carrot-test-jetson-super-sync-gate.yml'
   pull_request:
     branches:
       - test/carrot-wip-upstream-20261104
+    paths:
+      - 'tools/jetlink/**'
+      - 'openpilot/selfdrive/modeld/jetlink/**'
+      - '.github/workflows/carrot-test-jetson-super-sync-gate.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,6 +22,11 @@ permissions:
 jobs:
   source-preservation:
     name: Pinned official and existing custom Git content
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.number == 39) ||
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/sync/carrot-wip-official-162da468-to-test-20261112' ||
+         contains(github.event.head_commit.message, 'Merge pull request #39')))
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
