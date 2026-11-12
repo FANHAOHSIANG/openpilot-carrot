@@ -82,6 +82,12 @@ class OsmWorker:
         self.matcher = RoadMatcher()
 
 
+def update_interval(cpu_seconds):
+  # Leave 600 ms of the client's 1 s validity window for request age,
+  # matching and scheduler jitter. This does not renew an old geometry stamp.
+  return max(.2, min(.4, cpu_seconds * 5))
+
+
 def main():
   # Auxiliary work stays off camera/model/control cores and never uses the GPU.
   if hasattr(os, 'sched_setaffinity'):
@@ -97,8 +103,8 @@ def main():
       worker.step(worker.request(), started)
     except Exception as error:
       print(f'osmd: {type(error).__name__}', flush=True)
-    # At most 5 Hz and roughly 10% of one CPU, excluding one-time tile loading.
-    interval = max(.2, min(1., (time.process_time() - cpu_started) * 10))
+    # At most 5 Hz; target 20% of one CPU for ordinary matching.
+    interval = update_interval(time.process_time() - cpu_started)
     time.sleep(max(.01, interval - (time.monotonic() - started)))
 
 

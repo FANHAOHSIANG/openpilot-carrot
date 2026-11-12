@@ -322,3 +322,11 @@ def test_trajectory_cannot_choose_connected_merge_or_reuse_after_jump():
     if not jump:
       roads.append(Road(lonlat(np.array([(0., 0.), (40., 2.)])), True))
     assert matcher.match(roads, lonlat((40, 0)), 90, now=10.41 if jump else 10.6, speed=80)[1] == 'ambiguous_road'
+
+
+def test_worker_schedule_leaves_margin_for_original_request_freshness():
+  from openpilot.selfdrive.carrot.osmd import update_interval
+  for cpu in [0., .01, .05, .1, .5, 2.]:
+    assert .2 <= update_interval(cpu) <= .4
+  # Previous schedule slept up to one second before accounting for request age.
+  assert update_interval(.1) == .4

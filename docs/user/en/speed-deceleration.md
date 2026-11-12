@@ -221,11 +221,9 @@ With an active, valid road limit of at least 30 km/h:
 
 ### `AutoSpeedUptoRoadSpeedLimit`
 
-While following a lead, cruise set speed can rise in 5 km/h steps up to:
+This test branch preserves the selected cruise speed as the upper bound for automatic road/model changes. A stored value of 100 no longer raises 50 to 70 while following a lead. Curve limits can still reduce speed and release back toward the selection.
 
-    automatic ceiling = road limit × setting / 100
-
-All of these must be true: automatic increase is not paused; a lead is within about 60 m; lead speed plus 5 km/h exceeds set speed; and set speed is below the ceiling. `0` disables this feature. SET/- or braking can pause it; RES/+, accelerator input, or a stopped state can release the pause.
+An explicit `SPEED UP` command retains the existing ratio-based increase calculation. `0` disables that road calculation and automatic road adjustment. Physical +/− buttons remain available.
 
 ### `AutoRoadSpeedAdjust`
 
@@ -234,7 +232,7 @@ All of these must be true: automatic increase is not paused; a lead is within ab
 
 | Value | Behavior when the road limit changes |
 |---:|---|
-| `-1` | Immediately synchronize to the new road target on either increase or decrease |
+| `-1` | Synchronize downward to a lower road target; automatic increases are capped |
 | `0` | Keep the existing set speed |
 | `1–99` | On a decrease only, move to a weighted value between current set speed and new limit |
 | `100` | On a decrease, move directly to the new limit |
@@ -339,11 +337,11 @@ This is not curve-only. It applies the driving model's `desiredVelocity` to crui
 | Value | Current behavior |
 |---:|---|
 | `0` | Disabled |
-| Positive | Raise set speed to the ceiling only when currently below it |
-| Negative | Directly overwrite set speed with the calculated ceiling |
+| Positive | Automatic increases are capped at the selected speed |
+| Negative | Apply a lower calculated ceiling without raising the selected speed |
 
 > [!WARNING]
-> A negative value is a strong continuous overwrite, not a “deceleration only” switch. Without a valid road limit, the ceiling can become zero. Leave it at `0` unless you fully understand the input path and behavior.
+> A negative value can continuously lower the set speed. Without a valid road limit, the ceiling can become zero. Leave it at `0` unless you fully understand the input path and behavior.
 
 For isolated tuning, start with mode 1 and `ApplyModelSpeed=0`; adjust the curve factor, then the floor, and then check route-turn control. Test `ApplyModelSpeed` separately because it changes cruise set speed.
 

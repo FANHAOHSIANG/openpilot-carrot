@@ -13,7 +13,7 @@ from openpilot.common.params import Params
 from openpilot.common.impact_dashcam import ImpactDashcam
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
 from openpilot.common.swaglog import cloudlog
-from openpilot.common.runtime_diagnostics import communication_snapshot
+from openpilot.common.runtime_diagnostics import communication_snapshot, RuntimeDiagnostics
 from openpilot.common.gps import get_gps_location_service
 
 from openpilot.selfdrive.car.car_specific import CarSpecificEvents
@@ -787,7 +787,9 @@ class SelfdriveD:
     self.events_prev = self.events.names.copy()
 
   def step(self):
+    started = time.monotonic()
     CS = self.data_sample()
+    sampled = time.monotonic()
     self.update_impact_dashcam(CS)
     self.update_events(CS)
     if self.impact_dashcam.pending:
@@ -801,7 +803,13 @@ class SelfdriveD:
     self.update_system_ready_alert(CS)
     self.update_nnff_alert(CS)
 
+    evaluated = time.monotonic()
     self.publish_selfdriveState(CS)
+    if getattr(self, "runtime_diagnostics", None) is not None:
+      self.runtime_diagnostics.record(sample_ms=(sampled - started) * 1000,
+                                      evaluate_ms=(evaluated - sampled) * 1000,
+                                      publish_ms=(time.monotonic() - evaluated) * 1000,
+                                      total_ms=(time.monotonic() - started) * 1000)
 
     self.CS_prev = CS
 
@@ -819,6 +827,7 @@ class SelfdriveD:
       time.sleep(0.1)
 
   def run(self):
+    self.runtime_diagnostics = RuntimeDiagnostics("selfdrived", cloudlog.event, peak_metric="total_ms")
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:

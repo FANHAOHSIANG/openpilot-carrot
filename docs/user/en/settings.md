@@ -513,3 +513,5 @@ After confirmed turn entry, the TBT indicator ends its hold as the wheel returns
 
 
 The ATC right lane-change distance uses 0m for off and 50m steps up to 500m. The former ON setting migrates to 250m at restart.
+
+This test branch caps automatic road/model increases at the selected cruise speed; manual speed commands remain available.
