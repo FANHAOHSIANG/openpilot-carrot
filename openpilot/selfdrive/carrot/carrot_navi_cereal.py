@@ -16,7 +16,7 @@ PUBLISH_COALESCE_SECONDS = 0.05
 MEDIA_REQUEST_POLL_SECONDS = 0.25
 MAX_AHEAD_LANES = 8
 MAX_LANE_VALUES = 16
-MAX_ROUTE_POINTS = 256
+MAX_ROUTE_POINTS = 4096
 MAX_ROAD_LIMIT_KPH = 200
 ROAD_LIMIT_STEP_KPH = 10
 WEB_BOOTSTRAP_KIND = "web_render"
@@ -174,15 +174,24 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
 
   route_record = _record(snapshot, "route")
   route = _dict(route_record.get("value")) if route_record.get("present") else {}
+  # Preserve the complete external route. Never clamp bad coordinates or
+  # silently truncate a long route into a different destination.
   polyline = []
-  for point_value in _list(route.get("polyline"))[:MAX_ROUTE_POINTS]:
-    point = _dict(point_value)
-    if point.get("lat") is None or point.get("lon") is None:
-      continue
-    polyline.append({
-      "latitude": _finite(point.get("lat"), minimum=-90.0, maximum=90.0),
-      "longitude": _finite(point.get("lon"), minimum=-180.0, maximum=180.0),
-    })
+  raw_points = _list(route.get("polyline"))
+  route_invalid = len(raw_points) > MAX_ROUTE_POINTS
+  if not route_invalid:
+    for point_value in raw_points:
+      point = _dict(point_value)
+      lat, lon = point.get("lat"), point.get("lon")
+      if (isinstance(lat, bool) or isinstance(lon, bool)
+          or not isinstance(lat, (int, float)) or not isinstance(lon, (int, float))
+          or not -90 <= lat <= 90 or not -180 <= lon <= 180):
+        route_invalid = True
+        break
+      polyline.append({"latitude": float(lat), "longitude": float(lon)})
+  if route_invalid:
+    polyline = []
+    route_record = {**route_record, "present": False}
 
   status_record = _record(snapshot, "navigation_status")
   status = _dict(status_record.get("value")) if status_record.get("present") else {}
