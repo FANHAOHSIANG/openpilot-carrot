@@ -15,6 +15,7 @@ from cluster_models import (
     DebugPlotSnapshot,
     LaneMarking,
     LiveDebugInfo,
+    ModelPathPoint,
     NaviDebugInfo,
     NaviGuidanceImage,
     NaviTrafficLightInfo,
@@ -163,6 +164,10 @@ class OpenpilotLiveSource:
         self._alert_onroad_started_t: float | None = None
         self._selfdrive_seen_onroad = False
         self._nav_route_coords: tuple[tuple[float, float], ...] = ()
+        self._nav_route_received_t = 0.0
+        self._nav_route_filtered_anchor: tuple[float, float, float] | None = None
+        self._nav_route_anchor_t = 0.0
+        self._nav_route_last_path: tuple[ModelPathPoint, ...] = ()
         self._carrot_navi = None
         self._carrot_navi_generation = -1
         self._carrot_navi_next_expiry_s = math.inf
@@ -674,6 +679,7 @@ class OpenpilotLiveSource:
 
         profile_stage = self._profile_start()
         navi_debug = self._navi_debug_info() if navi_mode else None
+        state = self._with_external_nav_route(state) if navi_mode else state
         state = self._with_navi_speed_limit(state, navi_debug) if navi_mode else state
         self._profile_add("source.live.navi_debug", profile_stage)
 
@@ -1029,6 +1035,8 @@ class OpenpilotLiveSource:
         coords = safe_get(data, "coordinates")
         if not coords:
             self._nav_route_coords = ()
+            self._nav_route_last_path = ()
+            self._nav_route_filtered_anchor = None
             return
 
         parsed: list[tuple[float, float]] = []
@@ -1042,6 +1050,103 @@ class OpenpilotLiveSource:
             parsed.append((lat, lon))
 
         self._nav_route_coords = tuple(parsed)
+        self._nav_route_received_t = time.monotonic()
+        self._nav_route_last_path = ()
+
+    def _with_external_nav_route(self, state: ClusterUiState) -> ClusterUiState:
+        # HUD-only projection: never changes the planner, CAN, or steering outputs.
+        path = self._external_nav_route_model_path()
+        if len(path) < 2:
+            return state
+        return replace(state, model_path=path)
+
+    def _external_nav_route_model_path(self) -> tuple[ModelPathPoint, ...]:
+        now = time.monotonic()
+        if len(self._nav_route_coords) < 2 or now - self._nav_route_received_t > 15.0:
+            self._nav_route_filtered_anchor = None
+            self._nav_route_last_path = ()
+            return ()
+
+        carrot_man = self._service_data("carrotMan")
+        lat = self._finite_attr(carrot_man, "xPosLat", 0.0)
+        lon = self._finite_attr(carrot_man, "xPosLon", 0.0)
+        heading = self._finite_attr(carrot_man, "xPosAngle", 0.0)
+        if not (math.isfinite(lat) and math.isfinite(lon) and math.isfinite(heading)):
+            return ()
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0) or (abs(lat) < 0.000001 and abs(lon) < 0.000001):
+            return ()
+
+        old = self._nav_route_filtered_anchor
+        if old is not None:
+            old_lat, old_lon, old_heading = old
+            dt = max(0.0, min(now - self._nav_route_anchor_t, 1.0))
+            north_jump = (lat - old_lat) * 111133.0
+            east_jump = (lon - old_lon) * 111133.0 * math.cos(math.radians(lat))
+            heading_jump = (heading - old_heading + 180.0) % 360.0 - 180.0
+            # Reject a discontinuous GPS/heading sample rather than swinging the HUD.
+            if math.hypot(north_jump, east_jump) > max(8.0, 40.0 * dt) or abs(heading_jump) > max(18.0, 90.0 * dt):
+                if now - self._nav_route_anchor_t < 0.8:
+                    return self._nav_route_last_path
+                self._nav_route_filtered_anchor = None
+                self._nav_route_last_path = ()
+                return ()
+            alpha = min(1.0, max(0.08, dt / (0.25 + dt)))
+            lat = old_lat + alpha * (lat - old_lat)
+            lon = old_lon + alpha * (lon - old_lon)
+            heading = (old_heading + alpha * heading_jump) % 360.0
+
+        self._nav_route_filtered_anchor = (lat, lon, heading)
+        self._nav_route_anchor_t = now
+        heading_rad = math.radians(heading)
+        cos_h, sin_h = math.cos(heading_rad), math.sin(heading_rad)
+        meters_per_lat = 40008000.0 / 360.0
+        meters_per_lon = meters_per_lat * math.cos(math.radians(lat))
+
+        # Project the entire route, then find the nearest *segment* to the car.
+        # Starting from the nearest route vertex can make the line jump at intersections.
+        projected = []
+        for p_lat, p_lon in self._nav_route_coords:
+            east = (p_lon - lon) * meters_per_lon
+            north = (p_lat - lat) * meters_per_lat
+            projected.append((east * sin_h + north * cos_h, east * cos_h - north * sin_h))
+
+        best = None
+        for i in range(len(projected) - 1):
+            ax, ay = projected[i]
+            bx, by = projected[i + 1]
+            dx, dy = bx - ax, by - ay
+            seg_len2 = dx * dx + dy * dy
+            if not 1.0 <= seg_len2 <= 250000.0:
+                continue
+            u = max(0.0, min(1.0, -(ax * dx + ay * dy) / seg_len2))
+            px, py = ax + u * dx, ay + u * dy
+            dist = math.hypot(px, py)
+            # Prefer a nearby, forward-facing route segment.
+            if dist > 12.0 or (bx - ax) < -3.0:
+                continue
+            if best is None or dist < best[0]:
+                best = (dist, i, u, px, py)
+        if best is None:
+            self._nav_route_last_path = ()
+            return ()
+
+        _, index, fraction, px, py = best
+        # Keep the actual bend geometry, but prevent teleporting across route gaps.
+        points = [ModelPathPoint(forward_m=0.0, lateral_m=py)]
+        previous_forward = 0.0
+        previous_xy = (px, py)
+        for x, y in projected[index + 1:]:
+            if math.hypot(x - previous_xy[0], y - previous_xy[1]) > 75.0:
+                break
+            previous_xy = (x, y)
+            if x <= previous_forward + 0.5 or x > 180.0 or abs(y) > 35.0:
+                continue
+            points.append(ModelPathPoint(forward_m=x, lateral_m=y))
+            previous_forward = x
+            if len(points) >= 96:
+                break
+        self._nav_route_last_path = tuple(points) if len(points) >= 2 else ()
+        return self._nav_route_last_path
 
     def _with_navi_speed_limit(self, state: ClusterUiState, navi_debug: NaviDebugInfo | None) -> ClusterUiState:
         if state.speed_limit_kph is not None:
