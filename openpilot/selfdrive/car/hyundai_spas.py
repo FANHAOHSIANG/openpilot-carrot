@@ -14,6 +14,8 @@ class SpasSignals:
   def __init__(self, cp, params):
     self.enabled = cp.brand == 'hyundai' and bool(cp.flags & HyundaiFlags.CANFD_SPAS_BLINKERS) and not cp.passive
     self.params = params
+    self.trial_rejection = ''
+    self.tx_requested = 0
     self.session = Session(CanBus(cp).ECAN) if self.enabled else None
     self.worker = None
     self.feedback_at = self.settings_at = 0.
@@ -52,6 +54,33 @@ class SpasSignals:
     self.driver_count = 0
     self.driver_active = False
     self.status = 'disabled' if not self.enabled else 'waiting_stock'
+
+  def diagnostics(self, cs, now):
+    """Read-only evidence; queued TX and carState feedback are not physical proof."""
+    session = self.session
+    def age(stamp):
+      value = now - stamp
+      return round(value, 3) if math.isfinite(value) and value >= 0 else None
+    return {
+      'enabled': self.enabled,
+      'state': session.state if session else 'disabled',
+      'reason': session.reason if session else 'startup_flag_absent_or_passive',
+      'ecan': session.bus if session else None,
+      'stock_ready': session.stock_ready(now) if session else False,
+      'stock': {hex(a): {'age_s': age(st.stamp), 'counter': st.counter, 'consecutive': st.consecutive}
+                for a, st in session.stock.items()} if session else {},
+      'driver_age_s': age(self.driver_at),
+      'driver_valid_count': self.driver_count,
+      'driver_override': self.driver_override,
+      'trial': self.test_setting, 'trial_status': self.status,
+      'trial_rejection': self.trial_rejection,
+      'tx_requested': self.tx_requested,
+      'left_feedback': bool(cs.leftBlinker), 'right_feedback': bool(cs.rightBlinker),
+      'trial_lamp_feedback_seen': self.lamp_confirmed,
+      'physical_lamp_verified': False,
+      'restore_ack': session.restore_ack if session else False,
+      'stock_resumed': session.stock_resumed if session else False,
+    }
 
   @staticmethod
   def can_health(pandas):
@@ -136,6 +165,8 @@ class SpasSignals:
         direct = setting >= 5
         direct_ready = (not direct or (now >= self.direct_cooldown and self.can_health(sm['pandaStates']) is not None and self.session.stock_ready(now) and
                         self.session.stock_direction == 0 and not (cs.leftBlinker or cs.rightBlinker)))
+        self.trial_rejection = ('parked_guard' if not parked else 'model_specific_trial' if setting > 2 and not self.hold_supported else
+                                'session_busy' if self.session.state != 'idle' else 'stock_or_can_not_ready' if not direct_ready else '')
         if parked and (setting <= 2 or self.hold_supported) and self.session.state == 'idle' and direct_ready:
           self.test_serial += 1
           self.test_request = f'park:{self.test_serial}'
@@ -248,6 +279,9 @@ class SpasSignals:
         sends.extend(frame(a, self.direct_counter[a], direction, self.session.bus) for a in SPAS)
         self.direct_counter = {a: (c+1) % 256 for a, c in self.direct_counter.items()}
         self.direct_next = now+.02
+    if (direct_active or self.session.state == 'active') and self.test_request is not None:
+      self.lamp_confirmed |= ((direction == 'left' and cs.leftBlinker and not cs.rightBlinker) or
+                              (direction == 'right' and cs.rightBlinker and not cs.leftBlinker))
     if (direct_active or self.session.state == 'active') and self.test_request is not None and self.test_pulse:
       if self.pulse_started is None:
         self.pulse_started = now

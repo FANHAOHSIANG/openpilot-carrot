@@ -85,3 +85,54 @@ tests are replaced with deterministic desktop adapters, not vehicle services.
 Existing SPAS state-machine tests and recorded full-schema CAN replay supplement
 these tests. Native device build, actual ECU handoff and physical lamp testing
 remain pending on the user's C4.
+
+## Long-term upstream test branch diagnostics (2026-11-13)
+
+For FANHAOHSIANG's long-term test installation, the target is
+`test/carrot-wip-upstream-20261104`. The switches, read-only preflight and
+acknowledged tests described above are already integrated. Keep
+`CanfdBlinkerControl=0` by default; do not enable automatic operation merely
+because offline messages match. No additional physical wiring is established
+as necessary by the available RX evidence.
+
+The `hyundai_spas_diagnostic` structured log event is emitted every second when
+selected and every ten seconds when disabled. The original `hyundai_spas`
+transition event is preserved. Inspect the recorded rlog logMessage stream or
+card process logs. Fields distinguish:
+
+- `enabled`, `ecan`: effective startup selection, not the requested toggle.
+  Disabled means the startup flag is absent or the vehicle is passive; it does
+  not prove missing vehicle hardware. Reboot is required after toggle changes.
+- `stock_ready`, `stock`: per-ID accepted CRC/counter sequence, counter and age.
+  Missing ages are JSON null. RX readiness is not ECU handoff approval.
+- `driver_age_s`, `driver_valid_count`, `driver_override`: validated driver-input
+  freshness and override latch.
+- `trial_rejection`: parked guard, unsupported model-specific trial, busy
+  session or stock/CAN readiness rejection. Rejected selection is consumed;
+  it must not become a delayed action when conditions change.
+- `tx_requested`: cumulative messages handed to the CAN publishing path,
+  including diagnostics. This is NOT successful wire delivery or lamp count.
+- `left_feedback`, `right_feedback`, `trial_lamp_feedback_seen`: vehicle CAN
+  feedback; the latter is latched for the current/last accepted trial, including
+  acknowledged tests 1/2. It resets on a newly accepted trial.
+- `physical_lamp_verified`: always false because this logger cannot see the
+  vehicle lamps. Human observation remains separate.
+- `restore_ack`, `stock_resumed`: ECU response and stock message recovery.
+
+For the 2023 Ioniq 5, use only acknowledged test 1/2 through `spas_check` after
+its live preflight passes. PE-specific trials remain blocked. Keep the test
+selector zero between attempts, and stop after an unconfirmed restoration.
+No ECU ACK, checksum, counter, timeout, Panda or driver-override guard is relaxed.
+
+### 中文操作順序
+
+1. 更新上述長期測試分支並正常重開機，先保持 SPAS 關閉。
+2. 停車 P 檔、退出輔助，執行 `python -m tools.jetlink.spas_check`。
+   這一步只讀取，不會發 CAN 指令。
+3. 只有預檢通過才開啟「CAN-FD SPAS 方向燈（試驗）」並重開機；
+   自動方向燈保持 0，停車測試保持 0。
+4. 執行 `python -m tools.jetlink.spas_check --test left`，觀察實體燈，
+   同時核對 ECU 接管、車況燈號回饋、恢復確認及 CAN 健康。
+5. 左側完成且原廠功能恢復正常後，才另行測右側 `--test right`。
+   未亮、被拒絕或恢復未確認就停止，不用小改款專用模式強制發送。
+6. 停車成功仍不等於自動方向燈或道路使用已驗收。

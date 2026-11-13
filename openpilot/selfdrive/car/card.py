@@ -389,6 +389,7 @@ class Car:
 
     if self.spas_signals.enabled:
       spas_sends = self.spas_signals.update(CS, self.sm, time.monotonic(), self.initialized_prev, self.CI.CC.frame)
+      self.spas_signals.tx_requested += len(spas_sends)
       if spas_sends:
         self.pm.send('sendcan', can_list_to_can_capnp(spas_sends, msgtype='sendcan', valid=CS.canValid))
       CC = CC.as_builder()
@@ -403,6 +404,11 @@ class Car:
                        restored_ack=signal.session.restore_ack, stock_resumed=signal.session.stock_resumed)
         self.spas_signal_status = signal.status
         self.spas_signal_log_at = time.monotonic()+1.
+    signal = self.spas_signals
+    now = time.monotonic()
+    if now >= getattr(self, "spas_diagnostic_at", 0.):
+      cloudlog.event('hyundai_spas_diagnostic', **signal.diagnostics(CS, now))
+      self.spas_diagnostic_at = now + (1. if signal.enabled else 10.)
 
 
     if not self.initialized_prev:
