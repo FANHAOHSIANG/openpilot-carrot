@@ -185,7 +185,6 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
       lat, lon = point.get("lat"), point.get("lon")
       if (isinstance(lat, bool) or isinstance(lon, bool)
           or not isinstance(lat, (int, float)) or not isinstance(lon, (int, float))
-          or not math.isfinite(lat) or not math.isfinite(lon)
           or not -90 <= lat <= 90 or not -180 <= lon <= 180):
         route_invalid = True
         break
@@ -431,4 +430,3 @@ class CarrotNaviCerealPublisher:
       except Exception as exc:
         self.receiver.record_cereal_publish(str(exc))
         last_publish = time.monotonic()
-

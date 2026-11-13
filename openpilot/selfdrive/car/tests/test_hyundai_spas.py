@@ -485,3 +485,34 @@ def test_stalk_trial_isolated_and_revoked(monkeypatch, fault):
   if fault != 'none':
     assert s.test_request is None
     assert s.update(cs, sm, 10.13, True) == []
+
+
+def test_diagnostics_never_claim_physical_lamp(monkeypatch):
+  s, p, cs, sm = setup(monkeypatch)
+  warm(s)
+  cs.leftBlinker = True
+  d = s.diagnostics(cs, 10.)
+  assert d['stock_ready'] and d['ecan'] == 0
+  assert d['left_feedback'] and not d['physical_lamp_verified']
+  assert d['stock']['0x165']['consecutive'] == 10
+  assert not s.diagnostics(cs, 11.)['stock_ready']
+
+
+def test_diagnostics_disabled_without_session(monkeypatch):
+  s, p, cs, sm = setup(monkeypatch)
+  s.enabled, s.session = False, None
+  d = s.diagnostics(cs, 10.)
+  assert d['state'] == 'disabled' and d['ecan'] is None
+  assert not d['stock_ready']
+
+
+def test_non_pe_trial_rejection_explained(monkeypatch):
+  s, p, cs, sm = setup(monkeypatch)
+  s.hold_supported = False
+  warm(s)
+  s.update(cs, sm, 10., True)
+  p.value = 5
+  s.settings_at = 0
+  assert s.update(cs, sm, 10.01, True) == []
+  assert s.diagnostics(cs, 10.01)['trial_rejection'] == 'model_specific_trial'
+  assert s.test_request is None

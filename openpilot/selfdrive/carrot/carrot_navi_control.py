@@ -183,6 +183,7 @@ def _route(data: Any) -> NaviRouteControl:
         present = False
     except Exception:
       values = ()
+      present = False
     for point in values:
       latitude = _float(point, "latitude", math.nan)
       longitude = _float(point, "longitude", math.nan)
@@ -298,4 +299,3 @@ def parse_carrot_navi_control(data: Any) -> CarrotNaviControl | None:
     guidance_active=guidance_active,
     road_category=road_category,
   )
-

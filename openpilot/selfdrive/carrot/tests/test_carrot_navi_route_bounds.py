@@ -26,7 +26,7 @@ def test_over_budget_route_is_withdrawn_instead_of_truncated():
   assert result.route.polyline == ()
 
 
-@pytest.mark.parametrize("bad", [None, True, "24.5", math.nan, math.inf, 91, -91])
+@pytest.mark.parametrize("bad", [None, True, "24.5", math.nan, math.inf, 91, -91, 10**400])
 def test_bad_coordinate_invalidates_whole_geometry(bad):
   points = [{"lat": 24, "lon": 121}, {"lat": bad, "lon": 121}]
   result = parse_carrot_navi_control(build_carrot_navi_payload(_snapshot(points)))
@@ -37,5 +37,12 @@ def test_bad_coordinate_invalidates_whole_geometry(bad):
 def test_consumer_also_rejects_over_budget_cereal_message():
   result = parse_carrot_navi_control({"schemaVersion": 1, "connected": True,
     "route": {"meta": {"present": True}, "polyline": [{"latitude": 24, "longitude": 121}] * 4097}})
+  assert not result.route.present
+  assert result.route.polyline == ()
+
+
+def test_consumer_withdraws_unreadable_polyline():
+  result = parse_carrot_navi_control({"schemaVersion": 1, "connected": True,
+    "route": {"meta": {"present": True}, "polyline": 42}})
   assert not result.route.present
   assert result.route.polyline == ()

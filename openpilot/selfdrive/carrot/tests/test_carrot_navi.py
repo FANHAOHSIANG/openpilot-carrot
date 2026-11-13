@@ -978,4 +978,3 @@ def test_payload_rejects_encoded_or_invalid_road_limit():
   speed = speed_payload(300)
   assert speed["roadLimitValid"] is False
   assert speed["roadLimitKph"] == 0
-

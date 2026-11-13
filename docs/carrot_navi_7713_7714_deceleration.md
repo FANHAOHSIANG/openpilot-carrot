@@ -1,5 +1,23 @@
 # 7713 / 7714 내비 감속 적용 비교
 
+## 2026-11-13：1104 高德原始路線整合
+
+`FANHAOHSIANG/openpilot-carrot` 的維護與更新入口固定為
+`test/carrot-wip-upstream-20261104`。App 使用
+[Carrot Bridge main／wide.56](https://github.com/FANHAOHSIANG/copilot-Tw/tree/main/variants/wide56)，
+已包含 wide.55 的 Link 傳送修正；不需要切換高德功能分支。
+
+本次將 7714 `route.polyline` 在 cereal 轉換及 control 解析的上限由 256 點改為 4,096 點。
+兩端均整條保留或整條撤銷：超過上限、座標型別／範圍錯誤或不可讀的幾何，不能截斷後冒充完整路線。
+布林值、NaN、無限值及超大整數不會被當作有效座標。下方 2026-07 的 256 點比較是歷史行為。
+
+App 使用高德所選路線及下一段轉彎，不另行 Mapbox 規劃；7713、速限選擇、減速公式與車輛控制設定不變。
+未核實的道路限速不填入。42 項 focused Python 測試通過；另核對 Java 路線解析與接收器回送、
+4,096 點 cereal 序列化、終點保留及超限撤銷。網卡探索測試因隔離環境限制未執行。
+
+這次是程式碼整合，並非實車導引驗收：wide.56 APK 尚需原簽章，仍缺同時段的手機 Link 原始路線
+與 C4 GPS 對照，不能由投屏成功或離線測試推論 NOO 已可使用。
+
 ## 2026-09-27 Jetlink 실험의 7714 연결 보호
 
 `carrot-jetlink`에서는 최초 협상에 성공한 제어 WebSocket이 연결된 동안
