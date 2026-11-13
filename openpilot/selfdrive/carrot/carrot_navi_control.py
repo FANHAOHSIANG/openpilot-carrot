@@ -5,7 +5,7 @@ import math
 from typing import Any
 
 
-MAX_ROUTE_POINTS = 256
+MAX_ROUTE_POINTS = 4096
 MAX_ROAD_LIMIT_KPH = 200
 ROAD_LIMIT_STEP_KPH = 10
 
@@ -177,14 +177,20 @@ def _route(data: Any) -> NaviRouteControl:
   points: list[tuple[float, float]] = []
   if present:
     try:
-      values = tuple(_get(item, "polyline", ()) or ())[:MAX_ROUTE_POINTS]
+      values = tuple(_get(item, "polyline", ()) or ())
+      if len(values) > MAX_ROUTE_POINTS:
+        values = ()
+        present = False
     except Exception:
       values = ()
     for point in values:
       latitude = _float(point, "latitude", math.nan)
       longitude = _float(point, "longitude", math.nan)
-      if -90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0:
-        points.append((latitude, longitude))
+      if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
+        points = []
+        present = False
+        break
+      points.append((latitude, longitude))
   return NaviRouteControl(
     present=present,
     sequence=sequence,
@@ -292,3 +298,4 @@ def parse_carrot_navi_control(data: Any) -> CarrotNaviControl | None:
     guidance_active=guidance_active,
     road_category=road_category,
   )
+

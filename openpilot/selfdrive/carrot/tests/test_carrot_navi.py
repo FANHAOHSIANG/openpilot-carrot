@@ -866,7 +866,8 @@ def test_payload_bounds_route_and_publisher_sends_dedicated_service():
   assert len(messaging.pub_master.sent) == 1
   service, message = messaging.pub_master.sent[0]
   assert service == "carrotNavi"
-  assert len(message.carrotNavi["route"]["polyline"]) == 256
+  assert len(message.carrotNavi["route"]["polyline"]) == len(route_points)
+  assert message.carrotNavi["route"]["polyline"][-1] == {"latitude": route_points[-1]["lat"], "longitude": route_points[-1]["lon"]}
   assert receiver.health()["cereal_publish_count"] == 1
 
   media_record = SimpleNamespace(
@@ -977,3 +978,4 @@ def test_payload_rejects_encoded_or_invalid_road_limit():
   speed = speed_payload(300)
   assert speed["roadLimitValid"] is False
   assert speed["roadLimitKph"] == 0
+
