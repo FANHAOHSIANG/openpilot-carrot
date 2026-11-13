@@ -24,7 +24,7 @@ jobs:
         run: python -m compileall -q openpilot/selfdrive/carrot/carrot_navi_cereal.py openpilot/selfdrive/carrot/carrot_navi_control.py openpilot/selfdrive/carrot/tests/test_carrot_navi_route_bounds.py
       - name: Test full route preservation and refusal of bad geometry
         run: |
-          python -m pytest -c /dev/null --noconftest -o addopts='' -q             openpilot/selfdrive/carrot/tests/test_carrot_navi_route_bounds.py             openpilot/selfdrive/carrot/tests/test_carrot_navi_control.py             openpilot/selfdrive/carrot/tests/test_carrot_navi_route_bridge.py             openpilot/selfdrive/carrot/tests/test_carrot_navi.py
+          python -m pytest -c /dev/null --noconftest -o addopts='' -q             openpilot/selfdrive/carrot/tests/test_carrot_navi_route_bounds.py             openpilot/selfdrive/carrot/tests/test_carrot_navi_control.py             openpilot/selfdrive/carrot/tests/test_carrot_navi.py
   nav-integration:
     name: Existing navigation and speed-control regression
     runs-on: ubuntu-24.04
@@ -37,11 +37,14 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install offline test and native CAN dependencies
-        run: python -m pip install Cython==3.2.9 setuptools scons pytest==8.3.5 pytest-asyncio pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp pillow
-      - name: Compile local native CAN test dependencies without hardware
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest==8.3.5 pytest-asyncio pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp pillow pyzmq psutil
+      - name: Install msgq build-only C++ support
+        run: python -m pip install 'catch2 @ git+https://github.com/commaai/dependencies.git@release-catch2#subdirectory=catch2'
+      - name: Compile local native CAN and msgq IPC test dependencies without hardware
         run: |
+          (cd msgq_repo && scons --minimal -j2)
           scons -f tools/native_cpu/SConstruct -j2
           python opendbc_repo/opendbc/dbc/generator/generator.py
       - name: Verify navigation priority, speed control, and route matching regressions
         run: |
-          python -m pytest -c /dev/null --noconftest -o addopts='' -q             openpilot/selfdrive/carrot/tests/test_external_navigation_priority.py             openpilot/selfdrive/carrot/tests/test_vehicle_speed_camera_control.py             openpilot/selfdrive/carrot/tests/test_carrot_navi_serv.py             openpilot/selfdrive/navigation/tests/test_route_engine.py             openpilot/selfdrive/navigation/tests/test_route_position.py
+          python -m pytest -c /dev/null --noconftest -o addopts='' -q             openpilot/selfdrive/carrot/tests/test_external_navigation_priority.py             openpilot/selfdrive/carrot/tests/test_vehicle_speed_camera_control.py             openpilot/selfdrive/carrot/tests/test_carrot_navi_serv.py             openpilot/selfdrive/carrot/tests/test_carrot_navi_route_bridge.py             openpilot/selfdrive/navigation/tests/test_route_engine.py             openpilot/selfdrive/navigation/tests/test_route_position.py
