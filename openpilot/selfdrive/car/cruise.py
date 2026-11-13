@@ -565,7 +565,7 @@ class VCruiseCarrot:
 
       elif self.carrot_cmd == "SPEED":
         if self.carrot_arg == "UP":
-          v_cruise_kph = self._auto_speed_up(v_cruise_kph)
+          v_cruise_kph = self._auto_speed_up(v_cruise_kph, explicit=True)
           self._add_log("Cruise speed up (carrot command)")
         elif self.carrot_arg == "DOWN":
           if v_cruise_kph > 20:
@@ -803,9 +803,10 @@ class VCruiseCarrot:
           break
     return v_cruise_kph
 
-  def _auto_speed_up(self, v_cruise_kph):
-    #if self._pause_auto_speed_up:
-    #  return v_cruise_kph
+  def _auto_speed_up(self, v_cruise_kph, *, explicit=False):
+    selected_speed = v_cruise_kph
+    # Automatic road/model policies may reduce, but never raise the driver's
+    # selection. Explicit SPEED UP still uses the requested increase policy.
     if not self._pause_auto_speed_up and self.applyModelSpeed != 0.0:
       model_kph = self.model_v_kph * abs(self.applyModelSpeed)
       apply_speed = min(model_kph, self.nRoadLimitSpeed * 1.1)
@@ -817,9 +818,9 @@ class VCruiseCarrot:
 
     road_limit_kph = self.nRoadLimitSpeed * self.autoSpeedUptoRoadSpeedLimit
     if road_limit_kph < 1.0:
-      return v_cruise_kph
+      return v_cruise_kph if explicit else min(selected_speed, v_cruise_kph)
 
-    if self.autoRoadSpeedLimitOffset > 0:
+    if explicit and self.autoRoadSpeedLimitOffset > 0:
       self._v_cruise_kph_at_brake = self.nRoadLimitSpeed + self.autoRoadSpeedLimitOffset
 
     if not self._pause_auto_speed_up and self.v_lead_kph + 5 > v_cruise_kph and v_cruise_kph < road_limit_kph and self.d_rel < 60:
@@ -835,7 +836,7 @@ class VCruiseCarrot:
       v_cruise_kph = min(v_cruise_kph, new_road_limit_kph)
     self.road_limit_kph = road_limit_kph
     self.nRoadLimitSpeed_last = self.nRoadLimitSpeed
-    return v_cruise_kph
+    return v_cruise_kph if explicit else min(selected_speed, v_cruise_kph)
 
   def _cruise_control(self, enable, cancel_timer, reason, allow_cancel_state=False, manual=False):
     # Explicit HID button requests bypass automatic-engage preferences only;

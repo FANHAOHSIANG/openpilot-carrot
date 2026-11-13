@@ -375,6 +375,12 @@ function createPanel(root) {
     "bsd",
     bsdRows,
   );
+  const truck = documentRoot.createElement("section");
+  truck.className = "setting-section-block ui-stagger-item";
+  truck.innerHTML = `
+    <label><input type="checkbox" data-role="truck-toggle"> 大車辨識</label>
+    <p data-role="truck-status" role="status"></p>
+  `;
   const advanced = documentRoot.createElement("details");
   advanced.className = "setting-section-block onnx-vision-advanced-settings ui-stagger-item";
   const advancedSummary = documentRoot.createElement("summary");
@@ -398,7 +404,7 @@ function createPanel(root) {
   advanced.style.setProperty("--i", "3");
   const contextPanel = root.querySelector(":scope > .setting-context");
   const fragment = documentRoot.createDocumentFragment();
-  fragment.append(editor.section, advanced);
+  fragment.append(truck, editor.section, advanced);
   root.insertBefore(fragment, contextPanel || null);
   return Object.freeze({
     editor,
@@ -407,7 +413,8 @@ function createPanel(root) {
     runtime,
     lane,
     bsd,
-    roots: [editor.section, advanced],
+    truck,
+    roots: [truck, editor.section, advanced],
     restoreRows() {
       placeholders.forEach(({ row, placeholder }) => {
         if (placeholder.isConnected) placeholder.replaceWith(row);
@@ -421,6 +428,11 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
   const view = createPanel(root);
   const editor = mountOnnxPolygonEditor(view.editor.host, { embedded: true });
   let loading = false;
+  let changingTruck = false;
+  let truckEnabled = false;
+  let truckError = "";
+  const truckToggle = view.truck.querySelector('[data-role="truck-toggle"]');
+  const truckStatus = view.truck.querySelector('[data-role="truck-status"]');
   let current = normalizeOnnxVisionStatus({}, {
     enabled: enabled(setting),
     loading: enabled(setting),
@@ -435,12 +447,26 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
     if (showAdvancedWarning) setChip(view.advancedState, stateText(current.state), "warning");
     const serviceAvailable = ![ONNX_VISION_STATE.DISABLED, ONNX_VISION_STATE.UNAVAILABLE, ONNX_VISION_STATE.STARTING].includes(current.state);
     editor?.setCameraAvailable(serviceAvailable);
+    const truck = current.raw?.truckShadow;
+    truckToggle.checked = truckEnabled;
+    truckToggle.disabled = changingTruck;
+    truckStatus.textContent = truckError || (truckEnabled
+      ? (truck?.latest?.error || (truck?.latest_fresh ? "辨識中" : "已啟用，等待可用行車影像或主模型穩定"))
+      : "已關閉。開啟後會記住設定，有可用影像時自動辨識。");
   }
 
   view.runtime.card.querySelector('[data-role="diagnostics"]').addEventListener("click", () => openDiagnostics(current));
 
   async function refresh() {
     if (loading || lifecycle.destroyed || globalThis.document?.hidden) return;
+    try {
+      const response = await globalThis.fetch("/xiaoge/api/truck", { cache: "no-store", signal: lifecycle.signal });
+      if (!response.ok) throw new Error("無法讀取大車辨識設定");
+      const payload = await response.json();
+      if (!lifecycle.destroyed && !changingTruck) truckEnabled = payload.enabled === true;
+    } catch (error) {
+      if (!lifecycle.destroyed && error?.name !== "AbortError") truckError = error.message;
+    }
     const onnxEnabled = enabled(setting);
     if (!onnxEnabled) {
       current = normalizeOnnxVisionStatus({}, { enabled: false });
@@ -463,6 +489,29 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
       loading = false;
     }
   }
+
+  const onTruckToggle = async () => {
+    const desired = truckToggle.checked;
+    changingTruck = true;
+    truckError = "";
+    render();
+    try {
+      const response = await globalThis.fetch("/xiaoge/api/truck", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: desired }), signal: lifecycle.signal,
+      });
+      if (!response.ok) throw new Error("無法儲存大車辨識設定");
+      const payload = await response.json();
+      if (!lifecycle.destroyed) truckEnabled = payload.enabled === true;
+    } catch (error) {
+      if (!lifecycle.destroyed && error?.name !== "AbortError") truckError = error.message;
+    } finally {
+      changingTruck = false;
+      if (!lifecycle.destroyed) render();
+    }
+  };
+  truckToggle.addEventListener("change", onTruckToggle);
+  lifecycle.addCleanup(() => truckToggle.removeEventListener("change", onTruckToggle));
 
   const toggle = setting.querySelector('input[type="checkbox"]');
   const onToggle = () => {
@@ -495,3 +544,4 @@ export function mountOnnxVisionPanel({ root, setting, lifecycle }) {
     },
   };
 }
+

@@ -211,7 +211,7 @@ VW MEB(ID.4 포함)에도 수동 조향비와 학습 비율이 적용됩니다. 
 
 힘 센서의 추세는 손 접촉 해제나 운전자의 인계 동의를 뜻하지 않습니다. 기존 `steeringPressed` 판정과 운전자 감시는 그대로이며, 기본 적용이 모든 차량에서 동일한 조향감을 보장하지는 않습니다.
 
-### 속도·감속 — 23개
+### 속도·감속 — 24개
 
 아래 표의 **세부 구역 제목을 누르면** 카메라 감속 계산, 제한속도 연동과 커브·신호 로직을 설명한 페이지로 이동합니다.
 
@@ -220,7 +220,7 @@ VW MEB(ID.4 포함)에도 수동 조향비와 학습 비율이 적용됩니다. 
 | [과속카메라](speed-deceleration.md#speed-camera) | `AutoNaviSpeedCtrlMode`, `AutoNaviSpeedCtrlEnd`, `AutoNaviRearCameraHoldDistance`, `AutoNaviSpeedDecelRate`, `AutoNaviSpeedSafetyFactor`, `AutoNaviCountDownMode`, `VehicleNaviCanControl`, `VehicleNaviSchoolZoneControl`, `VehicleNaviDecelCancel`(`VehicleNaviDecelCancelBox`, `VehicleNaviDecelCancelMobileZone`, `VehicleNaviDecelCancelBump`, `VehicleNaviDecelCancelUnknown`, `VehicleNaviDecelCancelEarlyWarning`), `VehicleNaviSectionAvgControl`, `VehicleSpeedCameraControlMode`, `VehicleSpeedCameraDistanceTime` | 안전운전 이벤트의 대상, 후면단속 통과 후 유지, 순정 카메라 거리 연결·가상거리, PV5 단속 상태에 따른 카메라 유지·해제와 구간단속 제한속도 유지, 감속 시점과 목표 속도 |
 | [도로 제한속도](speed-deceleration.md#road-speed-limit) | `AutoRoadSpeedLimitOffset`, `AutoRoadSpeedAdjust`, `AutoSpeedUptoRoadSpeedLimit` | 도로 제한속도에 맞춘 목표 속도 조절 |
 | [과속방지턱](speed-deceleration.md#speed-bump) | `AutoNaviSpeedBumpTime`, `AutoNaviSpeedBumpSpeed`, `AutoNaviSpeedBumpEndDistance` | 방지턱 감속 완료 시점, 통과 속도와 조기 종료 거리 |
-| [커브·턴](speed-deceleration.md#curve-turn) | `AutoCurveSpeedFactor`, `AutoCurveSpeedLowerLimit`, `TurnSpeedControlMode`, `MapTurnSpeedFactor`, `ApplyModelSpeed` | 곡률·남은 거리 기반 감속, 회전 완화 확인 후 빠른 복구와 경로 턴 속도 |
+| [커브·턴](speed-deceleration.md#curve-turn) | `AutoCurveSpeedFactor`, `AutoCurveSpeedLowerLimit`, `TurnSpeedControlMode`, `OsmCurveSpeedEnabled`, `MapTurnSpeedFactor`, `ApplyModelSpeed` | 비전·경로 일치 확인, 기기 GPS OSM 예측과 제한된 속도 회복 |
 | [신호감지](speed-deceleration.md#traffic-light) | `TrafficLightDetectMode`, `TrafficStopDistanceAdjust` | 신호 정지·출발 감지, 정지 위치 및 정지차 기준 자동 보정 |
 
 `AutoNaviSpeedCtrlMode`는 `0` 미사용, `1` 과속카메라, `2` 과속카메라+방지턱, `3` 과속카메라+방지턱+이동식카메라입니다.
@@ -544,3 +544,5 @@ TBT 턴은 실제 회전 진입을 확인한 뒤 주행 중 핸들이 ±15도 �
 
 
 ATC 세부 설정의 우회전 자동 차선변경 거리는 0m에서 꺼지며 50m 단위로 최대 500m까지 선택합니다. 기존 켜짐 설정은 재시작 시 250m로 전환합니다.
+
+이 테스트 브랜치는 자동 도로·모델 증가를 수동 설정속도로 제한하며 수동 속도 명령은 유지합니다.

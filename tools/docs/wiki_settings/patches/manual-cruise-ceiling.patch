@@ -1,0 +1,126 @@
+--- a/ZH-模型车速应用比例.md
++++ b/ZH-模型车速应用比例.md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN ApplyModelSpeed -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 行为
++
++本测试分支限制自动道路／模型调整不得提高已设定巡航速度。弯道限速可降低后解除，但不会自动抬高设定值。明确的调速指令仍可使用。AutoSpeedUptoRoadSpeedLimit=0 同时关闭 AutoRoadSpeedAdjust；已保存的非零值也不会自动提高巡航速度。
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END ApplyModelSpeed -->
+ 
+ <!-- CARROT:SETTING:END ApplyModelSpeed -->
+--- a/ZH-自动道路限速调整-(50).md
++++ b/ZH-自动道路限速调整-(50).md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN AutoRoadSpeedAdjust -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 行为
++
++本测试分支限制自动道路／模型调整不得提高已设定巡航速度。弯道限速可降低后解除，但不会自动抬高设定值。明确的调速指令仍可使用。AutoSpeedUptoRoadSpeedLimit=0 同时关闭 AutoRoadSpeedAdjust；已保存的非零值也不会自动提高巡航速度。
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END AutoRoadSpeedAdjust -->
+ 
+ <!-- CARROT:SETTING:END AutoRoadSpeedAdjust -->
+--- a/ZH-自动加速至-(100).md
++++ b/ZH-自动加速至-(100).md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN AutoSpeedUptoRoadSpeedLimit -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 行为
++
++本测试分支限制自动道路／模型调整不得提高已设定巡航速度。弯道限速可降低后解除，但不会自动抬高设定值。明确的调速指令仍可使用。AutoSpeedUptoRoadSpeedLimit=0 同时关闭 AutoRoadSpeedAdjust；已保存的非零值也不会自动提高巡航速度。
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END AutoSpeedUptoRoadSpeedLimit -->
+ 
+ <!-- CARROT:SETTING:END AutoSpeedUptoRoadSpeedLimit -->
+--- a/EN-Model-Speed-Apply-Ratio.md
++++ b/EN-Model-Speed-Apply-Ratio.md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN ApplyModelSpeed -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### Behavior
++
++This test branch caps automatic road/model changes at the selected cruise speed. A curve can lower speed and release its limit without raising the selection. Explicit speed commands remain available. AutoSpeedUptoRoadSpeedLimit=0 also disables AutoRoadSpeedAdjust; stored nonzero values cannot autonomously raise cruise speed.
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END ApplyModelSpeed -->
+ 
+ <!-- CARROT:SETTING:END ApplyModelSpeed -->
+--- a/EN-AutoRoadLimitSpeedAdjust-(50).md
++++ b/EN-AutoRoadLimitSpeedAdjust-(50).md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN AutoRoadSpeedAdjust -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### Behavior
++
++This test branch caps automatic road/model changes at the selected cruise speed. A curve can lower speed and release its limit without raising the selection. Explicit speed commands remain available. AutoSpeedUptoRoadSpeedLimit=0 also disables AutoRoadSpeedAdjust; stored nonzero values cannot autonomously raise cruise speed.
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END AutoRoadSpeedAdjust -->
+ 
+ <!-- CARROT:SETTING:END AutoRoadSpeedAdjust -->
+--- a/EN-AutoSpeedUpx-(100).md
++++ b/EN-AutoSpeedUpx-(100).md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN AutoSpeedUptoRoadSpeedLimit -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### Behavior
++
++This test branch caps automatic road/model changes at the selected cruise speed. A curve can lower speed and release its limit without raising the selection. Explicit speed commands remain available. AutoSpeedUptoRoadSpeedLimit=0 also disables AutoRoadSpeedAdjust; stored nonzero values cannot autonomously raise cruise speed.
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END AutoSpeedUptoRoadSpeedLimit -->
+ 
+ <!-- CARROT:SETTING:END AutoSpeedUptoRoadSpeedLimit -->
+--- a/KO-모델-주행속도-적용-비율.md
++++ b/KO-모델-주행속도-적용-비율.md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN ApplyModelSpeed -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 동작
++
++이 테스트 브랜치는 자동 도로·모델 조정이 수동 설정속도를 넘지 않도록 제한합니다. 커브 제한은 감속 후 해제되지만 설정속도를 올리지 않습니다. 명시적 속도 명령은 유지합니다. AutoSpeedUptoRoadSpeedLimit=0이면 AutoRoadSpeedAdjust도 꺼지며 저장된 양수 값으로 자동 증가는 하지 않습니다.
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END ApplyModelSpeed -->
+ 
+ <!-- CARROT:SETTING:END ApplyModelSpeed -->
+--- a/KO-자동도로제한속도감속-(50).md
++++ b/KO-자동도로제한속도감속-(50).md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN AutoRoadSpeedAdjust -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 동작
++
++이 테스트 브랜치는 자동 도로·모델 조정이 수동 설정속도를 넘지 않도록 제한합니다. 커브 제한은 감속 후 해제되지만 설정속도를 올리지 않습니다. 명시적 속도 명령은 유지합니다. AutoSpeedUptoRoadSpeedLimit=0이면 AutoRoadSpeedAdjust도 꺼지며 저장된 양수 값으로 자동 증가는 하지 않습니다.
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END AutoRoadSpeedAdjust -->
+ 
+ <!-- CARROT:SETTING:END AutoRoadSpeedAdjust -->
+--- a/KO-자동속도증가-(100).md
++++ b/KO-자동속도증가-(100).md
+@@ -29,6 +29,11 @@
+ 
+ <!-- CARROT:MANUAL:BEGIN AutoSpeedUptoRoadSpeedLimit -->
+ <!-- CARROT:REVIEW reviewed-for="" -->
++<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
++### 동작
++
++이 테스트 브랜치는 자동 도로·모델 조정이 수동 설정속도를 넘지 않도록 제한합니다. 커브 제한은 감속 후 해제되지만 설정속도를 올리지 않습니다. 명시적 속도 명령은 유지합니다. AutoSpeedUptoRoadSpeedLimit=0이면 AutoRoadSpeedAdjust도 꺼지며 저장된 양수 값으로 자동 증가는 하지 않습니다.
++<!-- CARROT:SECTION:END BEHAVIOR -->
+ <!-- CARROT:MANUAL:END AutoSpeedUptoRoadSpeedLimit -->
+ 
+ <!-- CARROT:SETTING:END AutoSpeedUptoRoadSpeedLimit -->

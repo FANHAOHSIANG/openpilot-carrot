@@ -1,5 +1,6 @@
 """Serve ONNX diagnostics through Carrot Web; inference stays in xiaoge_data."""
 
+import json
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -12,6 +13,35 @@ MAX_REQUEST_BYTES = 65536
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 PROXY_TIMEOUT = ClientTimeout(total=5, sock_connect=1)
 
+
+
+async def truck_switch(request: web.Request) -> web.Response:
+  from openpilot.common.params import Params
+  from openpilot.tools.clearance_shadow.live_observer import RUN_DIR, write_arm_ticket
+  import time
+
+  params = Params()
+  if request.method == "POST":
+    origin = request.headers.get("Origin")
+    if origin and urlsplit(origin).netloc != request.host:
+      raise web.HTTPForbidden(text="cross-origin changes are not allowed")
+    if request.content_type != "application/json":
+      raise web.HTTPUnsupportedMediaType(text="expected application/json")
+    body = await request.clone(client_max_size=1024).read()
+    try:
+      value = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+      raise web.HTTPBadRequest(text="expected JSON") from None
+    if not isinstance(value, dict) or set(value) != {"enabled"} or type(value["enabled"]) is not bool:
+      raise web.HTTPBadRequest(text="enabled must be a boolean")
+    if value["enabled"]:
+      params.put_bool("ShareData", True)
+      write_arm_ticket(RUN_DIR, time.monotonic_ns(), with_jetlink=True, continuous=True)
+      params.put_bool("OnnxTruckEnabled", True)
+    else:
+      params.put_bool("OnnxTruckEnabled", False)
+      (RUN_DIR / "armed.json").unlink(missing_ok=True)
+  return web.json_response({"enabled": params.get_bool("OnnxTruckEnabled")}, headers={"Cache-Control": "no-store"})
 
 async def index(request: web.Request) -> web.StreamResponse:
   if not request.path.endswith("/"):
@@ -72,6 +102,8 @@ async def proxy_api(request: web.Request) -> web.Response:
 
 
 def register(app: web.Application) -> None:
+  app.router.add_get("/xiaoge/api/truck", truck_switch)
+  app.router.add_post("/xiaoge/api/truck", truck_switch)
   app.router.add_get("/xiaoge", index)
   app.router.add_get("/xiaoge/", index)
   for endpoint, methods in (
@@ -80,3 +112,4 @@ def register(app: web.Application) -> None:
   ):
     for method in methods:
       app.router.add_route(method, f"/xiaoge/api/{endpoint}", proxy_api)
+

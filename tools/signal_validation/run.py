@@ -15,6 +15,10 @@ class IsolatedParams:
                    'TeslaCanTrafficStop', 'NNFF', 'NNFFLite', 'DisableMinSteerSpeed'}, key
     return False
 
+  def get(self, key):
+    assert key == "LanguageSetting", key
+    return "en-US"
+
   def put_int(self, key, value):
     assert (key, value) == ('LongitudinalPersonalityMax', 3)
 

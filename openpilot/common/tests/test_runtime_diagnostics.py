@@ -86,3 +86,34 @@ def test_communication_snapshot_distinguishes_ignored_service_and_real_low_rate(
   assert snapshot['driverMonitoringState']['avg_hz'] is None
   assert snapshot['driverMonitoringState']['recv_age_ms'] is None
   assert 'notSubscribed' not in snapshot
+
+
+def test_invalid_input_diagnostics_are_bounded_and_do_not_change_checks(monkeypatch):
+  now = [10.]
+  monkeypatch.setattr(diagnostics.time, 'monotonic', lambda: now[0])
+  sample = {'valid': False, 'alive': True, 'freq_ok': True, 'ignore_valid': False,
+                'ignore_alive': False, 'ignore_freq': False}
+  ignored = dict(sample, ignore_valid=True)
+  monkeypatch.setattr(diagnostics, 'communication_snapshot', lambda *a: {'carState': sample, 'ignored': ignored})
+  emitted = []
+  d = diagnostics.InputValidityDiagnostics('planner', lambda *a, **kw: emitted.append(kw))
+  for _ in range(1000):
+    d.record(None, False, [])
+  assert len(emitted) == 1 and list(emitted[0]['timing']) == ['carState']
+  now[0] += 2
+  d.record(None, False, [])
+  assert len(emitted) == 1
+  d.record(None, True, [])
+  now[0] += 1.
+  d.record(None, False, [])
+  assert len(emitted) == 2
+  assert sample['valid'] is False
+
+
+def test_invalid_input_logging_failure_is_nonfatal(monkeypatch):
+  sample = {'valid': False, 'alive': True, 'freq_ok': True, 'ignore_valid': False,
+                'ignore_alive': False, 'ignore_freq': False}
+  monkeypatch.setattr(diagnostics, 'communication_snapshot', lambda *a: {'carState': sample})
+  def fail(*a, **kw):
+    raise OSError('logging unavailable')
+  diagnostics.InputValidityDiagnostics('planner', fail).record(None, False, [])

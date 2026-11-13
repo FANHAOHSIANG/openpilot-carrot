@@ -20,7 +20,9 @@ if __package__ in (None, ""):
 import openpilot.cereal.messaging as messaging
 from openpilot.selfdrive.carrot.xiaoge.lane_inference import DEFAULT_LANE_MODEL_PATH, LaneInference, prepare_lane_image
 from openpilot.selfdrive.carrot.xiaoge.nv12 import nv12_y_plane, pack_nv12
+from openpilot.selfdrive.carrot.xiaoge.truck_shadow import TruckShadow
 from openpilot.selfdrive.carrot.xiaoge.v_asm_inference import DEFAULT_MODEL_PATH, VASMInference
+from openpilot.tools.clearance_shadow.live_observer import RUN_DIR, write_arm_ticket
 from openpilot.selfdrive.carrot.xiaoge.xiaoge_vision import XIAOGE_BLINDSPOT_TIMEOUT_NS, XIAOGE_LANE_TIMEOUT_NS
 
 try:
@@ -217,6 +219,7 @@ class VASMService:
       "updatedMonoTimeNanos": 0,
     }
     self.params = params if params is not None else create_params()
+    self.truck_shadow = TruckShadow(self.params)
     self.last_param_refresh_at = 0.0
     self._refresh_settings_from_params(force=True)
 
@@ -301,9 +304,24 @@ class VASMService:
     with self.lock:
       self.config = DEFAULT_POLYGONS
 
+  def set_truck_shadow(self, enabled: bool) -> dict:
+    with self.lock:
+      if enabled:
+        if self.params is None or not self.params.get_bool("ShareData"):
+          raise ValueError("Enable ONNX Vision first")
+        if not self.truck_shadow.status()["armed"]:
+          write_arm_ticket(RUN_DIR, time.monotonic_ns(), with_jetlink=True, continuous=True)
+      else:
+        (RUN_DIR / "armed.json").unlink(missing_ok=True)
+    return self.status()
+
   def set_settings(self, settings: object) -> dict:
     if not isinstance(settings, dict):
       raise ValueError("settings must be a JSON object")
+    if "truckShadowEnabled" in settings:
+      if len(settings) != 1 or type(settings["truckShadowEnabled"]) is not bool:
+        raise ValueError("truckShadowEnabled must be a standalone boolean")
+      return self.set_truck_shadow(settings["truckShadowEnabled"])
     try:
       threshold = float(settings.get("threshold", self.threshold))
       smoothing_seconds = float(settings.get("smoothingSeconds", self.smoothing_seconds))
@@ -373,6 +391,7 @@ class VASMService:
       }
       return {
         "bsdEnabled": self.bsd_enabled,
+        "truckShadow": self.truck_shadow.status(),
         "standalone": False,
         "integrated": True,
         "model": {
@@ -559,6 +578,7 @@ class VASMService:
             self.vasm_result["side"] = ""
             self.vasm_result["updatedMonoTimeNanos"] = 0
             self.vasm_result["updatedMonoTimeNanosBySide"] = {"left": 0, "right": 0}
+        self.truck_shadow.offer(buffer, int(client.frame_id), int(client.timestamp_eof), self.config, now)
         if bsd_settings_changed:
           with self.vasm_inference_lock:
             self.inference.reset()

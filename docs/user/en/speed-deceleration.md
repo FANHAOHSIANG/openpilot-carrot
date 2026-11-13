@@ -5,7 +5,7 @@
 > [!NOTE]
 > This is the canonical English user guide maintained with the `carrot-wip` code. When user-visible behavior changes, update this document together with the related code and tests.
 
-This page explains all **23 speed and deceleration settings** in the current code: event targets, deceleration distance, stock-navigation CAN, road-limit adjustment, speed bumps, curve/route/model speed, and traffic-light stop adjustment.
+This page explains all **24 speed and deceleration settings** in the current code: event targets, deceleration distance, stock-navigation CAN, road-limit adjustment, speed bumps, curve/route/model speed, and traffic-light stop adjustment.
 
 Change them in **Carrot Web → Settings → Driving control → Speed and deceleration**.
 
@@ -221,11 +221,9 @@ With an active, valid road limit of at least 30 km/h:
 
 ### `AutoSpeedUptoRoadSpeedLimit`
 
-While following a lead, cruise set speed can rise in 5 km/h steps up to:
+This test branch preserves the selected cruise speed as the upper bound for automatic road/model changes. A stored value of 100 no longer raises 50 to 70 while following a lead. Curve limits can still reduce speed and release back toward the selection.
 
-    automatic ceiling = road limit × setting / 100
-
-All of these must be true: automatic increase is not paused; a lead is within about 60 m; lead speed plus 5 km/h exceeds set speed; and set speed is below the ceiling. `0` disables this feature. SET/- or braking can pause it; RES/+, accelerator input, or a stopped state can release the pause.
+An explicit `SPEED UP` command retains the existing ratio-based increase calculation. `0` disables that road calculation and automatic road adjustment. Physical +/− buttons remain available.
 
 ### `AutoRoadSpeedAdjust`
 
@@ -234,7 +232,7 @@ All of these must be true: automatic increase is not paused; a lead is within ab
 
 | Value | Behavior when the road limit changes |
 |---:|---|
-| `-1` | Immediately synchronize to the new road target on either increase or decrease |
+| `-1` | Synchronize downward to a lower road target; automatic increases are capped |
 | `0` | Keep the existing set speed |
 | `1–99` | On a decrease only, move to a weighted value between current set speed and new limit |
 | `100` | On a decrease, move directly to the new limit |
@@ -297,19 +295,37 @@ This floor applies to vision-curve and route-turn candidates. For vision curves,
 |---:|---:|---:|
 | `0` | Off | Off |
 | `1` | On | Off |
-| `2` | On | Near the turn point |
-| `3` | Off | Always included as a candidate |
+| `2` | On | Matched navigation route |
+| `3` | Off | Matched navigation route |
 
-In mode 2, route-turn speed enters only when turn distance is roughly between -500 m and +500 m. Mode 3 can cause unexpected slowing when route data is inaccurate.
+Modes 2 and 3 use the selected navigation polyline only after fresh position, heading and the near model path agree for at least 0.3 seconds. The preview extends up to 500 m where route geometry is available; a turn-by-turn instruction is not required. Missing, stale, coarse, ambiguous or mismatched data cannot create a new route constraint. Mode 2 keeps the lower vision-curve ceiling. A map match does not establish lane-level accuracy.
+
+The route ceiling tightens from curvature and remaining distance, including a response allowance. After fresh matched frames confirm easing for about 0.2 seconds, it rises by at most 7.2 km/h per second; the longitudinal planner still controls acceleration and following. Lost route data holds the old ceiling for 0.35 seconds and then releases it at most 3.6 km/h per second. Repeated model frames do not justify the faster release. The recorded `rc=` reason distinguishes `matched`, `no_route`, `stale_position`, `model_mismatch` and other exclusions.
+
+Use a coordinate destination with Carrot navigation, or an external sender that actually supplies a polyline. External navigation without geometry remains the selected source; a saved Mapbox route is never substituted for it.
 
 > [!IMPORTANT]
 > Mode `0` does not disable every model-derived speed function. `ApplyModelSpeed` changes cruise set speed separately.
 
+### `OsmCurveSpeedEnabled` — Taiwan offline preview
+
+Defaults ON in this test branch. With turn-speed mode 2 (vision + geometry, recommended) or 3, a missing navigation polyline can use resident OSM roads. Covers the main island, Penghu, Kinmen (including Wuqiu), and Matsu (including Dongyin); no destination or CP route transmission is required. A selected navigation route always takes priority.
+
+While parked on unmetered Wi-Fi, the separate CPU-only worker automatically downloads all eight map groups and retains only the coverage tiles. Initial validated cache is about 60 MiB at the 2026-11-11 snapshot; size changes with map updates. Completed groups persist across restarts; driving uses the cache without Internet. Downloads pause on startup or loss of Wi-Fi, retry failures after five minutes, refresh after 30 days, and stop using caches older than 90 days. A corrupt or partial archive never replaces a complete group.
+
+GPS/heading select a unique road corridor, which ends at a fork instead of guessing the destination. Fresh near-model geometry must then agree before the existing distance-based curve ceiling participates. Parallel-road ambiguity, missing neighboring tiles, stale position or a stopped worker suppress new OSM constraints. Existing constraints release gradually; turning this switch off removes the OSM constraint immediately. Vision, lead, cruise and other lower limits remain in effect.
+
+`rc=osm/road_matched/matched:...` records successful participation in the logged road-name diagnostic. `desiredSource=route` remains the common geometry source for downstream compatibility. `python -m openpilot.selfdrive.carrot.osmd --status` shows download/cache status. Inferred roads are not navigation guidance, never sent to `navRoute`, and do not choose a direction or operate turn signals. OSM road centerlines are not lane-level maps. [Implementation, validation and limitations](../../osm_curve_preview_20261111.md).
+
+OSM matching uses fresh device GPS independently of the phone/navigation position and stops accepting new geometry when that fix is unavailable; it does not switch back and forth between sources. Only a unique one-way motorway corridor explicitly tagged with 3–4 lanes may account for its carriageway width (at most 7.2 m lateral offset). Near-path shape, heading, freshness, forks and parallel-road checks still apply. Curve speed uses the tighter possible lane radius. The diagnostic suffix `gps=device/lane=...` records the source and accepted centreline offset; mismatch `e...` now reports the measured error. This offset is for speed-preview validation, not a steering request.
+
+Exact forward OSM edge continuity may preserve visual confirmation when the map window advances; a changed fork, stale input or time gap must reconfirm. Sparse straight geometry never fabricates a bend or a new ceiling, but valid near-vision confirmation can continue. Short recent uniquely matched device trajectories may exclude a disconnected competing road; connected forks/merges remain rejected, and ambiguous observations cannot refresh that evidence. `road_tracked` identifies this bounded history-assisted match.
+
 ### `MapTurnSpeedFactor`
 
-    route-turn candidate = route speed × factor / 100
+    curve target = curvature-derived speed × factor / 100
 
-80% lowers the received value; 100% keeps it; 120% raises it. `AutoCurveSpeedLowerLimit` is then applied as the floor. Valid supported route-speed input is required.
+80% lowers the curve target; 100% keeps it; 120% raises it. `AutoCurveSpeedFactor` supplies the lateral-acceleration budget, then `AutoCurveSpeedLowerLimit` supplies the floor. The distance/response envelope is calculated after these adjustments. The factor does not scale a missing-route or straight-road no-limit result into an artificial limit. A valid matched polyline is required.
 
 ### `ApplyModelSpeed`
 
@@ -321,11 +337,11 @@ This is not curve-only. It applies the driving model's `desiredVelocity` to crui
 | Value | Current behavior |
 |---:|---|
 | `0` | Disabled |
-| Positive | Raise set speed to the ceiling only when currently below it |
-| Negative | Directly overwrite set speed with the calculated ceiling |
+| Positive | Automatic increases are capped at the selected speed |
+| Negative | Apply a lower calculated ceiling without raising the selected speed |
 
 > [!WARNING]
-> A negative value is a strong continuous overwrite, not a “deceleration only” switch. Without a valid road limit, the ceiling can become zero. Leave it at `0` unless you fully understand the input path and behavior.
+> A negative value can continuously lower the set speed. Without a valid road limit, the ceiling can become zero. Leave it at `0` unless you fully understand the input path and behavior.
 
 For isolated tuning, start with mode 1 and `ApplyModelSpeed=0`; adjust the curve factor, then the floor, and then check route-turn control. Test `ApplyModelSpeed` separately because it changes cruise set speed.
 

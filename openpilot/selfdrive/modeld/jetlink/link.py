@@ -123,6 +123,20 @@ def state():
   return {'state': 'unavailable'}
 
 
+def peer_ready(value, now):
+  """A daemon heartbeat alone is not evidence of a responding model host."""
+  try:
+    telemetry = value['telemetry']
+    return (value.get('state') == 'ready' and bool(value.get('peer')) and bool(value.get('sha256'))
+            and isinstance(telemetry, dict) and bool(telemetry)
+            and 0 <= now - value['updated'] < 3
+            and 0 < value['telemetry_updated'] <= now
+            and now - value['telemetry_updated'] < 3
+            and ('loaded' not in telemetry or telemetry['loaded'] == value['sha256']))
+  except (KeyError, TypeError, ValueError):
+    return False
+
+
 def validate_spec(spec, expected=None):
   expected = SPEC if expected is None else expected
   if spec.to_dict() != expected.to_dict():

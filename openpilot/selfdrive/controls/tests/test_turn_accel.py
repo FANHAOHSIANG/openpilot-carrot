@@ -183,6 +183,7 @@ def test_planner_passes_preview_ceiling_to_mpc_with_existing_slew_limit(previous
     raise StopBeforeSolver
 
   planner = SimpleNamespace(CP=SimpleNamespace(openpilotLongitudinalControl=True),
+                            coasting_param_time=0., dt=.05,
                             mpc=SimpleNamespace(set_accel_limits=lambda *args: captured.extend(args), set_cur_state=stop),
                             a_desired=previous_accel, reset_decel_timer=0, output_should_stop=False,
                             v_desired_filter=SimpleNamespace(update=lambda value: value),

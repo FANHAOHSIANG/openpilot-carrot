@@ -172,3 +172,59 @@ def test_worker_is_bounded_reaped_and_cleans_private_artifacts(monkeypatch, tmp_
     release.set()
     worker.close()
     worker.thread.join(2)
+
+
+def test_memory_pressure_prevents_adapter_allocation(monkeypatch):
+  m = joining_model(monkeypatch)
+  m.warp = None
+  m.prepare_allowed = False
+  monkeypatch.setattr(model, 'WarpPreparation', lambda *a: pytest.fail('memory pressure'))
+  assert m.run({}, {}, {}, False) == 'local'
+
+
+def test_failure_does_not_retry_on_same_connection_after_deadline(monkeypatch):
+  m = joining_model(monkeypatch)
+  m.warp = None
+  m.preparation_failed = True
+  m.next_join = 0
+  monkeypatch.setattr(model, 'WarpPreparation', lambda *a: pytest.fail('unbounded retry'))
+  assert m.run({}, {}, {}, False) == 'local'
+
+
+def test_memory_cancellation_latches_failure(monkeypatch):
+  m = joining_model(monkeypatch)
+  m.warp = None
+  closed = []
+  m.preparation = NS(future=Future(), close=lambda: closed.append(True))
+  m.prepare_allowed = False
+  assert m.run({}, {}, {}, False) == 'local'
+  assert closed == [True] and m.preparation_failed
+
+
+@pytest.mark.parametrize('host_age,memory,valid,expected', [(1., 80, True, True), (4., 80, True, False),
+                                                          (1., 91, True, False), (1., 80, False, False)])
+def test_update_and_run_require_host_reply_and_memory_headroom(monkeypatch, tmp_path, host_age, memory, valid, expected):
+  m = joining_model(monkeypatch)
+  m.phase_enabled = False
+  m.warp = None
+  monkeypatch.setattr(model.time, 'monotonic', lambda: 10.)
+  monkeypatch.setattr(model, 'MODEL_STATUS', tmp_path / 'status.json')
+  monkeypatch.setattr(model, 'may_join', lambda *a: True)
+  monkeypatch.setattr(model, 'state', lambda: {'state': 'ready', 'updated': 10., 'peer': {'protocol': 3},
+                                             'sha256': 'selected', 'telemetry': {'loaded': 'selected'},
+                                             'telemetry_updated': 10. - host_age})
+  class SM(dict):
+    pass
+  sm = SM(carState=NS(), selfdriveState=NS(), carControl=NS(), deviceState=NS(memoryUsagePercent=memory))
+  sm.valid = dict.fromkeys(sm, True)
+  sm.valid['deviceState'] = valid
+  sm.alive = dict.fromkeys(sm, True)
+  sm.recv_time = dict.fromkeys(sm, 10.0)
+  starts = []
+  def prepare(*args):
+    starts.append(args)
+    return NS(future=Future(), close=lambda: None)
+  monkeypatch.setattr(model, 'WarpPreparation', prepare)
+  m.update(sm, NS())
+  assert m.run({}, {}, {}, False) == 'local'
+  assert bool(starts) == expected

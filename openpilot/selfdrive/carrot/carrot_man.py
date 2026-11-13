@@ -35,6 +35,8 @@ from openpilot.common.constants import CV
 
 from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
 from openpilot.selfdrive.carrot.curve_speed import VisionCurveSpeed, curve_speed
+from openpilot.selfdrive.carrot.route_curve import RouteCurveSpeed
+from openpilot.selfdrive.carrot.osm_curve import OsmCurveClient
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
 from openpilot.selfdrive.carrot.server.services.web_settings import read_web_settings
 from openpilot.selfdrive.carrot.web_upload import (
@@ -327,6 +329,8 @@ class CarrotMan:
     self.remote_addr = None
 
     self.vision_curve_speed = VisionCurveSpeed()
+    self.route_curve_speed = RouteCurveSpeed()
+    self.osm_curve = OsmCurveClient()
     self.carrot_curve_speed_params()
 
     self.is_running = True
@@ -501,98 +505,62 @@ class CarrotMan:
       self.send_routes([{'latitude': lat, 'longitude': lon} for lat, lon in self.route_source.selected[1]], selected=True)
 
   def carrot_navi_route(self):
-
-    is_onroad = self.params.get_bool("IsOnroad")
-    if not is_onroad or not self.navi_points_active or not SHAPELY_AVAILABLE or (self.carrot_serv.active_carrot <= 1 and not self.navd_active):
-      # RouteSource owns geometry lifetime. Pausing computation offroad must not
-      # consume a route received before the car starts.
-      self.active_carrot_last = self.carrot_serv.active_carrot
-      return [],[],300
-
-    current_position = (self.carrot_serv.vpPosPointLon, self.carrot_serv.vpPosPointLat)
-    heading_deg = self.carrot_serv.bearing
-
-    distance_interval = 10.0
-    out_speed = 300
-    path, self.navi_points_start_index, start_point = get_path_after_distance(self.navi_points_start_index, self.navi_points, current_position, 300)
-    relative_coords = []
-    if path:
-        #relative_coords = gps_to_relative_xy(path, current_position, heading_deg)
-        relative_coords = gps_to_relative_xy(path, start_point, heading_deg)
-        # Resample relative_coords at 5m intervals using LineString
-        line = LineString(relative_coords)
-        resampled_points = []
-        resampled_distances = []
-        current_distance = 0
-        while current_distance <= line.length:
-            point = line.interpolate(current_distance)
-            resampled_points.append((point.x, point.y))
-            resampled_distances.append(current_distance)
-            current_distance += distance_interval
-
-        curvatures = []
-        distances = []
-        distance = 10.0
-        sample = 4
-        if len(resampled_points) >= sample * 2 + 1:
-            # Calculate curvatures and speeds based on curvature
-            speeds = []
-            for i in range(len(resampled_points) - sample * 2):
-                distance += distance_interval
-                p1, p2, p3 = resampled_points[i], resampled_points[i + sample], resampled_points[i + sample * 2]
-                curvature = calculate_curvature(p1, p2, p3)
-                curvatures.append(curvature)
-                speed = np.interp(abs(curvature), V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS)
-                if abs(curvature) < 0.02:
-                  speed = max(speed, self.carrot_serv.nRoadLimitSpeed)
-                speeds.append(speed)
-                distances.append(distance)
-            #print(f"curvatures= {[round(s, 4) for s in curvatures]}")
-            #print(f"speeds= {[round(s, 1) for s in speeds]}")
-            # Apply acceleration limits in reverse to adjust speeds
-            accel_limit = self.carrot_serv.autoNaviSpeedDecelRate # m/s^2
-            accel_limit_kmh = accel_limit * 3.6  # Convert to km/h per second
-            out_speeds = [0] * len(speeds)
-            out_speeds[-1] = speeds[-1]  # Set the last speed as the initial value
-            v_ego_kph = self.sm['carState'].vEgo * 3.6
-
-            time_delay = self.carrot_serv.autoNaviSpeedCtrlEnd
-            time_wait = 0
-            for i in range(len(speeds) - 2, -1, -1):
-                target_speed = speeds[i]
-                next_out_speed = out_speeds[i + 1]
-
-                if target_speed < next_out_speed:
-                  time_delay = max(0, ((v_ego_kph - target_speed) / accel_limit_kmh))
-                  time_wait = - time_delay
-
-                # Calculate time interval for the current segment based on speed
-                time_interval = distance_interval / (next_out_speed / 3.6) if next_out_speed > 0 else 0
-
-                time_apply = min(time_interval, max(0, time_interval + time_wait))
-
-                # Calculate maximum allowed speed with acceleration limit
-                max_allowed_speed = next_out_speed + (accel_limit_kmh * time_apply)
-                adjusted_speed = min(target_speed, max_allowed_speed)
-
-                #time_wait += time_interval
-                time_wait += min(2.0, time_interval)
-
-                out_speeds[i] = adjusted_speed
-
-            #distance_advance = self.sm['carState'].vEgo * 3.0  # Advance distance by 3.0 seconds
-            #out_speed = interp(distance_advance, distances, out_speeds)
-            out_speed = out_speeds[0]
-            #print(f"out_speeds= {[round(s, 1) for s in out_speeds]}")
+    now = time.monotonic()
+    serv, sm = self.carrot_serv, self.sm
+    onroad = self.params.get_bool("IsOnroad")
+    enabled = self.params.get_bool("OsmCurveSpeedEnabled")
+    osm_disabled = getattr(self, 'osm_curve_enabled_last', enabled) and not enabled
+    self.osm_curve_enabled_last = enabled
+    position_time = serv.last_calculate_gps_time if getattr(serv, 'position_heading_valid', False) else -1.0
+    position, heading = (serv.vpPosPointLon, serv.vpPosPointLat), serv.bearing
+    # OSM is WGS84 geometry independent of the navigation owner's phone feed.
+    # Keep one device source rather than switching at each phone timeout.
+    if not self.navi_points_active:
+      fix = serv._gps_sources().device_preview(now, sm['carState'].vEgo)
+      position = (fix.longitude, fix.latitude) if fix else (0., 0.)
+      heading, position_time = (fix.heading, fix.stamp) if fix else (0., -1.)
+    device = sm['deviceState']
+    wifi = (sm.alive['deviceState'] and sm.valid['deviceState']
+            and device.networkType == log.DeviceState.NetworkType.wifi and not device.networkMetered)
+    # A speed-only corridor never becomes navRoute or navigation/model guidance.
+    osm_points, osm_id = self.osm_curve.update(
+      now=now, onroad=onroad, enabled=enabled,
+      wanted=not self.navi_points_active and serv.turnSpeedControlMode in (2, 3, 4), wifi=wifi,
+      position=position, heading=heading,
+      fix_time=position_time, speed=sm['carState'].vEgo,
+    )
+    if not onroad:
+      # Keep geometry received before startup, but not a previous drive's cap.
+      self.route_curve_speed = RouteCurveSpeed()
+      self.carrot_serv.route_curve_debug = "offroad"
+      return [], [], 300
+    if osm_disabled and getattr(self.route_curve_speed, 'route_id', None) is not None and self.route_curve_speed.route_id[0] == 'osm':
+      self.route_curve_speed = RouteCurveSpeed()
+    tracker = self.route_curve_speed
+    if self.navi_points_active:
+      points, route_id, source = self.navi_points, ('nav', self.nav_route_id), 'route'
     else:
-        resampled_points = []
-        resampled_distances = []
-        curvatures = []
-        speeds = []
-        distances = []
-        #self.params.remove("NavDestination")
-
-    return resampled_points, resampled_distances, out_speed #speeds, distances
+      points, route_id, source = osm_points, ('osm', osm_id), 'osm'
+    tracker.set_route(points, route_id)
+    serv.route_curve_source = source
+    fresh = all(sm.alive[name] and sm.valid[name] for name in ('carState', 'modelV2'))
+    cs = sm['carState']
+    # GPS is updated by CarrotServ in the preceding 20 Hz iteration. Use the
+    # actual fix timestamp, not the extrapolation or publish timestamp.
+    result = tracker.update(
+      now=now, position=position, heading=heading,
+      position_time=position_time, model=sm['modelV2'],
+      model_time=sm.logMonoTime['modelV2'] / 1e9 if fresh else -1.0,
+      v_ego=cs.vEgo, a_ego=cs.aEgo, speed_ratio=cs.vCluRatio,
+      sensitivity=self.autoCurveSpeedFactor, map_factor=serv.mapTurnSpeedFactor,
+      lower_limit_kph=serv.autoCurveSpeedLowerLimit,
+      lateral_allowance=self.osm_curve.lateral_allowance if source == 'osm' else 0.,
+    )
+    serv.route_curve_debug = f"{result.reason}:{result.distance:.0f}m/{result.curve_kph:.0f}kph/e{result.match_error:.1f}"
+    if source == 'osm':
+      serv.route_curve_debug = f"osm/{self.osm_curve.status}/{serv.route_curve_debug}/gps=device/lane={result.lateral_offset:.1f}"
+    # Model coordinates and naviPaths are both forward/right-positive.
+    return list(result.points), list(result.distances), result.speed_kph
 
 
   def make_send_message(self):
@@ -601,6 +569,9 @@ class CarrotMan:
     isOnroad = self.params.get_bool("IsOnroad")
     msg['IsOnroad'] = isOnroad
     msg['CarrotRouteActive'] = self.navi_points_active
+    msg['OsmCurveStatus'] = self.osm_curve.status
+    msg['OsmMapsReady'] = self.osm_curve.response.get('ready', 0)
+    msg['OsmMapsTotal'] = self.osm_curve.response.get('total', 8)
     msg['ip'] = self.ip_address
     msg['port'] = self.carrot_man_port
     msg['navi_debug'] = 0
