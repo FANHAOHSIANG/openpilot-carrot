@@ -31,7 +31,7 @@ class JetlinkPrepareOnlyRegressionTest(unittest.TestCase):
     self.logger = Mock()
     modules = {
       'openpilot.selfdrive.modeld.jetlink.link': fake_module(
-        'link', ClientConnection=Mock(), SPEC=SimpleNamespace(), FAULT=self.fault, state=Mock()),
+        'link', ClientConnection=Mock(), SPEC=SimpleNamespace(), FAULT=self.fault, state=Mock(), peer_ready=Mock(return_value=True)),
       'openpilot.selfdrive.modeld.jetlink.prepare': fake_module('prepare', WarpPreparation=Mock()),
       'openpilot.selfdrive.modeld.jetlink.contracts': fake_module(
         'contracts', model_name=Mock(return_value='test-model'), parse_outputs=self.parse),
@@ -57,6 +57,8 @@ class JetlinkPrepareOnlyRegressionTest(unittest.TestCase):
     m.small.run.return_value = {'local': True}
     m.preparation = m.connection = None
     m.ready = m.join_allowed = m.active = True
+    m.prepare_allowed = True
+    m.preparation_failed = False
     m.small_runs = 3
     m.frame = 0
     m.reset = False

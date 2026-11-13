@@ -35,9 +35,10 @@ jobs:
           check opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py 56b8e39297bca0aba2613dc8ad204fd65b928a0a
           check tools/iphone_led 11232ceba02150870db08c49889cdf6e68d6d11d
           check openpilot/selfdrive/carrot/iphone_led_bridge.py 425b919eac4fc35440691aff477249c79e0a1313
-          check openpilot/system/manager/process_config.py 58b701c40d1412d63c12fd06ec9de2074108b4c0
+          # Reviewed 1104 integration: resident OSM worker and shipped truck observer.
+          check openpilot/system/manager/process_config.py a3c09aaec806923812ed874b229c5f65715d5b00
           check openpilot/cereal/custom.capnp 815aed779c8a95a89b957b874f994731031e4775
-          check openpilot/tools/clearance_shadow d51e5076b4a87eb8a2213cc0e0f1255a26bec9ed
+          check openpilot/tools/clearance_shadow 6bcb1b1a99f42ca1223a6c0517fef63b3d323464
   canfd-safety:
     name: Native CAN FD/Panda safety and stop-state regressions
     runs-on: ubuntu-24.04
