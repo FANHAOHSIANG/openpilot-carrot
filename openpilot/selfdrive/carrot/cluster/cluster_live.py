@@ -15,6 +15,7 @@ from cluster_models import (
     DebugPlotSnapshot,
     LaneMarking,
     LiveDebugInfo,
+    ModelPathPoint,
     NaviDebugInfo,
     NaviGuidanceImage,
     NaviTrafficLightInfo,
@@ -163,6 +164,12 @@ class OpenpilotLiveSource:
         self._alert_onroad_started_t: float | None = None
         self._selfdrive_seen_onroad = False
         self._nav_route_coords: tuple[tuple[float, float], ...] = ()
+        self._nav_route_received_t = 0.0
+        self._nav_route_id = 0
+        self._nav_route_segment: int | None = None
+        self._nav_route_filtered_anchor: tuple[float, float, float] | None = None
+        self._nav_route_anchor_t = 0.0
+        self._nav_route_last_path: tuple[ModelPathPoint, ...] = ()
         self._carrot_navi = None
         self._carrot_navi_generation = -1
         self._carrot_navi_next_expiry_s = math.inf
@@ -609,7 +616,7 @@ class OpenpilotLiveSource:
         elif service in ("navInstruction", "navInstructionCarrot"):
             self.parser._update_nav_instruction(data, event_t)
         elif service == "navRoute":
-            self._update_nav_route(data)
+            self._update_nav_route(data if self._service_valid(service) else None)
         elif service == "carrotNavi":
             self._update_carrot_navi(data)
         elif service == "longitudinalPlan":
@@ -674,6 +681,7 @@ class OpenpilotLiveSource:
 
         profile_stage = self._profile_start()
         navi_debug = self._navi_debug_info() if navi_mode else None
+        state = self._with_external_nav_route(state) if navi_mode else state
         state = self._with_navi_speed_limit(state, navi_debug) if navi_mode else state
         self._profile_add("source.live.navi_debug", profile_stage)
 
@@ -1025,23 +1033,137 @@ class OpenpilotLiveSource:
         except Exception:
             return None
 
-    def _update_nav_route(self, data: Any) -> None:
-        coords = safe_get(data, "coordinates")
-        if not coords:
-            self._nav_route_coords = ()
-            return
+    def _reset_nav_projection(self) -> None:
+        self._nav_route_filtered_anchor = None
+        self._nav_route_last_path = ()
+        self._nav_route_segment = None
 
+    def _update_nav_route(self, data: Any) -> None:
         parsed: list[tuple[float, float]] = []
-        for coord in _limited_items(coords, LIVE_NAV_ROUTE_MAX_POINTS):
+        for coord in _limited_items(safe_get(data, "coordinates") or (), LIVE_NAV_ROUTE_MAX_POINTS):
             lat = finite_float(safe_get(coord, "latitude"))
             lon = finite_float(safe_get(coord, "longitude"))
-            if lat is None or lon is None:
-                continue
-            if not -90.0 <= lat <= 90.0 or not -180.0 <= lon <= 180.0:
-                continue
+            if lat is None or lon is None or not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+                # Dropping a bad vertex would join two unrelated segments.
+                parsed.clear()
+                break
             parsed.append((lat, lon))
 
-        self._nav_route_coords = tuple(parsed)
+        coords = tuple(parsed) if len(parsed) >= 2 else ()
+        route_id = safe_get(data, "carrotRouteId", 0)
+        if coords != self._nav_route_coords or route_id != self._nav_route_id or not coords:
+            self._reset_nav_projection()
+        self._nav_route_coords = coords
+        self._nav_route_id = route_id
+        self._nav_route_received_t = time.monotonic()
+
+    def _with_external_nav_route(self, state: ClusterUiState) -> ClusterUiState:
+        path = self._external_nav_route_model_path()
+        if len(path) < 2:
+            return state
+        return replace(state, model_path=path)
+
+    def _external_nav_route_model_path(self) -> tuple[ModelPathPoint, ...]:
+        now = time.monotonic()
+        fix_received = self._service_receive_time("carrotMan")
+        if (len(self._nav_route_coords) < 2 or now - self._nav_route_received_t > 15.0
+                or not self._service_alive("carrotMan") or not self._service_valid("carrotMan")
+                or fix_received is None or not 0 <= now - fix_received <= 1.0):
+            self._reset_nav_projection()
+            return ()
+
+        carrot_man = self._service_data("carrotMan")
+        lat = finite_float(safe_get(carrot_man, "xPosLat"))
+        lon = finite_float(safe_get(carrot_man, "xPosLon"))
+        heading = finite_float(safe_get(carrot_man, "xPosAngle"))
+        fix_ns = safe_get(carrot_man, "positionFixMonoTime")
+        if (lat is None or lon is None or heading is None
+                or not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0) or (lat == 0 and lon == 0)
+                or safe_get(carrot_man, "positionHeadingValid") is False
+                or safe_get(carrot_man, "positionSource") == "none"
+                or (fix_ns is not None and not (fix_ns > 0 and 0 <= now - fix_ns / 1e9 <= 2.0))):
+            self._reset_nav_projection()
+            return ()
+
+        old = self._nav_route_filtered_anchor
+        if old is not None:
+            old_lat, old_lon, old_heading = old
+            dt = fix_received - self._nav_route_anchor_t
+            if dt <= 0.0:
+                return self._nav_route_last_path
+            north_jump = (lat - old_lat) * 111133.0
+            east_jump = (lon - old_lon) * 111133.0 * math.cos(math.radians(lat))
+            heading_jump = (heading - old_heading + 180.0) % 360.0 - 180.0
+            if math.hypot(north_jump, east_jump) > max(12.0, 45.0 * dt) or abs(heading_jump) > max(25.0, 100.0 * dt):
+                if now - self._nav_route_anchor_t < 0.65:
+                    return self._nav_route_last_path
+                self._reset_nav_projection()
+                return ()
+            alpha = min(1.0, max(0.2, dt / (0.15 + dt)))
+            lat = old_lat + alpha * (lat - old_lat)
+            lon = old_lon + alpha * (lon - old_lon)
+            heading = (old_heading + alpha * heading_jump) % 360.0
+
+        self._nav_route_filtered_anchor = (lat, lon, heading)
+        self._nav_route_anchor_t = fix_received
+        heading_rad = math.radians(heading)
+        cos_h, sin_h = math.cos(heading_rad), math.sin(heading_rad)
+        meters_per_lat = 40008000.0 / 360.0
+        meters_per_lon = meters_per_lat * math.cos(math.radians(lat))
+        projected = []
+        for p_lat, p_lon in self._nav_route_coords:
+            east = (p_lon - lon) * meters_per_lon
+            north = (p_lat - lat) * meters_per_lat
+            projected.append((east * sin_h + north * cos_h, east * cos_h - north * sin_h))
+
+        best = None
+        previous_segment = self._nav_route_segment
+        for i, ((ax, ay), (bx, by)) in enumerate(zip(projected, projected[1:])):
+            dx, dy = bx - ax, by - ay
+            seg_len2 = dx * dx + dy * dy
+            if not 1.0 <= seg_len2 <= 250000.0 or dx < -3.0:
+                continue
+            u = max(0.0, min(1.0, -(ax * dx + ay * dy) / seg_len2))
+            px, py = ax + u * dx, ay + u * dy
+            dist = math.hypot(px, py)
+            if dist > 12.0:
+                continue
+            # Prefer the same route neighborhood at intersections. An adjacent
+            # segment can still win while crossing a turn.
+            continuity = 5.0 if previous_segment is not None and abs(i - previous_segment) > 1 else 0.0
+            alignment = 2.0 * (1.0 - dx / math.sqrt(seg_len2))
+            score = dist + continuity + alignment
+            if best is None or score < best[0]:
+                best = (score, i, px, py)
+        if best is None:
+            self._nav_route_segment = None
+            self._nav_route_last_path = ()
+            return ()
+
+        _, index, px, py = best
+        points = [ModelPathPoint(forward_m=0.0, lateral_m=py)]
+        previous_forward = 0.0
+        previous_xy = (px, py)
+        for x, y in projected[index + 1:]:
+            dx, dy = x - previous_xy[0], y - previous_xy[1]
+            if math.hypot(dx, dy) > 75.0 or x < previous_forward - 2.0 or abs(y) > 35.0:
+                break
+            if x > 180.0:
+                if dx > 0.0 and 180.0 - previous_forward > 0.5:
+                    fraction = (180.0 - previous_xy[0]) / dx
+                    points.append(ModelPathPoint(forward_m=180.0, lateral_m=previous_xy[1] + fraction * dy))
+                break
+            previous_xy = (x, y)
+            if x <= previous_forward + 0.5:
+                continue
+            points.append(ModelPathPoint(forward_m=x, lateral_m=y))
+            previous_forward = x
+            if len(points) >= 96:
+                break
+
+        self._nav_route_segment = index
+        self._nav_route_last_path = tuple(points) if len(points) >= 2 else ()
+        return self._nav_route_last_path
 
     def _with_navi_speed_limit(self, state: ClusterUiState, navi_debug: NaviDebugInfo | None) -> ClusterUiState:
         if state.speed_limit_kph is not None:
