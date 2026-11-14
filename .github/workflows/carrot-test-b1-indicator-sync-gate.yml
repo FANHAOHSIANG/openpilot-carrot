@@ -1,0 +1,43 @@
+name: Carrot Test B1 and indicator official sync gate
+on:
+  pull_request:
+    branches:
+      - test/carrot-wip-upstream-20261104
+    paths:
+      - '.github/workflows/carrot-test-b1-indicator-sync-gate.yml'
+      - 'tools/carrot_b1/**'
+      - 'tools/jetlink/test_indicator_reconstruction.py'
+      - 'tools/jetlink/test_boundary_recent_intent.py'
+      - 'tools/jetlink/test_manual_turn_indicator.py'
+      - 'openpilot/selfdrive/carrot/bluetooth/**'
+      - 'openpilot/selfdrive/controls/lib/desire_lib/**'
+      - 'openpilot/cereal/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  replay:
+    name: Native B1 tap and model/manual indicator offline regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install bounded offline test requirements
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Build native signal and schema prerequisites (no device access)
+        run: |
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+      - name: Run B1 tap C++ predicate and model/manual/driver indicator replays
+        run: |
+          python tools/signal_validation/run.py \
+            tools/carrot_b1/test_tap_feedback.py \
+            openpilot/selfdrive/carrot/bluetooth/tests/test_b1.py \
+            tools/jetlink/test_boundary_recent_intent.py \
+            tools/jetlink/test_indicator_reconstruction.py \
+            tools/jetlink/test_manual_turn_indicator.py
