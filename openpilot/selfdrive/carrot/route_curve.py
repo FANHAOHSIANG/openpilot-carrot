@@ -18,10 +18,49 @@ from openpilot.selfdrive.carrot.curve_speed import (
 METRES_PER_DEGREE = math.pi * 6371000.0 / 180.0
 PREVIEW_METRES = 500.0
 SAMPLE_METRES = 5.0
+SHORT_REVERSAL_METRES = 40.0
+SHORT_REVERSAL_MIN_TURN = math.radians(5.0)
+SHORT_REVERSAL_MAX_NET_TURN = math.radians(12.0)
+SHORT_REVERSAL_MAX_OFFSET = 5.0
 POSITION_MAX_AGE = 1.5
 MODEL_MAX_AGE = 0.3
 CONFIRM_SECONDS = 0.3
 RELEASE_KPH_PER_SECOND = 3.6
+
+
+def _short_lateral_reversals(relative):
+  """Mask curvature windows that span a small lateral kink in a mostly straight road."""
+  edges = np.diff(relative, axis=0)
+  headings = np.unwrap(np.arctan2(edges[:, 1], edges[:, 0]))
+  turns = np.diff(headings)
+  turns[np.abs(turns) < math.radians(0.05)] = 0.
+  # Split into contiguous changes in heading so a vertex straddling two
+  # resampled edges has the same sign and magnitude as the original turn.
+  signs = np.sign(turns)
+  for i in range(1, len(signs)):
+    if signs[i] == 0:
+      signs[i] = signs[i - 1]
+  starts = np.r_[0, np.flatnonzero(signs[1:] != signs[:-1]) + 1]
+  ends = np.r_[starts[1:], len(turns)]
+  corners = [(int(start), int(start + np.flatnonzero(turns[start:end])[-1]), float(np.sum(turns[start:end])))
+             for start, end in zip(starts, ends, strict=True)
+             if abs(np.sum(turns[start:end])) >= SHORT_REVERSAL_MIN_TURN]
+  isolated = [(i, i, turns[i]) for i in np.flatnonzero(np.abs(turns) >= SHORT_REVERSAL_MIN_TURN)]
+  rejected = np.zeros(len(relative), dtype=bool)
+  for changes in (corners, isolated):
+    for (first, _, first_turn), (_, last, last_turn) in zip(changes[:-1], changes[1:], strict=True):
+      if ((last - first) * SAMPLE_METRES > SHORT_REVERSAL_METRES
+          or first_turn * last_turn >= 0
+          or abs(headings[last + 1] - headings[first]) > SHORT_REVERSAL_MAX_NET_TURN):
+        continue
+      # Measure excursion from the incoming edge, including any lateral shift.
+      incoming = edges[first] / np.linalg.norm(edges[first])
+      excursion = relative[first + 1:last + 3] - relative[first + 1]
+      offset = excursion[:, 0] * incoming[1] - excursion[:, 1] * incoming[0]
+      if np.max(np.abs(offset)) <= SHORT_REVERSAL_MAX_OFFSET:
+        # The three-point curvature and its median together see +/-15 m.
+        rejected[max(0, first - 1):last + 5] = True
+  return rejected
 
 
 @dataclass(frozen=True)
@@ -230,6 +269,10 @@ class RouteCurveSpeed:
       near_straight = np.max(np.abs(np.diff(np.diff(ry)))) < .1 and np.ptp(ry) < 1.
       return self._unconfirmed("coarse_straight" if near_straight else "coarse_route", now, dt)
     curve, curve_distances = curve[usable], curve_distances[usable]
+    if isinstance(self.route_id, tuple) and self.route_id[:1] == ('nav',):
+      # Near-path agreement cannot confirm a distant bend. Leave these local
+      # map discontinuities to the independent vision curve speed estimate.
+      curve[_short_lateral_reversals(relative)[3:-3][usable]] = 0.
     self.missing_since = None
     ratio = speed_ratio if 0.5 < speed_ratio <= 1.2 else 1.0
     budget = TARGET_LAT_ACCEL / float(np.clip(sensitivity, 0.5, 3.0))
