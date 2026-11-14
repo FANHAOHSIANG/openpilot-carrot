@@ -193,3 +193,136 @@ def format_trip_distance(distance_m: int | float, is_metric: bool) -> str:
     if miles < 10.0:
         return f"{miles:.2f} mi"
     return f"{miles:.1f} mi"
+
+
+# Exact display labels only: never replace substrings inside road names or protocol fields.
+HUD_ZH_LABELS = {'확인 중': '檢查中',
+ '저장소 없음': '找不到儲存庫',
+ '브렌치 아님': '未位於分支',
+ '원격 설정 없음': '未設定遠端',
+ '원격에서 삭제됨': '遠端已刪除',
+ '원격 확인 실패': '遠端檢查失敗',
+ 'pull 확인 실패': '更新檢查失敗',
+ 'SIGNAL VIEW: ROAD CAMERA ONLY': '號誌觀察：僅道路攝影機',
+ 'PREVIOUS': '前次辨識',
+ 'LIVE': '即時',
+ 'WAITING': '等待資料',
+ 'STOP': '即將停車',
+ 'CAM': '測速照相',
+ 'SECTION': '區間測速',
+ 'ACCEL': '加速',
+ 'STEER': '轉向',
+ '좌회전': '左轉',
+ '우회전': '右轉',
+ '직진': '直行',
+ '유턴': '迴轉',
+ '목적지': '目的地',
+ '경로 이탈': '偏離路線',
+ 'Turn left': '左轉',
+ 'Turn right': '右轉',
+ 'Continue straight': '直行',
+ 'U-turn': '迴轉',
+ 'ATC': '自動轉彎',
+ 'TBT': '轉向提示',
+ 'NOO': '導航輔助',
+ '가속': '加速',
+ '조향': '轉向',
+ '정지 예정': '即將停車',
+ '카메라': '測速照相',
+ '구간': '區間測速',
+ '커브': '彎道',
+ '구간단속': '區間測速',
+ '방지턱': '減速丘',
+ '어린이': '學校區域',
+ '경찰': '警察',
+ '도로제한': '道路速限',
+ '경로': '路線',
+ '모델': '模型',
+ '에코': '節能',
+ '감속': '減速',
+ '맑음': '晴朗',
+ '구름조금': '晴時多雲',
+ '안개': '霧',
+ '눈': '下雪',
+ '비': '下雨',
+ '뇌우': '雷雨',
+ '흐림': '陰天'}
+
+
+def localize_hud_text(language: str, text: str) -> str:
+    if normalize_cluster_language(language) != CLUSTER_LANGUAGE_ZH_TW:
+        return text
+    for key, value in _TEXT[CLUSTER_LANGUAGE_ZH_TW].items():
+        if text in (_TEXT[CLUSTER_LANGUAGE_EN].get(key), _TEXT[CLUSTER_LANGUAGE_KO].get(key)):
+            return value
+    if text in HUD_ZH_LABELS:
+        return HUD_ZH_LABELS[text]
+    for prefix, translated in (("git pull 가능 +", "可更新 +"), ("SIGNAL CANDIDATES ", "號誌候選 "), ("avg ", "平均 ")):
+        if text.startswith(prefix):
+            suffix = text[len(prefix):]
+            if suffix.isdecimal():
+                return translated + suffix
+    # Known ATC/TBT messages retain the source and direction, without guessing arbitrary prose.
+    for prefix in ("ATC: ", "TBT: ", "ATC ", "TBT "):
+        if text.startswith(prefix) and text[len(prefix):] in HUD_ZH_LABELS:
+            return HUD_ZH_LABELS[prefix[:3]] + "：" + HUD_ZH_LABELS[text[len(prefix):]]
+    return text
+
+
+# Exact stock alert translations, paired by msgid from app_ko.po/app_zh-CHT.po.
+HUD_ZH_LABELS.update({'Cancel': '取消',
+ 'Device': '裝置',
+ 'Driving Personality': '駕駛風格',
+ 'Enable': '啟用',
+ 'Error': '錯誤',
+ 'HIGH': '高',
+ 'LTE': 'LTE',
+ 'Longitudinal Maneuver Mode': '縱向操作模式',
+ 'NO': '否',
+ 'Open': '開啟',
+ 'RESET': '重設',
+ 'Reboot': '重新啟動',
+ 'TAKE CONTROL IMMEDIATELY': '請立刻接手控制',
+ 'TEMP': '溫度',
+ 'Unknown': '未知',
+ 'default': '預設',
+ 'down': '下',
+ 'km/h': 'km/h',
+ 'left': '左',
+ 'mph': 'mph',
+ 'now': '現在',
+ 'openpilot Unavailable': 'openpilot 無法使用',
+ 'openpilot 사용 불가': 'openpilot 無法使用',
+ 'right': '右',
+ 'up': '上',
+ '기본값': '預設',
+ '높음': '高',
+ '롱컨 기동 모드': '縱向操作模式',
+ '사용': '啟用',
+ '아니오': '否',
+ '아래': '下',
+ '알수없음': '未知',
+ '열기': '開啟',
+ '오류': '錯誤',
+ '오른쪽': '右',
+ '온도': '溫度',
+ '왼쪽': '左',
+ '위': '上',
+ '장치': '裝置',
+ '재설정': '重設',
+ '재시작': '重新啟動',
+ '주행 성향': '駕駛風格',
+ '즉시 수동 조작하세요': '請立刻接手控制',
+ '지금': '現在',
+ '취소': '取消'})
+
+HUD_ZH_LABELS.update({
+    "Turning Left": "正在左轉", "좌회전 합니다": "正在左轉",
+    "Turning Right": "正在右轉", "우회전 합니다": "正在右轉",
+    "Turn Exceeds Steering Limit": "轉彎超出轉向能力",
+    "회전이 조향 한도를 초과함": "轉彎超出轉向能力",
+    "Confirm Lane Change": "請確認變換車道",
+    "MAP STREAM WAITING": "等待地圖畫面",
+    "MAP STREAM STALLED": "地圖畫面中斷",
+    "WAITING FOR NEXT FRAME": "等待下一張畫面",
+})

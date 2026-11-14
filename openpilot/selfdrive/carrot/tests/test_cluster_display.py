@@ -431,3 +431,35 @@ def test_traditional_chinese_labels_have_loaded_glyphs():
   assert all(ord(char) in glyphs for label in _TEXT["zh-TW"].values() for char in label)
   assert ClusterUiRenderer._ev6_park_duration_text(3660, False, True) == "1時 01分"
   assert ClusterUiRenderer._ev6_park_duration_text(120, False, True) == "2分"
+
+
+def test_hud_translation_preserves_unknown_road_names_and_protocol_text():
+  from cluster_display import localize_hud_text
+  assert localize_hud_text("zh-TW", "좌회전 합니다") == "正在左轉"
+  assert localize_hud_text("zh-TW", "ATC: 좌회전") == "自動轉彎：左轉"
+  assert localize_hud_text("zh-TW", "TBT: 우회전") == "轉向提示：右轉"
+  assert localize_hud_text("zh-TW", "pull 확인 실패") == "更新檢查失敗"
+  for text in ("東海一街", "우회전로", "ATC: unknown", "test/carrot-wip-upstream-20261104"):
+    assert localize_hud_text("zh-TW", text) == text
+  assert localize_hud_text("ko", "좌회전 합니다") == "좌회전 합니다"
+
+
+def test_chinese_road_name_uses_bounded_font_cache(monkeypatch):
+  renderer = ClusterUiRenderer(language="zh-TW")
+  loaded, unloaded = [], []
+  monkeypatch.setattr(renderer, "_font_candidates", lambda: [Path(__file__)])
+  def load(*args):
+    font = SimpleNamespace(texture=SimpleNamespace(id=len(loaded) + 1))
+    loaded.append(font)
+    return font
+  monkeypatch.setattr(cluster_renderer.rl, "load_font_ex", load)
+  monkeypatch.setattr(cluster_renderer.rl, "set_texture_filter", lambda *_: None)
+  monkeypatch.setattr(cluster_renderer.rl, "unload_font", unloaded.append)
+  roads = [chr(c) for c in range(0x4E00, 0x9FFF) if c not in renderer._known_font_codepoints][:17]
+  first = renderer._font_for_text(roads[0])
+  assert renderer._font_for_text(roads[0]) is first
+  for road in roads[1:]:
+    renderer._font_for_text(road)
+  assert len(loaded) == 17
+  assert len(renderer._cjk_fonts) == 16
+  assert unloaded == [first]

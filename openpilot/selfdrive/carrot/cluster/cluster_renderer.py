@@ -29,6 +29,8 @@ from cluster_display import (
     CLUSTER_LANGUAGE_KO,
     CLUSTER_LANGUAGE_ZH_TW,
     cluster_text,
+    localize_hud_text,
+    HUD_ZH_LABELS,
     display_speed,
     format_navi_distance,
     format_radar_distance,
@@ -1243,6 +1245,8 @@ class ClusterUiRenderer:
         self._owns_font = False
         self._korean_font = None
         self._owns_korean_font = False
+        self._cjk_fonts = {}
+        self._known_font_codepoints = frozenset(self._navi_font_codepoints())
         self._capture_target = None
         self._trip_report_target = None
         self._trip_report_cache_key: tuple[object, ...] | None = None
@@ -1670,6 +1674,9 @@ class ClusterUiRenderer:
             rl.unload_shader(self._navi_yuv_shader)
             self._navi_yuv_shader = None
             self._navi_yuv_shader_locations = {}
+        for font in self._cjk_fonts.values():
+            rl.unload_font(font)
+        self._cjk_fonts.clear()
         if self._owns_font and self._font is not None:
             rl.unload_font(self._font)
         if self._owns_korean_font and self._korean_font is not None:
@@ -2084,7 +2091,7 @@ class ClusterUiRenderer:
         text(f"{weather['temp']:.0f}°", 150, 272, 52, "text")
         weather_label = weather["label"]
         if self.language == CLUSTER_LANGUAGE_ZH_TW:
-            weather_label = {"맑음": "晴朗", "구름조금": "晴時多雲", "안개": "霧", "눈": "下雪", "비": "下雨", "뇌우": "雷雨", "흐림": "陰天"}.get(weather_label, "--")
+            weather_label = {"맑음": "晴朗", "구름조금": "晴時多雲", "안개": "霧", "눈": "下雪", "비": "下雨", "뇌우": "雷雨", "흐림": "陰天"}.get(weather_label, weather_label)
         text(weather_label, 262, 276, 30, "text")
         line = []
         if weather.get("max") is not None and weather.get("min") is not None:
@@ -3799,6 +3806,8 @@ class ClusterUiRenderer:
             *range(0x2000, 0x2070),
             *sorted({ord(char) for char in '駕駛資訊行程摘要時間距離平均速度最高速度輔助駕駛最大加速最大減速急加速急煞車急轉彎系統裝置安裝角度節能安全一般運動導航下一個區間平均路線已連線等待連線偏離路線openpilot 無法使用等待啟動請立即接手駕駛系統無回應請重新啟動裝置停車胎壓 (psi)本次行程距離時間平均輔助駕駛倒車置中方向盤盲點左右請同時確認後方影像及周圍環境月日星期一二三四五六時分左右急加速煞車轉彎' if ord(char) > 0x2070}),
             *map(ord, "晴朗時多雲霧下雪雨雷陰天最高低空氣品質良好普通不佳很差"),
+            *sorted({ord(c) for value in HUD_ZH_LABELS.values() for c in value}),
+            *map(ord, "檢查更新可號誌候選前次辨識即時等待資料："),
             0x20A9,
             *range(0x3131, 0x3190),
             *range(0xAC00, 0xD7A4),
@@ -7994,7 +8003,8 @@ class ClusterUiRenderer:
         text_x = GIT_STATUS_MARGIN + GIT_STATUS_DOT_RADIUS * 2 + GIT_STATUS_DOT_TEXT_GAP
         if status is not None:
             color = self._git_status_color(status, theme)
-            text = status.branch if not status.detail else f"{status.branch} ({status.detail})"
+            detail = localize_hud_text(self.language, status.detail)
+            text = status.branch if not detail else f"{status.branch} ({detail})"
             text = self._ellipsize_text(text, text_size, GIT_STATUS_MAX_TEXT_W)
             dot_center_x = GIT_STATUS_MARGIN + GIT_STATUS_DOT_RADIUS
             rl.draw_circle_v(rl.Vector2(dot_center_x, center_y), GIT_STATUS_DOT_RADIUS, rl_color(color))
@@ -9079,6 +9089,7 @@ class ClusterUiRenderer:
         color: tuple[int, int, int],
         anchor: str = "left",
     ) -> None:
+        text = localize_hud_text(self.language, text)
         if not text:
             return
         font = self._font_for_text(text)
@@ -9097,6 +9108,28 @@ class ClusterUiRenderer:
         rl.draw_text_ex(font, text, rl.Vector2(draw_x, draw_y), size, spacing, rl_color(color))
 
     def _font_for_text(self, text: str):
+        if any(0x3400 <= ord(c) <= 0x9FFF for c in text):
+            known = self._known_font_codepoints
+            if any(0x3400 <= ord(c) <= 0x9FFF and ord(c) not in known for c in text):
+                key = tuple(sorted(set(map(ord, text))))
+                cache = self._cjk_fonts
+                if key not in cache:
+                    for candidate in self._font_candidates():
+                        if not candidate.exists():
+                            continue
+                        try:
+                            font = rl.load_font_ex(str(candidate), KOREAN_FONT_BASE_SIZE, rl.ffi.new("int[]", key), len(key))
+                        except Exception:
+                            continue
+                        if font.texture.id > 0:
+                            rl.set_texture_filter(font.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
+                            if len(cache) >= 16:
+                                rl.unload_font(cache.pop(next(iter(cache))))
+                                self._text_measure_cache.clear()
+                            cache[key] = font
+                            break
+                if key in cache:
+                    return cache[key]
         if self._font is None:
             self._font = rl.get_font_default()
         if self._korean_font is not None and any(ord(char) > 0x7F for char in text):
@@ -9115,6 +9148,7 @@ class ClusterUiRenderer:
         anchor: str = "left",
         cache: bool = False,
     ) -> None:
+        text = localize_hud_text(self.language, text)
         if not text:
             return
         if cache and stroke_width > 0 and self._stroked_text_texture_cache_enabled:
@@ -9502,6 +9536,7 @@ class ClusterUiRenderer:
         spacing: float | None = None,
         font=None,
     ) -> tuple[float, float]:
+        text = localize_hud_text(self.language, text)
         if font is None:
             font = self._font_for_text(text)
         measure_spacing = max(1.0, size * 0.02) if spacing is None else spacing
@@ -9517,6 +9552,7 @@ class ClusterUiRenderer:
         return measured
 
     def _ellipsize_text(self, text: str, size: float, max_width: float) -> str:
+        text = localize_hud_text(self.language, text)
         spacing = max(1.0, size * 0.02)
         if self._measure_text(text, size, spacing)[0] <= max_width:
             return text

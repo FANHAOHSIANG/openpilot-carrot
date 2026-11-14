@@ -29,16 +29,19 @@ def health_banner(health, language):
     temp, limit = trip.get('temp_c'), trip.get('limit_c')
     detail = ''
     if all(isinstance(v, (int, float)) and math.isfinite(v) for v in (temp, limit)):
-      detail = f" · {temp:.1f}°C / {'기준' if language == 'ko' else 'limit'} {limit:.1f}°C"
+      detail = f" · {temp:.1f}°C / {'門檻' if language == 'zh-TW' else '기준' if language == 'ko' else 'limit'} {limit:.1f}°C"
     if language == 'ko':
       title = 'Jetson 과열' if thermal == 'error' else 'Jetson 온도 높음'
       message = f'{title}{detail} · 냉각 상태 확인'
+    elif language == 'zh-TW':
+      title = 'Jetson 過熱' if thermal == 'error' else 'Jetson 溫度偏高'
+      message = f'{title}{detail} · 請檢查散熱'
     else:
       title = 'Jetson overheating' if thermal == 'error' else 'Jetson temperature high'
       message = f'{title}{detail} · Check cooling'
     return message, ERROR if thermal == 'error' else WARNING
   if health.get('severity', 'unknown') != 'ok':
-    reason = health.get('reason') or ('온도·상태 정보 없음' if language == 'ko' else 'Temperature/health unavailable')
+    reason = health.get('reason') or ('無溫度或狀態資料' if language == 'zh-TW' else '온도·상태 정보 없음' if language == 'ko' else 'Temperature/health unavailable')
     return f'Jetson: {reason}', ERROR if health.get('severity') == 'error' else WARNING
   return '', NORMAL
 
