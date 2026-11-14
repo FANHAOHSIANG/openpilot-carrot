@@ -74,6 +74,29 @@ def test_tightens_as_vehicle_approaches_and_keeps_cluster_units():
   assert scaled.speed_kph * .9 == pytest.approx(results[0].speed_kph)
 
 
+@pytest.mark.parametrize("origin_offset", [0., 2.5])
+def test_external_motorway_kink_does_not_override_a_straight_model(origin_offset):
+  x = np.arange(0., 505., 5.)
+  y = np.interp(x, [0., 100., 120., 140., 160., 500.], [0., 0., 4., 4., 0., 0.])
+  xy = np.column_stack([x, y])
+  position = (origin_offset, 0)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), ('nav', 1))
+  result = run(tracker, xy, position=position)[-1]
+  assert result.reason == 'matched'
+  assert result.speed_kph == 250.
+
+
+def test_external_true_curve_remains_available_beyond_model_horizon():
+  xy = road()
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), ('nav', 1))
+  result = run(tracker, xy)[-1]
+  assert result.reason == 'matched'
+  assert 180 < result.distance < 250
+  assert 40 < result.curve_kph < 50
+
+
 @pytest.mark.parametrize('kind,reason', [
   ('gps', 'stale_position'), ('model_age', 'stale_model'), ('heading', 'off_route'),
   ('lateral', 'model_mismatch'), ('fork', 'model_mismatch'), ('jump', 'position_jump'),
