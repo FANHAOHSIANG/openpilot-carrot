@@ -1,0 +1,56 @@
+name: Carrot official radar and source-preservation gate
+on:
+  pull_request:
+    branches:
+      - test/carrot-wip-upstream-20261104
+    paths:
+      - 'openpilot/selfdrive/carrot/radar_motion/**'
+      - 'openpilot/selfdrive/carrot/tests/test_radar_motion_predictor.py'
+      - '.github/workflows/carrot-official-radar-sync-gate.yml'
+  push:
+    branches:
+      - sync/carrot-official-16df8e6-test-943db73f
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preserve-tested-source:
+    name: Preserve pinned official, Test and LED source
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify merged history and unchanged test-source modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 943db73fc6f9958df91b1c77e542667b7ddd7b58 HEAD
+          git merge-base --is-ancestor 16df8e63c06988171d62abef608e4a6959ccd10a HEAD
+          for path in tools/iphone_led openpilot/selfdrive/carrot/iphone_led_bridge.py openpilot/cereal/custom.capnp openpilot/system/manager/process_config.py; do
+            expected="$(git rev-parse "943db73fc6f9958df91b1c77e542667b7ddd7b58:$path")"
+            actual="$(git rev-parse "HEAD:$path")"
+            if [ "$expected" != "$actual" ]; then
+              echo "Unexpected change in pinned Test custom content: $path"
+              exit 1
+            fi
+          done
+  radar-regression:
+    name: Radar motion persistent-match regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .:opendbc_repo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline test-only dependencies
+        run: python -m pip install pytest==8.3.5 numpy pycapnp
+      - name: Compile updated radar Python modules
+        run: python -m compileall -q openpilot/selfdrive/carrot/radar_motion
+      - name: Run full radar motion predictor regression test
+        run: python -m pytest -q -o addopts='' -c /dev/null --rootdir=. --confcutdir=openpilot/selfdrive/carrot/tests openpilot/selfdrive/carrot/tests/test_radar_motion_predictor.py
