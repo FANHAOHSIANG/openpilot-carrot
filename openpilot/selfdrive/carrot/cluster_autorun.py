@@ -192,6 +192,8 @@ def _run_cluster_once(
     encoder_mode: int,
     output_mode: str = "usb",
     usbgpu_active: bool = False,
+    *,
+    s3_wifi: bool = False,
 ) -> None:
     from selfdrive.carrot import cluster_run
     # Install before renderer/encoder dependencies can bind graphics symbols.
@@ -230,6 +232,8 @@ def _run_cluster_once(
                         usbgpu_active,
                     ),
                 ]
+                if s3_wifi:
+                    sys.argv.append("--s3-wifi-hud")
                 run_cluster_entry()
                 return
             except H264PipelineInitializationError:
@@ -352,6 +356,12 @@ def _wait_for_usb_uevent(sock: socket.socket | None, timeout_s: float, expected_
         matched = _usb_uevent_matches(payload, expected_product_id) or matched
 
 
+def _wifi_hud_config(expected_product_id: int) -> dict | None:
+    from cluster_wifi_protocol import S3_DISPLAY_PRODUCT_ID, load_config
+
+    return load_config() if expected_product_id == S3_DISPLAY_PRODUCT_ID else None
+
+
 def _wait_for_supported_usb_device(params: Params, expected_product_id: int, reason: str) -> int | None:
     from cluster_usb_display import find_supported_usb_product, product_id_for_hud_mode, product_label
 
@@ -397,6 +407,13 @@ def _wait_for_supported_usb_device(params: Params, expected_product_id: int, rea
 
             now = time.monotonic()
             if now >= next_fallback_scan:
+                try:
+                    if _wifi_hud_config(expected_product_id) is not None:
+                        print("[cluster_autorun] S3 registration detected; rechecking output", flush=True)
+                        return None
+                except (OSError, RuntimeError):
+                    # Invalid registration must not interrupt wired HUD discovery.
+                    pass
                 found_product_id = find_supported_usb_product(expected_product_id)
                 if found_product_id is not None:
                     return found_product_id
@@ -412,13 +429,19 @@ def _wait_for_supported_usb_device(params: Params, expected_product_id: int, rea
             usb_events.close()
 
 
-def _turn_off_supported_usb_device(expected_product_id: int, reason: str) -> bool:
+def _turn_off_hud_display(expected_product_id: int, reason: str) -> bool:
     _configure_autorun_locale()
 
-    from cluster_usb_display import TuringUsbDisplay, find_supported_usb_product, product_label
-    if find_supported_usb_product(expected_product_id) is None:
+    from cluster_usb_display import find_supported_usb_product, product_label
+    from cluster_wifi_display import create_display
+
+    try:
+        wifi_config = _wifi_hud_config(expected_product_id)
+    except (OSError, RuntimeError):
+        wifi_config = None
+    if wifi_config is None and find_supported_usb_product(expected_product_id) is None:
         return False
-    display = TuringUsbDisplay(brightness=0, display_fps=0, expected_product_id=expected_product_id)
+    display = create_display(wifi_config, brightness=0, display_fps=0, expected_product_id=expected_product_id)
     try:
         display.open()
         print(
@@ -461,7 +484,7 @@ def _wait_for_hud_output_allowed(params: Params, expected_product_id: int) -> in
 
         now = time.monotonic()
         if now >= next_off_dim:
-            _turn_off_supported_usb_device(expected_product_id, "output disabled")
+            _turn_off_hud_display(expected_product_id, "output disabled")
             next_off_dim = now + USB_OFF_DIM_INTERVAL_S
 
         time.sleep(max(0.1, min(next_hud_check, next_off_dim) - time.monotonic()))
@@ -546,6 +569,7 @@ def main() -> None:
     ensure_clean_autorun_process()
     from cluster_profile import release_finished_session_memory
     from cluster_usb_display import find_supported_usb_product, product_id_for_hud_mode, product_label
+    from cluster_wifi_protocol import discover as discover_wifi_display
 
     scheduler = DisplayScheduler(4, enabled=TICI)
     scheduler.update(False, force=True)
@@ -567,9 +591,28 @@ def main() -> None:
                 return
             continue
 
+        try:
+            wifi_config = _wifi_hud_config(expected_product_id)
+        except (OSError, RuntimeError) as exc:
+            print(f"[cluster_autorun] S3 registration unavailable ({type(exc).__name__}); checking USB", flush=True)
+            wifi_config = None
+        if wifi_config is not None:
+            try:
+                # Check availability before allocating the HUD renderer and encoder.
+                discover_wifi_display(wifi_config)
+            except OSError as exc:
+                status = f"S3 Wi-Fi HUD unavailable ({type(exc).__name__})"
+                print(f"[cluster_autorun] {status}; retrying in {RETRY_INTERVAL_S:.0f}s", flush=True)
+                time.sleep(RETRY_INTERVAL_S)
+                continue
+            if not _hud_output_allowed(params):
+                continue
+
         _wait_for_usbgpu_startup(params)
 
-        if find_supported_usb_product(expected_product_id) is None:
+        if wifi_config is not None:
+            print(f"[cluster_autorun] found {product_label(expected_product_id)} via S3 Wi-Fi; starting cluster HUD", flush=True)
+        elif find_supported_usb_product(expected_product_id) is None:
             if not TICI:
                 print(
                     f"[cluster_autorun] {product_label(expected_product_id)} not found on PC; "
@@ -606,6 +649,7 @@ def main() -> None:
                 hud_mode,
                 encoder_mode,
                 usbgpu_active=params.get_bool(USBGPU_ACTIVE_PARAM),
+                s3_wifi=wifi_config is not None,
             )
             next_hud_mode = _read_hud_mode(params)
             next_encoder_mode = _read_encoder_mode(params)

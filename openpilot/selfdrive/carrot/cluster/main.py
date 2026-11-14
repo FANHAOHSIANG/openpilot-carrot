@@ -81,6 +81,8 @@ from cluster_simulator import ClusterSimulator, RandomInputSource
 from cluster_system_monitor import ClusterProcessCoreUsageSampler, NetworkAddressProvider
 from cluster_usb_display import TuringUsbDisplay, find_supported_usb_product, product_id_for_hud_mode, _set_cluster_hud_connected
 from cluster_usb_pipeline import AsyncJpegUsbPipeline
+from cluster_wifi_display import create_display
+from cluster_wifi_protocol import load_config as load_wifi_config, select_codec as select_wifi_codec
 from openpilot.common.display_scheduling import DisplayScheduler
 from openpilot.selfdrive.controls.lib.cutin_alert import CutinAlertCandidate, CutinAlertTracker
 
@@ -689,6 +691,8 @@ def run_demo(
     language: str | None,
     is_metric: bool | None,
     usb_h264_ffmpeg_threads: int = 0,
+    *,
+    s3_config: dict | None = None,
 ) -> None:
     scheduler = DisplayScheduler(4, enabled=TICI)
     scheduler.update(False, force=True)
@@ -728,7 +732,8 @@ def run_demo(
         auto_enabled=usb_brightness_auto_enabled,
     )
     if output_mode in ("usb", "both"):
-        usb_display = TuringUsbDisplay(
+        usb_display = create_display(
+            s3_config,
             brightness=initial_usb_brightness,
             display_fps=usb_display_fps,
             jpeg_quality=usb_jpeg_quality,
@@ -2011,6 +2016,7 @@ def parse_args() -> argparse.Namespace:
         default="usb",
         help="Render target. usb sends frames to the TURZX USB display. Default: usb.",
     )
+    parser.add_argument("--s3-wifi-hud", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--controller-index",
         type=int,
@@ -2535,7 +2541,10 @@ def resolve_usb_output_rate(args: argparse.Namespace):
 
 def main(*, exit_on_error: bool = True) -> None:
     args = parse_args()
-    if args.output in ("usb", "both") and not TICI:
+    wifi_config = load_wifi_config() if args.s3_wifi_hud else None
+    if args.s3_wifi_hud and (wifi_config is None or args.output not in ("usb", "both")):
+        raise RuntimeError("S3 Wi-Fi HUD requires a paired display and USB-format output")
+    if args.output in ("usb", "both") and not TICI and wifi_config is None:
         expected_product_id = product_id_for_hud_mode(args.cluster_hud_mode) if args.cluster_hud_mode is not None else None
         if find_supported_usb_product(expected_product_id) is None:
             print(
@@ -2544,9 +2553,37 @@ def main(*, exit_on_error: bool = True) -> None:
             )
             args.output = "window"
     encoder_source = apply_cluster_encoder_param(args)
+    if wifi_config is not None:
+        encoder_mode = args.cluster_hud_encoder
+        if encoder_mode is None and not args.usb_codec_from_cli:
+            encoder_mode = ClusterHudEncoderParamReader().read()
+        jpeg_encoder = encoder_mode == CLUSTER_ENCODER_JPEG
+        jpeg_fallback = args.usb_codec_from_cli and args.usb_codec == "jpeg"
+        args.usb_codec = "jpeg" if jpeg_encoder else select_wifi_codec(wifi_config, jpeg_fallback=jpeg_fallback)
+        encoder_source = f"S3 Wi-Fi {args.usb_codec.upper()}"
+        args.usb_jpeg_quality = wifi_config.get("quality", 50)
+        args.usb_async = args.usb_codec == "jpeg"
+        if args.usb_codec == "h264":
+            if args.usb_h264_bitrate == "auto":
+                args.usb_h264_bitrate = "1M"
+            if not args.usb_h264_rate_control_from_cli:
+                args.usb_h264_rate_control = "cbr-cfr"
+            args.usb_h264_gop = 10
+            args.usb_h264_wait_ack = False
+            args.usb_h264_soft_ack = False
+            if args.usb_h264_diagnose_interval == 0:
+                args.usb_h264_diagnose_interval = 10.0
     if args.usb_async and args.usb_codec != "jpeg":
         raise SystemExit("--usb-async only supports --usb-codec jpeg")
     target_fps, fps_source, usb_fps_reader, usb_display_fps, usb_display_fps_auto = resolve_usb_output_rate(args)
+    if wifi_config is not None:
+        target_fps = float(wifi_config.get("fps", 15))
+        fps_source = "S3 Wi-Fi"
+        usb_fps_reader = ClusterUsbFpsReader(target_fps, egpu_max_fps=10.0) if TICI and args.input == "live" else None
+        if usb_fps_reader is not None:
+            target_fps = usb_fps_reader.read()
+        usb_display_fps = int(target_fps)
+        usb_display_fps_auto = usb_fps_reader is not None
     usb_h264_bitrate = resolved_usb_h264_bitrate(args.usb_h264_bitrate, target_fps, args.usb_h264_fps)
     usb_h264_bitrate_auto = args.usb_h264_bitrate.strip().lower() == "auto"
     brightness_param_reader = None
@@ -2668,6 +2705,7 @@ def main(*, exit_on_error: bool = True) -> None:
             args.language,
             args.is_metric,
             usb_h264_ffmpeg_threads=args.usb_h264_ffmpeg_threads,
+            s3_config=wifi_config,
         )
     except KeyboardInterrupt:
         print("\nStopped.")

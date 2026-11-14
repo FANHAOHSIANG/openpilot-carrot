@@ -322,9 +322,9 @@ Bosch MRRevo14F 수신을 지원하는 버전에서 Bosch MRRevo14F 후보 차�
 
 화면 표시에는 34개 항목이 있습니다. 외부 HUD 항목은 별도 하드웨어의 화면 구성과 출력 방식을 조정합니다.
 
-`ClusterHud`(외부 HUD 활성화)는 **본체 USB에 직접 연결한 HUD**를 켜고 끄는 설정입니다. Jetson에 연결한 HUD는 이 값이 `0`이어도 자동 실행되며, 기본적으로 시동 OFF 시 화면을 끕니다. 시동 OFF에도 표시하려면 기존 `ClusterHudDebug`의 항상 켜기를 사용합니다. 밝기·화면 구성 설정은 Jetson HUD에도 적용됩니다.
+`ClusterHud`(외부 HUD 활성화)는 TURZX 9.2인치 화면을 켜고 끄는 설정입니다. ESP32-S3 Wi-Fi 브리지가 등록되어 있으면 C4는 해당 브리지로 출력하고, 등록되어 있지 않으면 본체 USB로 출력합니다. Jetson에 연결한 HUD는 이 값이 `0`이어도 자동 실행되며, 기본적으로 시동 OFF 시 화면을 끕니다. 시동 OFF에도 표시하려면 기존 `ClusterHudDebug`의 항상 켜기를 사용합니다. 밝기·화면 구성 설정은 Jetson HUD에도 적용됩니다.
 
-ESP32-S3 Wi-Fi 디스플레이 지원은 제거되었습니다. USB 디스플레이를 Jetson에 연결하세요. 지원 수신기는 추론 중 제한된 USB 전송으로 HUD·지도·신호등 정보를 받으며, 구형 수신기는 업데이트 전까지 Wi-Fi를 사용합니다. Git Pull로 업데이트하고 Jetson 런타임이 바뀌면 양쪽 장치를 재부팅합니다.
+[ESP32-S3 브리지](../../../tools/esp32s3_display/README.md)는 C4와 같은 2.4GHz 네트워크에 연결하고, TURZX 쪽에는 외부 전원을 공급하는 USB 허브를 사용합니다. 기본 목표는 15 FPS이며 eGPU가 활성화되면 최대 10 FPS입니다. 브리지 연결이 끊기면 C4가 다시 검색합니다. 본체 USB 출력으로 돌아가려면 `/data/carrot/cluster_wifi.json`을 다른 곳으로 옮긴 후 재시작합니다. 별도의 Jetson HUD는 지원 수신기에서 추론 중 제한된 USB 전송으로 HUD·지도·신호등 정보를 받으며, 구형 수신기는 업데이트 전까지 Wi-Fi를 사용합니다.
 
 
 

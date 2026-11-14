@@ -324,9 +324,9 @@ A saved change takes effect at the **next vehicle-parameter initialization**; it
 
 Display contains 34 settings. External-HUD settings control the layout and output of separate display hardware.
 
-`ClusterHud` (External HUD Display) switches a **direct USB HUD** on or off. A HUD connected to Jetson starts automatically even when this value is `0`, and normally turns its display off with ignition. Use the existing always-on `ClusterHudDebug` modes to keep it visible offroad. Brightness and layout settings also apply to the Jetson HUD.
+`ClusterHud` (External HUD Display) switches the 9.2-inch TURZX on or off. C4 uses a registered ESP32-S3 Wi-Fi bridge when available in its configuration and direct USB when there is no registration. A HUD connected to Jetson starts automatically even when this value is `0`, and normally turns its display off with ignition. Use the existing always-on `ClusterHudDebug` modes to keep it visible offroad. Brightness and layout settings also apply to the Jetson HUD.
 
-ESP32-S3 Wi-Fi display support has been removed. Connect the USB display to Jetson. Supported receivers accept HUD, navigation and signal information over bounded USB transfers during inference; older receivers keep Wi-Fi until updated. Update through Git Pull and reboot both devices when the Jetson runtime changes.
+The [ESP32-S3 bridge](../../../tools/esp32s3_display/README.md) uses the same 2.4 GHz network as C4 and a powered USB hub at the TURZX. Its default target is 15 FPS, capped at 10 FPS with an active eGPU. If the paired bridge goes offline, C4 retries discovery. Move the registration file out of `/data/carrot/cluster_wifi.json` and restart to select direct USB again. For the separate Jetson HUD, supported receivers accept HUD, navigation and signal information over bounded USB transfers during inference. Older receivers keep Wi-Fi until updated.
 
 
 

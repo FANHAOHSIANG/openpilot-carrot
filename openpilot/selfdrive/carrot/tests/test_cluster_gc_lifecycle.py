@@ -120,6 +120,7 @@ scope = {
  '_read_hud_mode': hud_mode,
  '_read_encoder_mode': lambda p: 2, '_read_orientation': lambda p: None,
  '_hud_output_allowed': lambda p: True, '_wait_for_usbgpu_startup': lambda p: None,
+ '_wifi_hud_config': lambda product_id: None,
  '_run_cluster_once': run, '_report_cluster_failure': lambda exc: None,
 }
 gc.disable()
