@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install bounded offline test requirements
-        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized jeepney
       - name: Build native signal and schema prerequisites (no device access)
         run: |
           scons -f tools/native_cpu/SConstruct -j2
