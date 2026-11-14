@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from types import SimpleNamespace
@@ -273,6 +275,52 @@ def test_applies_7714_vehicle_route_traffic_and_secondary_sdi():
   assert serv.szPosRoadName == ""
   assert (serv.nGoPosDist, serv.nGoPosTime) == (0, 0)
   assert serv.params_memory.removed[-1] == "TrafficLight"
+
+
+def test_amap_link_countdown_clears_on_age_withdrawal_and_off_route(monkeypatch):
+  from openpilot.selfdrive.carrot import carrot_serv
+  from openpilot.selfdrive.carrot.carrot_navi_control import parse_carrot_navi_control
+
+  serv = _serv()
+  now = 10.0
+  monkeypatch.setattr(carrot_serv.time, "monotonic", lambda: now)
+  message = {
+    "schemaVersion": 1,
+    "connected": True,
+    "trafficSignal": {
+      "meta": {**_meta(1), "receivedMonoTimeNanos": 9_500_000_000},
+      "visible": True,
+      "source": "amap_link",
+      "uiCounterValid": True,
+      "uiCounterRemainSec": 18,
+    },
+  }
+
+  def apply():
+    parsed = parse_carrot_navi_control(message)
+    assert parsed is not None
+    serv._apply_carrot_navi_traffic(parsed)
+
+  apply()
+  name, raw = serv.params_memory.writes[-1]
+  assert name == "TrafficLight"
+  assert json.loads(raw) == {"distance": 0, "lamp": "countdown", "remain": 18, "source": "amap_link", "ts": 9.5}
+  now = 12.0
+  apply()
+  assert serv.params_memory.removed == ["TrafficLight"]
+  assert len(serv.params_memory.writes) == 1
+
+  now = 10.0
+  apply()
+  message["trafficSignal"]["meta"]["present"] = False
+  apply()
+  assert len(serv.params_memory.removed) == 2
+
+  message["trafficSignal"]["meta"]["present"] = True
+  apply()
+  message["navigationStatus"] = {"meta": _meta(2), "offRoute": True}
+  apply()
+  assert len(serv.params_memory.removed) == 3
 
 
 @pytest.mark.parametrize("receipt_ns", (0, 9_800_000_000))

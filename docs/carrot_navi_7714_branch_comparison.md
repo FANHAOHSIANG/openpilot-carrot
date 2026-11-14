@@ -1,5 +1,14 @@
 # 7714 내비 감속 브랜치 비교
 
+## 高德手機 Link 號誌測試版
+
+以 `test/carrot-wip-upstream-20261104` 為基底。Carrot Bridge wide.71 傳送
+`json:traffic_signal` 的 `source=amap_link` 與 `ui_counter.remain_sec`。
+C4 在畫面時鐘旁呈現中性秒數。收件後 2.5 秒逾時、收到撤銷或導航偏離時清除。
+高德車機版的號誌及測速仍各走既有 `traffic_signal` 和 `speed.sdi`。
+手機版測速仍待取得含相機類型、距離、執法速限的 Link 樣本。
+本次變更限於號誌畫面，測速和縱向控制沿用既有邏輯。
+
 ## 2026-11-13：1104 路線接收上限更新
 
 `FANHAOHSIANG/openpilot-carrot` 的 `test/carrot-wip-upstream-20261104` 已整合高德 Link 配套：

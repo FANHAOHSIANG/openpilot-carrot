@@ -1008,7 +1008,7 @@ class HudRenderer(Widget):
       remain = int(d.get("remain", 0))
       ts = float(d.get("ts", 0.0))
 
-      if lamp not in ("red", "green", "left", "right", "uturn"):
+      if lamp not in ("red", "green", "left", "right", "uturn", "countdown"):
         return None
 
       if remain <= 0:
@@ -1064,6 +1064,11 @@ class HudRenderer(Widget):
 
     lamp = info["lamp"]
     remain = str(info["remain"])
+
+    if lamp == "countdown":
+      draw_text_ui_style(f"號誌 {remain}秒", pos_x, pos_y, 28, rl.Color(225, 225, 225, 235),
+                         font=self._font_display, border_width=1.0, shadow_offset=8.0, align="left_center", y_offset=0.0)
+      return True
 
     lamp_size = 24
     remain_font = 28

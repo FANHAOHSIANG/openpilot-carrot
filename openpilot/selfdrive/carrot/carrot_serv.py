@@ -1032,6 +1032,14 @@ class CarrotServ:
       self._clear_carrot_navi_traffic()
       return
 
+    timestamp = time.monotonic()
+    if traffic.lamp == "countdown":
+      received = traffic.received_mono_time_ns / 1e9
+      if navi.off_route or received <= 0 or not 0 <= timestamp - received < 2.5:
+        self._clear_carrot_navi_traffic()
+        return
+      timestamp = received
+
     params_memory = getattr(self, "params_memory", None)
     if params_memory is None:
       return
@@ -1040,7 +1048,7 @@ class CarrotServ:
       "lamp": traffic.lamp,
       "remain": traffic.remain_sec,
       "source": traffic.source,
-      "ts": time.monotonic(),
+      "ts": timestamp,
     }
     try:
       params_memory.put_nonblocking("TrafficLight", json.dumps(value))
@@ -1110,7 +1118,6 @@ class CarrotServ:
       self.carrot_navi_speed_sequence = navi.speed.sequence
       self._apply_carrot_navi_speed(navi)
 
-    # Traffic Params still use the service heartbeat; GPS only accepts new fixes.
     self._apply_carrot_navi_vehicle(navi)
     self._apply_carrot_navi_traffic(navi)
     if new_session or navi.route.sequence != self.carrot_navi_route_sequence:
