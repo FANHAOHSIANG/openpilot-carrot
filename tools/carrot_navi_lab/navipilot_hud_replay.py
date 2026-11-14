@@ -8,6 +8,7 @@ No connections are opened. Output contains aggregate counts and distances only.
 """
 
 import argparse
+import bisect
 import hashlib
 import json
 import math
@@ -60,7 +61,7 @@ def distance_to_route(lat, lon, points):
     return best
 
 
-def frames(path, expected_hash):
+def event_rows(path, expected_hash):
     if hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
         raise ValueError(f"Fixture SHA-256 mismatch: {path.name}")
     with zipfile.ZipFile(path) as archive:
@@ -71,8 +72,75 @@ def frames(path, expected_hash):
         rows = []
         for name in names:
             with archive.open(name) as stream:
-                rows.extend(row for line in stream if (row := json.loads(line))["event"] == "c4_telemetry")
-    return sorted(rows, key=lambda row: row["mono_ms"])
+                rows.extend(json.loads(line) for line in stream)
+    return sorted(rows, key=lambda row: row.get("mono_ms", -1))
+
+
+def producer_summary(rows):
+    """Return aggregate source evidence without exposing recorded coordinates.
+
+    Source identity comes only from the producer's event type. Distance metrics
+    are diagnostic corroboration and must never be used to infer that identity
+    or select a coordinate conversion.
+    """
+    telemetry = []
+    captures = []
+    route_packets = 0
+    fixes = []
+    for row in rows:
+        if row["event"] == "c4_telemetry":
+            raw = row.get("data", {}).get("carrotMan") or {}
+            values = tuple(raw.get(key) for key in ("xPosLat", "xPosLon"))
+            if all(isinstance(value, (int, float)) and math.isfinite(value) for value in values):
+                telemetry.append((row["mono_ms"], *values))
+        elif row["event"] == "amap_link_capture":
+            captures.append(row.get("data") or {})
+        elif row["event"] == "amap_link_packet":
+            for item in row.get("data", {}).get("payload", {}).get("datas", ()):
+                if item.get("type") == 2:
+                    route_packets += 1
+                elif item.get("type") == 4:
+                    data = item.get("data") or {}
+                    lat, lon = data.get("matchPosLat"), data.get("matchPosLon")
+                    if all(isinstance(value, (int, float)) and math.isfinite(value) for value in (lat, lon)):
+                        fixes.append((row["mono_ms"], lat, lon))
+
+    source_identity = "amap_link" if captures or fixes or route_packets else "unidentified"
+    coordinate_tags = {
+        str(data.get(key)).strip().lower()
+        for data in captures
+        for key in ("coordinate_system", "coordinateSystem", "crs")
+        if data.get(key)
+    }
+    times = [item[0] for item in telemetry]
+    direct, shifted = [], []
+    for timestamp, raw_lat, raw_lon in fixes:
+        index = bisect.bisect_left(times, timestamp)
+        candidates = telemetry[max(0, index - 1):min(len(telemetry), index + 1)]
+        if not candidates:
+            continue
+        gps_timestamp, gps_lat, gps_lon = min(candidates, key=lambda item: abs(item[0] - timestamp))
+        if abs(gps_timestamp - timestamp) > 500:
+            continue
+        direct.append(point_distance(gps_lat, gps_lon, raw_lat, raw_lon))
+        gcj_lat, gcj_lon = gcj02(gps_lat, gps_lon)
+        shifted.append(point_distance(gcj_lat, gcj_lon, raw_lat, raw_lon))
+
+    return {
+        "source_identity": source_identity,
+        "coordinate_system_tagged": len(coordinate_tags) == 1,
+        "producer_route_packets": route_packets,
+        "producer_fix_pairs": len(direct),
+        "producer_fix_direct_m": rounded_median(direct),
+        "producer_fix_wgs_to_gcj_m": rounded_median(shifted),
+    }
+
+
+def point_distance(lat_a, lon_a, lat_b, lon_b):
+    latitude = (lat_a + lat_b) / 2.
+    north = (lat_b - lat_a) * METERS_PER_DEGREE
+    east = (lon_b - lon_a) * METERS_PER_DEGREE * math.cos(math.radians(latitude))
+    return math.hypot(north, east)
 
 
 def live_source(module):
@@ -99,7 +167,9 @@ class SubMaster(dict):
 
 
 def run_recording(module, path, expected_hash):
-    rows = frames(path, expected_hash)
+    events = event_rows(path, expected_hash)
+    rows = [row for row in events if row["event"] == "c4_telemetry"]
+    producer = producer_summary(events)
     source = live_source(module)
     clock = SimpleNamespace(monotonic=lambda: 1.)
     original_clock = module.time
@@ -172,6 +242,7 @@ def run_recording(module, path, expected_hash):
         "max_jump_20m": round(max(jumps), 2) if jumps else None,
         "jump_pairs_20m": len(jumps), "fallback_errors": fallback_errors,
         "shape_errors": shape_errors,
+        **producer,
     }
 
 
@@ -206,7 +277,10 @@ def main():
         if row["fallback_errors"] or row["shape_errors"]:
             failures.append(f'{row["id"]}: invalid HUD output')
         if row["offset_delta_m"] is not None and row["offset_delta_m"] > 30:
-            failures.append(f'{row["id"]}: route coordinate system needs source verification')
+            if row["source_identity"] == "amap_link" and not row["coordinate_system_tagged"]:
+                failures.append(f'{row["id"]}: Amap Link route has no coordinate-system tag')
+            else:
+                failures.append(f'{row["id"]}: route coordinate system needs source verification')
         elif row["compatible"] < 20 or row["shown"] < row["compatible"] * .65:
             failures.append(f'{row["id"]}: insufficient confirmed HUD coverage')
         if row["jump_pairs_20m"] and row["max_jump_20m"] > 5:
