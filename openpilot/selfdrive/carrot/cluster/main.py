@@ -2315,7 +2315,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--language",
-        choices=("ko", "en"),
+        choices=("ko", "en", "zh-TW"),
         default=None,
         help="Cluster text language override. Default follows LanguageSetting.",
     )

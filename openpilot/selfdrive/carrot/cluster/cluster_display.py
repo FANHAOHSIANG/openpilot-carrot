@@ -5,6 +5,7 @@ import math
 
 CLUSTER_LANGUAGE_EN = "en"
 CLUSTER_LANGUAGE_KO = "ko"
+CLUSTER_LANGUAGE_ZH_TW = "zh-TW"
 KPH_TO_MPH = 0.621371192237334
 METERS_TO_FEET = 3.280839895013123
 METERS_PER_MILE = 1609.344
@@ -78,16 +79,50 @@ _TEXT = {
     },
 }
 
+_TEXT[CLUSTER_LANGUAGE_ZH_TW] = {'driving_report': '駕駛資訊',
+ 'trip_summary': '行程摘要',
+ 'time': '時間',
+ 'distance': '距離',
+ 'average_speed': '平均速度',
+ 'max_speed': '最高速度',
+ 'auto_drive': '輔助駕駛',
+ 'max_accel': '最大加速',
+ 'max_decel': '最大減速',
+ 'hard_accel': '急加速',
+ 'hard_brake': '急煞車',
+ 'hard_corner': '急轉彎',
+ 'system': '系統',
+ 'device_angle': '裝置安裝角度',
+ 'driving_mode_eco': '節能',
+ 'driving_mode_safe': '安全',
+ 'driving_mode_normal': '一般',
+ 'driving_mode_sport': '運動',
+ 'navigation': '導航',
+ 'next': '下一個',
+ 'section': '區間',
+ 'average': '平均',
+ 'route': '路線',
+ 'connected': '已連線',
+ 'waiting': '等待連線',
+ 'off_route': '偏離路線',
+ 'openpilot_unavailable': 'openpilot 無法使用',
+ 'waiting_to_start': '等待啟動',
+ 'take_control_immediately': '請立即接手駕駛',
+ 'system_unresponsive': '系統無回應',
+ 'reboot_device': '請重新啟動裝置'}
+
 
 def normalize_cluster_language(value: object, default: str = CLUSTER_LANGUAGE_EN) -> str:
     if isinstance(value, bytes):
         value = value.decode("utf-8", "ignore")
     normalized = str(value or "").strip().lower().removeprefix("main_")
+    if normalized in ("zh-tw", "zh-cht", "zh-hant", "zh_hant", "zh_tw"):
+        return CLUSTER_LANGUAGE_ZH_TW
     if normalized in ("ko", "kr", "kor", "korean"):
         return CLUSTER_LANGUAGE_KO
     if normalized in ("en", "eng", "english"):
         return CLUSTER_LANGUAGE_EN
-    return CLUSTER_LANGUAGE_KO if default == CLUSTER_LANGUAGE_KO else CLUSTER_LANGUAGE_EN
+    return default if default in _TEXT else CLUSTER_LANGUAGE_EN
 
 
 def normalize_metric_setting(value: object, default: bool = True) -> bool:

@@ -27,6 +27,7 @@ from cluster_gles_dmabuf import DirectNv12DmabufError, create_tici_nv12_dmabuf_p
 from cluster_gles_readback import DirectNv12ReadbackError, create_tici_direct_readback
 from cluster_display import (
     CLUSTER_LANGUAGE_KO,
+    CLUSTER_LANGUAGE_ZH_TW,
     cluster_text,
     display_speed,
     format_navi_distance,
@@ -2081,15 +2082,19 @@ class ClusterUiRenderer:
         # EV6 HUD patch v17: [icon] 18°  맑음 / 최고 21°  최저 12°  ● 미세먼지 좋음
         self._ev6_draw_weather_icon(weather["kind"], 100, 272, 62, dark)
         text(f"{weather['temp']:.0f}°", 150, 272, 52, "text")
-        text(weather["label"], 262, 276, 30, "text")
+        weather_label = weather["label"]
+        if self.language == CLUSTER_LANGUAGE_ZH_TW:
+            weather_label = {"맑음": "晴朗", "구름조금": "晴時多雲", "안개": "霧", "눈": "下雪", "비": "下雨", "뇌우": "雷雨", "흐림": "陰天"}.get(weather_label, "--")
+        text(weather_label, 262, 276, 30, "text")
         line = []
         if weather.get("max") is not None and weather.get("min") is not None:
-            line.append(f"최고 {weather['max']:.0f}°  최저 {weather['min']:.0f}°")
+            line.append(f"最高 {weather['max']:.0f}°  最低 {weather['min']:.0f}°" if self.language == CLUSTER_LANGUAGE_ZH_TW else f"최고 {weather['max']:.0f}°  최저 {weather['min']:.0f}°")
         text("  ".join(line), 70, 330, 22, "muted")
         if weather.get("dust") is not None:
             label, color = EV6_DUST_GRADES[weather["dust"]]
             rl.draw_circle(262, 330, 7, rl_color(color))
-            text(f"미세먼지 {label}", 278, 330, 22, "muted")
+            dust_text = f"空氣品質 { ('良好', '普通', '不佳', '很差')[weather['dust']] }" if self.language == CLUSTER_LANGUAGE_ZH_TW else f"미세먼지 {label}"
+            text(dust_text, 278, 330, 22, "muted")
 
     @staticmethod
     def _ev6_draw_weather_icon(kind: str, cx: float, cy: float, s: float, dark: bool) -> None:
@@ -2136,8 +2141,10 @@ class ClusterUiRenderer:
         text(f"{int(level)}%", x + w + 16, cy, 34, "text")
 
     @staticmethod
-    def _ev6_park_duration_text(seconds: float, korean: bool = True) -> str:
+    def _ev6_park_duration_text(seconds: float, korean: bool = True, traditional_chinese: bool = False) -> str:
         minutes = int(round(max(0.0, seconds) / 60.0))
+        if traditional_chinese:
+            return f"{minutes // 60}時 {minutes % 60:02d}分" if minutes >= 60 else f"{minutes}分"
         if korean:
             return f"{minutes // 60}시간 {minutes % 60:02d}분" if minutes >= 60 else f"{minutes}분"
         return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
@@ -2160,6 +2167,8 @@ class ClusterUiRenderer:
             now = time.localtime()
             if self.language == CLUSTER_LANGUAGE_KO:
                 date_text = f"{now.tm_mon}월 {now.tm_mday}일 {EV6_PARK_WEEKDAYS_KO[now.tm_wday]}요일"
+            elif self.language == CLUSTER_LANGUAGE_ZH_TW:
+                date_text = f"{now.tm_mon}月{now.tm_mday}日 星期{'一二三四五六日'[now.tm_wday]}"
             else:
                 date_text = time.strftime("%a, %b %d", now)
             text(date_text, 70, 92, 34, "muted")
@@ -2170,7 +2179,7 @@ class ClusterUiRenderer:
                 self._ev6_draw_weather(weather, colors, theme.is_dark, text)
                 gear_y = 400
             text("P", 70, gear_y, 64, "accent")
-            text("주차" if self.language == CLUSTER_LANGUAGE_KO else "Park", 130, gear_y + 4, 30, "muted")
+            text("주차" if self.language == CLUSTER_LANGUAGE_KO else "停車" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Park", 130, gear_y + 4, 30, "muted")
             # Use the existing vehicle decoder, never infer EV6 CAN layout from the fallback picture.
             soc = state.fuel_gauge if state.energy_gauge_label == "battery" else None
             if soc is not None:
@@ -2198,18 +2207,18 @@ class ClusterUiRenderer:
             for key, dx, dy in (("fl", -70, -34), ("fr", 70, -34), ("rl", -70, 34), ("rr", 70, 34)):
                 value = getattr(tpms, key, None) if tpms is not None else None
                 text("--" if value is None or value <= 0 else f"{value:.0f}", cx + dx, cy + dy, 30, "text", "center")
-            text("공기압 (psi)" if korean else "Tyres (psi)", cx, cy + 86, 22, "muted", "center")
+            text("공기압 (psi)" if korean else "胎壓 (psi)" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Tyres (psi)", cx, cy + 86, 22, "muted", "center")
 
             # right: this trip
             trip = getattr(state, "trip_report", None)
             x0, x1 = 1420, 1860
-            text("이번 주행" if korean else "This trip", x0, 70, 30, "muted")
+            text("이번 주행" if korean else "本次行程" if self.language == CLUSTER_LANGUAGE_ZH_TW else "This trip", x0, 70, 30, "muted")
             rows = (
-                ("거리" if korean else "Distance", format_trip_distance(trip.distance_m, self.is_metric) if trip else "--"),
-                ("시간" if korean else "Time", self._ev6_park_duration_text(trip.duration_s, korean) if trip else "--"),
-                ("평균" if korean else "Average",
+                ("거리" if korean else "距離" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Distance", format_trip_distance(trip.distance_m, self.is_metric) if trip else "--"),
+                ("시간" if korean else "時間" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Time", self._ev6_park_duration_text(trip.duration_s, korean, self.language == CLUSTER_LANGUAGE_ZH_TW) if trip else "--"),
+                ("평균" if korean else "平均" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Average",
                  f"{display_speed(trip.average_speed_kph, self.is_metric):.1f} {speed_unit(self.is_metric)}" if trip else "--"),
-                ("자동주행" if korean else "Automatic", f"{trip.auto_ratio_percent:.0f} %" if trip else "--"),
+                ("자동주행" if korean else "輔助駕駛" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Automatic", f"{trip.auto_ratio_percent:.0f} %" if trip else "--"),
             )
             for i, (label, value) in enumerate(rows):
                 y = 135 + i * 78
@@ -2219,6 +2228,7 @@ class ClusterUiRenderer:
                     rl.draw_line_ex(rl.Vector2(x0, y + 39), rl.Vector2(x1, y + 39), 2, rl_color(colors["line"]))
             if trip:
                 summary = (f"급가속 {trip.hard_accel_count} · 급감속 {trip.hard_brake_count} · 급코너 {trip.hard_corner_count}" if korean
+                           else f"急加速 {trip.hard_accel_count} · 急煞車 {trip.hard_brake_count} · 急轉彎 {trip.hard_corner_count}" if self.language == CLUSTER_LANGUAGE_ZH_TW
                            else f"Hard accel {trip.hard_accel_count} · brake {trip.hard_brake_count} · corner {trip.hard_corner_count}")
                 text(summary, x0, 445, 24, "muted")
         finally:
@@ -2414,27 +2424,29 @@ class ClusterUiRenderer:
                 text(label, x, y, 24, "muted", "center")
             korean = self.language == CLUSTER_LANGUAGE_KO
             text("R", 70, 150, 140, "text")
-            text("후진" if korean else "Reverse", 190, 180, 34, "muted")
+            text("후진" if korean else "倒車" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Reverse", 190, 180, 34, "muted")
             speed = display_speed(abs(state.speed_kph), self.is_metric)
             text(f"{speed:.0f}", 70, 330, 84, "text")
             text(speed_unit(self.is_metric), 150 if speed < 9.5 else 190, 350, 30, "muted")
 
             x0, x1 = 1500, 1860
             if abs(steering_deg) < 5.0:
-                steer_text = "가운데" if korean else "Centre"
+                steer_text = "가운데" if korean else "置中" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Centre"
+            elif self.language == CLUSTER_LANGUAGE_ZH_TW:
+                steer_text = f"{'左' if steering_deg > 0 else '右'} {abs(steering_deg):.0f}°"
             elif korean:
                 steer_text = f"{'왼쪽' if steering_deg > 0 else '오른쪽'} {abs(steering_deg):.0f}°"
             else:
                 steer_text = f"{'Left' if steering_deg > 0 else 'Right'} {abs(steering_deg):.0f}°"
-            text("핸들" if korean else "Wheel", x0, 110, 28, "muted")
+            text("핸들" if korean else "方向盤" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Wheel", x0, 110, 28, "muted")
             text(steer_text, x1, 110, 40, "text", "right")
             rl.draw_line_ex(rl.Vector2(x0, 150), rl.Vector2(x1, 150), 2, rl_color(colors["line"]))
-            text("후측방" if korean else "Blind spot", x0, 200, 28, "muted")
-            for i, (label, active) in enumerate((("좌" if korean else "L", left_bsd), ("우" if korean else "R", right_bsd))):
+            text("후측방" if korean else "盲點" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Blind spot", x0, 200, 28, "muted")
+            for i, (label, active) in enumerate((("좌" if korean else "左" if self.language == CLUSTER_LANGUAGE_ZH_TW else "L", left_bsd), ("우" if korean else "右" if self.language == CLUSTER_LANGUAGE_ZH_TW else "R", right_bsd))):
                 cx = 1700 + i * 130
                 rl.draw_circle(cx, 200, 14, rl_color(warn if active else colors["line"]))
                 text(label, cx + 26, 200, 28, "text" if active else "muted")
-            text("후방 카메라와 주변을 함께 확인하세요" if korean else "Check the rear camera and surroundings",
+            text("후방 카메라와 주변을 함께 확인하세요" if korean else "請同時確認後方影像及周圍環境" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Check the rear camera and surroundings",
                  x0, 420, 24, "muted")
         finally:
             rl.rl_pop_matrix()
@@ -3785,6 +3797,8 @@ class ClusterUiRenderer:
         return (
             *range(0x20, 0x0250),
             *range(0x2000, 0x2070),
+            *sorted({ord(char) for char in '駕駛資訊行程摘要時間距離平均速度最高速度輔助駕駛最大加速最大減速急加速急煞車急轉彎系統裝置安裝角度節能安全一般運動導航下一個區間平均路線已連線等待連線偏離路線openpilot 無法使用等待啟動請立即接手駕駛系統無回應請重新啟動裝置停車胎壓 (psi)本次行程距離時間平均輔助駕駛倒車置中方向盤盲點左右請同時確認後方影像及周圍環境月日星期一二三四五六時分左右急加速煞車轉彎' if ord(char) > 0x2070}),
+            *map(ord, "晴朗時多雲霧下雪雨雷陰天最高低空氣品質良好普通不佳很差"),
             0x20A9,
             *range(0x3131, 0x3190),
             *range(0xAC00, 0xD7A4),

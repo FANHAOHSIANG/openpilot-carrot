@@ -54,11 +54,11 @@ def test_nav_map_mode_retains_driving_view_and_hud_on_left(monkeypatch):
     ("kr", "ko"),
     (b"en", "en"),
     ("main_en", "en"),
-    ("zh-CHT", "en"),
+    ("zh-CHT", "zh-TW"),
     ("unknown", "en"),
   ),
 )
-def test_cluster_language_supports_korean_and_english_only(value, expected):
+def test_cluster_language_supports_korean_english_and_traditional_chinese(value, expected):
   assert normalize_cluster_language(value) == expected
 
 
@@ -80,7 +80,8 @@ def test_metric_and_imperial_display_conversions():
 def test_cluster_text_falls_back_to_english_for_unsupported_languages():
   assert cluster_text("ko", "driving_report") == "주행리포트"
   assert cluster_text("en", "driving_report") == "DRIVING REPORT"
-  assert cluster_text("zh-CHT", "driving_report") == "DRIVING REPORT"
+  assert cluster_text("zh-CHT", "driving_report") == "駕駛資訊"
+  assert cluster_text("unknown", "driving_report") == "DRIVING REPORT"
 
 
 def test_display_preference_reader_uses_param_defaults_and_values():
@@ -415,3 +416,18 @@ def test_device_angle_target_maps_pitch_and_yaw_to_expected_axes():
   assert ClusterUiRenderer._device_angle_target_offset(3.0, 2.0, radius) == pytest.approx((-6.8, 10.2))
   assert ClusterUiRenderer._device_angle_target_offset(-3.0, -2.0, radius) == pytest.approx((6.8, -10.2))
   assert ClusterUiRenderer._device_angle_target_offset(20.0, -20.0, radius) == pytest.approx((20.4, 20.4))
+
+
+@pytest.mark.parametrize("language", ["zh-TW", "zh-CHT", "main_zh-CHT", "zh-Hant", b"zh-TW"])
+def test_traditional_chinese_preferences(language):
+  assert normalize_cluster_language(language, default="ko") == "zh-TW"
+  assert cluster_text(language, "driving_report") == "駕駛資訊"
+  assert cluster_text(language, "hard_brake") == "急煞車"
+
+
+def test_traditional_chinese_labels_have_loaded_glyphs():
+  from cluster_display import _TEXT
+  glyphs = set(ClusterUiRenderer._navi_font_codepoints())
+  assert all(ord(char) in glyphs for label in _TEXT["zh-TW"].values() for char in label)
+  assert ClusterUiRenderer._ev6_park_duration_text(3660, False, True) == "1時 01分"
+  assert ClusterUiRenderer._ev6_park_duration_text(120, False, True) == "2分"
