@@ -213,4 +213,4 @@ A TBT hold with confirmed transmission and illumination continues through a rece
 
 ### ATC curvature-based turn speed
 
-`AutoTurnControlAdaptiveSpeed` is off by default. In ATC speed modes 2 and 3, it can gradually raise the fixed left/right turn target up to 35 km/h when the matched navigation path covers the turn and its exit. Missing geometry uses the fixed target. Following, stopping, and lower speed constraints retain priority.
+`AutoTurnControlAdaptiveSpeed` is off by default. In ATC speed modes 2 and 3, it can gradually raise the fixed left/right turn target when the matched navigation path covers the turn and its exit. Ordinary turns use a 35 km/h cap on this adjustment. In turn-speed modes with route control enabled, a broad bend can use a higher curve-derived target when the camera path also agrees through the bend and its exit. Missing geometry uses the fixed target. Following, stopping, and lower speed constraints retain priority.

@@ -1,4 +1,5 @@
 import math
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -446,3 +447,31 @@ def test_atc_candidate_for_broad_turn_survives_one_repeated_model_frame():
   result = run(tracker, xy, v_ego=12.0, start_time=10.45, frames=1, model_time=10.4)[0]
   assert result.reason == 'repeated_model'
   assert tracker.atc_turn_speed(result, 1, 72) > 25
+
+
+def test_atc_broad_turn_needs_agreement_through_exit_and_an_active_route_cap():
+  radius = 90.0
+  angle = np.linspace(0, math.pi / 9, 25)
+  approach = np.column_stack([np.arange(0, 60, 5), np.zeros(12)])
+  bend = np.column_stack([60 + radius * np.sin(angle), radius * (1 - np.cos(angle))])
+  exit_distance = np.arange(2, 100, 2)
+  exit_road = bend[-1] + np.column_stack([exit_distance * np.cos(angle[-1]), exit_distance * np.sin(angle[-1])])
+  xy = np.vstack([approach, bend, exit_road])
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), ('nav', 1))
+  position = (18, 0)
+  model = model_for(xy, position, horizon=110)
+  result = run(tracker, xy, position=position, model=model, v_ego=12.0)[-1]
+  assert result.reason == 'matched'
+
+  args = (1, 55, lonlat(position), 90)
+  cap = tracker.atc_broad_turn_speed(result, *args, model)
+  assert 35 < cap <= result.speed_kph
+
+  short_model = model_for(xy, position, horizon=60)
+  assert tracker.atc_broad_turn_speed(result, *args, short_model) is None
+  straight_model = SimpleNamespace(position=SimpleNamespace(x=model.position.x, y=np.zeros(33)))
+  assert tracker.atc_broad_turn_speed(result, *args, straight_model) is None
+  assert tracker.atc_broad_turn_speed(result, 2, *args[1:], model) is None
+  assert tracker.atc_broad_turn_speed(replace(result, reason='model_mismatch'), *args, model) is None
+  assert tracker.atc_broad_turn_speed(replace(result, speed_kph=250), *args, model) is None

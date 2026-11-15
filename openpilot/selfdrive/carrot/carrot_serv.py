@@ -197,6 +197,7 @@ class CarrotServ:
     self.atc_paused = False
     self.atc_activate_count = 0
     self.atc_curve_speed = None
+    self.atc_broad_curve_speed = None
     self.atc_adaptive_target = 0.0
     self.atc_adaptive_event = None
     self.gas_override_speed = 0
@@ -1196,7 +1197,9 @@ class CarrotServ:
     if check_steer:
       previous = self.atc_adaptive_event
       now = time.monotonic()
-      matched = self.atc_curve_speed
+      broad = self.atc_broad_curve_speed if self.turnSpeedControlMode in (2, 3, 4) else None
+      matched = broad if (broad is not None and broad[0] == x_turn_info
+                          and abs(x_dist_to_turn - broad[1]) <= 2.0) else self.atc_curve_speed
       if (self.atcAdaptiveSpeed and self.autoTurnControl in (2, 3) and x_turn_info in (1, 2)
           and matched is not None and x_turn_info == matched[0]
           and abs(x_dist_to_turn - matched[1]) <= 2.0 and 0 < turn_speed < matched[3]
@@ -1560,6 +1563,7 @@ class CarrotServ:
     msg.carrotMan.atcFixedTargetKph = self.autoTurnControlSpeedTurn
     msg.carrotMan.atcCurveCandidateKph = self.atc_curve_speed[3] if self.atc_curve_speed else 0.0
     msg.carrotMan.atcAdaptiveTargetKph = self.atc_adaptive_target
+    msg.carrotMan.atcBroadCurveCandidateKph = self.atc_broad_curve_speed[3] if self.atc_broad_curve_speed else 0.0
     vehicle_navi_active, vehicle_navi_speed, vehicle_navi_section_active = self._vehicle_navigation_display(CS)
     msg.carrotMan.vehicleNaviActive = vehicle_navi_active
     msg.carrotMan.vehicleNaviSpeed = vehicle_navi_speed

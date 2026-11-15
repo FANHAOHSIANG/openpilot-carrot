@@ -243,6 +243,55 @@ class RouteCurveSpeed:
       return None
     return min(35.0, 3.6 * math.sqrt(1.3 / peak_curvature))
 
+  def atc_broad_turn_speed(self, result, turn, distance, position, heading, model):
+    """Require visual agreement through the bend before relaxing the TBT cap."""
+    if (result.reason not in ("matched", "repeated_model") or self.confirm_frames < 4
+        or self.confirm_since is None or self.match_time - self.confirm_since < CONFIRM_SECONDS - 1e-9
+        or not 35.0 < result.speed_kph < NO_LIMIT_KPH or turn not in (1, 2) or not 4.0 <= distance <= 100.0):
+      return None
+
+    progress = self.progress
+    start, end = distance - 20.0, distance + 44.0
+    if progress + start < 0 or progress + end > self.arc[-1]:
+      return None
+    edges = (self.arc[:-1] < progress + end) & (self.arc[1:] > progress + start)
+    if np.any(self.lengths[edges] > 12.0):
+      return None
+    sample = np.arange(start, end + 0.01, 2.0)
+    xy = np.column_stack([np.interp(progress + sample, self.arc, self.route[:, i]) for i in range(2)])
+    chords = xy[2:] - xy[:-2]
+    changes = np.diff(np.unwrap(np.arctan2(chords[:, 1], chords[:, 0])))
+    signed = changes * (1 if turn == 1 else -1)
+    angle = math.degrees(float(np.sum(signed)))
+    if not 12.0 <= angle <= 50.0 or np.sum(np.maximum(-signed, 0)) > math.radians(7.0):
+      return None
+
+    peak = int(np.argmax(np.abs(changes)))
+    peak_distance = sample[peak + 1] + 1.0
+    if (not distance - 12.0 <= peak_distance <= distance + 25.0
+        or np.max(np.abs(changes[:2])) > math.radians(2.0)
+        or np.max(np.abs(changes[-2:])) > math.radians(2.0)):
+      return None
+    curvature = abs(float(changes[peak])) / 2.0
+    ceiling = 3.6 * math.sqrt(1.3 / max(curvature, 1e-9))
+    if ceiling <= 35.0:
+      return None
+
+    radians = math.radians(heading)
+    offset = xy - (np.asarray(position) - self.origin) * self.scale
+    # Verify the same path through the peak and the sampled exit, not just its entry.
+    ahead = sample >= max(2.0, start)
+    x = offset[ahead] @ np.array([math.sin(radians), math.cos(radians)])
+    y = offset[ahead] @ np.array([math.cos(radians), -math.sin(radians)])
+    mx, my = np.asarray(model.position.x), np.asarray(model.position.y)
+    if (len(x) < 6 or not np.all(np.isfinite([mx, my])) or np.any(np.diff(x) <= 0)
+        or np.any(np.diff(mx) <= 0) or x[0] < mx[0] or x[-1] > mx[-1]):
+      return None
+    error = y - np.interp(x, mx, my)
+    if np.max(np.abs(error)) > 2.5 or np.ptp(error) > 2.5:
+      return None
+    return min(ceiling, result.speed_kph)
+
   def _invalid(self, reason, now, dt):
     self.confirm_since = None
     self.confirm_frames = 0
