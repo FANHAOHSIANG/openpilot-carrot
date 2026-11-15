@@ -55,8 +55,6 @@ from cluster_renderer import (
   NAV_STATUS_FONT_SIZE,
   NAVI_LIVE_PANEL_X,
   NAVI_MAP_BACKGROUND,
-  NAVI_MODE_MAP_X,
-  NAVI_TRAFFIC_GREEN,
   NAVI_TRAFFIC_RED,
   SIDE_GAUGE_COLUMN_GAP,
   SIDE_GAUGE_LEFT_CENTER_X,
@@ -724,7 +722,6 @@ def navi_alert_renderer(monkeypatch):
   renderer.height = DESIGN_HEIGHT
   renderer.panel_layout = CLUSTER_PANEL_LAYOUT_DRIVING_LEFT
   renderer.is_metric = True
-  renderer._summary_green_phase = None
   renderer.profile_enabled = False
   text, circles, rings = [], [], []
   monkeypatch.setattr(ClusterUiRenderer, "_current_theme", lambda self: DARK_CLUSTER_THEME)
@@ -774,39 +771,29 @@ def test_usb_hud_renders_signal_and_camera_in_summary_modes(navi_alert_renderer,
 
   renderer._draw_hud(SimpleNamespace(navi_live=navi, navi_debug=None, navi_dashboard=None), (False, False))
 
-  signal_x = DESIGN_WIDTH * 0.46 + offset
-  camera_x = DESIGN_WIDTH * 0.565 + offset
-  assert text == [("18 s", signal_x, 143.0), ("60", camera_x, 306.0), ("224 m", camera_x, 359.0)]
-  assert [circle[-1] for circle in circles[:3]] == [NAVI_TRAFFIC_RED, (80, 84, 90), (80, 84, 90)]
+  assert text == [("18 s", 649.0 + offset, 32.0), ("60", 755.0 + offset, 39.0),
+                  ("224 m", 835.0 + offset, 32.0)]
+  assert [circle[-1] for circle in circles[:3]] == [NAVI_TRAFFIC_RED, (91, 98, 107), (91, 98, 107)]
   assert circles[3][-1] == WHITE
-  assert rings == [(pytest.approx(camera_x), 306.0)]
+  assert rings == [(755.0 + offset, 52.0)]
 
 
-def test_usb_hud_green_is_limited_to_three_seconds_and_resets_on_new_session(navi_alert_renderer):
-  renderer, text, circles, _ = navi_alert_renderer
+def test_usb_hud_green_countdown_follows_fresh_packets_past_three_seconds(navi_alert_renderer):
+  renderer, _, _, _ = navi_alert_renderer
   navi = _parse_navi_alerts(lamp="green")
-  renderer._draw_summary_signal(navi, 0.0, 0.0, 102.9)
-  assert circles[-1][-1] == NAVI_TRAFFIC_GREEN
-  assert text[-1][0] == "16 s"
+  assert renderer._summary_signal(navi, 101.0) == (2, 17)
+  assert renderer._summary_signal(navi, 102.9) is None
   refreshed = replace(navi, traffic_light=replace(navi.traffic_light, meta=replace(navi.traffic_light.meta, received_mono_s=102.9)))
-  circles.clear()
-  text.clear()
-  renderer._draw_summary_signal(refreshed, 0.0, 0.0, 103.0)
-  assert not circles and not text
-  renderer._draw_summary_signal(replace(refreshed, session_id="new"), 0.0, 0.0, 103.0)
-  assert circles[-1][-1] == NAVI_TRAFFIC_GREEN
+  assert renderer._summary_signal(refreshed, 103.0) == (2, 18)
 
 
 def test_usb_hud_shows_phone_countdown_without_assigning_lamp_color(navi_alert_renderer, monkeypatch):
   renderer, text, circles, _ = navi_alert_renderer
   monkeypatch.setattr("cluster_renderer.time.monotonic", lambda: 100.5)
   navi = _parse_navi_alerts(source="amap_link", lamp="green")
-  renderer._draw_summary_signal(navi, 0.0, 0.0, 100.5)
-  assert text[-1][0] == "18 s"
-  assert [circle[-1] for circle in circles] == [(80, 84, 90)] * 3
-  monkeypatch.setattr(ClusterUiRenderer, "_draw_navi_media", lambda *args, **kwargs: False)
-  renderer._draw_navi_map_media({}, navi)
-  assert text[-1] == ("18 s", NAVI_MODE_MAP_X + 64.0, 42.0)
+  renderer._draw_navi_summary_alerts(SimpleNamespace(navi_live=navi), CLUSTER_SCREEN_MODE_TRIP_REPORT)
+  assert text[0][0] == "18 s"
+  assert [circle[-1] for circle in circles[:3]] == [(91, 98, 107)] * 3
 
 
 @pytest.mark.parametrize("condition", ("passed", "withdrawn", "stale", "off_route"))
@@ -818,18 +805,16 @@ def test_usb_hud_clears_passed_and_unavailable_camera(navi_alert_renderer, monke
   if condition == "withdrawn":
     navi = replace(navi, speed=None)
   monkeypatch.setattr("cluster_renderer.time.monotonic", lambda: 103.1 if condition == "stale" else 100.1)
-  renderer._draw_navi_summary_alerts(SimpleNamespace(navi_live=navi))
+  renderer._draw_navi_summary_alerts(SimpleNamespace(navi_live=navi), CLUSTER_SCREEN_MODE_TRIP_REPORT)
   assert not text and not rings
 
 
 def test_usb_hud_uses_only_active_section(navi_alert_renderer):
-  renderer, text, _, _ = navi_alert_renderer
+  renderer, _, _, _ = navi_alert_renderer
   section = {"active": True, "speed_limit_kph": 80, "remaining_distance_m": 500}
-  renderer._draw_summary_camera(_parse_navi_alerts(section=section), 0.0, 0.0, 100.1)
-  assert [item[0] for item in text] == ["80", "500 m"]
-  text.clear()
-  renderer._draw_summary_camera(_parse_navi_alerts(section={**section, "suspended": True}), 0.0, 0.0, 100.1)
-  assert [item[0] for item in text] == ["60", "224 m"]
+  assert renderer._summary_camera(_parse_navi_alerts(section=section), 100.1) == (80, 500)
+  inactive = _parse_navi_alerts(section={**section, "suspended": True})
+  assert renderer._summary_camera(inactive, 100.1) == (60, 224)
 
 
 def test_ipc_media_source_restores_standalone_navigation_images():
