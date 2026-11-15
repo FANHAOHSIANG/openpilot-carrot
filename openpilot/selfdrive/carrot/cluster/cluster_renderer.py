@@ -1299,6 +1299,7 @@ class ClusterUiRenderer:
         self._navi_guidance_hash = ""
         self._navi_guidance_size: tuple[int, int] | None = None
         self._navi_media_textures: dict[str, CachedNaviMediaTexture] = {}
+        self._summary_green_phase: tuple[str, float] | None = None
         self._navi_yuv_shader = None
         self._navi_yuv_shader_locations: dict[str, int] = {}
         self._navi_external_shader = None
@@ -5102,6 +5103,7 @@ class ClusterUiRenderer:
             if screen_mode == CLUSTER_SCREEN_MODE_DEBUG_SYSTEM:
                 profile_stage = self._profile_start()
                 self._draw_system_dashboard_panel(state)
+                self._draw_navi_summary_alerts(state)
                 self._profile_add("hud.system_dashboard", profile_stage)
                 self._draw_status_footer(state)
                 return
@@ -5122,6 +5124,7 @@ class ClusterUiRenderer:
             if screen_mode == CLUSTER_SCREEN_MODE_TRIP_REPORT:
                 profile_stage = self._profile_start()
                 self._draw_trip_report_panel(state)
+                self._draw_navi_summary_alerts(state)
                 self._profile_add("hud.trip_report", profile_stage)
             elif navi_debug_active:
                 profile_stage = self._profile_start()
@@ -5280,7 +5283,7 @@ class ClusterUiRenderer:
             if (
                 traffic_frame is not None
                 and not traffic_drawn_in_map
-                and screen_mode != CLUSTER_SCREEN_MODE_TRIP_REPORT
+                and screen_mode not in (CLUSTER_SCREEN_MODE_TRIP_REPORT, CLUSTER_SCREEN_MODE_DEBUG_SYSTEM)
             ):
                 profile_stage = self._profile_start()
                 traffic_panel_right = self._traffic_panel_right(screen_mode)
@@ -5679,7 +5682,7 @@ class ClusterUiRenderer:
         if dashboard is not None and dashboard.map_stream_stalled:
             self._draw_navi_map_stalled(map_rect, dashboard.map_frame_age_ms)
 
-        self._draw_navi_map_media(media)
+        self._draw_navi_map_media(media, navi)
         self._draw_navi_left_band(state, navi, media)
         self._draw_navi_right_band(navi, dashboard, media)
 
@@ -5756,7 +5759,7 @@ class ClusterUiRenderer:
                 route_text += f"  {max(1, round(route.remaining_time_s / 60.0))} min"
             self._draw_text(route_text, 20.0, 431.0, 24.0, BLUE_SOFT)
 
-    def _draw_navi_map_media(self, media: dict[str, NaviMediaFrame]) -> None:
+    def _draw_navi_map_media(self, media: dict[str, NaviMediaFrame], navi: NaviLiveState | None = None) -> None:
         expanded = media.get("image:crossroad_expanded")
         minimized = media.get("image:crossroad_minimized")
         if expanded is not None and expanded.present:
@@ -5771,10 +5774,11 @@ class ClusterUiRenderer:
             media.get("image:lane_bottom"),
             rl.Rectangle(NAVI_MODE_MAP_X + 80.0, 298.0, NAVI_MODE_MAP_W - 160.0, 174.0),
         )
-        self._draw_navi_media(
+        if not self._draw_navi_media(
             media.get("image:traffic_signal"),
             rl.Rectangle(NAVI_MODE_MAP_X + 16.0, 18.0, 230.0, 98.0),
-        )
+        ):
+            self._draw_navi_signal_badge(navi, NAVI_MODE_MAP_X + 16.0, 42.0)
 
         center_x = NAVI_MODE_MAP_X + NAVI_MODE_MAP_W * 0.5
         self._draw_navi_media(
@@ -6519,12 +6523,13 @@ class ClusterUiRenderer:
                 ),
             )
             traffic_rect = rl.Rectangle(x + w - 242.0, y + 12.0, 230.0, 98.0)
-            self._draw_navi_media(
+            if not self._draw_navi_media(
                 media.get("image:traffic_signal"),
                 traffic_rect,
                 align_x=1.0,
                 align_y=0.0,
-            )
+            ):
+                self._draw_navi_signal_badge(navi, traffic_rect.x, traffic_rect.y + 24.0)
 
             safety_frame = next(
                 (
@@ -6872,6 +6877,108 @@ class ClusterUiRenderer:
             self._draw_text(text, panel_x + 24, y, line_size, color)
             y += 31.0
         self._draw_navi_guidance_image_box(info.guidance_image)
+
+    def _draw_navi_signal_badge(self, navi: NaviLiveState | None, x: float, y: float) -> None:
+        signal = navi.traffic_light if navi is not None else None
+        if signal is None or signal.meta is None or (navi.status is not None and navi.status.off_route):
+            return
+        age = time.monotonic() - signal.meta.received_mono_s
+        if not 0 <= age < 2.5:
+            return
+        color = self._current_theme().text
+        seconds = signal.counter_s
+        arrow = ""
+        colored = False
+        if signal.source != "amap_link":
+            for active, remaining, lamp_color, direction in (
+                (signal.red_on, signal.red_s, NAVI_TRAFFIC_RED, ""),
+                (signal.left_on, signal.left_s, NAVI_TRAFFIC_GREEN, "← "),
+                (signal.straight_on, signal.straight_s, NAVI_TRAFFIC_GREEN, ""),
+                (signal.right_on, signal.right_s, NAVI_TRAFFIC_GREEN, "→ "),
+                (signal.uturn_on, signal.uturn_s, NAVI_TRAFFIC_GREEN, "↶ "),
+            ):
+                if active is True:
+                    seconds, color, arrow = remaining or seconds, lamp_color, direction
+                    colored = True
+                    break
+        if seconds is None or not 0 < seconds - int(age) <= 999:
+            return
+        theme = self._current_theme()
+        self._rounded_rect(x, y - 15.0, 96.0, 30.0, 6.0, theme.panel_bg, theme.faint, 1.0)
+        if colored and not arrow:
+            rl.draw_circle_v(rl.Vector2(x + 17.0, y), 5.0, rl_color(color))
+        self._draw_text(f"{arrow}{seconds - int(age)} s", x + (54.0 if colored else 48.0), y, 21.0, color, anchor="center")
+
+    def _draw_navi_summary_alerts(self, state: ClusterUiState) -> None:
+        navi = state.navi_live
+        if navi is not None and navi.status is not None and navi.status.off_route:
+            navi = None
+        offset = self._driving_panel_offset_design_x()
+        now = time.monotonic()
+        self._draw_summary_signal(navi, DESIGN_WIDTH * 0.46 + offset, 95.0, now)
+        self._draw_summary_camera(navi, DESIGN_WIDTH * 0.565 + offset, 306.0, now)
+
+    def _draw_summary_signal(self, navi: NaviLiveState | None, x: float, y: float, now: float) -> None:
+        signal = navi.traffic_light if navi is not None else None
+        if signal is None or signal.meta is None:
+            self._summary_green_phase = None
+            return
+        received = signal.meta.received_mono_s
+        age = now - received
+        if age < 0.0:
+            return
+
+        phase = None
+        remaining = signal.counter_s
+        if signal.source != "amap_link":
+            if signal.red_on is True:
+                phase, remaining = 0, signal.red_s or remaining
+            elif signal.straight_on is True:
+                phase, remaining = 2, signal.straight_s or remaining
+        if phase == 2:
+            # Repeated packets during one green phase must not restart its timer.
+            green = self._summary_green_phase
+            if green is None or green[0] != navi.session_id:
+                green = self._summary_green_phase = (navi.session_id, received)
+            if now - green[1] >= 3.0:
+                return
+        else:
+            if age >= 2.5:
+                return
+            self._summary_green_phase = None
+
+        theme = self._current_theme()
+        seconds = None if remaining is None else remaining - int(age)
+        if phase is None and (seconds is None or not 0 < seconds <= 999):
+            return
+        self._rounded_rect(x - 20.0, y - 72.0, 40.0, 100.0, 10.0, theme.panel_bg, theme.faint, 2.0)
+        for index, color in enumerate((NAVI_TRAFFIC_RED, AMBER, NAVI_TRAFFIC_GREEN)):
+            point = rl.Vector2(x, y - 53.0 + index * 31.0)
+            rl.draw_circle_v(point, 11.0, rl_color(color if phase == index else (80, 84, 90)))
+        if seconds is not None and 0 < seconds <= 999:
+            self._draw_text(f"{seconds} s", x, y + 48.0, 27.0, theme.text, anchor="center")
+
+    def _draw_summary_camera(self, navi: NaviLiveState | None, x: float, y: float, now: float) -> None:
+        speed = navi.speed if navi is not None else None
+        if speed is None or speed.meta is None or not 0 <= now - speed.meta.received_mono_s < 3.0:
+            return
+        notices = (
+            (speed.section_active, speed.section_speed_limit_kph, speed.section_remaining_distance_m),
+            (speed.sdi_type not in (None, -1, 22), speed.sdi_speed_limit_kph, speed.sdi_distance_m),
+            (speed.secondary_sdi_type not in (None, -1, 22),
+             speed.secondary_sdi_speed_limit_kph, speed.secondary_sdi_distance_m),
+        )
+        for valid, limit, distance in notices:
+            if valid and limit and distance is not None and distance > 0:
+                center = rl.Vector2(x, y)
+                rl.draw_circle_v(center, 33.0, rl_color(WHITE))
+                rl.draw_ring(center, 27.0, 33.0, 0.0, 360.0, 48, rl_color(RED))
+                self._draw_text(f"{display_speed(limit, self.is_metric):.0f}", x, y, 27.0,
+                                (20, 24, 28), anchor="center")
+                distance_text = self._ellipsize_text(self._format_navi_distance(distance), 24.0, 72.0)
+                self._draw_text(distance_text, x, y + 53.0, 24.0,
+                                self._current_theme().text, anchor="center")
+                return
 
     def _draw_navi_traffic_light_panel(
         self,

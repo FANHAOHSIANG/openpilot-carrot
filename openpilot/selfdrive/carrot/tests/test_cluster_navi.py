@@ -16,6 +16,10 @@ sys.path.insert(0, str(CLUSTER_DIR))
 
 from cluster_config import (
   AMBER,
+  CLUSTER_PANEL_LAYOUT_DRIVING_LEFT,
+  CLUSTER_PANEL_LAYOUT_DRIVING_RIGHT,
+  CLUSTER_SCREEN_MODE_DEBUG_SYSTEM,
+  CLUSTER_SCREEN_MODE_TRIP_REPORT,
   DARK_CLUSTER_THEME,
   LIGHT_CLUSTER_THEME,
   RADAR_TO_CAMERA_M,
@@ -51,6 +55,9 @@ from cluster_renderer import (
   NAV_STATUS_FONT_SIZE,
   NAVI_LIVE_PANEL_X,
   NAVI_MAP_BACKGROUND,
+  NAVI_MODE_MAP_X,
+  NAVI_TRAFFIC_GREEN,
+  NAVI_TRAFFIC_RED,
   SIDE_GAUGE_COLUMN_GAP,
   SIDE_GAUGE_LEFT_CENTER_X,
   SIDE_GAUGE_OUTLINE,
@@ -708,6 +715,121 @@ def test_navi_dashboard_hides_top_lane_and_draws_received_signal(monkeypatch):
   assert drawn["image:lane_bottom"].height == pytest.approx(174.0)
   assert drawn["image:traffic_signal"].width == pytest.approx(230.0)
   assert drawn["image:traffic_signal"].height == pytest.approx(98.0)
+
+
+@pytest.fixture
+def navi_alert_renderer(monkeypatch):
+  renderer = object.__new__(ClusterUiRenderer)
+  renderer.width = DESIGN_WIDTH
+  renderer.height = DESIGN_HEIGHT
+  renderer.panel_layout = CLUSTER_PANEL_LAYOUT_DRIVING_LEFT
+  renderer.is_metric = True
+  renderer._summary_green_phase = None
+  renderer.profile_enabled = False
+  text, circles, rings = [], [], []
+  monkeypatch.setattr(ClusterUiRenderer, "_current_theme", lambda self: DARK_CLUSTER_THEME)
+  monkeypatch.setattr(ClusterUiRenderer, "_rounded_rect", lambda *args, **kwargs: None)
+  monkeypatch.setattr(ClusterUiRenderer, "_ellipsize_text", lambda self, label, *_: label)
+  monkeypatch.setattr(ClusterUiRenderer, "_draw_text", lambda self, label, x, y, *a, **k: text.append((label, x, y)))
+  monkeypatch.setattr(
+    "cluster_renderer.rl.draw_circle_v",
+    lambda p, size, c: circles.append((p.x, p.y, size, (c.r, c.g, c.b))),
+  )
+  monkeypatch.setattr(
+    "cluster_renderer.rl.draw_ring", lambda p, *args: rings.append((p.x, p.y)),
+  )
+  return renderer, text, circles, rings
+
+
+def _parse_navi_alerts(*, source="amap_auto", lamp="red", seconds=18, distance=224, section=None):
+  signal = {"visible": True, "source": source, "ui_counter": {"remain_sec": seconds}}
+  if lamp:
+    signal["lights"] = {lamp: {"on": True, "remain_sec": seconds}}
+  items = {
+    "traffic_signal": _record(signal, 1, 100.0),
+    "speed": _record({
+      "road_limit_kph": 30,
+      "sdi": {"type": 0, "speed_limit_kph": 60, "distance_m": distance},
+      "section": section,
+    }, 2, 100.0),
+  }
+  return parse_carrot_navi(build_carrot_navi_payload({
+    "session_id": "test", "connected": True, "items": items,
+  }), now=100.0)
+
+
+@pytest.mark.parametrize("mode", (CLUSTER_SCREEN_MODE_DEBUG_SYSTEM, CLUSTER_SCREEN_MODE_TRIP_REPORT))
+@pytest.mark.parametrize("layout,offset", ((CLUSTER_PANEL_LAYOUT_DRIVING_LEFT, 0),
+                                          (CLUSTER_PANEL_LAYOUT_DRIVING_RIGHT, 792)))
+def test_usb_hud_renders_signal_and_camera_in_summary_modes(navi_alert_renderer, monkeypatch, mode, layout, offset):
+  renderer, text, circles, rings = navi_alert_renderer
+  renderer.screen_mode, renderer.panel_layout = mode, layout
+  monkeypatch.setattr("cluster_renderer.time.monotonic", lambda: 100.1)
+  for method in ("_draw_driving_hud_content", "_draw_trip_report_panel", "_draw_system_dashboard_panel", "_draw_status_footer"):
+    monkeypatch.setattr(ClusterUiRenderer, method, lambda *args, **kwargs: None)
+  for method in ("rl_push_matrix", "rl_scalef", "rl_pop_matrix"):
+    monkeypatch.setattr(f"cluster_renderer.rl.{method}", lambda *args: None)
+  navi = _parse_navi_alerts()
+  assert navi.speed.road_limit_kph == 30
+
+  renderer._draw_hud(SimpleNamespace(navi_live=navi, navi_debug=None, navi_dashboard=None), (False, False))
+
+  signal_x = DESIGN_WIDTH * 0.46 + offset
+  camera_x = DESIGN_WIDTH * 0.565 + offset
+  assert text == [("18 s", signal_x, 143.0), ("60", camera_x, 306.0), ("224 m", camera_x, 359.0)]
+  assert [circle[-1] for circle in circles[:3]] == [NAVI_TRAFFIC_RED, (80, 84, 90), (80, 84, 90)]
+  assert circles[3][-1] == WHITE
+  assert rings == [(pytest.approx(camera_x), 306.0)]
+
+
+def test_usb_hud_green_is_limited_to_three_seconds_and_resets_on_new_session(navi_alert_renderer):
+  renderer, text, circles, _ = navi_alert_renderer
+  navi = _parse_navi_alerts(lamp="green")
+  renderer._draw_summary_signal(navi, 0.0, 0.0, 102.9)
+  assert circles[-1][-1] == NAVI_TRAFFIC_GREEN
+  assert text[-1][0] == "16 s"
+  refreshed = replace(navi, traffic_light=replace(navi.traffic_light, meta=replace(navi.traffic_light.meta, received_mono_s=102.9)))
+  circles.clear()
+  text.clear()
+  renderer._draw_summary_signal(refreshed, 0.0, 0.0, 103.0)
+  assert not circles and not text
+  renderer._draw_summary_signal(replace(refreshed, session_id="new"), 0.0, 0.0, 103.0)
+  assert circles[-1][-1] == NAVI_TRAFFIC_GREEN
+
+
+def test_usb_hud_shows_phone_countdown_without_assigning_lamp_color(navi_alert_renderer, monkeypatch):
+  renderer, text, circles, _ = navi_alert_renderer
+  monkeypatch.setattr("cluster_renderer.time.monotonic", lambda: 100.5)
+  navi = _parse_navi_alerts(source="amap_link", lamp="green")
+  renderer._draw_summary_signal(navi, 0.0, 0.0, 100.5)
+  assert text[-1][0] == "18 s"
+  assert [circle[-1] for circle in circles] == [(80, 84, 90)] * 3
+  monkeypatch.setattr(ClusterUiRenderer, "_draw_navi_media", lambda *args, **kwargs: False)
+  renderer._draw_navi_map_media({}, navi)
+  assert text[-1] == ("18 s", NAVI_MODE_MAP_X + 64.0, 42.0)
+
+
+@pytest.mark.parametrize("condition", ("passed", "withdrawn", "stale", "off_route"))
+def test_usb_hud_clears_passed_and_unavailable_camera(navi_alert_renderer, monkeypatch, condition):
+  renderer, text, _, rings = navi_alert_renderer
+  navi = _parse_navi_alerts(distance=0 if condition == "passed" else 224, seconds=0, lamp=None)
+  if condition == "off_route":
+    navi = replace(navi, status=SimpleNamespace(off_route=True))
+  if condition == "withdrawn":
+    navi = replace(navi, speed=None)
+  monkeypatch.setattr("cluster_renderer.time.monotonic", lambda: 103.1 if condition == "stale" else 100.1)
+  renderer._draw_navi_summary_alerts(SimpleNamespace(navi_live=navi))
+  assert not text and not rings
+
+
+def test_usb_hud_uses_only_active_section(navi_alert_renderer):
+  renderer, text, _, _ = navi_alert_renderer
+  section = {"active": True, "speed_limit_kph": 80, "remaining_distance_m": 500}
+  renderer._draw_summary_camera(_parse_navi_alerts(section=section), 0.0, 0.0, 100.1)
+  assert [item[0] for item in text] == ["80", "500 m"]
+  text.clear()
+  renderer._draw_summary_camera(_parse_navi_alerts(section={**section, "suspended": True}), 0.0, 0.0, 100.1)
+  assert [item[0] for item in text] == ["60", "224 m"]
 
 
 def test_ipc_media_source_restores_standalone_navigation_images():

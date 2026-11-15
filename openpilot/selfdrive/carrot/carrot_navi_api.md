@@ -448,6 +448,12 @@ status maps.
 | `composition_state` | `generation`, `tbt_current`, `tbt_next`, `traffic_signal`, `lane_top`, `lane_bottom`, `safety_primary`, `safety_secondary`, `safety_section`, `center_tbt_icon`, `center_tbt_text`, `center_tbt_fee`, `crossroad_active`, `crossroad_minimized`, `crossroad_expanded`, `vehicle`, `upper_lane_available`, `upper_lane_composited` |
 
 Do not use numeric truthiness to decide whether an enum-like field exists.
+
+For phone Link, `traffic_signal` with `source: "amap_link"` carries the
+display countdown in `ui_counter.remain_sec`. The C4 screen uses a neutral
+countdown and ignores lamp colors for this source. It clears the display on
+withdrawal, route departure, or 2.5 seconds after the last receiver update.
+The countdown has no connection to speed or traffic-light driving control.
 Current-lane `road_category=0` and SDI `type=0` are both valid APK values.
 
 `speed.road_limit_kph`, when present, is already a validated kph value emitted

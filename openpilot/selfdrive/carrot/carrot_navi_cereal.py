@@ -168,6 +168,9 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
   right_valid, right_on, right_remain = _signal_light(lights.get("right"))
   uturn_valid, uturn_on, uturn_remain = _signal_light(lights.get("uturn"))
   ui_counter = _dict(traffic.get("ui_counter"))
+  ui_remain = ui_counter.get("remain_sec")
+  if traffic.get("source") == "amap_link" and (type(ui_remain) is not int or not 1 <= ui_remain <= 999):
+    ui_remain = None
 
   crossroad_record = _record(snapshot, "crossroad")
   crossroad = _dict(crossroad_record.get("value")) if crossroad_record.get("present") else {}
@@ -270,8 +273,8 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
       "uturnValid": uturn_valid,
       "uturnOn": uturn_on,
       "uturnRemainSec": uturn_remain,
-      "uiCounterValid": ui_counter.get("remain_sec") is not None,
-      "uiCounterRemainSec": _integer(ui_counter.get("remain_sec"), minimum=0, maximum=999),
+      "uiCounterValid": ui_remain is not None,
+      "uiCounterRemainSec": _integer(ui_remain, minimum=0, maximum=999),
     },
     "crossroad": {
       "meta": _meta(crossroad_record),

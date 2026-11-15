@@ -1,5 +1,18 @@
 # 7714 내비 감속 브랜치 비교
 
+## 2026-11-15 高德號誌與測速 USB HUD
+
+`test/carrot-wip-upstream-20261104` 納入高德手機 Link 倒數及 C4 USB 直連 HUD。
+Carrot Bridge wide.71 使用 `json:traffic_signal` 的 `source=amap_link` 與
+`ui_counter.remain_sec`，C4 本機時鐘旁顯示中性秒數。
+直連 TURZX 啟用既有 `ClusterHud=1`。駕駛摘要與系統資訊在車道區右上方顯示三燈與秒數，
+右下方顯示測速速限與剩餘距離。已確認的直行綠燈最多顯示三秒，重複封包不重啟計時。
+手機版的三燈維持暗色，倒數顯示秒數。全導航與即時地圖優先使用既有號誌圖片，並支援結構化倒數。
+測速使用 `speed.sdi`、`speed.sdi_secondary` 或有效的區間測速。距離歸零、撤銷、
+逾時或路線偏離時清除對應提示。手機版測速仍待取得相機封包。
+
+這次的變更只涉及導航資料顯示。
+
 ## 2026-11-13：1104 路線接收上限更新
 
 `FANHAOHSIANG/openpilot-carrot` 的 `test/carrot-wip-upstream-20261104` 已整合高德 Link 配套：
