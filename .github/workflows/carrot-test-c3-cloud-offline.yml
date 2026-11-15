@@ -1,0 +1,35 @@
+name: Carrot Test official C3 and comma Connect offline gate
+on:
+  pull_request:
+    branches: [test/carrot-wip-upstream-20261104]
+    paths:
+      - 'openpilot/system/**'
+      - 'openpilot/common/api.py'
+      - 'openpilot/selfdrive/modeld/jetlink/**'
+      - '.github/workflows/carrot-test-c3-cloud-offline.yml'
+  push:
+    branches: [test/carrot-wip-upstream-20261104]
+    paths:
+      - 'openpilot/system/**'
+      - 'openpilot/common/api.py'
+      - '.github/workflows/carrot-test-c3-cloud-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c3-cloud-offline:
+    name: C3 QMI modem and opt-in cloud offline regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal test-only requirements
+        run: python -m pip install pytest pytest-mock requests
+      - name: Run existing official offline tests, never connect devices
+        run: >-
+          python -m pytest -q -c /dev/null --confcutdir=openpilot/system/tests
+          openpilot/system/tests/test_comma_connect.py
+          openpilot/system/tests/test_c3_modem.py
