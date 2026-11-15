@@ -19,13 +19,12 @@ def road(start=200, radius=80, direction=1):
   return np.vstack([straight, turn, exit_road])
 
 
-def model_for(xy, position=(0, 0), heading=90):
+def model_for(xy, position=(0, 0), heading=90, horizon=60):
   angle = math.radians(heading)
   delta = np.asarray(xy) - position
   local = np.column_stack([delta @ [math.sin(angle), math.cos(angle)], delta @ [math.cos(angle), -math.sin(angle)]])
-  ahead = local[(local[:, 0] >= 0) & (local[:, 0] <= 70)]
-  # Test fixture spans only the near forward path; no far-map data enters vision.
-  x = np.linspace(0, min(60, ahead[-1, 0]), 33)
+  ahead = local[(local[:, 0] >= 0) & (local[:, 0] <= horizon + 10)]
+  x = np.linspace(0, min(horizon, ahead[-1, 0]), 33)
   return SimpleNamespace(position=SimpleNamespace(x=x, y=np.interp(x, ahead[:, 0], ahead[:, 1])))
 
 
@@ -293,11 +292,11 @@ def test_osm_window_extension_retains_confirmation_but_changed_fork_does_not():
   xy = road()
   tracker = RouteCurveSpeed()
   tracker.set_route(lonlat(xy[:70]), ('osm', 'first'))
-  assert run(tracker, xy, position=(20, 0))[-1].reason == 'matched'
+  assert run(tracker, xy, position=(20, 0))[-1].reason == 'bend_unconfirmed'
   before = tracker.confirm_since
   tracker.set_route(lonlat(xy[2:]), ('osm', 'extension'))
   result = run(tracker, xy, position=(21, 0), start_time=10.45, frames=1)[0]
-  assert result.reason == 'matched' and tracker.confirm_since == before
+  assert result.reason == 'bend_unconfirmed' and tracker.confirm_since == before
   replacement = xy[2:].copy()
   replacement[-1, 1] += 3.
   tracker.set_route(lonlat(replacement), ('osm', 'fork'))
@@ -323,9 +322,45 @@ def test_osm_window_continuity_does_not_bypass_time_gap():
   xy = road()
   tracker = RouteCurveSpeed()
   tracker.set_route(lonlat(xy[:70]), ('osm', 'first'))
-  assert run(tracker, xy, position=(20, 0))[-1].reason == 'matched'
+  assert run(tracker, xy, position=(20, 0))[-1].reason == 'bend_unconfirmed'
   tracker.set_route(lonlat(xy[2:]), ('osm', 'extension'))
   assert run(tracker, xy, position=(21, 0), start_time=12., frames=1)[0].reason == 'confirming'
+
+
+def test_osm_far_bend_requires_model_support_at_the_bend():
+  xy = road()
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), ('osm', 'far'))
+  result = run(tracker, xy, frames=20)[-1]
+  assert (result.reason, result.speed_kph) == ('bend_unconfirmed', 250.)
+
+
+@pytest.mark.parametrize('reason', ['no_route', 'model_mismatch'])
+def test_osm_confirmed_bend_withdraws_its_speed_cap_on_route_loss(reason):
+  xy = road(start=65)
+  model = model_for(xy, horizon=130)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), ('osm', 'bend'))
+  results = run(tracker, xy, model=model, frames=20)
+  assert results[8].speed_kph == 250.
+  assert results[-1].reason == 'matched' and results[-1].speed_kph < 65.
+  if reason == 'no_route':
+    tracker.set_route([], ('osm', 'lost'))
+  else:
+    model.position.y += 20.
+  lost = run(tracker, xy, model=model, start_time=11., frames=1)[0]
+  assert (lost.reason, lost.speed_kph) == (reason, 250.)
+
+
+def test_osm_preserves_bend_confirmation_when_its_forward_geometry_is_unchanged():
+  xy = road(start=65)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy[:88]), ('osm', 'before'))
+  first = run(tracker, xy, position=(20, 0), model=model_for(xy, (20, 0), horizon=125), frames=20)[-1]
+  assert first.reason == 'matched' and first.speed_kph < 65.
+  tracker.set_route(lonlat(xy[2:]), ('osm', 'extended'))
+  next_frame = run(tracker, xy, position=(21, 0), model=model_for(xy, (21, 0), horizon=125), start_time=11., frames=1)[0]
+  assert next_frame.reason == 'matched' and next_frame.speed_kph < 65.
 
 
 def test_single_higher_envelope_cannot_release_existing_cap():

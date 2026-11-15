@@ -188,12 +188,14 @@ def test_osm_without_destination_through_full_control_pipeline(pipeline, tmp_pat
   pipeline.man.navi_points = []
   pipeline.man.navi_points_active = False
   worker = OsmWorker(tmp_path / 'maps', pipeline.man.osm_curve.root)
-  worker.store.nearby = lambda _position: [Road(lonlat(road()))]
+  xy = road(start=65)
+  pipeline.sm['modelV2'] = model_for(xy, horizon=130)
+  worker.store.nearby = lambda _position: [Road(lonlat(xy))]
   for _ in range(25):
     result = pipeline()
     worker.step(read_message(worker.shared / 'request.json'), pipeline.now[0])
   assert result.desiredSource == 'route'
-  assert 70 < result.desiredSpeed < 90
+  assert 45 < result.desiredSpeed < 65
   assert 'rc=osm/road_matched/matched:' in result.szPosRoadName
   assert not pipeline.man.navi_points_active and not pipeline.man.navi_points
   assert pipeline(45.).desiredSource == 'vturn'
@@ -235,7 +237,9 @@ def test_osm_uses_device_with_phone_owner_and_known_motorway_width(pipeline, tmp
   pipeline.man.navi_points = []
   pipeline.man.navi_points_active = False
   worker = OsmWorker(tmp_path / 'maps', pipeline.man.osm_curve.root)
-  worker.store.nearby = lambda _position: [Road(lonlat(road() + [0, 6.5]), True, 4, True)]
+  xy = road(start=65)
+  pipeline.sm['modelV2'] = model_for(xy, horizon=130)
+  worker.store.nearby = lambda _position: [Road(lonlat(xy + [0, 6.5]), True, 4, True)]
   for _ in range(25):
     pipeline.serv._gps_sources().put('phone', 25.1, 121.1, 180., 25., pipeline.now[0])
     result = pipeline()

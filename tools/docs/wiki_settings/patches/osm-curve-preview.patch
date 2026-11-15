@@ -7,7 +7,7 @@
 +<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
 +### Behavior
 +
-+Without a navigation polyline, a unique offline road corridor can supply curve speed preview. It ends at forks and requires fresh GPS, heading and near-vision agreement. Navigation geometry has priority; other lower speed limits remain active.
++Without a navigation polyline, a unique offline road corridor can supply curve speed preview. It requires fresh GPS, heading and near-path agreement, and multiple fresh model frames must corroborate the same bend ahead. If the road or bend loses confirmation, the planner withdraws the OSM ceiling and uses the other available limits.
 +<!-- CARROT:SECTION:END BEHAVIOR -->
 +<!-- CARROT:SECTION:BEGIN USAGE -->
 +### Use
@@ -29,7 +29,7 @@
 +<!-- CARROT:SECTION:BEGIN BEHAVIOR -->
 +### 동작
 +
-+내비 폴리라인이 없으면 유일한 로컬 도로를 커브 속도 미리보기에 사용합니다. 갈림길에서 끝나며 최신 위치·방향·가까운 비전 일치가 필요합니다. 내비 경로와 다른 더 낮은 속도 상한은 우선합니다.
++내비 폴리라인이 없으면 유일한 로컬 도로를 커브 속도 미리보기에 사용합니다. 최신 위치·방향·가까운 경로 일치가 필요하며 전방의 같은 커브를 여러 최신 모델 프레임에서 확인해야 합니다. 도로 또는 커브 확인이 끊기면 플래너가 OSM 상한을 제거하고 다른 유효한 상한을 사용합니다.
 +<!-- CARROT:SECTION:END BEHAVIOR -->
 +<!-- CARROT:SECTION:BEGIN USAGE -->
 +### 사용

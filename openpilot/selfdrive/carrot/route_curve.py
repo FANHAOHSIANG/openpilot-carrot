@@ -63,6 +63,42 @@ def _short_lateral_reversals(relative):
   return rejected
 
 
+def osm_bend_directions(relative, distances, centers, curvature, model_x, model_y, lateral_offset):
+  """Corroborate each candidate using a forward 30 m window at the bend."""
+  directions = np.zeros(len(centers))
+  invalid = ~np.isfinite(model_x) | ~np.isfinite(model_y)
+  invalid[1:] |= np.diff(model_x) <= 0.
+  stop = np.flatnonzero(invalid)
+  if len(stop):
+    model_x, model_y = model_x[:stop[0]], model_y[:stop[0]]
+  if len(model_x) < 2:
+    return directions
+
+  half_window = 3 * SAMPLE_METRES
+  window = np.maximum(0., centers - half_window)[:, None] + [0., half_window, 2 * half_window]
+  x = np.interp(window, distances, relative[:, 0])
+  y = np.interp(window, distances, relative[:, 1])
+  dx = np.diff(x, axis=1)
+  map_turn = np.diff(np.arctan2(np.diff(y, axis=1), dx), axis=1)[:, 0]
+  required_turn = .5 * curvature * half_window
+  eligible = ((window[:, -1] <= distances[-1]) & np.all(dx > 0., axis=1)
+              & (np.abs(map_turn) >= required_turn))
+  corroborated = np.zeros_like(eligible)
+  # A distant vision prediction can start bending before the mapped road does.
+  # Allow up to one forward comparison window of longitudinal alignment while
+  # retaining lateral, direction and curvature agreement at three points.
+  for shift in (0., half_window, 2 * half_window):
+    sample_x = x - shift
+    model_at_bend = np.interp(sample_x, model_x, model_y)
+    model_turn = np.diff(np.arctan2(np.diff(model_at_bend, axis=1), dx), axis=1)[:, 0]
+    corroborated |= (eligible & (sample_x[:, 0] >= model_x[0] - SAMPLE_METRES / 2)
+                     & (sample_x[:, -1] <= model_x[-1])
+                     & np.all(np.abs(y - model_at_bend - lateral_offset) <= 3. + .04 * x, axis=1)
+                     & (map_turn * model_turn > 0.) & (np.abs(model_turn) >= required_turn))
+  directions[corroborated] = np.sign(map_turn[corroborated])
+  return directions
+
+
 @dataclass(frozen=True)
 class RouteCurveResult:
   speed_kph: float = NO_LIMIT_KPH
@@ -88,7 +124,23 @@ class RouteCurveSpeed:
     self.last_time = None
     self.missing_since = None
     self.speed = NO_LIMIT_KPH
+    self.speed_from_osm = False
+    self.osm_bends = {}
+    self.osm_progress_offset = 0.
+    self.osm_limit_bend = None
     self.release_geometry = deque()
+
+  def _withdraw_osm_speed(self):
+    if self.speed_from_osm:
+      self.speed = NO_LIMIT_KPH
+      self.speed_from_osm = False
+      self.osm_limit_bend = None
+      self.missing_since = None
+      self.release_geometry.clear()
+
+  def _withdraw_osm(self):
+    self.osm_bends.clear()
+    self._withdraw_osm_speed()
 
   def set_route(self, points, route_id):
     if route_id == self.route_id:
@@ -102,6 +154,7 @@ class RouteCurveSpeed:
     self.route = np.empty((0, 2))
     self.progress = self.match_time = self.confirm_since = self.last_model_time = None
     self.confirm_frames = 0
+    same_corridor = False
     try:
       points = np.asarray(points, dtype=float)
       if (points.ndim != 2 or points.shape[1] != 2 or not 3 <= len(points) <= 4096
@@ -132,9 +185,29 @@ class RouteCurveSpeed:
           if self.points[j:j + len(suffix)] == suffix and old_arc[-1] - old_progress >= 60.:
             self.progress = float(self.arc[j] + old_progress - old_arc[max(0, i)])
             self.match_time, self.confirm_since, self.confirm_frames, self.last_model_time = old_state
+            self.osm_progress_offset += old_progress - self.progress
+            same_corridor = True
             break
     except (TypeError, ValueError, IndexError):
       return
+    finally:
+      if not same_corridor:
+        self.osm_progress_offset = 0.
+        self._withdraw_osm()
+
+  def _confirmed_osm_bends(self, stations, directions, now):
+    # Track all corroborated parts of the bend. The tightest point moves as
+    # the 5 m route samples move with the car, even on one continuous ramp.
+    sections = np.floor((stations + self.osm_progress_offset) / (2 * SAMPLE_METRES)).astype(int)
+    keys = [(section, direction) if direction else None for section, direction in zip(sections, directions, strict=True)]
+    self.osm_bends = {key: evidence for key, evidence in self.osm_bends.items() if now - evidence[1] <= GEOMETRY_MIN_SPAN}
+    confirmed = set()
+    for key in set(keys) - {None}:
+      first, _, frames = self.osm_bends.get(key, (now, now, 0))
+      self.osm_bends[key] = first, now, frames + 1
+      if now - first >= CONFIRM_SECONDS - 1e-9 and frames + 1 >= 4:
+        confirmed.add(key)
+    return keys, confirmed
 
   def _invalid(self, reason, now, dt):
     self.confirm_since = None
@@ -142,6 +215,12 @@ class RouteCurveSpeed:
     return self._unconfirmed(reason, now, dt)
 
   def _unconfirmed(self, reason, now, dt):
+    if reason == "repeated_model" and self.speed_from_osm:
+      return RouteCurveResult(self.speed, reason)
+    if reason in ("bend_confirming", "bend_unconfirmed"):
+      self._withdraw_osm_speed()
+    elif reason != "repeated_model":
+      self._withdraw_osm()
     self.release_geometry.clear()
     if self.missing_since is None:
       self.missing_since = now
@@ -155,6 +234,7 @@ class RouteCurveSpeed:
              v_ego, a_ego=0.0, speed_ratio=1.0, sensitivity=1.0,
              map_factor=1.0, lower_limit_kph=30.0, lateral_allowance=0.0):
     if not math.isfinite(now):
+      self._withdraw_osm()
       return RouteCurveResult(self.speed, "invalid_time")
     dt = 0.0 if self.last_time is None else min(0.2, max(0.0, now - self.last_time))
     clock_reset = self.last_time is not None and now < self.last_time
@@ -210,7 +290,8 @@ class RouteCurveSpeed:
     relative = np.column_stack([xy @ forward, xy @ right])
     lateral_offset = 0.
     try:
-      mx, my = np.asarray(model.position.x, dtype=float), np.asarray(model.position.y, dtype=float)
+      full_mx, full_my = np.asarray(model.position.x, dtype=float), np.asarray(model.position.y, dtype=float)
+      mx, my = full_mx, full_my
       if len(mx) != 33 or len(my) != 33:
         return invalid("invalid_model")
       near = (relative[:, 0] >= 10) & (relative[:, 0] <= min(60, max(30, v_ego * 2.0))) & (distances <= 70)
@@ -269,6 +350,9 @@ class RouteCurveSpeed:
       near_straight = np.max(np.abs(np.diff(np.diff(ry)))) < .1 and np.ptp(ry) < 1.
       return self._unconfirmed("coarse_straight" if near_straight else "coarse_route", now, dt)
     curve, curve_distances = curve[usable], curve_distances[usable]
+    osm = isinstance(self.route_id, tuple) and self.route_id[:1] == ('osm',)
+    if osm:
+      directions = osm_bend_directions(relative, distances, curve_distances, curve, full_mx, full_my, lateral_offset)
     if isinstance(self.route_id, tuple) and self.route_id[:1] == ('nav',):
       # Near-path agreement cannot confirm a distant bend. Leave these local
       # map discontinuities to the independent vision curve speed estimate.
@@ -282,6 +366,14 @@ class RouteCurveSpeed:
     curve_ms = np.maximum(curve_ms, max(5.0, lower_limit_kph) * ratio / 3.6)
     delay = RESPONSE_TIME + (max(0.0, a_ego) + APPROACH_DECEL) / (2 * APPROACH_JERK)
     approach = np.sqrt(curve_ms**2 + 2 * APPROACH_DECEL * np.maximum(0, curve_distances - v_ego * delay)) * 3.6 / ratio
+    if osm:
+      directions[approach >= NO_LIMIT_KPH] = 0.
+      keys, confirmed = self._confirmed_osm_bends(s + curve_distances, directions, now)
+      approach[[key not in confirmed for key in keys]] = NO_LIMIT_KPH
+      if not np.any(approach < NO_LIMIT_KPH):
+        return self._unconfirmed("bend_confirming" if np.any(directions) else "bend_unconfirmed", now, dt)
+      if self.osm_limit_bend not in confirmed:
+        self._withdraw_osm_speed()
     index = int(np.argmin(approach))
     target = min(NO_LIMIT_KPH, float(approach[index]))
     # Matching a road is not yet proof that a transient higher cap is an exit.
@@ -295,6 +387,8 @@ class RouteCurveSpeed:
     confirmed_exit = len(self.release_geometry) >= 3 and now - self.release_geometry[0][0] >= GEOMETRY_MIN_SPAN - 1e-9
     if target <= self.speed:
       self.speed = target
+      self.speed_from_osm = osm and target < NO_LIMIT_KPH
+      self.osm_limit_bend = keys[index] if self.speed_from_osm else None
     elif confirmed_exit:
       # This only relaxes a speed ceiling. Existing turn_accel, cruise/lead
       # limits and MPC jerk control still determine the actual acceleration.
