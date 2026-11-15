@@ -507,6 +507,7 @@ class CarrotMan:
   def carrot_navi_route(self):
     now = time.monotonic()
     serv, sm = self.carrot_serv, self.sm
+    serv.atc_curve_speed = None
     onroad = self.params.get_bool("IsOnroad")
     enabled = self.params.get_bool("OsmCurveSpeedEnabled")
     osm_disabled = getattr(self, 'osm_curve_enabled_last', enabled) and not enabled
@@ -559,6 +560,10 @@ class CarrotMan:
     serv.route_curve_debug = f"{result.reason}:{result.distance:.0f}m/{result.curve_kph:.0f}kph/e{result.match_error:.1f}"
     if source == 'osm':
       serv.route_curve_debug = f"osm/{self.osm_curve.status}/{serv.route_curve_debug}/gps=device/lane={result.lateral_offset:.1f}"
+    if source == 'route' and getattr(serv, 'atcAdaptiveSpeed', False):
+      candidate = tracker.atc_turn_speed(result, serv.xTurnInfo, serv.xDistToTurn)
+      if candidate is not None:
+        serv.atc_curve_speed = (serv.xTurnInfo, serv.xDistToTurn, self.nav_route_id, candidate)
     # Model coordinates and naviPaths are both forward/right-positive.
     return list(result.points), list(result.distances), result.speed_kph
 

@@ -196,6 +196,9 @@ class CarrotServ:
 
     self.atc_paused = False
     self.atc_activate_count = 0
+    self.atc_curve_speed = None
+    self.atc_adaptive_target = 0.0
+    self.atc_adaptive_event = None
     self.gas_override_speed = 0
     self.gas_pressed_state = False
     self.speed_event_gas_pressed = False
@@ -241,6 +244,7 @@ class CarrotServ:
     self.mapTurnSpeedFactor= self.params.get_float("MapTurnSpeedFactor") * 0.01
 
     self.autoTurnControlSpeedTurn = self.params.get_int("AutoTurnControlSpeedTurn")
+    self.atcAdaptiveSpeed = self.params.get_bool("AutoTurnControlAdaptiveSpeed")
     self.autoTurnMapChange = self.params.get_int("AutoTurnMapChange")
     self.autoTurnControl = self.params.get_int("AutoTurnControl")
     self.autoTurnControlTurnEnd = self.params.get_int("AutoTurnControlTurnEnd")
@@ -1188,6 +1192,24 @@ class CarrotServ:
 
   def update_auto_turn(self, v_ego_kph, sm, x_turn_info, x_dist_to_turn, check_steer=False):
     turn_speed = self.autoTurnControlSpeedTurn
+    adaptive_target = turn_speed
+    if check_steer:
+      previous = self.atc_adaptive_event
+      now = time.monotonic()
+      matched = self.atc_curve_speed
+      if (self.atcAdaptiveSpeed and self.autoTurnControl in (2, 3) and x_turn_info in (1, 2)
+          and matched is not None and x_turn_info == matched[0]
+          and abs(x_dist_to_turn - matched[1]) <= 2.0 and 0 < turn_speed < matched[3]
+          and v_ego_kph >= 7.2):
+        event_key = (x_turn_info, matched[2])
+        if (previous is not None and previous[0] == event_key
+            and abs(x_dist_to_turn - previous[1]) <= 8.0 and 0.0 <= now - previous[2] <= 0.25):
+          # Relax the existing ceiling gradually; immediately honor tighter input.
+          adaptive_target = min(matched[3], max(turn_speed, self.atc_adaptive_target) + 3.6 * (now - previous[2]))
+        self.atc_adaptive_event = (event_key, x_dist_to_turn, now)
+      else:
+        self.atc_adaptive_event = None
+      self.atc_adaptive_target = adaptive_target
     fork_speed = self.nRoadLimitSpeed
     stop_speed = 1
     turn_dist_for_speed = self.autoTurnControlTurnEnd * turn_speed / 3.6 # 5
@@ -1211,7 +1233,7 @@ class CarrotServ:
     mapping = turn_info_mapping.get(x_turn_info, default_mapping)
 
     atc_type = mapping["type"]
-    atc_speed = mapping["speed"]
+    atc_speed = adaptive_target if x_turn_info in (1, 2) else mapping["speed"]
     atc_dist = mapping["dist"]
     atc_start_dist = mapping["start"]
 
@@ -1535,6 +1557,9 @@ class CarrotServ:
     msg.carrotMan.szTBTMainText = self.szTBTMainText
     msg.carrotMan.desiredSpeed = int(desired_speed)
     msg.carrotMan.desiredSource = source
+    msg.carrotMan.atcFixedTargetKph = self.autoTurnControlSpeedTurn
+    msg.carrotMan.atcCurveCandidateKph = self.atc_curve_speed[3] if self.atc_curve_speed else 0.0
+    msg.carrotMan.atcAdaptiveTargetKph = self.atc_adaptive_target
     vehicle_navi_active, vehicle_navi_speed, vehicle_navi_section_active = self._vehicle_navigation_display(CS)
     msg.carrotMan.vehicleNaviActive = vehicle_navi_active
     msg.carrotMan.vehicleNaviSpeed = vehicle_navi_speed

@@ -240,6 +240,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ModelDesireIndicator", {PERSISTENT, BOOL, "0"}},
     {"ModelPathIndicator", {PERSISTENT, BOOL, "0"}},
     {"AutoTurnControlSpeedTurn", {PERSISTENT, INT, "20"}},
+    {"AutoTurnControlAdaptiveSpeed", {PERSISTENT, BOOL, "0"}},
     {"AutoTurnControlTurnEnd", {PERSISTENT, INT, "6"}},
     {"AutoTurnMapChange", {PERSISTENT, INT, "0"}},
 

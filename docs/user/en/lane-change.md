@@ -210,3 +210,7 @@ When a usable TBT point and raw vehicle GPS are available, passage evidence supp
 
 
 A TBT hold with confirmed transmission and illumination continues through a receiver `driver_override` status until normal completion or the driver steering cancellation. A missing initial transmission acknowledgement or invalid communication/vehicle input prevents hold output.
+
+### ATC curvature-based turn speed
+
+`AutoTurnControlAdaptiveSpeed` is off by default. In ATC speed modes 2 and 3, it can gradually raise the fixed left/right turn target up to 35 km/h when the matched navigation path covers the turn and its exit. Missing geometry uses the fixed target. Following, stopping, and lower speed constraints retain priority.

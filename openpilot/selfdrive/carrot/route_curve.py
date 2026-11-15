@@ -209,6 +209,40 @@ class RouteCurveSpeed:
         confirmed.add(key)
     return keys, confirmed
 
+  def atc_turn_speed(self, result, turn, distance):
+    """Estimate a ceiling only for a dense, matched route at the current TBT."""
+    confirmed_repeat = (result.reason == "repeated_model" and self.confirm_frames >= 4
+                        and self.confirm_since is not None and self.match_time - self.confirm_since >= CONFIRM_SECONDS - 1e-9)
+    if (result.reason != "matched" and not confirmed_repeat) or turn not in (1, 2) or not 5.0 <= distance <= 140.0:
+      return None
+    progress = self.progress
+    start, end = distance - 12.0, distance + 30.0
+    if progress + start < 0 or progress + end > self.arc[-1]:
+      return None
+    edges = (self.arc[:-1] < progress + end) & (self.arc[1:] > progress + start)
+    if np.any(self.lengths[edges] > 12.0):
+      return None
+
+    sample = progress + np.linspace(start, end, 22)
+    xy = np.column_stack([np.interp(sample, self.arc, self.route[:, i]) for i in range(2)])
+    chords = xy[2:] - xy[:-2]
+    heading = np.unwrap(np.arctan2(chords[:, 1], chords[:, 0]))
+    changes = np.diff(heading)
+    # XY is east/north, so positive rotation is left.
+    signed = changes * (1 if turn == 1 else -1)
+    if np.sum(signed) < math.radians(22) or np.sum(np.maximum(-signed, 0)) > math.radians(12):
+      return None
+    # Require the measured bend to be bracketed by the approach and exit.
+    if np.max(np.abs(changes[:2])) > math.radians(3) or np.max(np.abs(changes[-2:])) > math.radians(3):
+      return None
+    peak = int(np.argmax(np.abs(changes)))
+    if not distance - 6.0 <= sample[peak + 1] + 1.0 - progress <= distance + 18.0:
+      return None
+    peak_curvature = abs(float(changes[peak])) / 2.0
+    if peak_curvature <= 0.0:
+      return None
+    return min(35.0, 3.6 * math.sqrt(1.3 / peak_curvature))
+
   def _invalid(self, reason, now, dt):
     self.confirm_since = None
     self.confirm_frames = 0

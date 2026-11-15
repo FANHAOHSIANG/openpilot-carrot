@@ -398,3 +398,51 @@ def test_fresh_confirmed_release_is_faster_than_loss_and_still_bounded():
   reacquired = run(tracker, xy, start_time=13.35, frames=7, map_factor=1.5)
   assert reacquired[-1].reason == 'matched'
   assert reacquired[-1].speed_kph - reacquired[-2].speed_kph <= .180001
+
+
+@pytest.mark.parametrize('direction', [-1, 1])
+def test_atc_requires_dense_complete_maneuver_with_matching_direction(direction):
+  xy = road(start=60, radius=13, direction=direction)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), 1)
+  result = run(tracker, xy, v_ego=12.0)[-1]
+  assert result.reason == 'matched'
+  turn = 1 if direction > 0 else 2
+  assert 12 < tracker.atc_turn_speed(result, turn, 60) < 19
+  assert tracker.atc_turn_speed(result, 3 - turn, 60) is None
+  assert tracker.atc_turn_speed(result, turn, 35) is None
+  assert tracker.atc_turn_speed(result, turn, 80) is None
+  assert tracker.atc_turn_speed(result, 3, 60) is None
+
+
+def test_atc_falls_back_with_sparse_or_unconfirmed_route():
+  xy = road(start=100, radius=13)
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy[::4]), 1)
+  result = run(tracker, xy, v_ego=12.0)[-1]
+  assert result.reason == 'matched'
+  assert tracker.atc_turn_speed(result, 1, 100) is None
+  tracker.set_route(lonlat(xy), 2)
+  result = run(tracker, xy, v_ego=0.0)[-1]
+  assert tracker.atc_turn_speed(result, 1, 100) is None
+  tracker.set_route([], 3)
+  result = run(tracker, xy, v_ego=12.0)[-1]
+  assert tracker.atc_turn_speed(result, 1, 100) is None
+
+
+def test_atc_candidate_for_broad_turn_survives_one_repeated_model_frame():
+  radius = 70.0
+  angle = np.linspace(0, math.pi / 6, 25)
+  approach = np.column_stack([np.arange(0, 60, 5), np.zeros(12)])
+  bend = np.column_stack([60 + radius * np.sin(angle), radius * (1 - np.cos(angle))])
+  exit_distance = np.arange(2, 80, 2)
+  exit_road = bend[-1] + np.column_stack([exit_distance * math.cos(angle[-1]), exit_distance * math.sin(angle[-1])])
+  xy = np.vstack([approach, bend, exit_road])
+  tracker = RouteCurveSpeed()
+  tracker.set_route(lonlat(xy), 1)
+  result = run(tracker, xy, v_ego=12.0)[-1]
+  assert result.reason == 'matched'
+  assert tracker.atc_turn_speed(result, 1, 72) > 25
+  result = run(tracker, xy, v_ego=12.0, start_time=10.45, frames=1, model_time=10.4)[0]
+  assert result.reason == 'repeated_model'
+  assert tracker.atc_turn_speed(result, 1, 72) > 25
