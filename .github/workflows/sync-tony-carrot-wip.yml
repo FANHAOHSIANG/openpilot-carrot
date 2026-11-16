@@ -1,0 +1,86 @@
+name: Sync Tony carrot-wip mirror
+
+on:
+  push:
+    branches: ['sync/tony-carrot-wip']
+    paths: ['.github/workflows/sync-tony-carrot-wip.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tony-carrot-wip-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: github.repository == 'FANHAOHSIANG/openpilot-carrot' && github.ref == 'refs/heads/sync/tony-carrot-wip'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SOURCE_SHA: '2d0d8d152503dfe7209afa1b353f54a570592e34'
+      EXPECTED_TARGET_SHA: 'ABSENT'
+    steps:
+      - name: Import pinned source history and verify mirror
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_TARGET_SHA" == ABSENT || "$EXPECTED_TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          git init --bare "$RUNNER_TEMP/tony-mirror.git"
+          cd "$RUNNER_TEMP/tony-mirror.git"
+          git remote add destination https://github.com/FANHAOHSIANG/openpilot-carrot.git
+          git remote add source https://github.com/TonyBinheWu/sunnypilot.git
+
+          source_head=$(git ls-remote --exit-code source refs/heads/carrot-wip | cut -f1)
+          [[ "$source_head" == "$SOURCE_SHA" ]] || {
+            echo "::error::Upstream moved; refresh the pinned source SHA before retrying."
+            exit 1
+          }
+          target_head=$(git ls-remote destination refs/heads/Tony/carrot-wip | cut -f1)
+          if [[ "$target_head" == "$SOURCE_SHA" ]]; then
+            echo "Mirror already matches $SOURCE_SHA." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [[ "${target_head:-ABSENT}" == "$EXPECTED_TARGET_SHA" ]] || {
+            echo "::error::Destination changed; inspect it before retrying."
+            exit 1
+          }
+
+          git fetch --quiet --no-tags --filter=blob:none destination '+refs/heads/*:refs/remotes/destination/*'
+          git fetch --quiet --no-tags --filter=blob:none source "$SOURCE_SHA:refs/remotes/source/pinned"
+          git config remote.destination.promisor false
+          git config remote.source.promisor true
+          git config remote.source.partialclonefilter blob:none
+          [[ "$(git rev-parse --is-shallow-repository)" == false ]]
+          [[ "$(git rev-parse refs/remotes/source/pinned)" == "$SOURCE_SHA" ]]
+          if [[ "$EXPECTED_TARGET_SHA" != ABSENT ]]; then
+            git merge-base --is-ancestor "$EXPECTED_TARGET_SHA" "$SOURCE_SHA" || {
+              echo "::error::Histories diverged. No force update is permitted."
+              exit 1
+            }
+          fi
+          current_target=$(git ls-remote destination refs/heads/Tony/carrot-wip | cut -f1)
+          [[ "${current_target:-ABSENT}" == "$EXPECTED_TARGET_SHA" ]] || {
+            echo "::error::Destination changed during fetch; inspect it before retrying."
+            exit 1
+          }
+
+          # Git receives the token through its credential protocol; never embed it in a URL.
+          # Only this one explicit destination ref is written, with no force or mirror push.
+          git -c credential.helper='!f() { if test "$1" = get; then printf "%s\n" "username=x-access-token" "password=$GH_TOKEN"; fi; }; f' \
+            push --porcelain destination "$SOURCE_SHA:refs/heads/Tony/carrot-wip"
+          verified_head=$(git ls-remote --exit-code destination refs/heads/Tony/carrot-wip | cut -f1)
+          [[ "$verified_head" == "$SOURCE_SHA" ]]
+          {
+            echo "## Tony mirror synchronized"
+            echo "- Source: TonyBinheWu/sunnypilot carrot-wip"
+            echo "- Destination: FANHAOHSIANG/openpilot-carrot Tony/carrot-wip"
+            echo "- Commit: $verified_head"
+            echo "- Tree: $(git rev-parse "$SOURCE_SHA^{tree}")"
+            echo "- Original commit history preserved; source code was not modified."
+          } >> "$GITHUB_STEP_SUMMARY"
