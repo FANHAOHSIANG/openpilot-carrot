@@ -31,8 +31,8 @@ jobs:
         run: |
           set -euo pipefail
           check() { test "$(git rev-parse "HEAD:$1")" = "$2" || { echo "Mismatch: $1"; exit 1; }; }
-          check opendbc_repo/opendbc/car/hyundai/hyundaicanfd.py 2f38d85603a43a2af883e734742e9c8303e726dc
-          check opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py 56b8e39297bca0aba2613dc8ad204fd65b928a0a
+          check opendbc_repo/opendbc/car/hyundai/hyundaicanfd.py aeaebf3cf5552c1894e3f5817ee84b7d5d47f44c
+          check opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py 81308c66883e59cf0087c0f23c72676e558a5a4d
           check tools/iphone_led 11232ceba02150870db08c49889cdf6e68d6d11d
           check openpilot/selfdrive/carrot/iphone_led_bridge.py 425b919eac4fc35440691aff477249c79e0a1313
           # Reviewed 1104 integration: resident OSM worker and shipped truck observer.
@@ -63,7 +63,7 @@ jobs:
           assert kw("xiaoge_data", "spawn") == "True"
           print("Validated official C3/comma Connect + Test LED/OSM/process admission boundaries")
           PY
-          check openpilot/cereal/custom.capnp 815aed779c8a95a89b957b874f994731031e4775
+          check openpilot/cereal/custom.capnp ab580c4a794a4e5e4690490b3dc2cac8d7ccc0db
           check openpilot/tools/clearance_shadow 6bcb1b1a99f42ca1223a6c0517fef63b3d323464
   canfd-safety:
     name: Native CAN FD/Panda safety and stop-state regressions
