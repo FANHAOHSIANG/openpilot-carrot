@@ -125,3 +125,41 @@ carControl 須相隔不超過 5ms 且要求曲率相同，前次控制須間隔 
 重算每一步均使用紀錄中的前次指令，因此結果不是自由演進的控制
 回放或閉環模擬；小誤差也不證明置中或安全。接管樣本保留做診斷，
 不能用於宣稱無人介入的改善；torque 是要求值，不是實際 CAN 扭力。
+
+
+## Offline relative-centering candidate (experimental C component)
+
+`centering_shadow.py` compares the recorded **model action** with an unactuated
+proposal. It is not the final A/B/C control comparator: lane baseline B and
+100 Hz candidate limit replay are still pending. Never call this a vehicle
+command or use it as an installable control implementation.
+
+```bash
+python -m openpilot.tools.curve_centering.replay local-rlog.zst --output /tmp/observer
+python -m openpilot.tools.curve_centering.centering_shadow /tmp/observer/centering.json --output /tmp/candidate.json
+```
+
+Use complete chronological input per drive; independent files reset observer
+warmup. Missing action, feedback, geometry or mode information is not fabricated.
+The candidate additionally requires one continuous second of eligible samples,
+model mode, unsaturated steering and estimated acceleration tracking error at
+most 0.2 m/s². It compares model position to the same model's lane midpoint at
+20 m, with right-positive geometry and curvature. Positive path error asks for
+negative curvature adjustment. The small-angle proxy is `delta_k * 20² / 2`;
+it is NOT a simulated future position or measured clearance.
+
+Experimental settings bound additional lateral acceleration to 0.25 m/s² and
+its normal slew to 0.25 m/s³. Low speed (<5 m/s), invalid/missing action or time,
+manual intervention and maneuver states discard the unactuated proposal
+immediately. Geometry/quality/tracking loss slews the correction toward zero;
+re-entry requires stable data again. Immediate discard is NOT a demonstrated
+smooth actuator handover. At low speed the acceleration bound permits a larger
+geometric proxy; these constants are not driving recommendations.
+
+This prototype does not infer body center, apply PathOffset, learn driver
+preferences, or bypass existing steering protection. Body calibration remains a
+separate blocker. No production path imports this module. Before considering a
+controller candidate, replay the original 100 Hz smoothing/curvature/rate limits,
+verify handover continuity, and evaluate a closed-loop vehicle model with camera
+bias, actuator delay, saturation and missing-line sweeps. The current same-input
+replay cannot establish that the car will actually become more centered.

@@ -113,3 +113,50 @@ verify consumed-ID selection over a newer unconsumed model, missing IDs, invalid
 states, lane-mode exclusion, stale state and mismatched command pairing.
 Lane baseline B, hybrid candidate C and closed-loop validation remain pending.
 Raw traces and source identifiers remain in the user's private report context.
+
+
+## Offline C proposal — 2026-11-17
+
+Parent: `50676db9605e628bf28aac1a48ec6abb53debae9`; target re-read:
+`4a9fb70b1330e3148d6c0930827c70825e17a85e`. Event source remains
+`0e462225e4184df0ee4e8cfda7b4cc7f69fbbf38`. No target/control files changed.
+
+59 focused tests pass, with Ruff and whitespace checks. Added candidate tests
+cover mirrored bends, straight geometry, bounded buildup and reversal, manual
+withdrawal, inactive control, turn desire, missing geometry, tracking/saturation
+and mode gates, stable recovery, invalid action/config, duplicate/reversed time
+and time gaps. These synthetic cases supplement real logs; they do not provide
+independent road labels. Existing baseline tests continue to pass.
+
+Five complete retained rlogs were re-decoded with full cereal using the current
+observer (5,212 planner rows). Each segment begins fresh observer/candidate
+state; full segment warmup precedes the windows below. No raw data is published.
+
+| Private corpus case | Segment window (s) | Rows | Ready candidate | Nonzero correction | Direction |
+| --- | --- | ---: | ---: | ---: | --- |
+| Initial left bias | 55.97–58.29 | 41 | 25 | 25 | right |
+| Right bend | 25.02–44.86 | 348 | 348 | 348 | left |
+| Left bend | 14.73–41.14 | 460 | 460 | 460 | right |
+| Tunnel | 22.19–33.38 | 197 | 114 | 147 | right |
+| Ramp exit candidate | 54.60–59.99 | 87 | 0 | 0 | none |
+
+Initial-bias window max additional acceleration is 0.1197862654 m/s²;
+right/left/tunnel maxima are 0.25 m/s². Tunnel nonzero frames exceed ready
+frames because withdrawal decays instead of stepping to zero. Across its whole
+segment 224 rows exceed the experimental 0.2 m/s² tracking threshold. Ramp exit
+has 66 driver-pressed rows out of 87; no correction in this window. This is
+correct withdrawal logic, NOT evidence the late exit is fixed. Road identity
+remains a candidate label. Four previous aligned videos plus selected ramp
+frames were inspected; not all videos.
+
+All five files contain 2,091 ready and 2,186 nonzero proposal rows. These are
+frame counts, not independent events or a success percentage. The small-angle
+shift proxy can be as large as 0.5068 m in the low-speed initial segment; it
+must not be reported as achieved centering or clearance improvement.
+
+Remaining: verified lane-mode B, final common A/B/C 100 Hz limited comparison,
+body/sensor calibration, closed-loop vehicle simulation and handover evaluation.
+Closed-loop work should first reproduce the unmodified model/controller response,
+then sweep speed, camera bias, delay, line loss and saturation. No calibrated
+closed-loop model has been run here. No C4 or vehicle operation is authorized
+by this research candidate, and no steering limits were changed.
