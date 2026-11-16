@@ -85,3 +85,31 @@ Exact consumed-input alignment at each 100 Hz control tick, real-log command
 reproduction, lane-mode baseline B and hybrid candidate C remain pending.
 Do not apply this function once per 20 Hz model row and call it control replay.
 No new real-log driving-performance or closed-loop result is claimed.
+
+## Ramp control-step audit — 2026-11-17
+
+Added local-only control_audit.py. Source remains the pinned Ioniq 5 event
+commit; source/vehicle mismatch is rejected. Exact consumed model ID is taken
+from controlsState.lateralPlanMonoTime (which controlsd populates from modelV2).
+Other inputs remain bounded preceding samples, not proven consumed IDs.
+
+Three contiguous user-authorized segments, including the reported ramp exit:
+17,989 control steps; 17,251 computed. Median absolute curvature residual
+1.5820286703924213e-11 /m; P95 3.428480156025815e-10 /m; maximum
+1.6321650038453317e-09 /m. Exclusion counts (may overlap): 609 initial/gap,
+127 invalid-message, 4 stale/missing liveParameters, 1 missing/stale model.
+Every step is anchored to the recorded previous command: NOT closed-loop.
+
+During the selected exit intervention, consumed model curvature rises from
+about +0.0040 to +0.0061 /m and the command follows. Driver steering remains
+pressed for these later samples. Navigation samples show ATC none and VTURN
+selected; selected speed is above actual speed at these exit samples. This
+does not establish root cause, physical applied torque, independent road
+curvature, or longitudinal behavior over the entire ramp. Driver intervention
+changes the pose and can affect subsequent model output.
+
+40 focused tests pass locally, plus Ruff and whitespace checks. New tests
+verify consumed-ID selection over a newer unconsumed model, missing IDs, invalid
+states, lane-mode exclusion, stale state and mismatched command pairing.
+Lane baseline B, hybrid candidate C and closed-loop validation remain pending.
+Raw traces and source identifiers remain in the user's private report context.

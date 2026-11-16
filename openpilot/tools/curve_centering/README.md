@@ -104,3 +104,24 @@ MPC 和車輛反應。候選修正需以左右彎置中誤差、邊界餘量、�
 
 目前只有與來源函式對照的數值測試；尚未完成 rlog 控制步輸入配對、
 B 車道線模式及 C 混合候選，也不是行車表現驗證。
+
+## 逐步控制稽核
+
+```bash
+python -m openpilot.tools.curve_centering.control_audit /private/segment17-rlog.zst /private/segment18-rlog.zst /private/segment19-rlog.zst --output /private/control-audit.json
+```
+
+限定已檢查的 Ioniq 5 與事件版本；其他版本明確拒絕，須先比對程式後
+再擴充。完整解碼後才輸出，損壞檔不接受。輸出保留輸入 SHA256、
+每步排除原因、模型時間戳、來源年齡、接管、曲率與導航狀態。輸出
+只留私人位置，不將完整 JSON 或原始紀錄提交公開儲存庫。
+
+此版本 `controlsState.lateralPlanMonoTime` 實際是使用的 modelV2
+時間戳；工具精確配對該模型，而不是選最近模型。controlsState 與
+carControl 須相隔不超過 5ms 且要求曲率相同，前次控制須間隔 5–15ms。
+車速與 liveParameters 仍取之前最新值，限制年齡為 30ms／200ms，
+不宣稱所有輸入都精確配對。模型年齡不超過 200ms。
+
+重算每一步均使用紀錄中的前次指令，因此結果不是自由演進的控制
+回放或閉環模擬；小誤差也不證明置中或安全。接管樣本保留做診斷，
+不能用於宣稱無人介入的改善；torque 是要求值，不是實際 CAN 扭力。
