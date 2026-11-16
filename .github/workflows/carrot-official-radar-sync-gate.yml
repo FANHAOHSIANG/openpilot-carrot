@@ -28,7 +28,7 @@ jobs:
           git merge-base --is-ancestor 943db73fc6f9958df91b1c77e542667b7ddd7b58 HEAD
           git merge-base --is-ancestor 16df8e63c06988171d62abef608e4a6959ccd10a HEAD
           for path in tools/iphone_led openpilot/selfdrive/carrot/iphone_led_bridge.py openpilot/cereal/custom.capnp openpilot/system/manager/process_config.py; do
-            expected="$(git rev-parse "943db73fc6f9958df91b1c77e542667b7ddd7b58:$path")"
+            expected="$(git rev-parse "9904c7483bba139480e445ac3a779434b16c4fa5:$path")"
             actual="$(git rev-parse "HEAD:$path")"
             if [ "$expected" != "$actual" ]; then
               echo "Unexpected change in pinned Test custom content: $path"
