@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="ko" group="STEER_LANECHANGE" param="ModelPathIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="ko" group="INDICATOR_AUTO" param="ModelPathIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 모델 경로 자동깜박이(시험)
 
-**메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+**메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 자동 점등
 
 ---
 
@@ -13,15 +13,15 @@
 
 `ModelPathIndicator`
 
-30km/h 이상에서 모델의 1~3초 경로가 차선 곡선을 넘어 이어지고 실제 제어 곡률도 같은 방향이면 깜박이를 표시합니다. 대상 차선 신뢰도 10% 이상, 연속적인 경계와 반복 관측이 필요합니다. 좌측 중앙선·우측 로드에지 제외 조건을 적용하며 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다.
+30km/h 이상에서 모델의 1~3초 경로가 차선 곡선을 넘어 이어지고 실제 제어 곡률도 같은 방향이면 깜박이를 표시합니다. 대상 차선 신뢰도 10% 이상, 연속적인 경계와 반복 관측이 필요합니다. 좌측 중앙선·우측 로드에지 제외 조건을 적용하며 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="d0be245b9cd58348af40fd500c93c0b2d0a315b1c656c6e0d5a735c23a7fb7c8" semantic="09c4851f68312e9070186bb23698703b51d5b7dce50dbeca5e9cb4cf5626b6c8" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="95fe249da0c78043cb0d3c27d805663838d205e708f62fe25451743e1ffcf340" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 토글
 - **기본값:** `0`
 - **범위:** `0` ~ `1`
-- **메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+- **메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 자동 점등
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelPathIndicator -->
 

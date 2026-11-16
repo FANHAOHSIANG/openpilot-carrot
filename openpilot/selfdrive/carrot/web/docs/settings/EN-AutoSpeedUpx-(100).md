@@ -13,10 +13,10 @@
 
 `AutoSpeedUptoRoadSpeedLimit`
 
-Automatically increases speed on lead car, up to (road speed x ratio)
+This test branch caps automatic increases at the selected cruise speed. Only an explicit SPEED UP command can use the increase ratio. Zero also disables automatic road adjustment.
 
 <!-- CARROT:AUTO:BEGIN AutoSpeedUptoRoadSpeedLimit -->
-<!-- CARROT:AUTO:SOURCE facts="1e333cd54360f0280c641d0e346fd07d02ab19c9271b97fd60db50168998ce7a" semantic="c05370fd34043aeafdf056f429b15308e3f72dadec462c9d4d3b6c332b0d48d1" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="911188631c1a48b101d6590c9181c4e3f17112a0154da37b0d5e6ee32c115b3f" semantic="e8b7e745dd01e462d2b5f3bc592dbdba9d4070ece06aaa4e5e90dda27ed99727" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Number
 - **Default:** `0%`

@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="en" group="STEER_LANECHANGE" param="ModelPathIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="en" group="INDICATOR_AUTO" param="ModelPathIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # Model path indicator (trial)
 
-**Menu:** Driving \> Steering \> Lane Change (Auto Turn)
+**Menu:** Vehicle & Hardware \> Indicator Control \> Automatic Indication
 
 ---
 
@@ -13,15 +13,15 @@
 
 `ModelPathIndicator`
 
-At 30km/h or above, indicates a model path crossing the curved boundary within 1–3 seconds while commanded curvature agrees. Requires target-line confidence of at least 10%, continuous geometry and repeated observations. Applies left centre-line and right road-edge exclusions; adds no steering request. Default OFF; Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate.
+At 30km/h or above, indicates a model path crossing the curved boundary within 1–3 seconds while commanded curvature agrees. Requires target-line confidence of at least 10%, continuous geometry and repeated observations. Applies left centre-line and right road-edge exclusions; adds no steering request. Default OFF; Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate. The supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="ce85ef845db3e48ee8712306c8439177094a035843e71158332be11d7df9b7cf" semantic="09c4851f68312e9070186bb23698703b51d5b7dce50dbeca5e9cb4cf5626b6c8" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="3894d8653a908645d4d6f43ed93d8557c95fe7b253f1233c99b354ae10838ba9" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Toggle
 - **Default:** `0`
 - **Range:** `0` ~ `1`
-- **Menu:** Driving \> Steering \> Lane Change (Auto Turn)
+- **Menu:** Vehicle & Hardware \> Indicator Control \> Automatic Indication
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelPathIndicator -->
 

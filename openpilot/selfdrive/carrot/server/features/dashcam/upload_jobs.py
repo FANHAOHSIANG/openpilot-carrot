@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from openpilot.selfdrive.carrot.web_upload import (
+  UploadQuotaExceeded,
   create_web_upload_session,
   send_web_upload_complete,
   upload_device_id,
@@ -445,6 +446,7 @@ async def run_upload_segments(
     )
 
   sem = asyncio.Semaphore(concurrency)
+  quota_error = None
   completed = 0
   logical_bytes = 0
   transmitted_bytes = 0
@@ -463,7 +465,7 @@ async def run_upload_segments(
     )
 
   async def upload_one(idx0: int, segment: str) -> None:
-    nonlocal completed, logical_bytes, transmitted_bytes
+    nonlocal quota_error, completed, logical_bytes, transmitted_bytes
     idx = idx0 + 1
     files, prepare_error = normalized_prepared[idx0]
 
@@ -503,6 +505,8 @@ async def run_upload_segments(
       if job:
         append(job, f"[{idx}/{total}] {segment}")
       try:
+        if quota_error is not None:
+          raise UploadQuotaExceeded(quota_error)
         if prepare_error is not None:
           raise prepare_error
         segment_path = segment_dir(segment)
@@ -521,6 +525,7 @@ async def run_upload_segments(
           should_cancel if job else None,
           filenames=[str(item["name"]) for item in files],
           on_progress=on_file_progress if job else None,
+          existing_base_url=remote_base_path,
         )
         results[idx0] = {
           "segment": segment,
@@ -533,6 +538,8 @@ async def run_upload_segments(
         if job:
           append(job, f"[{idx}/{total}] {segment} OK")
       except Exception as e:
+        if isinstance(e, UploadQuotaExceeded):
+          quota_error = str(e)
         if is_cancel_requested(job):
           return  # canceled mid-upload — handled after gather
         results[idx0] = {

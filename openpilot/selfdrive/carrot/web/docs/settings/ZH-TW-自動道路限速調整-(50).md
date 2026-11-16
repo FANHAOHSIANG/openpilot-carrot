@@ -16,7 +16,7 @@
 -1: 設定道路限速, 100: 新道路速度, 50: 中值, 0: 不改變
 
 <!-- CARROT:AUTO:BEGIN AutoRoadSpeedAdjust -->
-<!-- CARROT:AUTO:SOURCE facts="da21a0355e035d209b2640ea7864db0693a0cdb0751fea60b00fde6c86bd542e" semantic="c5639d7240a075f5e1e1594a87177824bc3d8bf0192fbf8b3dc2b51a26ea762a" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="7fea5da8119206683c280d229043ca9889b6c50c4ff828086896cda92e73511a" semantic="3a8ce492ec99592a4b2c648c4396de135f8541b50514f8cf9b5673d419e3bbf9" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 數值
 - **預設值:** `0%`

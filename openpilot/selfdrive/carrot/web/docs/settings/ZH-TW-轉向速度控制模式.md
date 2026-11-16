@@ -16,7 +16,7 @@
 0: 不使用, 1: 視覺, 2: 視覺 + 路線, 3: 路線 (始終)
 
 <!-- CARROT:AUTO:BEGIN TurnSpeedControlMode -->
-<!-- CARROT:AUTO:SOURCE facts="200c7a98733beafe26ce792204011f97eb3c4b95ae88d82d51b000c154e24f3f" semantic="0e0a5e58e9061594b9a41986ec433b7b6680c5f6ce99da897cd9b4e52ded8e38" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="9f471a662745b3cd09c65968a331f72b858b09f30a92e1210f290dc0bb49a109" semantic="db2399ff8f834bd37741fa4c0751142f9ca87ceeeb55df6ad1bc86a9828f8ec6" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 分段選擇
 - **預設值:** `1`

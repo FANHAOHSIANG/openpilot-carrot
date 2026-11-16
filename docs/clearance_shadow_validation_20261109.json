@@ -1,0 +1,156 @@
+{
+  "base_commit": "97830a1ffe5b079c1326da0b97ed065cbb4ea125",
+  "unit_tests_passed": 61,
+  "ruff": "passed",
+  "compileall": "passed",
+  "scope": "offline research; no C4, road or closed-loop validation",
+  "weights_source": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+  "model_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "ultralytics_version": "8.4.208",
+  "bus_image_smoke": {
+    "scope": "repeated public still-image inference; not driving/accuracy/clearance validation",
+    "image_sha256": "c02019c4979c191eb739ddd944445ef408dad5679acab6fd520ef9d434bfbc63",
+    "expected_class": "bus",
+    "stable_id_detected": true
+  },
+  "truck_image_smoke": {
+    "scope": "COCO128 training-image smoke tests, not held-out accuracy or real-road validation",
+    "results": [
+      {
+        "image": "000000000064.jpg",
+        "image_sha256": "406f84619f5197d416f60566d41ad4d58f1d10b0a182652bbda266eedbc3f1ab",
+        "annotated_trucks": 1,
+        "detections": [
+          {
+            "label": "truck",
+            "track_id": 4,
+            "confidence": 0.27981600165367126,
+            "box": [
+              51.402587890625,
+              354.82135009765625,
+              135.81289672851562,
+              399.02508544921875
+            ]
+          }
+        ],
+        "all_detected_classes": [
+          "car",
+          "truck"
+        ],
+        "stable_track_ids": [
+          4
+        ]
+      },
+      {
+        "image": "000000000071.jpg",
+        "image_sha256": "5393bf6575c435daa599c1272d9e61e99c099994ae4d3755311684663fed0917",
+        "annotated_trucks": 2,
+        "detections": [],
+        "all_detected_classes": [
+          "car",
+          "car",
+          "car"
+        ],
+        "stable_track_ids": []
+      },
+      {
+        "image": "000000000540.jpg",
+        "image_sha256": "32099f009fcb436bad1bd59b5d48b3e5620fa667a83db5a09879e158dd346103",
+        "annotated_trucks": 3,
+        "detections": [],
+        "all_detected_classes": [],
+        "stable_track_ids": []
+      },
+      {
+        "image": "000000000094.jpg",
+        "image_sha256": "143779e4a70bb6b6e10232aa02c2ce99a9a1246d763da344b424aba4ca71cd9f",
+        "annotated_trucks": 1,
+        "detections": [],
+        "all_detected_classes": [
+          "car",
+          "car"
+        ],
+        "stable_track_ids": []
+      },
+      {
+        "image": "000000000257.jpg",
+        "image_sha256": "ae711135026cbd548fa1e04edc0ee96bce57162587e0238e7f76b4dc46cf4208",
+        "annotated_trucks": 5,
+        "detections": [
+          {
+            "label": "truck",
+            "track_id": 1,
+            "confidence": 0.7886915802955627,
+            "box": [
+              250.655029296875,
+              277.00677490234375,
+              454.88714599609375,
+              401.18084716796875
+            ]
+          },
+          {
+            "label": "truck",
+            "track_id": 6,
+            "confidence": 0.5615635514259338,
+            "box": [
+              518.7275390625,
+              249.502197265625,
+              639.471435546875,
+              479.55657958984375
+            ]
+          }
+        ],
+        "all_detected_classes": [
+          "truck",
+          "person",
+          "person",
+          "person",
+          "person",
+          "truck",
+          "person",
+          "person",
+          "motorcycle",
+          "person",
+          "person",
+          "person",
+          "person",
+          "person"
+        ],
+        "stable_track_ids": [
+          1,
+          6
+        ]
+      }
+    ]
+  },
+  "video_pipeline_smoke": {
+    "frames": 4,
+    "nonzero_candidate_frames": 0,
+    "reasons": {
+      "invalid snapshot": 4
+    },
+    "class_observations": {
+      "bus": 4,
+      "person": 16
+    },
+    "applied_offset_m": 0,
+    "control_eligible": false,
+    "inference_mean_ms": 768.7090022482153,
+    "overlay_playback_fps": 20,
+    "ultralytics_version": "8.4.208",
+    "mode": "vehicles",
+    "config": {
+      "max_offset_m": 0.15,
+      "rate_mps": 0.05,
+      "vehicle_width_m": 2.0,
+      "line_margin_m": 0.35,
+      "confirm_s": 0.8,
+      "max_gap_s": 0.25,
+      "min_speed_mps": 5.555555555555555,
+      "max_curvature": 0.002
+    },
+    "sidecar_sha256": "e334aeb12ad880b7993bba709faa0b5e507b87bf18c19362c5f5a6d40a2c3c1d",
+    "weights_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+    "video_sha256": "24aee17c314eb9669699c4537efeefbbdd6e2d8087158c0ca6eeeb270a620319"
+  }
+}

@@ -13,10 +13,10 @@
 
 `MapTurnSpeedFactor`
 
-The smaller the value, the more the speed will decrease along the route.
+Scales the matched route curve target before the distance-based approach calculation. Lower values slow more.
 
 <!-- CARROT:AUTO:BEGIN MapTurnSpeedFactor -->
-<!-- CARROT:AUTO:SOURCE facts="7a203c4c5111a0cf21a1abc9de9aa55345db366756b6ba7013fd934b28c17994" semantic="70911cfe4337b36f9b1812b46852781a33788b52e9f58c2bf5e64debf1f9fa80" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="2a08ce0b4cdb003d25e2bf0eaa9b1c9ea8efcfb10c010480abbcdbafa25e9200" semantic="0ff206783eb8d00f1c12b1e6af36b0ad3bedfa9fc1b77780eb6b53c6dd0577e5" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Number
 - **Default:** `100%`

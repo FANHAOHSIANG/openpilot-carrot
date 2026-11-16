@@ -5,7 +5,7 @@ import math
 from typing import Any
 
 
-MAX_ROUTE_POINTS = 256
+MAX_ROUTE_POINTS = 4096
 MAX_ROAD_LIMIT_KPH = 200
 ROAD_LIMIT_STEP_KPH = 10
 
@@ -77,6 +77,7 @@ class NaviTrafficControl:
   source: str = ""
   lamp: str = ""
   remain_sec: int = 0
+  received_mono_time_ns: int = 0
 
 
 @dataclass(frozen=True)
@@ -177,14 +178,21 @@ def _route(data: Any) -> NaviRouteControl:
   points: list[tuple[float, float]] = []
   if present:
     try:
-      values = tuple(_get(item, "polyline", ()) or ())[:MAX_ROUTE_POINTS]
+      values = tuple(_get(item, "polyline", ()) or ())
+      if len(values) > MAX_ROUTE_POINTS:
+        values = ()
+        present = False
     except Exception:
       values = ()
+      present = False
     for point in values:
       latitude = _float(point, "latitude", math.nan)
       longitude = _float(point, "longitude", math.nan)
-      if -90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0:
-        points.append((latitude, longitude))
+      if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
+        points = []
+        present = False
+        break
+      points.append((latitude, longitude))
   return NaviRouteControl(
     present=present,
     sequence=sequence,
@@ -198,23 +206,29 @@ def _traffic(data: Any) -> NaviTrafficControl:
   item = _get(data, "trafficSignal")
   present, sequence = _meta(item)
   visible = present and bool(_get(item, "visible", False))
+  source = _text(item, "source") if present else ""
   lamp = ""
   remain_sec = 0
   ui_remain = max(0, _int(item, "uiCounterRemainSec")) if bool(_get(item, "uiCounterValid", False)) else 0
-  for name, prefix in (("red", "red"), ("left", "left"), ("green", "green"),
-                       ("right", "right"), ("uturn", "uturn")):
-    if visible and bool(_get(item, f"{prefix}Valid", False)) and bool(_get(item, f"{prefix}On", False)):
-      lamp = name
-      remain_sec = max(0, _int(item, f"{prefix}RemainSec")) or ui_remain
-      break
+  if visible:
+    if source == "amap_link":
+      if 0 < ui_remain <= 999:
+        lamp, remain_sec = "countdown", ui_remain
+    else:
+      for name in ("red", "left", "green", "right", "uturn"):
+        if bool(_get(item, f"{name}Valid", False)) and bool(_get(item, f"{name}On", False)):
+          lamp = name
+          remain_sec = max(0, _int(item, f"{name}RemainSec")) or ui_remain
+          break
   return NaviTrafficControl(
     present=present,
     sequence=sequence,
     visible=visible,
     distance_m=max(0, _int(item, "distanceM")) if present else 0,
-    source=_text(item, "source") if present else "",
+    source=source,
     lamp=lamp,
     remain_sec=remain_sec,
+    received_mono_time_ns=max(0, _int(_get(item, "meta"), "receivedMonoTimeNanos")),
   )
 
 

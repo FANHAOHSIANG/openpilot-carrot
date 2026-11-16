@@ -1,6 +1,7 @@
 from concurrent.futures import Future
 import json
 from types import SimpleNamespace as NS
+from unittest.mock import Mock
 
 import pytest
 
@@ -123,3 +124,78 @@ def test_arrival_clears_temporary_destination_without_restarting_route(engine, m
   assert engine.destination_from_params() == (None, None)
   engine.recompute_route()
   assert engine.route is None and engine.pending is None
+
+
+def source_update(engine, monkeypatch, *, active=0, external=False, valid=True, alive=True):
+  class SubMaster(dict):
+    def update(self, _timeout):
+      pass
+
+  sm = SubMaster(carrotMan=NS(activeCarrot=active, externalNavigationActive=external))
+  sm.updated = {'managerState': False}
+  sm.valid = {'carrotMan': valid}
+  sm.alive = {'carrotMan': alive}
+  engine.sm = sm
+  engine.gps_ok = True
+  engine.resend_at = 0.
+  for name in ('update_location', 'recompute_route', 'send_instruction', 'clear_route', 'reset_recompute_limits'):
+    monkeypatch.setattr(engine, name, Mock())
+  return sm
+
+
+@pytest.mark.parametrize('active', range(7))
+def test_stock_warning_does_not_suppress_coordinate_route(engine, monkeypatch, active):
+  engine, _, _ = engine
+  source_update(engine, monkeypatch, active=active)
+  engine.update()
+  engine.recompute_route.assert_called_once()
+  engine.send_instruction.assert_called_once()
+
+
+@pytest.mark.parametrize('active', [0, 1, 2, 5])
+def test_external_session_owns_navigation_without_a_current_maneuver(engine, monkeypatch, active):
+  engine, _, published = engine
+  source_update(engine, monkeypatch, active=active, external=True)
+  engine.update()
+  engine.recompute_route.assert_not_called()
+  engine.send_instruction.assert_not_called()
+  assert published[-1][0] == 'navInstruction' and not published[-1][1].valid
+
+
+@pytest.mark.parametrize('valid,alive', [(False, True), (True, False), (False, False)])
+def test_invalid_or_stale_external_source_cannot_block_navigation(engine, monkeypatch, valid, alive):
+  engine, _, _ = engine
+  source_update(engine, monkeypatch, external=True, valid=valid, alive=alive)
+  engine.update()
+  engine.recompute_route.assert_called_once()
+
+
+def test_external_disconnect_recomputes_saved_route_once(engine, monkeypatch):
+  engine, _, _ = engine
+  sm = source_update(engine, monkeypatch, active=3, external=True)
+  engine.update()
+  sm['carrotMan'].externalNavigationActive = False
+  engine.update()
+  engine.update()
+  engine.clear_route.assert_called_once()
+  engine.reset_recompute_limits.assert_called_once()
+  assert engine.recompute_route.call_count == 2
+
+
+def test_stock_warning_does_not_bypass_gps_requirement(engine, monkeypatch):
+  engine, _, published = engine
+  source_update(engine, monkeypatch, active=3)
+  engine.gps_ok = False
+  engine.update()
+  engine.recompute_route.assert_not_called()
+  assert not published[-1][1].valid
+
+
+def test_explicit_source_roundtrips_separately_from_warning_state():
+  message = navd.messaging.new_message('carrotMan', valid=True)
+  message.carrotMan.activeCarrot = 5
+  assert not message.carrotMan.externalNavigationActive
+  message.carrotMan.externalNavigationActive = True
+  with navd.log.Event.from_bytes(message.to_bytes()) as reader:
+    assert reader.carrotMan.externalNavigationActive
+    assert reader.carrotMan.activeCarrot == 5

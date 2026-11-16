@@ -10,10 +10,23 @@ class CameraGapTrace:
     self.received = []
     self.previous = None
     self.next_emit = 0.
+    self.next_pair_emit = 0.
 
   def receive(self, main, extra):
     self.received = []
-    return receive_camera_pair(main, extra, trace=self.received)
+    frames = receive_camera_pair(main, extra, trace=self.received)
+    if frames is None:
+      now = time.monotonic()
+      if now >= self.next_pair_emit:
+        self.next_pair_emit = now + 1.
+        try:
+          # Diagnostics only. The camera pairing and frame validity gates
+          # remain unchanged; never re-use a previous camera frame.
+          self.emit('modelCameraPairUnavailable', mono_time=now,
+                    received=list(self.received), previous=self.previous)
+        except Exception:
+          pass
+    return frames
 
   def record(self, frame_id, dropped, backend, **timings):
     current = {'frame_id': frame_id, 'backend': backend, 'received': self.received,

@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="zh" group="STEER_LANECHANGE" param="ModelPathIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="zh" group="INDICATOR_AUTO" param="ModelPathIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 模型路径转向灯（试验）
 
-**菜单:** 驾驶控制 \> 转向 \> 变道 (自动转向)
+**菜单:** 车辆与硬件 \> 转向灯控制 \> 自动点亮
 
 ---
 
@@ -13,15 +13,15 @@
 
 `ModelPathIndicator`
 
-车速至少30km/h，模型未来1至3秒路径持续越过弯曲车道边界，且控制曲率方向一致时显示转向灯。要求目标线置信度至少10%、连续边界及重复观测。排除左侧中央线及右侧道路边缘，不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。
+车速至少30km/h，模型未来1至3秒路径持续越过弯曲车道边界，且控制曲率方向一致时显示转向灯。要求目标线置信度至少10%、连续边界及重复观测。排除左侧中央线及右侧道路边缘，不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。 支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="d221cc76331799935492a0304a2a0d9705635f3f1bd8620105befe111d27e8cc" semantic="09c4851f68312e9070186bb23698703b51d5b7dce50dbeca5e9cb4cf5626b6c8" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="e5fe2c7b1cff86ceb8dcd86b2f6d20b45febb081bea33cc5981b314a819613d1" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 开关
 - **默认值:** `0`
 - **范围:** `0` ~ `1`
-- **菜单:** 驾驶控制 \> 转向 \> 变道 (自动转向)
+- **菜单:** 车辆与硬件 \> 转向灯控制 \> 自动点亮
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelPathIndicator -->
 

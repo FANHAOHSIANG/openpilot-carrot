@@ -13,10 +13,10 @@
 
 `AutoRoadSpeedAdjust`
 
--1: set roadlimitspeed, 100: new road speed, 50: median, 0: not change
+Automatic road adjustment cannot raise set speed. -1: sync to a lower road target; 0: keep; 50: weighted decrease; 100: lower new limit.
 
 <!-- CARROT:AUTO:BEGIN AutoRoadSpeedAdjust -->
-<!-- CARROT:AUTO:SOURCE facts="f18aae93bc45f89f0d9b8c492adc8ef7aa5f41c4898eed9d4094727b02349bd8" semantic="c5639d7240a075f5e1e1594a87177824bc3d8bf0192fbf8b3dc2b51a26ea762a" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="ddc71e4a0694e1d6e45fa5c34e11dd4124d8397128a4f2efcfabeff1f0dd2fc9" semantic="3a8ce492ec99592a4b2c648c4396de135f8541b50514f8cf9b5673d419e3bbf9" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Number
 - **Default:** `0%`

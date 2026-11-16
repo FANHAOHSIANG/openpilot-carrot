@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 
-from openpilot.selfdrive.modeld.jetlink.link import ClientConnection, SPEC, FAULT, state
+from openpilot.selfdrive.modeld.jetlink.link import ClientConnection, SPEC, FAULT, state, peer_ready
 from openpilot.selfdrive.modeld.jetlink.prepare import WarpPreparation
 from openpilot.selfdrive.modeld.jetlink.contracts import model_name, parse_outputs
 from openpilot.selfdrive.modeld.jetlink.inputs import fill_inputs
@@ -161,6 +161,8 @@ class JoiningModel:
     self.reset = True
     self.error = ''
     self.small_runs = 0
+    self.preparation_failed = False
+    self.prepare_allowed = False
     self.last_slow_log = 0.
 
   def update(self, sm, metadata):
@@ -169,10 +171,15 @@ class JoiningModel:
     self.join_allowed = may_join(now, {k: sm[k] for k in ('carState', 'selfdriveState', 'carControl')},
                                 {k: sm.valid[k] and sm.alive[k] for k in ('carState', 'selfdriveState', 'carControl')}, sm.recv_time)
     if now >= self.next_status:
-      self.ready = state().get('state') == 'ready'
+      self.ready = peer_ready(state(), now)
+      if not self.ready:
+        self.preparation_failed = False
+      self.prepare_allowed = (sm.valid['deviceState'] and sm.alive['deviceState']
+                              and 0 <= now - sm.recv_time['deviceState'] < 3
+                              and sm['deviceState'].memoryUsagePercent < 85)
       record = {'active': self.active, 'ready': self.ready, 'model': model_name(self.spec), 'sha256': self.spec.sha256,
                 'nav_model': 'nav_map' in self.spec.input_shapes,
-                'error': self.error, 'updated': now,
+                'error': self.error, 'updated': now, 'warp_preparing': self.preparation is not None,
                 'execution': {'cpu_overlap': os.getenv('JETLINK_CPU_OVERLAP', '1') != '0',
                               'shared_input': getattr(self.client, 'shared', None) is not None,
                               'compact_reply': bool(getattr(self.client, 'project_output', False))}}
@@ -198,10 +205,13 @@ class JoiningModel:
 
   def run(self, bufs, transforms, inputs, prepare_only):
     from openpilot.common.swaglog import cloudlog
-    if self.preparation is not None and not self.ready:
+    if self.preparation is not None and (not self.ready or not self.prepare_allowed):
       self.preparation.close()
       self.preparation = None
-    if self.warp is None and self.small_runs >= 3 and self.ready and self.join_allowed and time.monotonic() >= self.next_join:
+      if self.ready and not self.prepare_allowed:
+        self.preparation_failed = True  # Do not oscillate between allocating and cancelling.
+    if (self.warp is None and self.small_runs >= 3 and self.ready and self.join_allowed
+        and self.prepare_allowed and not self.preparation_failed and time.monotonic() >= self.next_join):
       try:
         if self.preparation is None:
           cloudlog.warning('Jetlink warp preparation starting after %d internal outputs', self.small_runs)
@@ -219,6 +229,7 @@ class JoiningModel:
           self.preparation.close()
           self.preparation = None
         self.error = str(exc)
+        self.preparation_failed = True
         self.next_join = time.monotonic() + 30
     if self.connection is not None and not (self.ready and self.join_allowed):
       self.connection.close()
@@ -265,8 +276,11 @@ class JoiningModel:
           self.active = True
           self.error = ''
           self.next_status = 0
-        # As in the generic eGPU runtime, run the full recurrent graph for each
-        # received pair. Camera gaps still propagate unchanged into pose validity.
+        # Advance the remote recurrent state and parser history for every received
+        # pair, including camera-gap recovery. As in ModelState.run, a
+        # prepare-only result must not be published as a driving prediction or
+        # invalid cameraOdometry. The next synchronized pair resumes publication;
+        # existing consumer freshness checks still detect sustained missing data.
         parsed = parse_outputs(self.parser, self.spec, result)
         if os.getenv('SEND_RAW_PRED'):
           parsed['raw_pred'] = result.copy()
@@ -277,7 +291,7 @@ class JoiningModel:
                            'roundtrip %.2f, parse %.2f ms; server gpu/queue/total %.2f/%.2f/%.2f ms',
                            self.frame, (warped-started)*1000, *(v*1000 for v in self.warp.timings),
                            (replied-warped)*1000, (finished-replied)*1000, *(v/1000 for v in self.client.timings))
-        return parsed
+        return None if prepare_only else parsed
       except Exception as exc:
         cloudlog.exception('Jetlink failed; restoring local model')
         self.error = str(exc)

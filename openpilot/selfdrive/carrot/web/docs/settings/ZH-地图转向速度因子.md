@@ -13,10 +13,10 @@
 
 `MapTurnSpeedFactor`
 
-值越小，沿路线减速越多。
+匹配路线的弯道目标速度比例。数值越小减速越多，在按距离计算进弯速度前应用。
 
 <!-- CARROT:AUTO:BEGIN MapTurnSpeedFactor -->
-<!-- CARROT:AUTO:SOURCE facts="d95261015e89ce8328f518f240b25a5c6e075e86f0ef66b682f1a61fe5723e04" semantic="70911cfe4337b36f9b1812b46852781a33788b52e9f58c2bf5e64debf1f9fa80" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="76c616d124f720f8fef70f48b3216edcd568f1e2254b85c35f4acc8ef3687fbf" semantic="0ff206783eb8d00f1c12b1e6af36b0ad3bedfa9fc1b77780eb6b53c6dd0577e5" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 数值
 - **默认值:** `100%`

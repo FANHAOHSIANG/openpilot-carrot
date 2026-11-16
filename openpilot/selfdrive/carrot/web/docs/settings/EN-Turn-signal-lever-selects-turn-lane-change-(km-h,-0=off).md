@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="en" group="STEER_LANECHANGE" param="BlinkerLatchedTurn" -->
+<!-- CARROT:GENERATED schema="1" locale="en" group="INDICATOR_LEVER" param="BlinkerLatchedTurn" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # Turn-signal lever selects turn / lane change (km/h, 0=off)
 
-**Menu:** Driving \> Steering \> Lane Change (Auto Turn)
+**Menu:** Vehicle & Hardware \> Indicator Control \> Lever Behavior
 
 ---
 
@@ -16,14 +16,14 @@
 Hyundai CAN-FD only (0x3C1 lever signal). 0 = off. At or below the set speed a one-touch (half) press, then latching the lever after the lamp has lit, gone dark and lit again, means a left/right turn; a plain latch or a one-touch press means a lane change; no lane change starts while the lever is still in the one-touch position (a latch passes through it for about 0.1 s). Above the set speed any lever input, latched included, is a lane change.
 
 <!-- CARROT:AUTO:BEGIN BlinkerLatchedTurn -->
-<!-- CARROT:AUTO:SOURCE facts="ef1bc08ae9b3e2257a4c52f5b334005fde37f205c089035156c9e2261c8ccba5" semantic="76514ada656e4e01d74e337bcc01f3dc8948509aca88bc57278eade000b25502" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="90245a3c3dc12a0dba0da6e6ad73987f74a74e8cdb0f6b429b831d9b116f0ace" semantic="76514ada656e4e01d74e337bcc01f3dc8948509aca88bc57278eade000b25502" review="current" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Number
 - **Default:** `0km/h`
 - **Range:** `0km/h` ~ `80km/h`
 - **Step:** `5`
 - **Display unit:** `km/h`
-- **Menu:** Driving \> Steering \> Lane Change (Auto Turn)
+- **Menu:** Vehicle & Hardware \> Indicator Control \> Lever Behavior
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END BlinkerLatchedTurn -->
 

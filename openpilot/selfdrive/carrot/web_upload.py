@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import asyncio
+import hashlib
 import os
 import time
 import urllib.parse
@@ -13,6 +15,19 @@ from aiohttp import ClientSession, ClientTimeout
 
 DEFAULT_WEB_UPLOAD_URL = "https://upload.shind0.synology.me"
 DEFAULT_TMUX_WEB_UPLOAD_URL = "https://tmux.carrotpilot.app/upload"
+
+
+class UploadRejected(RuntimeError):
+  """Permanent request rejection; repeating the same bytes cannot repair it."""
+
+
+class UploadQuotaExceeded(UploadRejected):
+  pass
+
+
+def upload_digest(path):
+  with open(path, 'rb') as stream:
+    return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def normalize_base_url(value: Any, default: str = "") -> str:
@@ -197,6 +212,7 @@ async def upload_folder_to_web(
   should_cancel: Callable[[], bool] | None = None,
   filenames: Sequence[str] | None = None,
   on_progress: Callable[[str, int, int, int], None] | None = None,
+  existing_base_url: str = "",
 ) -> bool:
   def check_cancel() -> None:
     if should_cancel and should_cancel():
@@ -233,6 +249,48 @@ async def upload_folder_to_web(
       url = api_url(base_url, "upload", directory, remote_path, filename)
       file_size = os.path.getsize(local_path)
       sent = 0
+      checksum = await asyncio.to_thread(upload_digest, local_path)
+
+      async def legacy_existing_file():
+        # Older public receivers have no authenticated hash endpoint. Stream the
+        # retained original and compare its hash; never trust equal size alone.
+        if not existing_base_url:
+          return False
+        origin = urllib.parse.urlsplit(base_url)
+        existing = urllib.parse.urlsplit(existing_base_url)
+        if (origin.scheme, origin.netloc) != (existing.scheme, existing.netloc):
+          raise UploadRejected('existing-file URL must use the upload server')
+        route, separator, index = remote_path.rpartition('--')
+        if not separator or not index.isdigit():
+          return False
+        parts = (remote_path, 'files', directory, route, index, filename)
+        old_url = existing_base_url.rstrip('/') + '/' + '/'.join(urllib.parse.quote(p, safe='') for p in parts)
+        async with session.get(old_url, allow_redirects=False) as response:
+          if response.status != 200:
+            return False
+          if response.content_length is not None and response.content_length != file_size:
+            return False
+          digest, received = hashlib.sha256(), 0
+          async for chunk in response.content.iter_chunked(1024 * 1024):
+            check_cancel()
+            received += len(chunk)
+            if received > file_size:
+              return False
+            digest.update(chunk)
+          return received == file_size and digest.hexdigest() == checksum
+
+      async def already_uploaded():
+        # Older receivers return 404/405 and retain their original PUT protocol.
+        async with session.get(url) as response:
+          if response.status in (404, 405):
+            return await legacy_existing_file()
+          if response.status >= 500 or response.status in (408, 429):
+            raise RuntimeError(f"{filename}: status check HTTP {response.status}")
+          if response.status != 200:
+            raise UploadRejected(f"{filename}: status check HTTP {response.status}")
+          body = await response.json()
+          return (body.get('ok') is True and body.get('exists') is True
+                  and body.get('size') == file_size and body.get('sha256') == checksum)
 
       async def send_file(
         path: str = local_path,
@@ -259,7 +317,12 @@ async def upload_folder_to_web(
       for _attempt in range(2):
         check_cancel()
         try:
-          async with session.put(url, data=send_file(), headers={"X-File-Size": str(file_size)}) as resp:
+          if await already_uploaded():
+            if on_progress:
+              on_progress(filename, file_size, file_size, 0)
+            last_error = None
+            break
+          async with session.put(url, data=send_file(), headers={"X-File-Size": str(file_size), "X-File-SHA256": checksum}) as resp:
             text = await resp.text()
             try:
               body = json.loads(text)
@@ -267,13 +330,20 @@ async def upload_folder_to_web(
               body = None
             if not 200 <= resp.status < 300 or not (body or {}).get("ok"):
               error = str((body or {}).get("error") or text or "")[:200]
+              if (body or {}).get('code') == 'daily_quota_exceeded' or (
+                  resp.status == 413 and 'Maximum request body size 1073741824 exceeded' in text):
+                raise UploadQuotaExceeded('今日上傳額度已用完，已停止重試；已成功的檔案不需重傳。')
+              if 400 <= resp.status < 500 and resp.status not in (408, 429):
+                raise UploadRejected(f"HTTP {resp.status}: {error}")
               raise RuntimeError(f"HTTP {resp.status}: {error}")
             raw_size = (body or {}).get("size")
             remote_size = int(raw_size) if raw_size is not None else -1
-            if remote_size != sent:
+            if remote_size != file_size or (not (body or {}).get('skipped') and remote_size != sent):
               raise RuntimeError(f"size mismatch for {filename}: sent {sent}, remote {remote_size}")
           last_error = None
           break
+        except UploadRejected:
+          raise
         except Exception as e:
           check_cancel()
           last_error = e

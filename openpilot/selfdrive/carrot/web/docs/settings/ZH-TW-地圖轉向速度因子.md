@@ -16,7 +16,7 @@
 值越小，沿路線減速越多。
 
 <!-- CARROT:AUTO:BEGIN MapTurnSpeedFactor -->
-<!-- CARROT:AUTO:SOURCE facts="99561831bf75f1645ebd66957cb8c652151252bcd054566e51ca92dfd3c489b2" semantic="70911cfe4337b36f9b1812b46852781a33788b52e9f58c2bf5e64debf1f9fa80" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="38fab2bceebd4df3f9c87e8e02ac47335a7e05ece7b4595b61528019f6da36ca" semantic="0ff206783eb8d00f1c12b1e6af36b0ad3bedfa9fc1b77780eb6b53c6dd0577e5" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 數值
 - **預設值:** `100%`

@@ -5,6 +5,9 @@ window.CarrotTranslations.register("zh-tw", {
   nativeName: "繁體中文",
   shortName: "繁中",
   strings: {
+    model_library_change: "更換模型",
+    model_library_close: "關閉",
+    model_library_pending_apply: "重新啟動後套用",
     setup_again_title: "重新執行設定引導",
     setup_again_park: "尚無新鮮的車輛／裝置狀態。請停車並關閉控制，或停車熄火後等待裝置連線，再重試。",
     setup_again_unavailable: "無法讀取車機設定。請更新車機並重新開啟引導。",

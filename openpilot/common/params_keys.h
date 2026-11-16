@@ -223,6 +223,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ClusterHudRadarSourceColor", {PERSISTENT, INT, "0"}},
     {"RecordRoadCam", {PERSISTENT, INT, "0"}},
     {"HDPuse", {PERSISTENT, INT, "0"}},
+    {"CcncClusterDisplay", {PERSISTENT, INT, "0"}},
+    {"CcncTrafficBackground", {PERSISTENT, INT, "0"}},
 
     {"AutoCruiseControl", {PERSISTENT, INT, "0"}},
     {"SoftHoldOnCancel", {PERSISTENT, BOOL, "0"}},
@@ -248,6 +250,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ModelDesireIndicator", {PERSISTENT, BOOL, "0"}},
     {"ModelPathIndicator", {PERSISTENT, BOOL, "0"}},
     {"AutoTurnControlSpeedTurn", {PERSISTENT, INT, "20"}},
+    {"AutoTurnControlAdaptiveSpeed", {PERSISTENT, BOOL, "0"}},
     {"AutoTurnControlTurnEnd", {PERSISTENT, INT, "6"}},
     {"AutoTurnMapChange", {PERSISTENT, INT, "0"}},
 
@@ -273,6 +276,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"AutoNaviSpeedSafetyFactor", {PERSISTENT, INT, "105"}},
     {"AutoNaviCountDownMode", {PERSISTENT, INT, "2"}},
     {"TurnSpeedControlMode", {PERSISTENT, INT, "1"}},
+    {"OsmCurveSpeedEnabled", {PERSISTENT, BOOL, "1"}},
 
     {"MapTurnSpeedFactor", {PERSISTENT, INT, "90"}},
     {"AutoSpeedUptoRoadSpeedLimit", {PERSISTENT, INT, "0"}},
@@ -342,6 +346,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"IsLdwsCar", {PERSISTENT, INT, "0"}},
     {"CanfdHDA2", {PERSISTENT, INT, "0"}},
     {"CanfdBlinkerControl", {PERSISTENT, BOOL, "0"}},
+    {"CanfdBlinkerKick", {PERSISTENT, BOOL, "0"}},
+    {"CanfdBlinkerKickMode", {PERSISTENT, INT, "1"}},
     {"CanfdBlinkerTest", {CLEAR_ON_MANAGER_START, INT, "0"}},
     {"CanfdDebug", {PERSISTENT, INT, "0"}},
 
@@ -449,9 +455,12 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"HardwareC3xLite", {PERSISTENT, INT, "0"}},
     {"ShareData", {PERSISTENT, INT, "0"}},
     {"OnnxBsdEnabled", {PERSISTENT, INT, "0"}},
+    {"OnnxTruckEnabled", {PERSISTENT, BOOL, "0"}},
+    {"TruckClearanceShadowEnabled", {PERSISTENT, BOOL, "0"}},
     {"OnnxLaneThreshold", {PERSISTENT, INT, "25"}},
     {"OnnxLaneIntervalMs", {PERSISTENT, INT, "400"}},
     {"OnnxBsdThreshold", {PERSISTENT, INT, "94"}},
     {"OnnxBsdSmoothingMs", {PERSISTENT, INT, "200"}},
     {"OnnxBsdIntervalMs", {PERSISTENT, INT, "250"}},
 };
+

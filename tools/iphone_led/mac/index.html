@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LED Mac 藍牙測試</title>
+<style>
+:root{color-scheme:light;--ink:#17302b;--muted:#61746e;--line:#dbe5df;--green:#126b50;--paper:#fff;--bg:#eef3ed}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang TC",sans-serif}main{max-width:1080px;margin:auto;padding:36px 24px 56px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:26px}.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--green);font-weight:700}h1{font-size:30px;line-height:1.3;margin:6px 0}h2{font-size:18px;margin:0 0 14px}p{margin:5px 0}.muted,small{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1.2fr;gap:20px}.card{border:1px solid var(--line);background:var(--paper);border-radius:18px;padding:24px;margin-bottom:20px}.step{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;background:#e8f4ec;color:var(--green);border-radius:50%;font-size:13px;margin-right:8px}button,input,select{font:inherit}button{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 15px;cursor:pointer;font-weight:600}button:hover{border-color:var(--green)}button.primary{background:var(--green);border-color:var(--green);color:#fff}button.danger{color:#a33228}button:disabled{opacity:.42;cursor:not-allowed}input[type=text],select,input[type=number]{border:1px solid var(--line);border-radius:9px;background:#fafcf9;padding:10px;min-width:0;color:var(--ink)}input[type=text],select{width:100%}label{display:block;color:var(--muted);font-size:14px;margin-bottom:7px}label.check{display:flex;align-items:center;gap:8px;margin:12px 0}.row{display:flex;gap:9px;align-items:center;margin-top:12px;flex-wrap:wrap}.badge{display:inline-flex;align-items:center;gap:8px;background:#e5eae6;color:var(--muted);font-size:13px;padding:6px 12px;border-radius:100px;white-space:nowrap}.badge.on{background:#d9efe2;color:#146341}.dot{width:7px;height:7px;background:currentColor;border-radius:50%}.status{margin-top:16px;border-left:3px solid #8eafa0;padding-left:12px;font-size:14px}.error{color:#a33228;white-space:pre-wrap;font-size:13px;overflow-wrap:anywhere}.demo{display:none;background:#fff1c9;color:#785600;padding:13px;border-radius:10px;margin-bottom:20px}.screen{height:116px;background:#071713;border:8px solid #263e35;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#ffc64a;font-size:33px;font-weight:700;letter-spacing:5px;margin-bottom:8px;overflow:hidden;padding:8px}.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:18px}.presets button{min-height:52px}.presets .brake{color:#b83f31}.custom{display:grid;grid-template-columns:1fr auto auto;gap:9px;margin-top:16px}.custom input[type=color]{width:40px;height:47px;padding:4px;border:1px solid var(--line);border-radius:8px;background:white}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0 14px}.metric{border-top:2px solid #dbe7df;padding-top:10px}.number{font-size:27px;line-height:1.4;font-variant-numeric:tabular-nums}.metric span{display:block;font-size:12px;color:var(--muted)}progress{width:100%;accent-color:var(--green);height:8px}details{margin-top:16px}summary{cursor:pointer;font-size:14px}pre{background:#f5f8f3;white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;font-size:12px;padding:12px;border-radius:8px}.footer{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:12px;font-size:13px}#info{white-space:pre-line;font-size:13px;margin:14px 0}#toast{background:#fff4e9;color:#8f411f;border:1px solid #f1d2b7;border-radius:10px;padding:12px;margin-bottom:15px;display:none}#logFolder{overflow-wrap:anywhere;font-size:12px}@media(max-width:760px){main{padding:22px 16px}.grid{grid-template-columns:1fr}header{align-items:flex-start}h1{font-size:25px}.card{padding:19px}.stats{gap:8px}.footer{align-items:flex-start;flex-direction:column}.number{font-size:23px}}
+ .style-row{display:grid;grid-template-columns:7em minmax(6em,1fr) 4em minmax(7em,1fr) 5em;gap:8px;align-items:center;margin:10px 0}.style-row input,.style-row select{min-width:0;width:100%}.style-row input[type=color]{height:40px;padding:3px}@media(max-width:700px){.style-row{grid-template-columns:1fr 1fr}.style-row strong{grid-column:1/-1}}
+.custom-style-row{grid-template-columns:repeat(3,minmax(0,1fr));padding-bottom:12px;border-bottom:1px solid var(--line)}.custom-style-row strong{grid-column:1/-1}.custom-style-row button{white-space:nowrap}@media(max-width:500px){.custom-style-row{grid-template-columns:1fr 1fr}}
+</style>
+<main>
+<header><div><div class="eyebrow">LED / MAC TEST · 0.4.1</div><h1>測試後窗 LED 屏幕</h1><p class="muted">支援 YS 系列 LOY PLAY 屏幕與 Carrot HUD 連動。請在停車或封閉場地測試。</p></div><span id="connection" class="badge"><i class="dot"></i><span>尚未連線</span></span></header>
+<div id="demo" class="demo">模擬模式：所有數字均為模擬結果，未連接實體屏幕。</div><div id="toast" role="alert"></div>
+<div class="grid"><section>
+<div class="card">
+  <h2><span class="step">1</span>找到你的屏幕</h2>
+  <p class="muted">先讓手機上的 LOY PLAY、CP 搭子斷線，再保持屏幕通電並靠近 Mac。首次手動連線後會記住屏幕並自動重連；每次連上後預設關閉屏幕，請按「開啟屏幕」。</p>
+  <div class="row"><button id="scan" class="primary" onclick="act('scan',{all:el('showAll').checked})">掃描藍牙</button></div>
+  <label class="check"><input id="showAll" type="checkbox">找不到時，顯示其他藍牙設備</label>
+  <label for="device">選擇屏幕</label>
+  <select id="device"><option value="">請先掃描</option></select>
+  <div class="row">
+    <button id="connect" class="primary" onclick="act('connect',{id:el('device').value})">連接屏幕</button>
+    <button id="disconnect" onclick="act('disconnect')">斷線</button>
+  </div>
+  <div id="info" class="muted">等待屏幕資料。</div>
+  <div id="powerControls" hidden>
+    <div class="row">
+      <button id="screenPower" aria-describedby="powerState">開啟屏幕</button>
+      <small id="powerState">屏幕電源尚未回報</small>
+    </div>
+  </div>
+  <div class="status" id="message" role="status" aria-live="polite">等待連線。</div>
+  <p id="error" class="error"></p>
+  <label for="resolution" style="margin-top:15px">屏幕實際解析度（寬 × 高，單位像素）</label>
+  <div class="row">
+    <input id="resolution" type="text" list="resolutionSizes" value="96x16" placeholder="例如 96x16" style="flex:1;min-width:130px;width:auto">
+    <datalist id="resolutionSizes">
+      <option value="32x16"><option value="64x16"><option value="64x20"><option value="96x16">
+      <option value="96x20"><option value="32x32"><option value="64x32"><option value="128x32">
+      <option value="192x16"><option value="64x64">
+    </datalist>
+    <button id="setResolution" onclick="resolution()">套用</button>
+  </div>
+  <p><small>LOY 屏幕可以直接按 TEST 試小區域。其他畫面需先套用解析度。</small></p>
+  <details>
+    <summary>亮度</summary>
+    <div class="row"><input id="brightnessValue" aria-label="亮度百分比" type="number" min="1" max="30" value="10" style="width:80px"><span>%</span><button id="brightness" onclick="act('brightness',{value:Number(el('brightnessValue').value)})">設定亮度</button></div>
+  </details>
+  <details>
+    <summary>藍牙通道診斷</summary>
+    <div class="row"><button id="inspect" onclick="act('inspect',{id:el('device').value})">檢查藍牙通道</button></div>
+    <p id="gattSummary" class="muted">尚未檢查</p>
+    <pre id="gattDump">尚無資料</pre>
+  </details>
+</div>
+<div class="card"><h2><span class="step">3</span>連續測試與紀錄</h2><p class="muted">輪流試送各個畫面，每次完成後間隔 3 秒。重連測試會主動斷線再連回。</p><div class="row"><select id="count" style="width:125px" aria-label="連續測試次數"><option value="10">10 次</option><option value="30" selected>30 次</option><option value="60">60 次</option></select><button id="test" class="primary" onclick="act('test',{count:Number(el('count').value)})">開始連續測試</button></div><div class="row"><button id="reconnect" onclick="act('reconnect',{count:3})">重連測試 × 3</button><button id="stop" class="danger" onclick="act('stop')">停止測試</button></div><p id="progressText" class="muted" style="font-size:13px;margin-top:15px">尚未開始連續測試</p><progress id="progress" value="0" max="1"></progress>
+<div class="stats"><div class="metric"><div class="number" id="requests">0</div><span>傳送請求</span></div><div class="metric"><div class="number" id="completed">0</div><span>已送出</span></div><div class="metric"><div class="number" id="failed">0</div><span>請求失敗</span></div><div class="metric"><div class="number" id="retries">0</div><span>重試次數</span></div></div><p id="latency" class="muted" style="font-size:13px">延遲：尚無資料</p><p class="muted" style="font-size:12px">統計是本次啟動的累計。屏幕回覆與目視結果另存於診斷紀錄。</p></div>
+</section><section>
+<div class="card"><h2><span class="step">2</span>試送畫面</h2><div class="screen" id="expected">尚未傳送</div><small>本次傳送的預期內容。</small><div class="presets"><button id="sendTest" onclick="act('send',{kind:'test'})">TEST</button><button data-send class="brake" onclick="act('send',{kind:'brake'})">煞車</button><button data-send onclick="act('send',{kind:'decel'})">減速中</button><button data-send onclick="act('send',{kind:'chinese'})">中文「測試」</button><button data-send onclick="act('send',{kind:'left'})">左轉彎</button><button data-send onclick="act('send',{kind:'right'})">右轉彎</button><button data-send onclick="act('send',{kind:'pause_thanks'})">暫停一下謝謝</button><button data-send onclick="act('send',{kind:'thanks'})">謝謝</button><button data-send onclick="act('send',{kind:'traffic'})">前方塞車</button><button data-send onclick="act('clear_standby')">清屏</button></div><p class="muted" style="font-size:12px;margin-top:8px">清屏會取消待機文字，車況提示仍有優先權。</p>
+<div style="border-top:1px solid var(--line);margin-top:22px;padding-top:18px"><p>實際屏幕現在看起來如何？</p><div class="row"><button id="visualOK" onclick="act('visual',{value:'目視正常'})">我看到正確畫面</button><button id="visualBad" onclick="act('visual',{value:'畫面異常'})">畫面異常</button></div><p class="muted" id="visual" style="font-size:13px;margin-top:8px">尚未目視確認</p></div></div>
+<div class="card">
+  <h2>Carrot HUD 連動測試</h2>
+  <p class="muted">保持 Jetlink 和 Mac HUD 開啟。連上屏幕、套用解析度並開屏後會自動啟動車況連動；可按停止暫停自動連動。</p>
+  <div class="row">
+    <button id="hudPreview" onclick="act('hud_link',{mode:'preview'})">只讀預覽</button>
+    <button id="hudScreen" class="primary" onclick="act('hud_link',{mode:'screen'})">連動到屏幕</button>
+    <button id="hudStop" class="danger" onclick="act('stop')">停止連動</button>
+  </div>
+  <p class="status" id="hudState">尚未啟動</p>
+  <p class="muted" id="hudValues"></p>
+</div>
+<div class="card"><h2>五組自訂文字</h2><p class="muted">每組設定文字、顏色、特效、速度和字體粗細，先儲存設定，再按該組「顯示」。車況提示優先，結束後恢復選用的文字。</p><div id="customRows"></div><button onclick="saveCustomSlots()">儲存五組設定</button><p class="muted" style="font-size:12px">留空的組別不會顯示。字體預設選加粗；若中文字筆畫擠在一起，可改回一般。設定重啟後保留，需重新選擇要顯示哪一組。</p></div>
+<div class="card"><h2>文字顏色與特效</h2><p class="muted">每種車況各自設定文字、顏色、效果與速度。設定後請先儲存；預覽時先停止車況連動。</p><div id="styleRows"></div><div class="row"><button class="primary" onclick="saveStyles()">儲存設定</button><select id="previewKind" aria-label="選擇預覽車況"></select><button id="previewEffect" onclick="act('effect_preview',{kind:el('previewKind').value})">預覽特效</button><button id="stopEffect" onclick="act('stop')">停止預覽</button></div><p class="muted">閃爍和動畫以藍牙持續更新，實際效果及穩定度需要在屏幕上確認。</p></div>
+<div class="card"><h2>保留結果，方便找出斷線原因。</h2><p class="muted">完成後下載診斷 ZIP。紀錄包含屏幕型號、傳送耗時、重連與錯誤，也保留你的目視確認。</p><div class="row"><button class="primary" onclick="downloadReport()">下載診斷紀錄</button></div><details><summary>最近事件</summary><pre id="events">尚無紀錄</pre></details><details><summary>本機紀錄位置</summary><p class="muted" id="logFolder"></p></details></div>
+</section></div>
+<div class="footer"><span class="muted">LED Mac Test · Mac HUD 車況與後窗屏幕。</span><button class="danger" onclick="quit()">結束工具</button></div>
+</main>
+<script>
+const el=id=>document.getElementById(id);const token=location.hash.slice(1);let lastDevices='',offline=0,closed=false;
+const headers={'X-iPixel-Token':token,'Content-Type':'application/json'};
+function toast(text){el('toast').textContent=text;el('toast').style.display='block'}
+async function api(path,options={}){const r=await fetch(path,{...options,headers:{...headers,...options.headers}});if(!r.ok){const d=await r.json();throw Error(d.error||'操作失敗')}return r}
+async function act(action,payload={}){try{el('toast').style.display='none';await api('/api/action',{method:'POST',body:JSON.stringify({action,...payload})});await poll()}catch(e){toast(e.message)}}
+
+const styleKinds=[['left','左轉彎'],['right','右轉彎'],['decel','減速中'],['pause_thanks','暫停一下謝謝'],['thanks','謝謝'],['traffic','前方塞車']];
+const effectOptions=[['static','靜態'],['blink','閃爍'],['double_blink','雙閃'],['scroll_left','向左跑馬燈'],['scroll_right','向右跑馬燈'],['breathe','呼吸'],['rainbow','自動換色']];
+let stylesInitialized=false,customInitialized=false;
+function initCustomSlots(slots){
+ for(let i=0;i<5;i++){
+  const item=slots[i]||{text:'',color:'00c6b0',effect:'static',speed:1};
+  const row=document.createElement('div');row.className='style-row custom-style-row';
+  const name=document.createElement('strong');name.textContent='自訂 '+(i+1);row.append(name);
+  const text=document.createElement('input');text.type='text';text.id='custom-text-'+i;text.maxLength=16;text.placeholder='輸入文字';text.value=item.text;text.setAttribute('aria-label','自訂 '+(i+1)+' 文字');row.append(text);
+  const color=document.createElement('input');color.type='color';color.id='custom-color-'+i;color.value='#'+item.color;color.setAttribute('aria-label','自訂 '+(i+1)+' 顏色');row.append(color);
+  const effect=document.createElement('select');effect.id='custom-effect-'+i;effect.setAttribute('aria-label','自訂 '+(i+1)+' 特效');for(const [v,n] of effectOptions)effect.add(new Option(n,v));effect.value=item.effect;row.append(effect);
+  const speed=document.createElement('select');speed.id='custom-speed-'+i;speed.setAttribute('aria-label','自訂 '+(i+1)+' 速度');for(const [v,n] of [['1','慢'],['2','中'],['3','快']])speed.add(new Option(n,v));speed.value=String(item.speed);row.append(speed);
+  const weight=document.createElement('select');weight.id='custom-weight-'+i;weight.setAttribute('aria-label','自訂 '+(i+1)+' 字體粗細');weight.add(new Option('加粗','bold'));weight.add(new Option('一般','normal'));weight.value=item.weight||'bold';row.append(weight);
+  const button=document.createElement('button');button.className='custom-activate';button.textContent='顯示第 '+(i+1)+' 組';button.onclick=()=>act('activate_custom_slot',{index:i});row.append(button);
+  el('customRows').append(row);
+ }
+ customInitialized=true;
+}
+function saveCustomSlots(){const slots=[];for(let i=0;i<5;i++)slots.push({text:el('custom-text-'+i).value,color:el('custom-color-'+i).value.slice(1),effect:el('custom-effect-'+i).value,speed:Number(el('custom-speed-'+i).value),weight:el('custom-weight-'+i).value});act('save_custom_slots',{slots})}
+function initStyles(styles){
+ for(const [kind,label] of styleKinds){
+  const row=document.createElement('div'); row.className='style-row';
+  const name=document.createElement('strong');name.textContent=label;row.append(name);
+  const text=document.createElement('input');text.id='style-text-'+kind;text.maxLength=16;text.value=styles[kind].text;text.setAttribute('aria-label',label+'文字');row.append(text);
+  const color=document.createElement('input');color.type='color';color.id='style-color-'+kind;color.value='#'+styles[kind].color;color.setAttribute('aria-label',label+'顏色');row.append(color);
+  const effect=document.createElement('select');effect.id='style-effect-'+kind;effect.setAttribute('aria-label',label+'特效');for(const [v,n] of effectOptions)effect.add(new Option(n,v));effect.value=styles[kind].effect;row.append(effect);
+  const speed=document.createElement('select');speed.id='style-speed-'+kind;speed.setAttribute('aria-label',label+'速度');for(const [v,n] of [['1','慢'],['2','中'],['3','快']])speed.add(new Option(n,v));speed.value=String(styles[kind].speed);row.append(speed);
+  el('styleRows').append(row);el('previewKind').add(new Option(label,kind));
+ }
+ stylesInitialized=true;
+}
+function saveStyles(){const styles={};for(const [kind] of styleKinds)styles[kind]={text:el('style-text-'+kind).value,color:el('style-color-'+kind).value.slice(1),effect:el('style-effect-'+kind).value,speed:Number(el('style-speed-'+kind).value)};act('styles',{styles})}
+function resolution(){
+  const match=el('resolution').value.trim().match(/^(\d+)\s*[x×]\s*(\d+)$/i);
+  if(!match){toast('請輸入屏幕的寬與高，例如 96x16。');return}
+  act('resolution',{width:Number(match[1]),height:Number(match[2])});
+}
+async function poll(){if(closed)return;try{const s=await(await api('/api/state')).json();offline=0;render(s)}catch(e){offline++;if(offline>2){el('connection').className='badge';el('connection').lastElementChild.textContent='工具未連線';toast('無法連到測試工具。請確認啟動視窗仍開著，或使用該視窗的完整網址重新開啟。')}}}
+function render(s){if(!stylesInitialized&&s.styles)initStyles(s.styles);if(!customInitialized&&s.custom_slots)initCustomSlots(s.custom_slots);el('demo').style.display=s.demo?'block':'none';el('connection').className='badge'+(s.connected?' on':'');el('connection').lastElementChild.textContent=s.connected?(s.demo?'模擬連線':'藍牙已連線'):'尚未連線';el('message').textContent=s.message;el('error').textContent=s.error||'';el('expected').textContent=s.expected;el('visual').textContent='目前畫面：'+s.visual;el('logFolder').textContent=s.log_folder;const key=JSON.stringify(s.devices);if(key!==lastDevices){const previous=el('device').value;el('device').replaceChildren();if(!s.devices.length)el('device').add(new Option('請先掃描',''));for(const d of s.devices)el('device').add(new Option(`${d.name} · ${d.rssi} dBm${d.candidate?'':' · 待確認'}`,d.id));if(s.devices.some(d=>d.id===previous))el('device').value=previous;lastDevices=key}
+const info=s.connected?s.device_info:null;
+const size=s.override?s.override.join(' × ')+'（手動）':
+  info?.dimensions_known?`${info.width} × ${info.height}`:'未知';
+const type=info?.device_type==null?'':` · 型號碼 ${info.device_type}`;
+el('info').textContent=info?`${s.selected?.name||''}\n解析度 ${size}${type}\n${info.note}`:'等待屏幕資料。';
+const busy=!!s.busy,ready=s.connected&&!busy;
+el('scan').disabled=busy||s.connected;
+el('inspect').disabled=busy||s.connected||!s.devices.length;
+const g=s.gatt_report;
+el('gattSummary').textContent=g?(g.identification?.label||'未辨識'):'尚未檢查';
+el('gattDump').textContent=g?JSON.stringify(g,null,2):'尚無資料';
+const loy=info?.profile==='loy-fff';
+const power=loy?g?.loy?.power_status:null;
+const nextOn=power?.on!==true;
+const powerButton=el('screenPower');
+el('powerControls').hidden=!loy;
+powerButton.disabled=!(loy&&(ready||(s.busy==='hud_link'&&s.hud_link?.mode==='screen')));
+powerButton.textContent=nextOn?'開啟屏幕':'關閉屏幕';
+powerButton.onclick=()=>act('screen_power',{on:nextOn});
+let powerText='屏幕電源尚未回報';
+if(power){
+  const action=power.on?'開啟':'關閉';
+  if(power.source==='device')powerText=`屏幕回報已${action}`;
+  else if(power.source==='ack')powerText=`屏幕已接收${action}指令`;
+  else powerText=`已送出${action}指令`;
+}
+el('powerState').textContent=powerText;
+el('connect').disabled=busy||s.connected||!s.devices.length;
+el('disconnect').disabled=!ready;
+el('brightness').disabled=!ready;
+el('setResolution').disabled=!ready;
+const drawReady=ready&&power?.on!==false;
+const writable=drawReady&&(!!s.override||info?.dimensions_known);
+document.querySelectorAll('[data-send]').forEach(b=>b.disabled=!writable);
+const liveHud=s.busy==='hud_link'&&s.hud_link?.mode==='screen';
+const clearButton=document.querySelector("[onclick=\"act('clear_standby')\"]");
+if(clearButton)clearButton.disabled=!(writable||liveHud);
+el('sendTest').disabled=!(writable||(drawReady&&loy));
+['test','reconnect'].forEach(id=>el(id).disabled=!writable);
+document.querySelectorAll('.custom-activate').forEach(b=>b.disabled=!(writable||liveHud));
+el('stop').disabled=!['test','reconnect','send'].includes(s.busy);
+el('hudPreview').disabled=busy||s.demo;
+el('hudScreen').disabled=!(drawReady&&loy&&s.override&&!s.demo);
+el('hudStop').disabled=s.busy!=='hud_link';
+el('previewEffect').disabled=!(writable&&loy&&!s.demo);
+el('stopEffect').disabled=s.busy!=='effect_preview';
+const hud=s.hud_link;
+const sample=hud?.active?hud.sample:null;
+el('hudState').textContent=hud?
+  `${hud.mode==='preview'?'只讀預覽':'屏幕連動'} · ${hud.active?(sample?'資料有效':'等候資料'):'已停止'} · ${hud.updates} 筆`:
+  '尚未啟動';
+el('hudValues').textContent=sample?
+  `${(sample.speed*3.6).toFixed(1)} km/h · ${sample.accel.toFixed(2)} m/s² · 檔位 ${sample.gear} · 煞車 ${Number(sample.brake)} · 左 ${Number(sample.left)} · 右 ${Number(sample.right)} · ${hud.pattern}`:
+  hud?.clear_error?'請目視確認屏幕是否清除。':'';
+el('visualOK').disabled=!s.can_confirm_visual;
+el('visualBad').disabled=!s.can_confirm_visual;
+for(const key of ['requests','completed','failed','retries'])el(key).textContent=s.stats[key];
+el('latency').textContent=s.average_ms===null?'延遲：尚無資料':`平均 ${s.average_ms} ms · P95 ${s.p95_ms} ms（含重試及重連等待）`;
+const p=s.test_progress;
+if(p){
+  el('progress').max=p.total;
+  el('progress').value=p.done;
+  el('progressText').textContent=`${p.mode==='test'?'連續傳送':'重連測試'}：${p.done} / ${p.total}${p.stopped?' · 已停止':''}`;
+}
+el('events').textContent=s.events.slice(-15).reverse().map(r=>JSON.stringify(r)).join('\n');
+}
+async function downloadReport(){try{const r=await api('/api/report');const u=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=u;a.download='LED_diagnostics.zip';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}catch(e){toast(e.message)}}
+async function quit(){try{await api('/api/action',{method:'POST',body:JSON.stringify({action:'quit'})});closed=true;el('message').textContent='工具已結束。屏幕可能保留最後畫面，需要時請關閉屏幕電源。';el('connection').className='badge';el('connection').lastElementChild.textContent='工具已結束';document.querySelectorAll('button').forEach(b=>b.disabled=true)}catch(e){toast(e.message)}}
+if(!token){toast('請從 START.command 開啟工具，或貼上終端機顯示的完整網址。')}else{poll();setInterval(poll,900)}
+</script>
+</html>

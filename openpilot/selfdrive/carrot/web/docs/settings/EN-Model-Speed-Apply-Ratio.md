@@ -13,10 +13,10 @@
 
 `ApplyModelSpeed`
 
-Applies the model-calculated driving speed by the set ratio.
+In this test branch automatic model speed cannot exceed the selected cruise speed. Negative values can lower it; positive automatic increases are blocked.
 
 <!-- CARROT:AUTO:BEGIN ApplyModelSpeed -->
-<!-- CARROT:AUTO:SOURCE facts="6891e5d6f7d7baf2195a0e8e9a59c7f3c6e8a8fdbd13e4daca55bfe29a8a96db" semantic="8039edb57e0c4c2bb0d6e9911d247c64a6f0c42f2e912402bc572f0a4701f388" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="18c05f8cffa90b0d1ecf58f598e9e47b322611de9722824acd93bd77fea7e711" semantic="af76e5561f6e0bbefc54c91f7b945aab79d8f017c8706ca26a324cbcc31a3514" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Number
 - **Default:** `0%`

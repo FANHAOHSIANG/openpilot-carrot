@@ -43,6 +43,8 @@ def joining_model(monkeypatch):
   m = object.__new__(model.JoiningModel)
   m.client = m.connection = None
   m.preparation = None
+  m.prepare_allowed = True
+  m.preparation_failed = False
   m.warp_size = (1344, 760)
   m.warp_inputs = object()
   m.small_runs = 3

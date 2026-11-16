@@ -183,3 +183,26 @@ def test_parses_vehicle_route_traffic_and_secondary_sdi():
   assert (control.traffic.lamp, control.traffic.remain_sec) == ("red", 18)
   assert control.road_category == 6
   assert control.guidance_active
+
+
+def test_amap_link_countdown_uses_receipt_time_and_ignores_lamp_colors():
+  signal = {
+    "meta": {**_meta(16), "receivedMonoTimeNanos": 9_000_000_000},
+    "visible": True,
+    "source": "amap_link",
+    "greenValid": True,
+    "greenOn": True,
+    "greenRemainSec": 99,
+    "uiCounterValid": True,
+    "uiCounterRemainSec": 12,
+  }
+  control = parse_carrot_navi_control(_message(trafficSignal=signal))
+  assert control is not None
+  assert (control.traffic.lamp, control.traffic.remain_sec) == ("countdown", 12)
+  assert control.traffic.received_mono_time_ns == 9_000_000_000
+  assert not control.speed.sdi_present
+
+  signal["uiCounterRemainSec"] = 0
+  control = parse_carrot_navi_control(_message(trafficSignal=signal))
+  assert control is not None
+  assert not control.traffic.lamp

@@ -120,3 +120,7 @@ Uploaded data may include road video, location and vehicle-state logs, device id
 
 - [Carrot Web User Guide](carrot-web.md)
 - [Understanding Settings](settings.md)
+
+With the updated receiver, existing files are skipped only after both size and SHA-256 match. Daily-quota rejection stops retries and pending segments in the batch. Vehicle software alone cannot raise a NAS quota: the receiver and any explicit quota environment setting must also be updated. Older receivers keep the original upload protocol.
+
+For an older public receiver without the hash endpoint, the client can download the retained original for hash comparison. This uses download traffic but does not spend upload quota. Missing or different files still require available upload quota.

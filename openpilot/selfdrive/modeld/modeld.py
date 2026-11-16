@@ -277,7 +277,11 @@ def main(demo=False):
 
   main_wide_camera = vipc_client_main_stream == VisionStreamType.VISION_STREAM_WIDE_ROAD
   vipc_client_main = VisionIpcClient("camerad", vipc_client_main_stream, True)
-  vipc_client_extra = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False)
+  # Keep both IPC camera streams on their latest available frame. With a
+  # non-conflated extra stream, an old wide frame can remain queued while the
+  # main stream skips ahead after a >50 ms inference. The existing bounded SOF
+  # pairing check still rejects stale/mismatched exposures (no validity bypass).
+  vipc_client_extra = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, True)
   cloudlog.warning(f"vision stream set up, use_wide_camera: {use_wide_camera}, main_wide_camera: {main_wide_camera}, use_extra_client: {use_extra_client}")
 
   while not vipc_client_main.connect(False):
@@ -416,10 +420,14 @@ def main(demo=False):
   prev_action = log.ModelDataV2.Action()
 
   from opendbc.car.tesla.values import TeslaFlags
+  from opendbc.car.hyundai.values import KICK_CARS, HyundaiSafetyFlags
   from openpilot.selfdrive.car.voice_indicator import native_indicator
   DH = DesireHelper(fingerprint=CP.carFingerprint, native_voice_signal=native_indicator(CP) is not None,
                     tesla_auto_signals=CP.brand == "tesla" and bool(CP.flags & TeslaFlags.AUTO_TURN_SIGNALS),
-                    boundary_indicator_supported=CP.carFingerprint == 'HYUNDAI_IONIQ_5_PE')
+                    boundary_indicator_supported=CP.carFingerprint == 'HYUNDAI_IONIQ_5_PE',
+                    # the same gate as carcontroller.blinker_control: the flag interface.py sets for a Kick-capable car
+                    kick_supported=CP.carFingerprint in KICK_CARS and
+                                   any(cfg.safetyParam & HyundaiSafetyFlags.CANFD_BLINKER_KICK for cfg in CP.safetyConfigs))
   boundary_observer = BoundaryObserver(cloudlog.event) if DH.boundary_indicator_supported else None
   nav_input = MapInput()
 

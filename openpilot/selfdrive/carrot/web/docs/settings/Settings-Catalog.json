@@ -1,7 +1,7 @@
 {
-  "catalogCommit": "cc2bae70f40f5173be0c6ffa819c249730914502",
-  "contentHash": "44e0a9a6a39467b2dac1e49bdd4f46eadae10afb7754d325578b5b851b12ab70",
-  "generatedAt": "2026-11-16T11:34:55Z",
+  "catalogCommit": "2d0d8d152503dfe7209afa1b353f54a570592e34",
+  "contentHash": "c0b0dfc51d42e85a2447905e7319ba8c1a0fa9356fb6b01a88274cf94f467cb7",
+  "generatedAt": "2026-11-17T00:00:00+08:00",
   "locales": [
     "ko",
     "en",
@@ -16,6 +16,10 @@
     "EN-ATC-AutoTurnControl.md": {
       "bytes": 2192,
       "hash": "95d84a9f0f447ba980ac132d9e333838b3312be474a8cbae19f9690a1972a0b8"
+    },
+    "EN-ATC-Curvature-based-turn-speed.md": {
+      "bytes": 1381,
+      "hash": "7296c522fd57e2f3776ba18de51e40988f9d4ebe1e7a06c339f43fc8730ed523"
     },
     "EN-ATC-Helper-Map-display(0).md": {
       "bytes": 2027,
@@ -90,20 +94,20 @@
       "hash": "e4c0c140008e9362366331626bc82a4953dff782f479c8e0b710ab520f1168d9"
     },
     "EN-AutoRoadLimitSpeedAdjust-(50).md": {
-      "bytes": 2184,
-      "hash": "035c3c27db5c1894855791db11a925f97a45f5c237f73414218f6e7939b948f0"
+      "bytes": 2255,
+      "hash": "87588712db3fdd417094ddcb8334c326da1e13fa32cb085e356cd5bfb75d0f70"
     },
     "EN-AutoSpeedUpx-(100).md": {
-      "bytes": 2125,
-      "hash": "f8a3f78dee34f3ad05ec1711be43f53b9de67d90e0d2b4d2e22657f3b7bd8af4"
+      "bytes": 2240,
+      "hash": "03028e408487e970a3ed58ce609a6ece4d0af301dac481258bdc07e20d05c057"
     },
     "EN-AutoSteering-Suspend-Angle(300).md": {
       "bytes": 2203,
       "hash": "132252ab24d7f8cc44bb0e64f4a1f11f87d7d848dfee8662c16caa4dd28dff6f"
     },
     "EN-Automatic-turn-signals.md": {
-      "bytes": 3829,
-      "hash": "40f086fe0d104903ec053c766c9a42f44df218f92a9dabfa3a7b288eacf6e8bc"
+      "bytes": 4186,
+      "hash": "fc3fa6fc84f358920c20b904258cbeaf065449b3ea74b7352d30ec7abec9f163"
     },
     "EN-BSD-Confidence-Threshold.md": {
       "bytes": 1632,
@@ -122,8 +126,8 @@
       "hash": "d41fddb82939d80ec9fae05721005fb503c81d8ffb322224ed220bc348220fbf"
     },
     "EN-CAN-FD-SPAS-indicators-(trial).md": {
-      "bytes": 1496,
-      "hash": "87dd4ac5403613a6c8985f35deb04b1502ebaf3c7b8b6340a4cadadd2687a5e1"
+      "bytes": 1551,
+      "hash": "f963804325c3daceccf41458aa1aafe45ee7b00ed8b0670221007ae21847a74a"
     },
     "EN-CANFD-Debug(0).md": {
       "bytes": 1966,
@@ -132,6 +136,14 @@
     "EN-CANFD-HDA2(0).md": {
       "bytes": 1815,
       "hash": "83e391027c59e592b5a7250f2a83198fdf7ce6a6b984694818e47ef3f00045b6"
+    },
+    "EN-CCNC-cluster-stock-style-display.md": {
+      "bytes": 2782,
+      "hash": "adf48a04847db2ebc1daab3ff4d89a0b74f5fd2f49fa314859f7f195fa401fcd"
+    },
+    "EN-CCNC-cluster-traffic-light-background.md": {
+      "bytes": 2012,
+      "hash": "f599e1a852de839ea91cdad0e0a9db714cd4b6be19709ec45410c8a02e57a2a5"
     },
     "EN-Camera-YAW-Correction(0).md": {
       "bytes": 1701,
@@ -486,16 +498,16 @@
       "hash": "7e064adcc7b9e83932ef70a6666c8faed0bcbb7b0a6b552e14f3d1e7157de856"
     },
     "EN-Manual-lane-change-indicator-(trial).md": {
-      "bytes": 5060,
-      "hash": "4e536339176e650b45c8393b57080a80cf376d5e82d5d9fc367e1c812ef524ff"
+      "bytes": 5763,
+      "hash": "6fabdc11374e1035e87c65015d2fc144f017fa7225f12a15a5623d4e0876f4a8"
     },
     "EN-Manual-turn-indicator-(trial).md": {
-      "bytes": 3495,
-      "hash": "6efb1f9fb932a2297ff641304efa21b0a87da4d072b9d4c38410db504bb0ddfa"
+      "bytes": 4221,
+      "hash": "8ede4e5a43e7b8287d5df46aa472fee110015b0e5e0f3c8526a63734a3ecef74"
     },
     "EN-MapTurnSpeedFactor.md": {
-      "bytes": 2177,
-      "hash": "ff0cd0585e944d9efb358cdb80654598d253244888d56f0613a0cb3f6c2ef5a1"
+      "bytes": 2219,
+      "hash": "5b514e3c955b24cfe2ea4e749a2b1512c4971c0e900d5fb90cb7eaf2d7da3c65"
     },
     "EN-MapboxStyle.md": {
       "bytes": 1600,
@@ -506,16 +518,16 @@
       "hash": "6703a71538653fe5694dbad35d62d36fb1cdfc29fd48ca26e0126a5a88d9aa42"
     },
     "EN-Model-Speed-Apply-Ratio.md": {
-      "bytes": 2355,
-      "hash": "b8346c7e558646ba168a822f585161db71a1e6bc53e46251cdfeedc392b783e2"
+      "bytes": 2454,
+      "hash": "bba616464205e82b3f3791fbafd10df132774dcbd08c92b0cce4fda0429e540b"
     },
     "EN-Model-desire-indicator-(trial).md": {
-      "bytes": 4429,
-      "hash": "1887cc210771edbb0e5cc1998534b40f845ae12529592ad9a99049d49e2b3621"
+      "bytes": 4904,
+      "hash": "f2ca113b421e79bbf3856f51a9e2f1dd202500f4a1a41fef6b14bb4315e5c8d7"
     },
     "EN-Model-path-indicator-(trial).md": {
-      "bytes": 2666,
-      "hash": "abdeec635efbc3642ffc457ea14fe267d1ee3d084d988a81c2c05c0673a2567f"
+      "bytes": 2863,
+      "hash": "f3ce8c9562c7c3b8337bc19a879fa7a9cc8465faec6e5168014778268d1f4e29"
     },
     "EN-MuteDoor.md": {
       "bytes": 1817,
@@ -566,8 +578,8 @@
       "hash": "64948ef09af206e7b7de42d9fa8322fa0fada8b97e7eb777df84ba5f289958db"
     },
     "EN-One-touch-lane-change-request-waits-5-flashes.md": {
-      "bytes": 2218,
-      "hash": "cf3dd8e28a2ece83135e198815928c862cb5c5de68a6e9bb156967a4e681d89e"
+      "bytes": 2239,
+      "hash": "b3002c57f223a6e9cb68084a3241c951cb6d87300fd6368c8893fbbbeb9e2ebd"
     },
     "EN-Onroad-Screen-Brightness(100-).md": {
       "bytes": 1770,
@@ -577,9 +589,17 @@
       "bytes": 1898,
       "hash": "359794608b72984772dba9a886776e1acc0d8780b511cfee934f730b03614fe4"
     },
+    "EN-Panda-SPAS-Indicator-Output.md": {
+      "bytes": 2662,
+      "hash": "d000a1f82630b43851f95c585aca2c5fae042d339eb0c276e02af620f0817728"
+    },
+    "EN-Panda-SPAS-Send-Mode.md": {
+      "bytes": 1660,
+      "hash": "85452e6d42777e44681cef76f9eddfb4c5302c120478418a153726a04b1b6a6b"
+    },
     "EN-Parked-SPAS-indicator-test.md": {
-      "bytes": 2248,
-      "hash": "fe36df3af0e85e6dbfebc67fb342af810b9761bedae1bfa6b539767bac56c970"
+      "bytes": 2303,
+      "hash": "84740c6a68a1245d004e08c98b55717fdfb7d8395a32cdf02783cb9cc9dfdad1"
     },
     "EN-PowerOffTime(min).md": {
       "bytes": 1842,
@@ -757,6 +777,10 @@
       "bytes": 3475,
       "hash": "8a1616cdb42c98fd98262b646d442f74f8826aa0bc9630d1988dd9ca63bfe116"
     },
+    "EN-Taiwan-offline-OSM-curve-preview.md": {
+      "bytes": 1466,
+      "hash": "7fa3f83612ac191f5c8b12960acd5da010df65473cce70c9f36a4ee0a15506a7"
+    },
     "EN-Tesla-Automatic-Speed-Wheel.md": {
       "bytes": 2961,
       "hash": "05ae257458fddecbb1f8570c5e31b418693dc764cac0e32c73db8bbb623cc98d"
@@ -794,12 +818,12 @@
       "hash": "adea2dc0f79c9d088a0c626c023b8363eaf3830a208135616b851225e552119f"
     },
     "EN-Turn-signal-lever-selects-turn-lane-change-(km-h,-0=off).md": {
-      "bytes": 2381,
-      "hash": "d3edfc519edb3e7944a9a1ff01e3e3b8d78e354ec6d57bd647b2e07f859b82e0"
+      "bytes": 2402,
+      "hash": "4fc2e09f22c8be79524a2199826de4dd1dfaa348efee999e8ffbb8f04b506a46"
     },
     "EN-TurnSpeedControlMode.md": {
-      "bytes": 1975,
-      "hash": "885b0216b2e92b87588ed90cecc1f155f52a17d4286aa53fbc7c070ab201f98c"
+      "bytes": 1990,
+      "hash": "6ca014062dc169a57e6ce14bec65c524b5d5bd9bfcdc6b41bcf19999b89c8e81"
     },
     "EN-Use-HDP(CCNC).md": {
       "bytes": 1838,
@@ -885,6 +909,10 @@
       "bytes": 2121,
       "hash": "97efaec9aea2fc1f69b76277f82751c62be4e74ced12ef09035399d06a177959"
     },
+    "KO-ATC-곡률-기반-속도.md": {
+      "bytes": 1422,
+      "hash": "388c78b16e09c2e2f20d59d705121620dfbd5534dd555156ce7f95f15412cf64"
+    },
     "KO-ATC-시간거리(3).md": {
       "bytes": 1897,
       "hash": "bad1d9b7424a207574e10368f5e2c4d7ddab06bf73efb55fb940c5ee72f7357b"
@@ -910,8 +938,8 @@
       "hash": "4aaedccb663b7a0a40a0fd329ff3357b9b42852dd1c050a2e1ed71b23fb42b59"
     },
     "KO-CAN-FD-SPAS-깜박이-사용(시험).md": {
-      "bytes": 1618,
-      "hash": "855285f32b31b79cc3e7564578fb2f224b052ea4d53b7c99fa0d9c0842e34fe9"
+      "bytes": 1671,
+      "hash": "370786da4c014f2265da80397190a0c25ca34f3304201299c6b10130134e3096"
     },
     "KO-CANFD-Debug(0).md": {
       "bytes": 2030,
@@ -920,6 +948,14 @@
     "KO-CANFD-HDA2지원(0).md": {
       "bytes": 1882,
       "hash": "a1d22640f773f137dac231b3f634e7a087ac429b89af4026017b0ab434a19e95"
+    },
+    "KO-CCNC-계기판-순정형-표시.md": {
+      "bytes": 3035,
+      "hash": "cc633f0f336a46b9acbba9460907e66958b44b06057cad1d1444b6ec29bbb804"
+    },
+    "KO-CCNC-계기판-신호등-배경.md": {
+      "bytes": 2080,
+      "hash": "3776d77f9577e5e10de5c3e7962af158041e75dedf1262ea81fec97a21f34808"
     },
     "KO-Carrot-Vision-사용.md": {
       "bytes": 2715,
@@ -1016,6 +1052,14 @@
     "KO-PCM차량속도제어.md": {
       "bytes": 3097,
       "hash": "7e0d7e205dba85a3fb419a67cd8007569079d4d58cc8034da5f673e5896b48dc"
+    },
+    "KO-Panda-SPAS-깜박이-출력.md": {
+      "bytes": 2890,
+      "hash": "3acdf04bbdf47daccfd198658c5dde8eacfe3ffe84c04957947cea85d2033dde"
+    },
+    "KO-Panda-SPAS-송신-방식.md": {
+      "bytes": 1816,
+      "hash": "d6d00927f4435680499e3bcca27939c346a5a241a24866033864ab200d9be341"
     },
     "KO-RoadCam녹화.md": {
       "bytes": 2045,
@@ -1206,8 +1250,8 @@
       "hash": "9d12e8bd4bca668865ac0f9aaba6472314ab06a141c99b1f77d61d58b4f9b00a"
     },
     "KO-경로턴속도반영비율(100-).md": {
-      "bytes": 2315,
-      "hash": "475d92a8bdf156c1d3bc9f42430c67b517375a23582d1108f46eb690187b81a1"
+      "bytes": 2387,
+      "hash": "26dc33852448b218ba22b0cf6e495adb67fbb384da3335769d4377182abc736b"
     },
     "KO-계기판-CAN-직접-송신.md": {
       "bytes": 1516,
@@ -1234,12 +1278,12 @@
       "hash": "5a7c70016a6b6b0f51fc63244b8db21004f9be54c9f8c810a4165fa2f843721c"
     },
     "KO-깜박이-자동제어.md": {
-      "bytes": 4258,
-      "hash": "a0ebe7e68007dd957b691f31857a7c0b703556c63885a651f7e43977abb945db"
+      "bytes": 4661,
+      "hash": "136ee4641ad6cf91236203dcba9004866c022b54b925c27ec771e6197cc80901"
     },
     "KO-깜빡이-레버로-회전-차선변경-구분-(km-h,-0=끔).md": {
-      "bytes": 2563,
-      "hash": "8a239dbeb7e2959604af6bf14d77b5984f6ea784b0298dc0dbaca62bebbafa66"
+      "bytes": 2556,
+      "hash": "a27b260efb153896d967e216450be6b931331dc99aca89d37e5566cd6a1196ea"
     },
     "KO-내비게이션-음성-볼륨.md": {
       "bytes": 2262,
@@ -1260,6 +1304,10 @@
     "KO-당근크루즈감속도x0.01(-1).md": {
       "bytes": 2335,
       "hash": "eab310561d27d9e73cc57374545b7f2652e3dfce7b0c9195105652f0926b71f7"
+    },
+    "KO-대만-OSM-커브-미리보기.md": {
+      "bytes": 1521,
+      "hash": "c173dbf9d954ccbb843335d30d5d1d95afc9858399bdf59d4c1112afe618b8e4"
     },
     "KO-도로제한속도맞춤(-1).md": {
       "bytes": 2269,
@@ -1318,16 +1366,16 @@
       "hash": "88c1fdd312e2d5a7e9552852b0c03d0704e67001fb06cc5676190c9ecba1d85e"
     },
     "KO-모델-desire-자동깜박이(시험).md": {
-      "bytes": 5031,
-      "hash": "d20d6173ac629e8c1d8f42ac2bfa693484bb60465a0398b429f9ad245f9eb758"
+      "bytes": 5557,
+      "hash": "c206af0b846a7ffed0379ade931b5b6e15b6ccd58a89d9f31453ba90d291cf5f"
     },
     "KO-모델-경로-자동깜박이(시험).md": {
-      "bytes": 2894,
-      "hash": "9853f10b7bcd96d0853e29e539d76a3f9745f85461eb5d77b5b84620febbd1ab"
+      "bytes": 3108,
+      "hash": "c4c6ebdfb3721f5284a0222e07104f6e6c3de65fb35b881d5988c65caa413903"
     },
     "KO-모델-주행속도-적용-비율.md": {
-      "bytes": 2556,
-      "hash": "d6d3e32250804d8ce7348b58e352909f5a1c29e9b8683e307a05e19bcc01ae83"
+      "bytes": 2675,
+      "hash": "7f4c728162e010aa629b9b8436c087622ebee1bb20b300042a063ce18da8217e"
     },
     "KO-무게중심-비율.md": {
       "bytes": 1686,
@@ -1374,12 +1422,12 @@
       "hash": "f7f120e629c0a3b793893bde72469ec4aa91db42e6061cb03252d92d4ec51d9f"
     },
     "KO-수동-차선변경-깜박이(시험).md": {
-      "bytes": 5635,
-      "hash": "1c5954e18f6cd7034c0bd27e01bdb4dc5e7a0894fa1dad44840bd1e84ff0e20c"
+      "bytes": 6407,
+      "hash": "85d033b67f400a7f11dec976c4169ea1ec353a852fc492aa588f7ddceb9ac7b4"
     },
     "KO-수동-턴-자동깜박이(시험).md": {
-      "bytes": 3777,
-      "hash": "e49157bb94076095007853cb2a63105ee764fb62ee5950857325c67577a9b1a0"
+      "bytes": 4548,
+      "hash": "e326f8746e691088e20a0f65f1644c5b1ab8327135e864c9917e319c50e313b3"
     },
     "KO-시간정보표시.md": {
       "bytes": 1668,
@@ -1482,16 +1530,16 @@
       "hash": "9d2e2df48483606adaceeb1be6fc57221030da872348b6ebecb94520da900134"
     },
     "KO-원터치-차선변경-요청-5회-대기.md": {
-      "bytes": 2410,
-      "hash": "8a58c57d7d11ce78439c6709a513badb22f1a241ec0ed478f27f0b8ae90174fd"
+      "bytes": 2403,
+      "hash": "72cd2d90c82de5151a3c4c34cf7de6ad2813355b06c7e8b7740daff60c76b282"
     },
     "KO-자동도로제한속도감속-(50).md": {
-      "bytes": 2315,
-      "hash": "57d6dca7b2b20a32f057243290cf090f5a631f5470b8a78c3c6127dca47eb90e"
+      "bytes": 2389,
+      "hash": "ecf9d232bfe96aeb6ded673a011e9c580f017d9a202ea20b882694a28e400957"
     },
     "KO-자동속도증가-(100).md": {
-      "bytes": 2268,
-      "hash": "240e2274aa636b0f632745e93b4f6334d27004b7ac01f81a5a1e3380030fe2c7"
+      "bytes": 2376,
+      "hash": "ef5d32a3a5c56250becb127e9d45e8f3d74091998733fe1c87fa5256fcd40d03"
     },
     "KO-자동전원OFF(분).md": {
       "bytes": 1924,
@@ -1522,8 +1570,8 @@
       "hash": "ed1f393e93ae0cbc46bc858cc18b40422056587714a5ad42580525309745fa7d"
     },
     "KO-정차-SPAS-깜박이-시험.md": {
-      "bytes": 2256,
-      "hash": "1e2cad201b93cd8de7180ec62ac825d510831444265083bc962de09534205da9"
+      "bytes": 2309,
+      "hash": "7f8dfc369f8cbd874823639347fc017f56bd891d4621ce6046db065c4f5d4d18"
     },
     "KO-주행중-화면밝기(100-).md": {
       "bytes": 1840,
@@ -1698,8 +1746,8 @@
       "hash": "d472cc59502ffec55ccf4e742dae0cd47d99595258f3c84e8b88c15212bbcffb"
     },
     "KO-턴속도제어방법.md": {
-      "bytes": 2051,
-      "hash": "95a293da1dc20b2ba397fe12fcca03be6db51384f1a4add1b2ac0ad5c36613bc"
+      "bytes": 2071,
+      "hash": "2df4eb3adb134860feadab3e3654fb379079b8f614ebc6e233688a2de0716f0d"
     },
     "KO-패들시프트모드(0).md": {
       "bytes": 1941,
@@ -1738,8 +1786,12 @@
       "hash": "c36b52d2f81711770bb6532877ab8c359e6f5d670cc0ff058db0b0c834b7e810"
     },
     "Settings-Catalog.md": {
-      "bytes": 145407,
-      "hash": "8ec820ad9b9c2d08f11fd863c279c4358fa80ecb4b05641c9adf855826b504a7"
+      "bytes": 149718,
+      "hash": "cb661b73de8ca04fb7a98ab0af8d30db1e8f2703d4f76081a8002906e8eb7547"
+    },
+    "ZH-ATC-依彎道曲率調速.md": {
+      "bytes": 1375,
+      "hash": "89a82031a500afdae22583859fd75d7a51d2603ca07ce24b77826e5d7ddffdca"
     },
     "ZH-ATC-自动转向控制.md": {
       "bytes": 2106,
@@ -1766,8 +1818,8 @@
       "hash": "1fb30d114981a8108e83d6d481966b6f81f06c1410989541f444ba454ca0b86b"
     },
     "ZH-CAN-FD-SPAS-indicators-(trial).md": {
-      "bytes": 1499,
-      "hash": "f50fb519abe958d34e9f7425a246d32062c00b3d4a905c98775615a82d103416"
+      "bytes": 1548,
+      "hash": "5f283d0738aaefddcba87b5b714fd30f9bd87cfae447ce0d191dcf47a0496918"
     },
     "ZH-CANFD-HDA2-(0).md": {
       "bytes": 1039,
@@ -1776,6 +1828,14 @@
     "ZH-CANFD-调试-(0).md": {
       "bytes": 1073,
       "hash": "dc5e4f352fdaf8411519c8862cc913dda2b13e051a8f4b6522586ca306d91574"
+    },
+    "ZH-CCNC-仪表信号灯背景.md": {
+      "bytes": 1883,
+      "hash": "acbb08ff323671b2547cbb61811ec3e8cc92abc59e15fb34efe3240b6b89c883"
+    },
+    "ZH-CCNC-仪表原厂式显示.md": {
+      "bytes": 2707,
+      "hash": "caa25da425ec466d02c3fdf579c1be2144932205053e3160fa0365fafb4763e3"
     },
     "ZH-Comma-Pedal纵向控制.md": {
       "bytes": 2240,
@@ -1813,9 +1873,17 @@
       "bytes": 3170,
       "hash": "f1d161b3d2325aa53f4b4398a4574859a76456116562c626f9c631099df6b5fd"
     },
+    "ZH-Panda-SPAS-发送方式.md": {
+      "bytes": 1606,
+      "hash": "f30036ff63a182109112cb992fe949209b6cb13d9d5f338e5a9583a816bb7855"
+    },
+    "ZH-Panda-SPAS-转向灯输出.md": {
+      "bytes": 2268,
+      "hash": "d94433e585dc42a5dcc407d80ff40d804e4e1edd347366ef80448b0c2382aa87"
+    },
     "ZH-Parked-SPAS-indicator-test.md": {
-      "bytes": 2253,
-      "hash": "a87319f51509ed49617475a189d1644c0f7c23cc07d52e576453ac4b651e01c8"
+      "bytes": 2302,
+      "hash": "7a8dc78f50df4d713f3356bc9884028d0b36055760d9b6050c57011d04723123"
     },
     "ZH-TF1-跟车响应性.md": {
       "bytes": 3220,
@@ -1832,6 +1900,10 @@
     "ZH-TF4-跟车响应性.md": {
       "bytes": 3220,
       "hash": "72503122febbdcf63178cd0cb274a16b53fb26c1b588ae271dfd5f213d47c932"
+    },
+    "ZH-TW-ATC-依彎道曲率調速.md": {
+      "bytes": 1378,
+      "hash": "23bdea7eee448eac602eee9f2680df0f18e82b4fd39d093b31147ccd430042d6"
     },
     "ZH-TW-ATC-自動轉向控制.md": {
       "bytes": 2109,
@@ -1858,8 +1930,8 @@
       "hash": "ff8549508c723d495f53a29ea6eca97c09022075041c64e9247a4f0b2beba7b6"
     },
     "ZH-TW-CAN-FD-SPAS-indicators-(trial).md": {
-      "bytes": 1502,
-      "hash": "5e26fb2892a1c52e171f408e6a307cd7000efa6a32eeda4977c4f1a1b3e1eeee"
+      "bytes": 1551,
+      "hash": "d11729c14a40a355feaab8caf35a51109e94c6478e5d9c2e009a39221cdc1b0e"
     },
     "ZH-TW-CANFD-HDA2-(0).md": {
       "bytes": 1698,
@@ -1868,6 +1940,14 @@
     "ZH-TW-CANFD-除錯-(0).md": {
       "bytes": 1851,
       "hash": "13848b9edeb04b68553b36df42990cd2d520002e2390515ce75ca7e16863dea6"
+    },
+    "ZH-TW-CCNC-儀表原廠式顯示.md": {
+      "bytes": 2710,
+      "hash": "5198d00bca1ae4c5e7786585a54a3cb91a73792f48f059fcfb2342727a700d40"
+    },
+    "ZH-TW-CCNC-儀表訊號燈背景.md": {
+      "bytes": 1886,
+      "hash": "a3674ff413ee8a98af30021de834da2b81baf7819be7d818fe2885ce100f61cc"
     },
     "ZH-TW-Comma-Pedal縱向控制.md": {
       "bytes": 2243,
@@ -1905,9 +1985,17 @@
       "bytes": 3173,
       "hash": "682860987e1d915a824167b81d2158a15f020b3fb8484c165ad41e11a82e99a2"
     },
+    "ZH-TW-Panda-SPAS-傳送方式.md": {
+      "bytes": 1609,
+      "hash": "cf70fad49816bfceb33093876ef0b4e5e6795d551222658aa311a3edf57e24f2"
+    },
+    "ZH-TW-Panda-SPAS-轉向燈輸出.md": {
+      "bytes": 2271,
+      "hash": "b6cadcb4cdea0232134019a86f0887c0f8a2f2f8e134f046fb6518d457e6ffaf"
+    },
     "ZH-TW-Parked-SPAS-indicator-test.md": {
-      "bytes": 2256,
-      "hash": "bfbc7218408bafa968afa9f80bd8caefb67eb9ea3dc11f157dd810dd0672d27f"
+      "bytes": 2305,
+      "hash": "85fb69e4b6686c295ad93a7cedc3fb28fb3111e7ddb0ddb65f3bbc5a187a5659"
     },
     "ZH-TW-TF1-跟車響應性.md": {
       "bytes": 3223,
@@ -1972,6 +2060,10 @@
     "ZH-TW-全時橫向控制.md": {
       "bytes": 2914,
       "hash": "35d9022215ebd7b430355def8e91e43e6f28ab31a3c3ddb82648ee6cdef9f89c"
+    },
+    "ZH-TW-全臺離線-OSM-彎道預覽.md": {
+      "bytes": 1496,
+      "hash": "e10054ed4a00c1b910c6dfea45a98d1dfbba1ad24c72727f173390a671cf0dcf"
     },
     "ZH-TW-前車制動燈觀察(試驗).md": {
       "bytes": 1354,
@@ -2054,12 +2146,12 @@
       "hash": "d64e37e09a0aa7f9bcccb31ba39d341e173edb87fe70b1108280e1370362b37c"
     },
     "ZH-TW-單觸變道請求等待-5-次閃爍.md": {
-      "bytes": 2027,
-      "hash": "ef77fad1504b165ba5676bfee5f52a6c896b7cc08ffb776deba4a3790402a62d"
+      "bytes": 2032,
+      "hash": "f887b4e1910bc67dd3d585cea243ac0f19b46d5729a80aa743eeb1bb75d40e24"
     },
     "ZH-TW-地圖轉向速度因子.md": {
       "bytes": 2060,
-      "hash": "b9c72bd2c5f64af734983a4514d0c1abe63f0ca0ad911c31a44d108c9fd1d50e"
+      "hash": "763f59259c44370362044ee613fe4cdf9a4d2bdcb2a63b9e033db0faef030190"
     },
     "ZH-TW-外部-HUD-主題(0).md": {
       "bytes": 1492,
@@ -2202,12 +2294,12 @@
       "hash": "8967bc57bb7601c313ef4e3900e6a302878973b1bb1d7be49c75d52aa9ee366b"
     },
     "ZH-TW-手動變道轉向燈(試驗).md": {
-      "bytes": 4433,
-      "hash": "cde644231901b6693f5cb0e05c33f89eb7ac70d5b9d479210dd01e5ff10a97bd"
+      "bytes": 4442,
+      "hash": "863b74db780b0824b8d8bfc43ac16fc929cdfd87ce8f40fcade45cb37e14573c"
     },
     "ZH-TW-手動轉彎轉向燈(試驗).md": {
-      "bytes": 3062,
-      "hash": "c3175b7f309b494f76eb6eae2971f7614148823f0945d8f09d5de2ae85e2c394"
+      "bytes": 3071,
+      "hash": "38ac292d584019bb2ddec66cd11c68a863c39b7fd7f99c9b1ed3198539498c35"
     },
     "ZH-TW-換擋撥片模式(0).md": {
       "bytes": 1819,
@@ -2222,16 +2314,16 @@
       "hash": "8c78f54906ba7ea9cfa9e9144c5c925badabf6e470451b18c11a93ff8f1e3a24"
     },
     "ZH-TW-模型意圖轉向燈(試驗).md": {
-      "bytes": 3971,
-      "hash": "8c4c7fb3b811f617c61a1c4d0748bc5ae66ff037aa13961f28e0e2e3d5395fb1"
+      "bytes": 3980,
+      "hash": "3a0bd08f19cee63db9552bb19087d26fb01f7f7132a554ec8d6f54eb77689358"
     },
     "ZH-TW-模型路徑轉向燈(試驗).md": {
-      "bytes": 2435,
-      "hash": "717463b0b6daccd1550c25289475d6049298228a2a5b86e0f5dd57a22993e0c9"
+      "bytes": 2444,
+      "hash": "6a937e22689ecec1590ae68bbdd0c0c6055606dd61b94be54fc7d2910a5dd7bc"
     },
     "ZH-TW-模型車速應用比例.md": {
       "bytes": 2231,
-      "hash": "dc45b155ff90b132b1fef090fb1981734d4cf039b3f5f9b144420b48dc415f27"
+      "hash": "96713995a6e25551360c187d973d4eb69644d205194ab41538b61c261354ae6c"
     },
     "ZH-TW-橫向MPC加速代價(120).md": {
       "bytes": 2053,
@@ -2367,7 +2459,7 @@
     },
     "ZH-TW-自動加速至-(100).md": {
       "bytes": 2031,
-      "hash": "6eeb768f1971cfab8817a90d780f8098e78e3078dcd9297cf3b6c91c3f410597"
+      "hash": "3ffa5530d96e14f890f6b2aeba2a4f61d92e55214eaa816f57ac86b69bcf3a9e"
     },
     "ZH-TW-自動巡航-踩油門起步速度.md": {
       "bytes": 1747,
@@ -2386,12 +2478,12 @@
       "hash": "25a055050066211f80c2e88e0269ba9ca2b8ca0f13ced4b91c8cc204e9cc4e8a"
     },
     "ZH-TW-自動轉向燈.md": {
-      "bytes": 3436,
-      "hash": "76585be012230bb8d8719fbf7e01b6fbdd36ddfdd4b1cdafc5b7ba3de37f99aa"
+      "bytes": 3445,
+      "hash": "b132d56bf392b653bd0e081daeb6390fc80881b3b4d5f0d913f89e148e476ab9"
     },
     "ZH-TW-自動道路限速調整-(50).md": {
       "bytes": 2072,
-      "hash": "afe9e740f4ace14faaf84fce9e6b17e5868c4fc30e3225e221a379f194e080ed"
+      "hash": "0ec7d7688712649d8ce95cb8401eab376bad25f59ee6528d736386f7a207097f"
     },
     "ZH-TW-自定義最大轉向力矩(0).md": {
       "bytes": 2081,
@@ -2570,12 +2662,12 @@
       "hash": "6198b0d8f6693edff8f8caa16d8ccf2ea51f187c41a944c3816f245c7943ee69"
     },
     "ZH-TW-轉向燈撥杆區分轉彎-變道-(km-h,-0=關).md": {
-      "bytes": 2199,
-      "hash": "7608d3c8e9cb7eb389390743871337850a43a5cf8723325a4a9d5d833d6ae1b0"
+      "bytes": 2204,
+      "hash": "7c392c8dd7e022e99b4967d5ffd5857253918743c374d0dcfd5c7d413c3c9e77"
     },
     "ZH-TW-轉向速度控制模式.md": {
       "bytes": 1933,
-      "hash": "ae5e0e1aa97724ff542b7a173976b40a4c78c828a19e5a2a8889b1915f802737"
+      "hash": "cf52027b2c563acbd92678cc85df661830a4f2186c82d1940f61a848ebb2f17d"
     },
     "ZH-TW-速度-TF-倍率.md": {
       "bytes": 2139,
@@ -2737,6 +2829,10 @@
       "bytes": 1242,
       "hash": "bf05c09a1e0bc63672b3362989f4761cde7269ea1aea959635262300c334c2bc"
     },
+    "ZH-全台離線-OSM-彎道預覽.md": {
+      "bytes": 1493,
+      "hash": "231aa0dbc8c2f13272c1c015e445e075df460730e6a32464e7318e8a9a7596a6"
+    },
     "ZH-全时横向控制.md": {
       "bytes": 2905,
       "hash": "af86a95d5efc02b047f631112fcbf903fb7679c100f1f1ab3912bbe724945d73"
@@ -2814,8 +2910,8 @@
       "hash": "c732dc376cefc0ae1c37d32d081083b2c1281c90e3cd61b8361a06c6afb10d33"
     },
     "ZH-单触变道请求等待-5-次闪烁.md": {
-      "bytes": 1516,
-      "hash": "851c68a7576d4d21a00fd748e494a722b9b92d11f92adb9f56a4a76534a5e75d"
+      "bytes": 1521,
+      "hash": "94a1e522c21c592b42cf14c9952fa2c011e41e38e50d7313c8182c39126e224e"
     },
     "ZH-原车导航-30-km-h-区域限速.md": {
       "bytes": 2350,
@@ -2886,8 +2982,8 @@
       "hash": "00f0684c4b68e78a9c657552894fcbced80f158eddcfe50cf84adeb6841d1ea4"
     },
     "ZH-地图转向速度因子.md": {
-      "bytes": 1255,
-      "hash": "a63fddf0c5f7e929df015acb021271292e5a83ee551397c5358616c00fd9646b"
+      "bytes": 1330,
+      "hash": "8e2f40a239839beaa27cd390385d1339d5ca86788222eda3891c23a4212bd7cf"
     },
     "ZH-声音语言.md": {
       "bytes": 1140,
@@ -3058,12 +3154,12 @@
       "hash": "b7cc3edd0bdcf8ba4687fd99d5f7fa69b095d847f6190cbab35b649d76c6f9c4"
     },
     "ZH-手动变道转向灯(试验).md": {
-      "bytes": 4421,
-      "hash": "1b57aef6425b64452d055e2fa44ca00faa3e1f5e4226de719d5edc13c0b7e8e2"
+      "bytes": 4968,
+      "hash": "70955a0a9c28bb22839d6da1c90aa148067da416ad5e6f20a3e7968c76fadd49"
     },
     "ZH-手动转弯转向灯(试验).md": {
-      "bytes": 3047,
-      "hash": "50098026becf2c339055c3cf5a0f72c76b996cb5dd12f266a125a05e3c05e0ec"
+      "bytes": 3600,
+      "hash": "1e7824180163e371c03504747a857218467989ccaa86846c06097c68aeb38fc2"
     },
     "ZH-换挡拨片模式(0).md": {
       "bytes": 1207,
@@ -3138,16 +3234,16 @@
       "hash": "efec0671ab9988d8c2369bb9503604c92a27f55fa1d4502b1ec1d500f9157a4c"
     },
     "ZH-模型意图转向灯(试验).md": {
-      "bytes": 3923,
-      "hash": "c5e1cb6443a9ac9ed4381f086c338d09ea43741520fbafca5f783befc015c03f"
+      "bytes": 4280,
+      "hash": "eb73c57731279fcb06c91b83c1cd9776d7f085539ac120763ccf86070cfaeb7b"
     },
     "ZH-模型路径转向灯(试验).md": {
-      "bytes": 2432,
-      "hash": "1d827acd9d944c8409da86d6ed4916f165059e978ab9ec565d57b80556f971dd"
+      "bytes": 2572,
+      "hash": "a0c64fbdeee5e78cc56cabf01c68acaf51df6ce0fd8b233c8fa6e54fa9ca7cc9"
     },
     "ZH-模型车速应用比例.md": {
-      "bytes": 1242,
-      "hash": "3649ae78480ba1afd03c4796b5edfebdcce9dfaa5f301d53366dfbe6040ca1b3"
+      "bytes": 1323,
+      "hash": "efda32c8948fb4a585ebc4f1c04ff455b4da2b34465fae535fd763446f8425af"
     },
     "ZH-横向MPC冲击代价(4).md": {
       "bytes": 1199,
@@ -3246,8 +3342,8 @@
       "hash": "d70e1242f2c389885c59ba89b6a66f7e1d9322ea7fd50cb778b59dce09f9b787"
     },
     "ZH-自动加速至-(100).md": {
-      "bytes": 1343,
-      "hash": "d210fcbad6246d66d0091d925323a40e83422a4d31c05cf17d8b497911bea326"
+      "bytes": 1433,
+      "hash": "53569ab7b83dcf3caee55317a0b196e387900645b101945437121912a10754a3"
     },
     "ZH-自动巡航-松开油门取消速度.md": {
       "bytes": 1322,
@@ -3266,12 +3362,12 @@
       "hash": "10bbc50eac8276ffe051d54ff94e1e9fde1b5f249008847a29be926510e8228e"
     },
     "ZH-自动转向灯.md": {
-      "bytes": 3433,
-      "hash": "6f4adc6cebec5fb6b5d0ad15db1a1e8f968586195baaaff01072f09eb95dc494"
+      "bytes": 3704,
+      "hash": "132c752d54c3e5859a298145ebb2b71ef7e515f239e27a1c1f6ee0ff2ed6c6d4"
     },
     "ZH-自动道路限速调整-(50).md": {
-      "bytes": 1290,
-      "hash": "f6dca8dda5a422af7300d326ff90d64f324714c4c0a201e0c3300768b8b66232"
+      "bytes": 1360,
+      "hash": "ac71803a9847c02e8b5fe7fbefa6093c213245dfe5eda932f0e8bd698f7dd7bd"
     },
     "ZH-自定义最大转向力矩(0).md": {
       "bytes": 1250,
@@ -3410,12 +3506,12 @@
       "hash": "809aca3a6f9822a4a242d11de0556e092424ccc6a4b9a19b829bd5f2280efe6b"
     },
     "ZH-转向灯拨杆区分转弯-变道-(km-h,-0=关).md": {
-      "bytes": 1638,
-      "hash": "7d1716cc570227b6278b6762348a481c49228108c9eaaed52d4dbf6a3497abd6"
+      "bytes": 1643,
+      "hash": "98a4b8bec3a74bbfe6cbde579c92fb7aa8efaed8201ec38fbd4d2034762a9170"
     },
     "ZH-转向速度控制模式.md": {
-      "bytes": 1273,
-      "hash": "c554012614238124f961f3b090d47dcd3f6e578219d1b961c0afc470ec8ca369"
+      "bytes": 1276,
+      "hash": "ebba65e447b0b6f113c771c7a475410577d92b4bd709e57630b4c1fa69165de6"
     },
     "ZH-轮胎轨迹.md": {
       "bytes": 1224,
@@ -3471,8 +3567,8 @@
     }
   },
   "review": {
-    "current": 46,
-    "needs_review": 170
+    "current": 41,
+    "needs_review": 181
   },
   "schemaVersion": 1,
   "settings": {
@@ -3574,62 +3670,62 @@
       "locales": {
         "en": {
           "anchor": "ApplyModelSpeed",
-          "factsHash": "6891e5d6f7d7baf2195a0e8e9a59c7f3c6e8a8fdbd13e4daca55bfe29a8a96db",
+          "factsHash": "18c05f8cffa90b0d1ecf58f598e9e47b322611de9722824acd93bd77fea7e711",
           "page": "EN-Model-Speed-Apply-Ratio.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "ApplyModelSpeed",
-          "factsHash": "c600b8715290851c0d1420039659e3583d28cb320fa08e511c2be294ac242bcb",
+          "factsHash": "6a4227ea0bc3b0d8f66f899c91e5021a2c8948ace110ab2eb3bb27e6f9d306a4",
           "page": "KO-모델-주행속도-적용-비율.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "ApplyModelSpeed",
-          "factsHash": "61afbdce8881e72faceda50c172177aa74a359fb7f6b51ac5213eb9b373600a8",
+          "factsHash": "8272357f23ac69a9185340ac5bb52a5405b7ee3771d4d31f26fa3dc33c2f3db7",
           "page": "ZH-模型车速应用比例.md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "ApplyModelSpeed",
-          "factsHash": "dc20b9f84614d57f771b3156317ee100589e8e042337b6a3c07ef03fb2502f9c",
+          "factsHash": "adf154b2f8306ad93f2389f3978b4bb2f3c74c14f31f5816bc1d80ad000951b9",
           "page": "ZH-TW-模型車速應用比例.md",
           "reviewStatus": "needs_review"
         }
       },
       "reviewStatus": "needs_review",
-      "semanticHash": "8039edb57e0c4c2bb0d6e9911d247c64a6f0c42f2e912402bc572f0a4701f388"
+      "semanticHash": "af76e5561f6e0bbefc54c91f7b945aab79d8f017c8706ca26a324cbcc31a3514"
     },
     "AutoBlinkerControl": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_AUTO",
       "locales": {
         "en": {
           "anchor": "AutoBlinkerControl",
-          "factsHash": "db4cd3bd53a8f3018322d460d821b9b9976a87ebd16b6677108fb996a31f9bd1",
+          "factsHash": "51f581d6a2ed4620b66ad140c7aff9b16abe5e1b3a6c4314f2e936ce574e0f27",
           "page": "EN-Automatic-turn-signals.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "AutoBlinkerControl",
-          "factsHash": "b573fd1dccdd9f626fd55dbe2ea7da5ac13f06706ad0f3a0209c7374a50bea10",
+          "factsHash": "90e2593d829cb867bfdcbbc7f52800bcb5d3396dba55c66d5075d6ea6d8e6be5",
           "page": "KO-깜박이-자동제어.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "AutoBlinkerControl",
-          "factsHash": "746d97b59d9aa5567e7800090c8265dc03e28b7d162065af32348bc750a3adc5",
+          "factsHash": "692a879f13621e80deb4648cfe0e2ce791ea65f6344923ec2f0d4af78f9f84eb",
           "page": "ZH-自动转向灯.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "AutoBlinkerControl",
-          "factsHash": "f3085c76dc1576320b39e25749089d6d81e1b2f42cefcff1091230f7781c2d18",
+          "factsHash": "5b1e9b2dd0e3c7e18600acb40b0505d5dcbaca3e0561a3669060f86c0f9a402a",
           "page": "ZH-TW-自動轉向燈.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         }
       },
-      "reviewStatus": "current",
-      "semanticHash": "edd05659292aebc71be712906d3faaadf71c30551e5a372287abb2bf65bd60ca"
+      "reviewStatus": "needs_review",
+      "semanticHash": "f201e7abb802048e9cfb08de91f28ef854b93e6bf418d3ce82001bb17b91dafc"
     },
     "AutoCruiseControl": {
       "group": "BASIC_AUTOCRUISE",
@@ -4132,31 +4228,31 @@
       "locales": {
         "en": {
           "anchor": "AutoRoadSpeedAdjust",
-          "factsHash": "f18aae93bc45f89f0d9b8c492adc8ef7aa5f41c4898eed9d4094727b02349bd8",
+          "factsHash": "ddc71e4a0694e1d6e45fa5c34e11dd4124d8397128a4f2efcfabeff1f0dd2fc9",
           "page": "EN-AutoRoadLimitSpeedAdjust-(50).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "AutoRoadSpeedAdjust",
-          "factsHash": "b76af8ecc959423edb6c6fc01556ba0b31e0261e81c18cefa3e1faaa731a3577",
+          "factsHash": "4052fc2c78ad03f8dc0b46b7bfeccca8e7c36455b1465ec2c74f978eb9f27856",
           "page": "KO-자동도로제한속도감속-(50).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "AutoRoadSpeedAdjust",
-          "factsHash": "99614cfd6370caec063c8bd131816c01f36de0645381da9ca2dc218d550584d6",
+          "factsHash": "fe77162ccd1e20f35976523bba288466a13b0c5cabc34da3a80d4eaf87ef493d",
           "page": "ZH-自动道路限速调整-(50).md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "AutoRoadSpeedAdjust",
-          "factsHash": "da21a0355e035d209b2640ea7864db0693a0cdb0751fea60b00fde6c86bd542e",
+          "factsHash": "7fea5da8119206683c280d229043ca9889b6c50c4ff828086896cda92e73511a",
           "page": "ZH-TW-自動道路限速調整-(50).md",
           "reviewStatus": "needs_review"
         }
       },
       "reviewStatus": "needs_review",
-      "semanticHash": "c5639d7240a075f5e1e1594a87177824bc3d8bf0192fbf8b3dc2b51a26ea762a"
+      "semanticHash": "3a8ce492ec99592a4b2c648c4396de135f8541b50514f8cf9b5673d419e3bbf9"
     },
     "AutoRoadSpeedLimitOffset": {
       "group": "SPEED_LIMIT",
@@ -4194,31 +4290,31 @@
       "locales": {
         "en": {
           "anchor": "AutoSpeedUptoRoadSpeedLimit",
-          "factsHash": "1e333cd54360f0280c641d0e346fd07d02ab19c9271b97fd60db50168998ce7a",
+          "factsHash": "911188631c1a48b101d6590c9181c4e3f17112a0154da37b0d5e6ee32c115b3f",
           "page": "EN-AutoSpeedUpx-(100).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "AutoSpeedUptoRoadSpeedLimit",
-          "factsHash": "1b65741c7fb98c13fd1220b0bc36a6657d42122eb407eaf42bd79c1c00d1018e",
+          "factsHash": "4648259dccf08502e7a4bfe6b4b47dbea4acdfb60dd271aaa7abbc635df6571a",
           "page": "KO-자동속도증가-(100).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "AutoSpeedUptoRoadSpeedLimit",
-          "factsHash": "1aeaa94546c7a4636ad386bc630f632649f0d2204e67097bd7b171ff6c1be364",
+          "factsHash": "1e909806b4a69435c91991f5d9efebf30f6972de6dd3b3b169a564c1cb99e959",
           "page": "ZH-自动加速至-(100).md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "AutoSpeedUptoRoadSpeedLimit",
-          "factsHash": "fb4fdfc08c591e81f9c784cc7dc5ac82f362d84c7ae325350ef0b1db1a3c9d71",
+          "factsHash": "04b16082c6c3afebbc36b40f0108779931917fbbe11fab1dfd41f72a6149321f",
           "page": "ZH-TW-自動加速至-(100).md",
           "reviewStatus": "needs_review"
         }
       },
       "reviewStatus": "needs_review",
-      "semanticHash": "c05370fd34043aeafdf056f429b15308e3f72dadec462c9d4d3b6c332b0d48d1"
+      "semanticHash": "e8b7e745dd01e462d2b5f3bc592dbdba9d4070ece06aaa4e5e90dda27ed99727"
     },
     "AutoTurnControl": {
       "group": "STEER_LANECHANGE",
@@ -4250,6 +4346,37 @@
       },
       "reviewStatus": "current",
       "semanticHash": "e075079f91a03599fc073d2fd981a0d2f880dba4f6b9252ca9cc7782a5ecb64d"
+    },
+    "AutoTurnControlAdaptiveSpeed": {
+      "group": "STEER_LANECHANGE",
+      "locales": {
+        "en": {
+          "anchor": "AutoTurnControlAdaptiveSpeed",
+          "factsHash": "aabe7d140318e26220c705f1dce28a3b1b9b276fb3b2b90fc07d2c712b570006",
+          "page": "EN-ATC-Curvature-based-turn-speed.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "AutoTurnControlAdaptiveSpeed",
+          "factsHash": "8a62484b5fca2e806f6446768e153f40a8ece0f506f4464d5f6819feb91a7d2c",
+          "page": "KO-ATC-곡률-기반-속도.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "AutoTurnControlAdaptiveSpeed",
+          "factsHash": "c65af34e8777d45d86975ac90cdcaf582e55555ed566b93d6cbc738083d9507a",
+          "page": "ZH-ATC-依彎道曲率調速.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "AutoTurnControlAdaptiveSpeed",
+          "factsHash": "4348f1c7567d0128d69289684d2338cf663ac972ee7fcfa413be6aaf872e6e8e",
+          "page": "ZH-TW-ATC-依彎道曲率調速.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "fcbe156f5b034e4affe5b592815ed8351f84bf6d10b7c8e2b938638767581e1e"
     },
     "AutoTurnControlRightLaneChange": {
       "group": "STEER_LANECHANGE",
@@ -4376,29 +4503,29 @@
       "semanticHash": "e5a6acf262e3326cb0dab44709ee7c0a63122f628c93714fdb9143510beeead6"
     },
     "BlinkerLatchedTurn": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_LEVER",
       "locales": {
         "en": {
           "anchor": "BlinkerLatchedTurn",
-          "factsHash": "ef1bc08ae9b3e2257a4c52f5b334005fde37f205c089035156c9e2261c8ccba5",
+          "factsHash": "90245a3c3dc12a0dba0da6e6ad73987f74a74e8cdb0f6b429b831d9b116f0ace",
           "page": "EN-Turn-signal-lever-selects-turn-lane-change-(km-h,-0=off).md",
           "reviewStatus": "current"
         },
         "ko": {
           "anchor": "BlinkerLatchedTurn",
-          "factsHash": "d213c0926eece8509fa6bd8a5be72af8b60e3e345b697ed53c69419ac5e1ba59",
+          "factsHash": "be4bd6ac01bd1d7c143ee917c2c2d85850ddc0a20610ce087e801f5e5382bb56",
           "page": "KO-깜빡이-레버로-회전-차선변경-구분-(km-h,-0=끔).md",
           "reviewStatus": "current"
         },
         "zh": {
           "anchor": "BlinkerLatchedTurn",
-          "factsHash": "94afd466bb2d112cf21dc88793fc7be0b3c51bfbbec6deee71b0a9ec5076373c",
+          "factsHash": "8e1bb2dae7ec6974779e19abaad9e0865f08d1299cd852fe76784431a1a8fef8",
           "page": "ZH-转向灯拨杆区分转弯-变道-(km-h,-0=关).md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "BlinkerLatchedTurn",
-          "factsHash": "69d64b6776b0ba6bee9e682b0950295e3b126b8c6bf0f4cc0ba047c43d419bea",
+          "factsHash": "2cb1acfa7fa806aa5a192f310464f386239cdcd5134cd101387d716bc1a95f1e",
           "page": "ZH-TW-轉向燈撥杆區分轉彎-變道-(km-h,-0=關).md",
           "reviewStatus": "needs_review"
         }
@@ -4469,29 +4596,29 @@
       "semanticHash": "3a5b61a8a0ff59fd0ac9cd4cb53b19b9c3f8b4e3a4a5aaae74449a4c4e87df04"
     },
     "CanfdBlinkerControl": {
-      "group": "VEH_CANFD",
+      "group": "INDICATOR_OUTPUT",
       "locales": {
         "en": {
           "anchor": "CanfdBlinkerControl",
-          "factsHash": "ce6b3a2c6ecf74c755f5a2bdb5c27920f82af55eef22e5baafed17d133d8e135",
+          "factsHash": "5b56db13baa3e6dfa40cba1d1286eb1b96af7195eee9b7268afc3d57da08041c",
           "page": "EN-CAN-FD-SPAS-indicators-(trial).md",
           "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "CanfdBlinkerControl",
-          "factsHash": "11f1458ec493209d651f5f8ef30328c05276d4450d1d5731c7b97c0055d6b5df",
+          "factsHash": "8a463692c0c0bd11ec80ba1f3d6264638a1261aecbe31f90e899e8d3d321ddd9",
           "page": "KO-CAN-FD-SPAS-깜박이-사용(시험).md",
           "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "CanfdBlinkerControl",
-          "factsHash": "b5b06b43ae34dad42ebece5dd390c5f7ce595516e5059985f5bf7aaad3832f75",
+          "factsHash": "d22e070c2045b409e879c4678f7fde134d713d6372a5595bed83d8ce29d6ff81",
           "page": "ZH-CAN-FD-SPAS-indicators-(trial).md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "CanfdBlinkerControl",
-          "factsHash": "6622069a2aad456e29e4cfcf4e9034981764dc52b38dac34627be512b7619d0d",
+          "factsHash": "d86d7274ce7d07bbe66b3fbd7377ba16c351bb416ec03e4887854fd2546a58ec",
           "page": "ZH-TW-CAN-FD-SPAS-indicators-(trial).md",
           "reviewStatus": "needs_review"
         }
@@ -4499,30 +4626,92 @@
       "reviewStatus": "needs_review",
       "semanticHash": "b9c8da21ba0961eca86e2eeeedd9232360297164deac532d95f215a0433ae12c"
     },
+    "CanfdBlinkerKick": {
+      "group": "INDICATOR_OUTPUT",
+      "locales": {
+        "en": {
+          "anchor": "CanfdBlinkerKick",
+          "factsHash": "d28c9b24ae1b2530f60ba55e86594a6b8e18e4a5bf29ed8a1c3fa7bcca7c0555",
+          "page": "EN-Panda-SPAS-Indicator-Output.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "CanfdBlinkerKick",
+          "factsHash": "4670e5102d6d151bc3147d2a06d770e408537095a7e8e03113cfaa6b8e371cb1",
+          "page": "KO-Panda-SPAS-깜박이-출력.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "CanfdBlinkerKick",
+          "factsHash": "2a53b1e7155f4ac6fdbeb390ab4a6774ebb75147b83a9307d46d9b8a8fc39ced",
+          "page": "ZH-Panda-SPAS-转向灯输出.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "CanfdBlinkerKick",
+          "factsHash": "cbe7d58402788ffdb2b909af475412d4d6eaa02421cf14e63b382bd5dba32dc4",
+          "page": "ZH-TW-Panda-SPAS-轉向燈輸出.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "e3d01ebf21844e839abfc47d5fc08878416a9261d5535df9497959b72b96c157"
+    },
+    "CanfdBlinkerKickMode": {
+      "group": "INDICATOR_OUTPUT",
+      "locales": {
+        "en": {
+          "anchor": "CanfdBlinkerKickMode",
+          "factsHash": "13a97cf907746b6810ff06bda16f6edbf052337b5444700daf795351eab63289",
+          "page": "EN-Panda-SPAS-Send-Mode.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "CanfdBlinkerKickMode",
+          "factsHash": "fbcec1e05361dcfd63ba9da9213c5c4b3e89ca7bd3a9d0f90206ca0a1025e3db",
+          "page": "KO-Panda-SPAS-송신-방식.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "CanfdBlinkerKickMode",
+          "factsHash": "259e783979e755d472e7faa71bbcee96990ccb13ed858c6ea853b8e12bb89f52",
+          "page": "ZH-Panda-SPAS-发送方式.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "CanfdBlinkerKickMode",
+          "factsHash": "129dcd4745bd824250b5c6aa3df4d4307ee10f027846b9f48cd34b05a231d557",
+          "page": "ZH-TW-Panda-SPAS-傳送方式.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "50e1f21152cd48de144012c02d1efe05b4cc7b29ef1a56a4eaec16e1fb980935"
+    },
     "CanfdBlinkerTest": {
-      "group": "VEH_CANFD",
+      "group": "INDICATOR_OUTPUT",
       "locales": {
         "en": {
           "anchor": "CanfdBlinkerTest",
-          "factsHash": "a04d8a83ccd9cf373103bd71aabd1d42ba3f1981315e51b48700a603128be9fc",
+          "factsHash": "e2409b72f1c39a4b17f56b86804c37b184610e2c54adaf15dc4f710b3a9d43b6",
           "page": "EN-Parked-SPAS-indicator-test.md",
           "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "CanfdBlinkerTest",
-          "factsHash": "237f0de6a8d6eb97f93fbecbdaa7f56cecb9c59c7b2b191f9a66e78e586b9c7c",
+          "factsHash": "c106d91ff95287315923dd721dadc0f1e434abbf6feacaa7980b5b3af7460f65",
           "page": "KO-정차-SPAS-깜박이-시험.md",
           "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "CanfdBlinkerTest",
-          "factsHash": "318e126dfa3c165e02623307a54f7933af15fbd0e81a4f60f51032756b85fcda",
+          "factsHash": "4ef010f62666b7c238a4705ff3f1ea4ce83e4624fdc07577b191ca5b9f114793",
           "page": "ZH-Parked-SPAS-indicator-test.md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "CanfdBlinkerTest",
-          "factsHash": "e422dc3a942c006955913f0bcbe0b4ce0277024455e1582b4f7ab6d47debd6b7",
+          "factsHash": "2918ff45dd458563ddf89ec7c4ad5074c430d7b893aa54874ba57eb659e83013",
           "page": "ZH-TW-Parked-SPAS-indicator-test.md",
           "reviewStatus": "needs_review"
         }
@@ -4715,6 +4904,68 @@
       },
       "reviewStatus": "current",
       "semanticHash": "b2d518e8de1cb65052caf0bf8dd1cad8094210462341bdc7090b9f4156fdff5f"
+    },
+    "CcncClusterDisplay": {
+      "group": "VEH_CANFD",
+      "locales": {
+        "en": {
+          "anchor": "CcncClusterDisplay",
+          "factsHash": "df9036aa30f1dce780b3a805bea9534d3335ba8bcc0ac9d98d3e4fb60ec77268",
+          "page": "EN-CCNC-cluster-stock-style-display.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "CcncClusterDisplay",
+          "factsHash": "ebd20d28e36207d4809fadf4fbb6aa20cf94b8b715ca6835999d6c0ad894d616",
+          "page": "KO-CCNC-계기판-순정형-표시.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "CcncClusterDisplay",
+          "factsHash": "9aa20264a3d8343173252951a694838809ec73c6a3a888033be201954578e0e0",
+          "page": "ZH-CCNC-仪表原厂式显示.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "CcncClusterDisplay",
+          "factsHash": "1f0cba11db240626eb2c609a29c308c442dd2232b29ed5a59a6e6c90185789b7",
+          "page": "ZH-TW-CCNC-儀表原廠式顯示.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "51f05ac1b11c155f7bc0190c1fc950a3b08c18761a77b6a68f9ed9e16b394137"
+    },
+    "CcncTrafficBackground": {
+      "group": "VEH_CANFD",
+      "locales": {
+        "en": {
+          "anchor": "CcncTrafficBackground",
+          "factsHash": "49d22ec245a4d4ee543d757934a4fadb9513a7a8bd0f69579453911fb9ad7c8e",
+          "page": "EN-CCNC-cluster-traffic-light-background.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "CcncTrafficBackground",
+          "factsHash": "f0ffb1916a72dc7447be8f4bb652a50110326330a8215d4fcdc425ec75865f93",
+          "page": "KO-CCNC-계기판-신호등-배경.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "CcncTrafficBackground",
+          "factsHash": "168138aaf1eee20041e9eb9b7b17bee6b2d1792647d449afdd15ef25dc80995c",
+          "page": "ZH-CCNC-仪表信号灯背景.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "CcncTrafficBackground",
+          "factsHash": "f1beceb409988060112b7eca9973a7c9037af8c3be5d7c70fd3526e1c94b8ca3",
+          "page": "ZH-TW-CCNC-儀表訊號燈背景.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "a384d27d552cb1006f160c4f53c1c2198356bc1f61e0b307e0a7710e03354404"
     },
     "CenterToFrontRatio": {
       "group": "STEER_FEEL",
@@ -6639,29 +6890,29 @@
       "semanticHash": "6740c9942977f73420ed5c963b1d5773b4d958e0c8fb4bb8e03d397a45348792"
     },
     "LaneChangeLeverWait": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_LEVER",
       "locales": {
         "en": {
           "anchor": "LaneChangeLeverWait",
-          "factsHash": "a9789852f0269882642c9dfbf052db7270060c161960cda67ef9ce2817a159fb",
+          "factsHash": "e4f0a9fce7cee4ce05397d6f7798b796e8d02ca3ae902b23c7a15f8e868ac7da",
           "page": "EN-One-touch-lane-change-request-waits-5-flashes.md",
           "reviewStatus": "current"
         },
         "ko": {
           "anchor": "LaneChangeLeverWait",
-          "factsHash": "7f4552cbb499e705e9c82ce9c2c87d2b635759eb768e2d7a8c1dfb60f07673e6",
+          "factsHash": "0c36923e38b66a23eb1429b9337efb826be86bd0a74b26cb2e62f16b3377a5b6",
           "page": "KO-원터치-차선변경-요청-5회-대기.md",
           "reviewStatus": "current"
         },
         "zh": {
           "anchor": "LaneChangeLeverWait",
-          "factsHash": "1a67e2b852b4a69fd4e9b0eff065bb38487bb45546e12970cd59b347aa20de67",
+          "factsHash": "619c4c4b310e4805fc1faa123ab22c11fd6b8def83e3b1f5d1cba3ad63dcaa26",
           "page": "ZH-单触变道请求等待-5-次闪烁.md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "LaneChangeLeverWait",
-          "factsHash": "7e456240884ed87579c04a02ed8a5121622bef35a8597848b0b500e51aae277f",
+          "factsHash": "48d6f81a58115121fa931c144be115842f039fbe7ff53992a6b8a79acead72d2",
           "page": "ZH-TW-單觸變道請求等待-5-次閃爍.md",
           "reviewStatus": "needs_review"
         }
@@ -7569,97 +7820,97 @@
       "semanticHash": "6a5d981658c4dd294c2fd535015e46b0fe4d8c3e9583fbe6b51bcf29586bdb4d"
     },
     "ManualLaneChangeIndicator": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_AUTO",
       "locales": {
         "en": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "08439be71cbae0896913fa3b0d732c7cb6ee825a04a63e18287a3a88956fcc0b",
+          "factsHash": "bb323320d6f5753fcddd3c3aebc496e7ca95da16ab9bce554b6d98f748e29e14",
           "page": "EN-Manual-lane-change-indicator-(trial).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "0a909accfa21f5454ecf52202c3c0f9603979c014e2b82b9a270e560474efb03",
+          "factsHash": "c7c7a17ccc1ea15cb1455f2b8e3bcf588e4de16f888b4ad1706ef0e127f774c0",
           "page": "KO-수동-차선변경-깜박이(시험).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "70cef1b7776304de02bf757fb0aec7865765bdce13c0cb449f4e09e7669390a6",
+          "factsHash": "c377b8332865cfe9b454925cad1a95776986fc49fd85d0b7dd400f216ddf325c",
           "page": "ZH-手动变道转向灯(试验).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "c4ae2e45cd1cedda7fe861233987292192e45e283e6d208bf8e2e80b51da0eda",
+          "factsHash": "f8cea8ff94e0be5f3d1bbaae10ca929241b252011815a9b797019eced188b734",
           "page": "ZH-TW-手動變道轉向燈(試驗).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         }
       },
-      "reviewStatus": "current",
-      "semanticHash": "d96432b8f8ff840459f65cab076ba12f6d57b1d333e585a4be25652182e1e7ba"
+      "reviewStatus": "needs_review",
+      "semanticHash": "e186819fff6543b2009f5aa5f2fe8f8cafec3d6e7e48cfdbc02319647576a4d6"
     },
     "ManualTurnIndicator": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_AUTO",
       "locales": {
         "en": {
           "anchor": "ManualTurnIndicator",
-          "factsHash": "7e5f4096bb942e065956393c2baae2c472f43b830306493e2886891ff497a35c",
+          "factsHash": "573504295612a1308b15b5dc1c8aa6fbe1426897e4bb5f8d38580d8c7db10ca2",
           "page": "EN-Manual-turn-indicator-(trial).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "ManualTurnIndicator",
-          "factsHash": "491428b06239c2ab55b4e9365e2a17bd741c375c8f24119418ace5c763cf1d0f",
+          "factsHash": "7cc4cc10ffda88b529354257f4f6feb9d995dd7664cd070d9dbe49dc7f700124",
           "page": "KO-수동-턴-자동깜박이(시험).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "ManualTurnIndicator",
-          "factsHash": "191c6a4bddf9c6833802e07f66c1982441ab7af3201f78778042dad1266405b2",
+          "factsHash": "f4864f0b403693c668ec65b815a8919a14a52dda1354e208f84f53d8b3755d9b",
           "page": "ZH-手动转弯转向灯(试验).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "ManualTurnIndicator",
-          "factsHash": "ffb82d362231246afd407b601bb973761c3d8337521a73d66d577704eca4b82e",
+          "factsHash": "ef032637b7419bdfff18f90f515be5770cef8f0f7eb3b53358e6aadbffbeb159",
           "page": "ZH-TW-手動轉彎轉向燈(試驗).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         }
       },
-      "reviewStatus": "current",
-      "semanticHash": "e08aa7e7e006ddb909a0060571a3f7983d6c70f1249f7f29cc42c19e87f3451a"
+      "reviewStatus": "needs_review",
+      "semanticHash": "e4bbf6a833570ad6bb05e5eb7b686cd71385572d1c15c465dd90e155a3b801b4"
     },
     "MapTurnSpeedFactor": {
       "group": "SPEED_CURVE",
       "locales": {
         "en": {
           "anchor": "MapTurnSpeedFactor",
-          "factsHash": "7a203c4c5111a0cf21a1abc9de9aa55345db366756b6ba7013fd934b28c17994",
+          "factsHash": "2a08ce0b4cdb003d25e2bf0eaa9b1c9ea8efcfb10c010480abbcdbafa25e9200",
           "page": "EN-MapTurnSpeedFactor.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "MapTurnSpeedFactor",
-          "factsHash": "7d6b1cd90098f127fa55764e0b4791c4124b83658288c620883fc190680d8c67",
+          "factsHash": "a9670aefa2993f5b1d145346db5c469378ea0fd80365d7318ece33ae6241dbbb",
           "page": "KO-경로턴속도반영비율(100-).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "MapTurnSpeedFactor",
-          "factsHash": "d95261015e89ce8328f518f240b25a5c6e075e86f0ef66b682f1a61fe5723e04",
+          "factsHash": "76c616d124f720f8fef70f48b3216edcd568f1e2254b85c35f4acc8ef3687fbf",
           "page": "ZH-地图转向速度因子.md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "MapTurnSpeedFactor",
-          "factsHash": "99561831bf75f1645ebd66957cb8c652151252bcd054566e51ca92dfd3c489b2",
+          "factsHash": "38fab2bceebd4df3f9c87e8e02ac47335a7e05ece7b4595b61528019f6da36ca",
           "page": "ZH-TW-地圖轉向速度因子.md",
           "reviewStatus": "needs_review"
         }
       },
       "reviewStatus": "needs_review",
-      "semanticHash": "70911cfe4337b36f9b1812b46852781a33788b52e9f58c2bf5e64debf1f9fa80"
+      "semanticHash": "0ff206783eb8d00f1c12b1e6af36b0ad3bedfa9fc1b77780eb6b53c6dd0577e5"
     },
     "MapboxStyle": {
       "group": "SYS_NET",
@@ -7755,66 +8006,66 @@
       "semanticHash": "3c6bd1ba89c52b9eb29c02d193878767c4a527a2cd122355fc4d67ca6d8eeaa8"
     },
     "ModelDesireIndicator": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_AUTO",
       "locales": {
         "en": {
           "anchor": "ModelDesireIndicator",
-          "factsHash": "435c8c3010f84bb7fae300a9b42fd791e5abe6b95709ee402c72177c230f2e42",
+          "factsHash": "c1d819baf5e327fea71a7c5d1060442bc413ff800f6d38b9eea8e3ffc2c8ec0f",
           "page": "EN-Model-desire-indicator-(trial).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "ModelDesireIndicator",
-          "factsHash": "1a1198f8c98797645cdf1aafc9690a802ca23623c4d259f60dd1b6354fbfdd93",
+          "factsHash": "1bcdc77794217594597bd610ddf4a4881fc06ce4d36c6a400c46fe5108156fb6",
           "page": "KO-모델-desire-자동깜박이(시험).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "ModelDesireIndicator",
-          "factsHash": "7cef9fbf6d0c1a9e920d6acc051469d924e9cf25cf203e11506b9dcda6f746be",
+          "factsHash": "cb21e13a24cb07304aba2af1d81d976d4802eac9c8dd1fcc5f0ffd752f5ad1c2",
           "page": "ZH-模型意图转向灯(试验).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "ModelDesireIndicator",
-          "factsHash": "9c53fb1b98bfee9f33b2c1cf8009932bd8aeaf582b416669d1e08a25b036e398",
+          "factsHash": "ca0fc6b09d344fcc1786c39d24cb0cb9f3fb4783f96bd879d0beb4fb6372577f",
           "page": "ZH-TW-模型意圖轉向燈(試驗).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         }
       },
-      "reviewStatus": "current",
-      "semanticHash": "d73f84bcf6ba7064705bfb722d8a81eb4a2d19fa2936d3d3e21fe478a59c63b5"
+      "reviewStatus": "needs_review",
+      "semanticHash": "ab969a9e72c9e1eb4c50b88e607952db68cad18841043a225bdbc10218d27b33"
     },
     "ModelPathIndicator": {
-      "group": "STEER_LANECHANGE",
+      "group": "INDICATOR_AUTO",
       "locales": {
         "en": {
           "anchor": "ModelPathIndicator",
-          "factsHash": "ce85ef845db3e48ee8712306c8439177094a035843e71158332be11d7df9b7cf",
+          "factsHash": "3894d8653a908645d4d6f43ed93d8557c95fe7b253f1233c99b354ae10838ba9",
           "page": "EN-Model-path-indicator-(trial).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "ModelPathIndicator",
-          "factsHash": "d0be245b9cd58348af40fd500c93c0b2d0a315b1c656c6e0d5a735c23a7fb7c8",
+          "factsHash": "95fe249da0c78043cb0d3c27d805663838d205e708f62fe25451743e1ffcf340",
           "page": "KO-모델-경로-자동깜박이(시험).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "ModelPathIndicator",
-          "factsHash": "d221cc76331799935492a0304a2a0d9705635f3f1bd8620105befe111d27e8cc",
+          "factsHash": "e5fe2c7b1cff86ceb8dcd86b2f6d20b45febb081bea33cc5981b314a819613d1",
           "page": "ZH-模型路径转向灯(试验).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "ModelPathIndicator",
-          "factsHash": "3bc7ff4270b7e83fd03062fbde095c5125648d7188f13b259d62ab75a4a8c5ec",
+          "factsHash": "e1c9040435e4e3b2473a941637e34df473af3c484f09c36eff4bc1976b89b270",
           "page": "ZH-TW-模型路徑轉向燈(試驗).md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         }
       },
-      "reviewStatus": "current",
-      "semanticHash": "09c4851f68312e9070186bb23698703b51d5b7dce50dbeca5e9cb4cf5626b6c8"
+      "reviewStatus": "needs_review",
+      "semanticHash": "ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73"
     },
     "MuteDoor": {
       "group": "VEH_DM",
@@ -8156,6 +8407,37 @@
       },
       "reviewStatus": "current",
       "semanticHash": "9b6f0e804d5db37092712a2e6f8da749a11d144884d9d3e3ab707e7f49372c32"
+    },
+    "OsmCurveSpeedEnabled": {
+      "group": "SPEED_CURVE",
+      "locales": {
+        "en": {
+          "anchor": "OsmCurveSpeedEnabled",
+          "factsHash": "8fe7cb1c4e6978a60285278b33f6eb0ca8b17801f1f174f2734718ffc1d7a8be",
+          "page": "EN-Taiwan-offline-OSM-curve-preview.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "OsmCurveSpeedEnabled",
+          "factsHash": "dd2c353cb3a1a68c9bde4a554932b5766814ae808cd61cde36194638f688f6fa",
+          "page": "KO-대만-OSM-커브-미리보기.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "OsmCurveSpeedEnabled",
+          "factsHash": "3981ba098008daec5f4ee80d8008b35ceab54602da83aac683eda3ad5c21c748",
+          "page": "ZH-全台離線-OSM-彎道預覽.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "OsmCurveSpeedEnabled",
+          "factsHash": "8e2b7856595eb8fe98ef413faecfb91c25f3e763853f1d64364303fc65a6f884",
+          "page": "ZH-TW-全臺離線-OSM-彎道預覽.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "412daff89b1d6e92d57d1c93016994d460789ef483a1233aa895951023497507"
     },
     "PaddleMode": {
       "group": "BUTTON_MODE",
@@ -9681,31 +9963,31 @@
       "locales": {
         "en": {
           "anchor": "TurnSpeedControlMode",
-          "factsHash": "99dce64487e63c1fb30b6dc73cdcce2d565df6ff830407a1ab8c1428ad673e4e",
+          "factsHash": "df18bc65022efc9abf31fdbe12e0d0c0a9d29f222b1933c5591afba9bcf92a6b",
           "page": "EN-TurnSpeedControlMode.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "TurnSpeedControlMode",
-          "factsHash": "e0d18053fe490a4ddc6f916fc11280bc1c6b0e3861c86f3d0af13609f86f1b27",
+          "factsHash": "7fa216647ab2373c1acdf6caa365210f93a872a518e90185caa4e3801373982f",
           "page": "KO-턴속도제어방법.md",
-          "reviewStatus": "current"
+          "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "TurnSpeedControlMode",
-          "factsHash": "0574689f35959069b8e0c9c29e3cbcfba5a07ad618c8a0c11119e97456d070e0",
+          "factsHash": "0c0646a78e23b0c2fec32d98407015f66554f92b53519aa6fa8be7bc0cbc79eb",
           "page": "ZH-转向速度控制模式.md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "TurnSpeedControlMode",
-          "factsHash": "200c7a98733beafe26ce792204011f97eb3c4b95ae88d82d51b000c154e24f3f",
+          "factsHash": "9f471a662745b3cd09c65968a331f72b858b09f30a92e1210f290dc0bb49a109",
           "page": "ZH-TW-轉向速度控制模式.md",
           "reviewStatus": "needs_review"
         }
       },
       "reviewStatus": "needs_review",
-      "semanticHash": "0e0a5e58e9061594b9a41986ec433b7b6680c5f6ce99da897cd9b4e52ded8e38"
+      "semanticHash": "db2399ff8f834bd37741fa4c0751142f9ca87ceeeb55df6ad1bc86a9828f8ec6"
     },
     "UseLaneLineCurveSpeed": {
       "group": "STEER_LANEMODE",

@@ -13,10 +13,10 @@
 
 `ApplyModelSpeed`
 
-按设定比例应用模型计算的行驶速度。
+本测试分支的自动模型速度不得超过已设定巡航速度。负值可降低目标；正值的自动提速会被阻止。
 
 <!-- CARROT:AUTO:BEGIN ApplyModelSpeed -->
-<!-- CARROT:AUTO:SOURCE facts="61afbdce8881e72faceda50c172177aa74a359fb7f6b51ac5213eb9b373600a8" semantic="8039edb57e0c4c2bb0d6e9911d247c64a6f0c42f2e912402bc572f0a4701f388" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="8272357f23ac69a9185340ac5bb52a5405b7ee3771d4d31f26fa3dc33c2f3db7" semantic="af76e5561f6e0bbefc54c91f7b945aab79d8f017c8706ca26a324cbcc31a3514" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 数值
 - **默认值:** `0%`

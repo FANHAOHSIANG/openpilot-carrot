@@ -130,7 +130,7 @@ def test_optional_preview_cannot_expand_snapshot_budget():
   assert result['cameras'] == {}
 
 
-def test_only_wifi_explicitly_enables_preview(monkeypatch):
+def test_preview_requires_explicit_publisher_option(monkeypatch):
   commands = []
   monkeypatch.setattr(p.subprocess, 'Popen', lambda command, **kwargs: commands.append(command))
   p.Publisher()
@@ -139,3 +139,14 @@ def test_only_wifi_explicitly_enables_preview(monkeypatch):
   assert '--nav-map' in commands[-1]
   source = (Path(__file__).parent / 'hud_wifi_worker.py').read_text()
   assert 'Publisher(navi=True, nav_map=True)' in source
+
+
+def test_large_route_cannot_starve_display_image():
+  value = record()
+  value['events'] = {'modelV2': 'x' * 70000, 'navRoute': 'x' * 20000}
+  value['nav_map_preview']['png'] = 'x' * 20000
+  value['cameras'] = {}
+  result = json.loads(p.encode_snapshot(value))
+  assert 'nav_map_preview' in result
+  assert 'navRoute' not in result['events']
+  assert result['events']['modelV2'] == value['events']['modelV2']

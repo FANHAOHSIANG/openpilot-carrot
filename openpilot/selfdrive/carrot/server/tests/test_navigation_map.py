@@ -1,6 +1,5 @@
 import asyncio
 import json
-from contextlib import asynccontextmanager
 from types import SimpleNamespace as NS
 
 import pytest
@@ -20,7 +19,7 @@ def temporary_params(monkeypatch):
   return values
 
 
-def test_destination_lifecycle_and_validation(monkeypatch, temporary_params):
+def test_destination_lifecycle_and_validation(monkeypatch):
   values = {}
   monkeypatch.setattr(navigation, 'get_param_value', lambda key, default: values.get(key, default))
   monkeypatch.setattr(navigation, 'set_param_value', lambda key, value: values.__setitem__(key, value))
@@ -31,19 +30,14 @@ def test_destination_lifecycle_and_validation(monkeypatch, temporary_params):
     async with TestClient(TestServer(app)) as client:
       response = await client.post('/api/navigation/destination', json={'latitude': 37., 'longitude': 127., 'place_name': '<script>name</script>'})
       assert response.status == 200
-      assert json.loads(temporary_params['NavDestinationTemporary'])['place_name'] == '<script>name</script>'
-      assert 'NavDestinationTemporary' not in values
-      assert response.headers['Cache-Control'] == 'no-store'
-      assert values['NavDestination'] == ''
+      assert json.loads(values['NavDestination'])['place_name'] == '<script>name</script>'
       response = await client.get('/api/navigation/destination')
-      assert response.headers['Cache-Control'] == 'no-store'
       assert (await response.json())['destination']['latitude'] == 37.
       for payload in ([], {}, {'latitude': 91, 'longitude': 127}, {'latitude': None, 'longitude': 0}):
         assert (await client.post('/api/navigation/destination', json=payload)).status == 400
-      assert (await client.get('/api/navigation/search?q=Seoul')).status == 409
+      assert (await client.get('/api/navigation/search?q=Seoul')).status == 410
       assert (await client.delete('/api/navigation/destination')).status == 200
       assert values['NavDestination'] == ''
-      assert not temporary_params
   asyncio.run(run())
 
 
@@ -102,32 +96,17 @@ def test_missing_preview_explains_service_state(monkeypatch, tmp_path, onroad, r
   assert demand.exists()
 
 
-@pytest.mark.parametrize('permanent', [False, True])
-def test_search_reads_fragmented_response_and_keeps_token_server_side(monkeypatch, permanent):
-  monkeypatch.setattr(navigation, 'get_param_value', lambda key, default: 'pk.private-test')
-  payload = json.dumps({'features': [{'geometry': {'coordinates': [127., 37.]},
-                                     'properties': {'full_address': 'Test destination'}}]}).encode()
-  async def chunks(_):
-    for i in range(0, len(payload), 7):
-      yield payload[i:i + 7]
-  @asynccontextmanager
-  async def get(url, **kwargs):
-    assert url == 'https://api.mapbox.com/search/geocode/v6/forward'
-    assert kwargs['params']['access_token'] == 'pk.private-test'
-    assert kwargs['params']['permanent'] == str(permanent).lower()
-    yield NS(status=200, content=NS(iter_chunked=chunks))
+def test_search_is_disabled_without_outbound_requests(monkeypatch):
+  def unexpected(*args, **kwargs):
+    raise AssertionError('Disabled search must never access a token or HTTP client')
+  monkeypatch.setattr(navigation, 'get_param_value', unexpected)
   async def run():
     app = web.Application()
-    app['http'] = NS(get=get)
     navigation.register(app)
     async with TestClient(TestServer(app)) as client:
-      response = await client.get('/api/navigation/search?q=Seoul' + ('&permanent=true' if permanent else ''))
-      body = await response.text()
-      assert response.status == 200 and 'pk.private-test' not in body
-      assert response.headers['Cache-Control'] == 'no-store'
-      assert json.loads(body)['results'][0]['latitude'] == 37.
-      assert json.loads(body)['results'][0]['permanent'] is permanent
-      assert (await client.get('/api/navigation/search?q=Seoul')).status == 429
+      for query in ('Seoul', '24.8,121.0', ''):
+        response = await client.get('/api/navigation/search', params={'q': query})
+        assert response.status == 410
   asyncio.run(run())
 
 
@@ -189,4 +168,28 @@ def test_favorites_reject_bad_input_and_preserve_file_on_failure(monkeypatch, tm
       assert (await client.get('/api/navigation/favorites')).status == 503
       assert (await client.post('/api/navigation/favorites', json=valid)).status == 503
       assert path.read_text(encoding='utf-8') == 'broken'
+  asyncio.run(run())
+
+
+def test_manual_coordinate_favorite_and_destination_replace_temporary(monkeypatch, tmp_path, temporary_params):
+  monkeypatch.setattr(navigation, 'CARROT_NAVIGATION_FAVORITES_PATH', str(tmp_path / 'favorites.json'))
+  values = {}
+  monkeypatch.setattr(navigation, 'get_param_value', lambda key, default: values.get(key, default))
+  monkeypatch.setattr(navigation, 'set_param_value', lambda key, value: values.__setitem__(key, value))
+
+  async def run():
+    app = web.Application(); navigation.register(app)
+    async with TestClient(TestServer(app)) as client:
+      place = dict(name='手動座標', place_name='25,121', latitude=25., longitude=121., coordinate_source='manual')
+      response = await client.post('/api/navigation/favorites', json=place)
+      assert response.status == 200
+      identifier = (await response.json())['favorites'][0]['id']
+      assert not temporary_params
+      assert (await client.post(f'/api/navigation/favorites/{identifier}/destination')).status == 200
+      assert 'NavDestinationTemporary' in temporary_params
+      direct = dict(latitude=24., longitude=120., place_name='24,120')
+      assert (await client.post('/api/navigation/destination', json=direct)).status == 200
+      assert not temporary_params
+      assert (await (await client.get('/api/navigation/destination')).json())['destination'] == direct
+      assert (await client.get('/api/navigation/search?q=test&permanent=true')).status == 410
   asyncio.run(run())

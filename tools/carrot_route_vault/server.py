@@ -72,8 +72,8 @@ def _env_secret(name: str) -> str:
 class Config:
   storage_root: Path
   db_path: Path
-  daily_device_quota: int = GIB
-  daily_ip_quota: int = 8 * GIB
+  daily_device_quota: int = 10 * GIB
+  daily_ip_quota: int = 40 * GIB
   max_file_bytes: int = 512 * MIB
   max_tmux_bytes: int = 16 * MIB
   min_free_bytes: int = 10 * GIB
@@ -95,8 +95,8 @@ class Config:
     return cls(
       storage_root=root,
       db_path=Path(os.environ.get("CARROT_UPLOAD_DB", "/data/state/uploads.sqlite3")),
-      daily_device_quota=_env_int("CARROT_DAILY_DEVICE_QUOTA_BYTES", GIB, MIB),
-      daily_ip_quota=_env_int("CARROT_DAILY_IP_QUOTA_BYTES", 8 * GIB, MIB),
+      daily_device_quota=_env_int("CARROT_DAILY_DEVICE_QUOTA_BYTES", 10 * GIB, MIB),
+      daily_ip_quota=_env_int("CARROT_DAILY_IP_QUOTA_BYTES", 40 * GIB, MIB),
       max_file_bytes=_env_int("CARROT_MAX_FILE_BYTES", 512 * MIB, MIB),
       max_tmux_bytes=_env_int("CARROT_MAX_TMUX_BYTES", 16 * MIB, MIB),
       min_free_bytes=_env_int("CARROT_MIN_FREE_BYTES", 10 * GIB),
@@ -353,7 +353,14 @@ class UploadService:
             (day, scope, scope_id),
           ).fetchone()
           if int(row["committed_bytes"]) + int(row["reserved_bytes"]) + amount > quota:
-            raise web.HTTPRequestEntityTooLarge(max_size=quota, actual_size=int(row["committed_bytes"]) + amount)
+            raise web.HTTPRequestEntityTooLarge(
+              max_size=quota, actual_size=int(row["committed_bytes"]) + amount,
+              content_type="application/json", text=json.dumps({
+                "ok": False, "code": "daily_quota_exceeded", "scope": scope,
+                "error": "Daily upload quota exhausted; stop this batch and retry after quota reset.",
+                "quotaBytes": quota, "usedBytes": int(row["committed_bytes"]),
+                "reservedBytes": int(row["reserved_bytes"]), "requestedBytes": amount,
+              }))
         for scope, scope_id, _quota in (("device", device, 0), ("ip", source_ip, 0)):
           connection.execute(
             "UPDATE daily_usage SET reserved_bytes=reserved_bytes+? WHERE usage_day=? AND scope=? AND scope_id=?",
@@ -403,6 +410,24 @@ class UploadService:
       "bandwidthLimit": None,
     }, status=200 if ready else 507)
 
+  @staticmethod
+  def _file_digest(path):
+    with path.open('rb') as stream:
+      return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+  async def file_status(self, request):
+    device = self._validate_device(request.match_info.get('device'))
+    segment = self._validate_segment(request.match_info.get('segment'))
+    filename = self._validate_filename(request.match_info.get('filename'))
+    session = await self.authenticate(request, device=device, purposes={'dashcam'})
+    target = self._path('routes', self._storage_directory(session), segment, filename)
+    try:
+      size = target.stat().st_size
+      digest = await asyncio.to_thread(self._file_digest, target)
+    except FileNotFoundError:
+      return web.json_response({'ok': True, 'exists': False})
+    return web.json_response({'ok': True, 'exists': True, 'size': size, 'sha256': digest})
+
   async def upload_file(self, request: web.Request) -> web.Response:
     device = self._validate_device(request.match_info.get("device"))
     segment = self._validate_segment(request.match_info.get("segment"))
@@ -422,6 +447,12 @@ class UploadService:
     # The daily quota measures network usage, not the final storage delta.
     # Re-uploading the same path must therefore consume the full request size
     # again instead of allowing repeated overwrites to bypass the limit.
+    checksum = request.headers.get('X-File-SHA256', '')
+    if checksum and not re.fullmatch(r'[0-9a-f]{64}', checksum):
+      raise web.HTTPBadRequest(text='invalid SHA256')
+    if checksum and target.is_file() and target.stat().st_size == expected:
+      if await asyncio.to_thread(self._file_digest, target) == checksum:
+        return web.json_response({'ok': True, 'size': expected, 'sha256': checksum, 'skipped': True})
     reserved = expected
     await self._enter_upload(device)
     reservation_created = False
@@ -441,6 +472,8 @@ class UploadService:
         os.fsync(output.fileno())
       if written != expected:
         raise web.HTTPBadRequest(text=f"file size mismatch: expected {expected}, received {written}")
+      if checksum and await asyncio.to_thread(self._file_digest, temp) != checksum:
+        raise web.HTTPBadRequest(text='SHA256 mismatch')
       os.replace(temp, target)
       await self._finish_reservation(device, session["source_ip"], reservation_day, reserved, written)
       reservation_created = False
@@ -606,7 +639,10 @@ async def security_headers(request: web.Request, handler):
   try:
     response = await handler(request)
   except web.HTTPException as exc:
-    response = web.json_response({"ok": False, "error": exc.text or exc.reason}, status=exc.status)
+    body = {"ok": False, "error": exc.text or exc.reason}
+    if exc.content_type == 'application/json':
+      body = json.loads(exc.text)
+    response = web.json_response(body, status=exc.status)
   except Exception:
     logging.exception("unhandled upload request error")
     response = web.json_response({"ok": False, "error": "internal server error"}, status=500)
@@ -633,6 +669,7 @@ def create_app(config: Config | None = None, *, start_cleanup: bool = True) -> w
   app[ROUTE_VIEWER_KEY] = viewer
   app.router.add_get("/api/v1/health", service.health)
   app.router.add_post("/api/v1/session", service.create_session)
+  app.router.add_get("/api/v1/upload/{device}/{segment}/{filename}", service.file_status)
   app.router.add_put("/api/v1/upload/{device}/{segment}/{filename}", service.upload_file)
   app.router.add_post("/api/v1/complete", service.complete)
   app.router.add_post("/api/v1/tmux/upload", service.tmux_upload)

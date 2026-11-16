@@ -196,6 +196,10 @@ class CarrotServ:
 
     self.atc_paused = False
     self.atc_activate_count = 0
+    self.atc_curve_speed = None
+    self.atc_broad_curve_speed = None
+    self.atc_adaptive_target = 0.0
+    self.atc_adaptive_event = None
     self.gas_override_speed = 0
     self.gas_pressed_state = False
     self.speed_event_gas_pressed = False
@@ -241,6 +245,7 @@ class CarrotServ:
     self.mapTurnSpeedFactor= self.params.get_float("MapTurnSpeedFactor") * 0.01
 
     self.autoTurnControlSpeedTurn = self.params.get_int("AutoTurnControlSpeedTurn")
+    self.atcAdaptiveSpeed = self.params.get_bool("AutoTurnControlAdaptiveSpeed")
     self.autoTurnMapChange = self.params.get_int("AutoTurnMapChange")
     self.autoTurnControl = self.params.get_int("AutoTurnControl")
     self.autoTurnControlTurnEnd = self.params.get_int("AutoTurnControlTurnEnd")
@@ -1032,6 +1037,14 @@ class CarrotServ:
       self._clear_carrot_navi_traffic()
       return
 
+    timestamp = time.monotonic()
+    if traffic.lamp == "countdown":
+      received = traffic.received_mono_time_ns / 1e9
+      if navi.off_route or received <= 0 or not 0 <= timestamp - received < 2.5:
+        self._clear_carrot_navi_traffic()
+        return
+      timestamp = received
+
     params_memory = getattr(self, "params_memory", None)
     if params_memory is None:
       return
@@ -1040,7 +1053,7 @@ class CarrotServ:
       "lamp": traffic.lamp,
       "remain": traffic.remain_sec,
       "source": traffic.source,
-      "ts": time.monotonic(),
+      "ts": timestamp,
     }
     try:
       params_memory.put_nonblocking("TrafficLight", json.dumps(value))
@@ -1110,7 +1123,6 @@ class CarrotServ:
       self.carrot_navi_speed_sequence = navi.speed.sequence
       self._apply_carrot_navi_speed(navi)
 
-    # Traffic Params still use the service heartbeat; GPS only accepts new fixes.
     self._apply_carrot_navi_vehicle(navi)
     self._apply_carrot_navi_traffic(navi)
     if new_session or navi.route.sequence != self.carrot_navi_route_sequence:
@@ -1181,6 +1193,26 @@ class CarrotServ:
 
   def update_auto_turn(self, v_ego_kph, sm, x_turn_info, x_dist_to_turn, check_steer=False):
     turn_speed = self.autoTurnControlSpeedTurn
+    adaptive_target = turn_speed
+    if check_steer:
+      previous = self.atc_adaptive_event
+      now = time.monotonic()
+      broad = self.atc_broad_curve_speed if self.turnSpeedControlMode in (2, 3, 4) else None
+      matched = broad if (broad is not None and broad[0] == x_turn_info
+                          and abs(x_dist_to_turn - broad[1]) <= 2.0) else self.atc_curve_speed
+      if (self.atcAdaptiveSpeed and self.autoTurnControl in (2, 3) and x_turn_info in (1, 2)
+          and matched is not None and x_turn_info == matched[0]
+          and abs(x_dist_to_turn - matched[1]) <= 2.0 and 0 < turn_speed < matched[3]
+          and v_ego_kph >= 7.2):
+        event_key = (x_turn_info, matched[2])
+        if (previous is not None and previous[0] == event_key
+            and abs(x_dist_to_turn - previous[1]) <= 8.0 and 0.0 <= now - previous[2] <= 0.25):
+          # Relax the existing ceiling gradually; immediately honor tighter input.
+          adaptive_target = min(matched[3], max(turn_speed, self.atc_adaptive_target) + 3.6 * (now - previous[2]))
+        self.atc_adaptive_event = (event_key, x_dist_to_turn, now)
+      else:
+        self.atc_adaptive_event = None
+      self.atc_adaptive_target = adaptive_target
     fork_speed = self.nRoadLimitSpeed
     stop_speed = 1
     turn_dist_for_speed = self.autoTurnControlTurnEnd * turn_speed / 3.6 # 5
@@ -1204,7 +1236,7 @@ class CarrotServ:
     mapping = turn_info_mapping.get(x_turn_info, default_mapping)
 
     atc_type = mapping["type"]
-    atc_speed = mapping["speed"]
+    atc_speed = adaptive_target if x_turn_info in (1, 2) else mapping["speed"]
     atc_dist = mapping["dist"]
     atc_start_dist = mapping["start"]
 
@@ -1472,13 +1504,10 @@ class CarrotServ:
     if self.turnSpeedControlMode in [1,2]:
       speed_n_sources.append((max(abs(vturn_speed), self.autoCurveSpeedLowerLimit), "vturn"))
 
-    route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)
-    if self.turnSpeedControlMode == 2:
-      if -500 < self.xDistToTurn < 500:
-        speed_n_sources.append((route_speed, "route"))
-    elif self.turnSpeedControlMode in [3, 4]:
+    # RouteCurveSpeed already applies factor/floor to curve speed before the
+    # distance envelope. A no-limit result must never be scaled into a limit.
+    if self.turnSpeedControlMode in [2, 3, 4] and math.isfinite(route_speed) and route_speed < 250:
       speed_n_sources.append((route_speed, "route"))
-      #speed_n_sources.append((self.calculate_current_speed(dist, speed * self.mapTurnSpeedFactor, 0, 1.2), "route"))
 
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
 
@@ -1487,7 +1516,7 @@ class CarrotServ:
         CS, desired_speed, source, v_ego_kph, road_speed_limit_changed,
       )
 
-      self.debugText += f"route={route_speed:.1f}"#f"desired={desired_speed:.1f},{source},g={self.gas_override_speed:.0f}"
+      self.debugText += f"route={route_speed:.1f} rc={getattr(self, 'route_curve_debug', 'unavailable')}"#f"desired={desired_speed:.1f},{source},g={self.gas_override_speed:.0f}"
 
     left_spd_sec = 100
     left_tbt_sec = 100
@@ -1515,6 +1544,7 @@ class CarrotServ:
     msg = messaging.new_message('carrotMan')
     msg.valid = True
     msg.carrotMan.activeCarrot = self.active_carrot
+    msg.carrotMan.externalNavigationActive = self.external_navigation_active
     msg.carrotMan.nRoadLimitSpeed = int(self.nRoadLimitSpeed)
     msg.carrotMan.remote = remote_ip
     msg.carrotMan.xSpdType = int(self.xSpdType)
@@ -1530,6 +1560,10 @@ class CarrotServ:
     msg.carrotMan.szTBTMainText = self.szTBTMainText
     msg.carrotMan.desiredSpeed = int(desired_speed)
     msg.carrotMan.desiredSource = source
+    msg.carrotMan.atcFixedTargetKph = self.autoTurnControlSpeedTurn
+    msg.carrotMan.atcCurveCandidateKph = self.atc_curve_speed[3] if self.atc_curve_speed else 0.0
+    msg.carrotMan.atcAdaptiveTargetKph = self.atc_adaptive_target
+    msg.carrotMan.atcBroadCurveCandidateKph = self.atc_broad_curve_speed[3] if self.atc_broad_curve_speed else 0.0
     vehicle_navi_active, vehicle_navi_speed, vehicle_navi_section_active = self._vehicle_navigation_display(CS)
     msg.carrotMan.vehicleNaviActive = vehicle_navi_active
     msg.carrotMan.vehicleNaviSpeed = vehicle_navi_speed
@@ -1564,7 +1598,7 @@ class CarrotServ:
     pm.send('carrotMan', msg)
 
     inst = messaging.new_message('navInstructionCarrot', valid=False)
-    if self.active_carrot > 1 and self.active_kisa_count <= 0:
+    if self.external_navigation_active and self.active_carrot > 1 and self.active_kisa_count <= 0:
       inst.valid = True
 
       instruction = inst.navInstructionCarrot

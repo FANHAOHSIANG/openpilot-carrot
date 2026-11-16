@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="ko" group="STEER_LANECHANGE" param="ModelDesireIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="ko" group="INDICATOR_AUTO" param="ModelDesireIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 모델 desire 자동깜박이(시험)
 
-**메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+**메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 자동 점등
 
 ---
 
@@ -13,15 +13,15 @@
 
 `ModelDesireIndicator`
 
-모델 출력의 턴·차선변경 확률이 50% 이상이고 직진·반대 방향보다 우세한 상태를 반복 확인하면 깜박이를 표시합니다. 턴은 10km/h, 차선변경은 30km/h 이상이며 횡제어 활성 상태에서만 시작합니다. 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 30km/h 이상에서는 모델의 가까운 두 미래 예측이 모두 같은 방향 차로변경을 65% 이상으로 가리키고, 실제 좌우 차선 위치도 그 방향으로 접근할 때 깜빡이를 요청할 수 있습니다. 차선에 접근하지 않는 예측만으로는 켜지지 않으며, 이 기능은 조향을 요청하지 않습니다. 예측으로 점등한 뒤 분기에서 차로 폭이 넓어져도 같은 방향 모델 의도와 진행이 확인되면 같은 요청을 유지합니다. 의도가 약해지거나 반대로 바뀌면 분기 유지가 끝나며, CANCEL은 즉시 유지 요청을 해제합니다. 모델 턴 점등은 같은 방향 조향각 15도 이상과 실제 차체 회전 3도/초 이상도 확인합니다. 턴 확률이 30% 미만으로 내려가고 조향각이 ±10도 안에서 0.4초 안정되면 주행 중 유지 요청을 종료합니다.
+모델 출력의 턴·차선변경 확률이 50% 이상이고 직진·반대 방향보다 우세한 상태를 반복 확인하면 깜박이를 표시합니다. 턴은 10km/h, 차선변경은 30km/h 이상이며 횡제어 활성 상태에서만 시작합니다. 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 30km/h 이상에서는 모델의 가까운 두 미래 예측이 모두 같은 방향 차로변경을 65% 이상으로 가리키고, 실제 좌우 차선 위치도 그 방향으로 접근할 때 깜빡이를 요청할 수 있습니다. 차선에 접근하지 않는 예측만으로는 켜지지 않으며, 이 기능은 조향을 요청하지 않습니다. 예측으로 점등한 뒤 분기에서 차로 폭이 넓어져도 같은 방향 모델 의도와 진행이 확인되면 같은 요청을 유지합니다. 의도가 약해지거나 반대로 바뀌면 분기 유지가 끝나며, CANCEL은 즉시 유지 요청을 해제합니다. 모델 턴 점등은 같은 방향 조향각 15도 이상과 실제 차체 회전 3도/초 이상도 확인합니다. 턴 확률이 30% 미만으로 내려가고 조향각이 ±10도 안에서 0.4초 안정되면 주행 중 유지 요청을 종료합니다. 현재 차선변경 확률로 시작할 때도 실제 양쪽 경계가 0.30~0.55초 동안 같은 방향으로 각각 0.15m 이상 이동해야 합니다. 대상 경계까지 거리는 1.5m 이내여야 하며, 작은 차선 흔들림과 남아 있는 모델 확률만으로 켜지는 현상을 억제합니다. 지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.
 
 <!-- CARROT:AUTO:BEGIN ModelDesireIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="1a1198f8c98797645cdf1aafc9690a802ca23623c4d259f60dd1b6354fbfdd93" semantic="d73f84bcf6ba7064705bfb722d8a81eb4a2d19fa2936d3d3e21fe478a59c63b5" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="1bcdc77794217594597bd610ddf4a4881fc06ce4d36c6a400c46fe5108156fb6" semantic="ab969a9e72c9e1eb4c50b88e607952db68cad18841043a225bdbc10218d27b33" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 토글
 - **기본값:** `0`
 - **범위:** `0` ~ `1`
-- **메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+- **메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 자동 점등
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelDesireIndicator -->
 

@@ -1,0 +1,25 @@
+name: Upload retry checks
+on:
+  push:
+    branches: ['test/truck-clearance-204f9cca', 'test/carrot-wip-upstream-20261104']
+    paths:
+      - 'tools/carrot_route_vault/**'
+      - 'openpilot/selfdrive/carrot/web_upload.py'
+      - 'openpilot/selfdrive/carrot/server/features/dashcam/upload_jobs.py'
+      - 'openpilot/selfdrive/carrot/server/tests/test_web_upload.py'
+      - '.github/workflows/upload-retry-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install aiohttp pytest numpy pycapnp zstandard requests jinja2 pyserial
+      - run: python tools/carrot_route_vault/run_upload_tests.py
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'

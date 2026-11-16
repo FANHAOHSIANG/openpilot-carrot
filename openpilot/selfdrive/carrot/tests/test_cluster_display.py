@@ -54,11 +54,11 @@ def test_nav_map_mode_retains_driving_view_and_hud_on_left(monkeypatch):
     ("kr", "ko"),
     (b"en", "en"),
     ("main_en", "en"),
-    ("zh-CHT", "en"),
+    ("zh-CHT", "zh-TW"),
     ("unknown", "en"),
   ),
 )
-def test_cluster_language_supports_korean_and_english_only(value, expected):
+def test_cluster_language_supports_korean_english_and_traditional_chinese(value, expected):
   assert normalize_cluster_language(value) == expected
 
 
@@ -80,7 +80,8 @@ def test_metric_and_imperial_display_conversions():
 def test_cluster_text_falls_back_to_english_for_unsupported_languages():
   assert cluster_text("ko", "driving_report") == "주행리포트"
   assert cluster_text("en", "driving_report") == "DRIVING REPORT"
-  assert cluster_text("zh-CHT", "driving_report") == "DRIVING REPORT"
+  assert cluster_text("zh-CHT", "driving_report") == "駕駛資訊"
+  assert cluster_text("unknown", "driving_report") == "DRIVING REPORT"
 
 
 def test_display_preference_reader_uses_param_defaults_and_values():
@@ -415,3 +416,50 @@ def test_device_angle_target_maps_pitch_and_yaw_to_expected_axes():
   assert ClusterUiRenderer._device_angle_target_offset(3.0, 2.0, radius) == pytest.approx((-6.8, 10.2))
   assert ClusterUiRenderer._device_angle_target_offset(-3.0, -2.0, radius) == pytest.approx((6.8, -10.2))
   assert ClusterUiRenderer._device_angle_target_offset(20.0, -20.0, radius) == pytest.approx((20.4, 20.4))
+
+
+@pytest.mark.parametrize("language", ["zh-TW", "zh-CHT", "main_zh-CHT", "zh-Hant", b"zh-TW"])
+def test_traditional_chinese_preferences(language):
+  assert normalize_cluster_language(language, default="ko") == "zh-TW"
+  assert cluster_text(language, "driving_report") == "駕駛資訊"
+  assert cluster_text(language, "hard_brake") == "急煞車"
+
+
+def test_traditional_chinese_labels_have_loaded_glyphs():
+  from cluster_display import _TEXT
+  glyphs = set(ClusterUiRenderer._navi_font_codepoints())
+  assert all(ord(char) in glyphs for label in _TEXT["zh-TW"].values() for char in label)
+  assert ClusterUiRenderer._ev6_park_duration_text(3660, False, True) == "1時 01分"
+  assert ClusterUiRenderer._ev6_park_duration_text(120, False, True) == "2分"
+
+
+def test_hud_translation_preserves_unknown_road_names_and_protocol_text():
+  from cluster_display import localize_hud_text
+  assert localize_hud_text("zh-TW", "좌회전 합니다") == "正在左轉"
+  assert localize_hud_text("zh-TW", "ATC: 좌회전") == "自動轉彎：左轉"
+  assert localize_hud_text("zh-TW", "TBT: 우회전") == "轉向提示：右轉"
+  assert localize_hud_text("zh-TW", "pull 확인 실패") == "更新檢查失敗"
+  for text in ("東海一街", "우회전로", "ATC: unknown", "test/carrot-wip-upstream-20261104"):
+    assert localize_hud_text("zh-TW", text) == text
+  assert localize_hud_text("ko", "좌회전 합니다") == "좌회전 합니다"
+
+
+def test_chinese_road_name_uses_bounded_font_cache(monkeypatch):
+  renderer = ClusterUiRenderer(language="zh-TW")
+  loaded, unloaded = [], []
+  monkeypatch.setattr(renderer, "_font_candidates", lambda: [Path(__file__)])
+  def load(*args):
+    font = SimpleNamespace(texture=SimpleNamespace(id=len(loaded) + 1))
+    loaded.append(font)
+    return font
+  monkeypatch.setattr(cluster_renderer.rl, "load_font_ex", load)
+  monkeypatch.setattr(cluster_renderer.rl, "set_texture_filter", lambda *_: None)
+  monkeypatch.setattr(cluster_renderer.rl, "unload_font", unloaded.append)
+  roads = [chr(c) for c in range(0x4E00, 0x9FFF) if c not in renderer._known_font_codepoints][:17]
+  first = renderer._font_for_text(roads[0])
+  assert renderer._font_for_text(roads[0]) is first
+  for road in roads[1:]:
+    renderer._font_for_text(road)
+  assert len(loaded) == 17
+  assert len(renderer._cjk_fonts) == 16
+  assert unloaded == [first]

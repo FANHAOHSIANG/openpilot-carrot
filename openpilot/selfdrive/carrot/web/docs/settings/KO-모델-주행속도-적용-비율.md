@@ -13,10 +13,10 @@
 
 `ApplyModelSpeed`
 
-모델이 계산한 주행속도를 설정한 비율만큼 적용합니다.
+이 테스트 브랜치에서 자동 모델 속도는 수동 설정속도를 넘지 않습니다. 음수는 더 낮은 모델 목표를 적용하며 양수 자동 증가는 차단됩니다.
 
 <!-- CARROT:AUTO:BEGIN ApplyModelSpeed -->
-<!-- CARROT:AUTO:SOURCE facts="c600b8715290851c0d1420039659e3583d28cb320fa08e511c2be294ac242bcb" semantic="8039edb57e0c4c2bb0d6e9911d247c64a6f0c42f2e912402bc572f0a4701f388" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="6a4227ea0bc3b0d8f66f899c91e5021a2c8948ace110ab2eb3bb27e6f9d306a4" semantic="af76e5561f6e0bbefc54c91f7b945aab79d8f017c8706ca26a324cbcc31a3514" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 숫자
 - **기본값:** `0%`

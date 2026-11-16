@@ -4,7 +4,8 @@ import importlib.util
 
 from openpilot.cereal import car
 from openpilot.common.params import Params
-from openpilot.system.hardware import PC, TICI
+from openpilot.common.api import comma_connect_enabled
+from openpilot.system.hardware import HARDWARE, PC, TICI
 from openpilot.system.manager.process import PythonProcess, NativeProcess, DaemonProcess
 
 try:
@@ -143,7 +144,7 @@ def enable_cluster_hud(started, params, CP: car.CarParams) -> bool:
 
 procs = [
   PythonProcess("formosalink", "openpilot.sunnypilot.formosalink.agent", formosalink_enabled),
-  DaemonProcess("manage_athenad", "openpilot.system.athena.manage_athenad", "AthenadPid"),
+  DaemonProcess("manage_athenad", "openpilot.system.athena.manage_athenad", "AthenadPid", enabled=comma_connect_enabled()),
 
   NativeProcess("loggerd", "openpilot/system/loggerd", ["./loggerd"], logging),
   NativeProcess("encoderd", "openpilot/system/loggerd", ["./encoderd"], only_onroad),
@@ -194,7 +195,7 @@ procs = [
   PythonProcess("radard", "openpilot.selfdrive.carrot.radar.radard_dpath", only_onroad),
   PythonProcess("radarcan", "openpilot.selfdrive.carrot.radar.radarcan", only_onroad),
   PythonProcess("hardwared", "openpilot.system.hardware.hardwared", always_run),
-  PythonProcess("modem", "openpilot.system.hardware.tici.modem", always_run, enabled=TICI),
+  PythonProcess("modem", "openpilot.system.hardware.tici.modem", always_run, enabled=TICI and HARDWARE.get_device_type() != "tici"),
   PythonProcess("tombstoned", "openpilot.system.tombstoned", always_run, enabled=not PC),
   PythonProcess("updated", "openpilot.system.updated.updated", enable_updated, enabled=not PC),
   #PythonProcess("uploader", "openpilot.system.loggerd.uploader", enable_connect),
@@ -211,11 +212,16 @@ procs = [
   # Recovery happens after manager's IPC threads are running. Do not fork that
   # live interpreter: a blocked restart also stops managerState publication.
   PythonProcess("carrot_man", "openpilot.selfdrive.carrot.carrot_man", always_run, restart_if_crash=True, spawn=True),
+  PythonProcess("osmd", "openpilot.selfdrive.carrot.osmd", always_run, enabled=TICI, restart_if_crash=True, spawn=True),
   # carrot_navi permanently owns TCP 7714 and publishes navigation data over cereal.
   PythonProcess("carrot_navi", "openpilot.selfdrive.carrot.carrot_navi", always_run, restart_if_crash=True),
 
   PythonProcess("carrot_server", "openpilot.selfdrive.carrot.carrot_server", always_run, enabled=not CARROT_WEB_EXTERNAL),
   PythonProcess("carrot_bluetooth", "openpilot.selfdrive.carrot.bluetooth.daemon", always_run, enabled=TICI, restart_if_crash=True),
+  # Opt-in: presence of the local private token starts a read-only onroad bridge.
+  PythonProcess("iphone_led_bridge", "openpilot.selfdrive.carrot.iphone_led_bridge",
+                lambda started, params, CP: started and os.path.isfile("/data/iphone-led/token"),
+                enabled=TICI, restart_if_crash=True, spawn=True),
   PythonProcess("cweb_push", "openpilot.selfdrive.carrot.cweb_push", always_run, enabled=not PC),
   PythonProcess("carrot_cluster", "openpilot.selfdrive.carrot.cluster_autorun", enable_cluster_hud, restart_if_crash=True),
 

@@ -230,6 +230,8 @@ class NaviTrafficLightInfo:
     right_on: bool | None = None
     uturn_on: bool | None = None
     meta: NaviItemMeta | None = None
+    counter_s: int | None = None
+    source: str = ""
 
 
 @dataclass(frozen=True, slots=True)

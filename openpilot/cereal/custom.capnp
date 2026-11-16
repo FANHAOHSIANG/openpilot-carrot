@@ -49,6 +49,11 @@ struct CarrotMan @0x81c2f05a394cf4af {
 	positionMonoTime @34 : UInt64; # time of the fused/predicted position
 	positionSource @35 :Text;
 	positionHeadingValid @36 :Bool;
+	externalNavigationActive @37 :Bool; # fresh external session, independent of camera/speed warnings
+	atcFixedTargetKph @38 :Float32;
+	atcCurveCandidateKph @39 :Float32; # 0 if no matched maneuver geometry
+	atcAdaptiveTargetKph @40 :Float32;
+	atcBroadCurveCandidateKph @41 :Float32;
 }
 
 struct CarrotNaviState @0xaedffd8f31e7b55d {

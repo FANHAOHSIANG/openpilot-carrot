@@ -16,7 +16,7 @@
 當前方有車時自動加速，最高至 (道路限速 x 比例)
 
 <!-- CARROT:AUTO:BEGIN AutoSpeedUptoRoadSpeedLimit -->
-<!-- CARROT:AUTO:SOURCE facts="fb4fdfc08c591e81f9c784cc7dc5ac82f362d84c7ae325350ef0b1db1a3c9d71" semantic="c05370fd34043aeafdf056f429b15308e3f72dadec462c9d4d3b6c332b0d48d1" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="04b16082c6c3afebbc36b40f0108779931917fbbe11fab1dfd41f72a6149321f" semantic="e8b7e745dd01e462d2b5f3bc592dbdba9d4070ece06aaa4e5e90dda27ed99727" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 數值
 - **預設值:** `0%`

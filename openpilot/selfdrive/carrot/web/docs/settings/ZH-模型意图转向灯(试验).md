@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="zh" group="STEER_LANECHANGE" param="ModelDesireIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="zh" group="INDICATOR_AUTO" param="ModelDesireIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 模型意图转向灯（试验）
 
-**菜单:** 驾驶控制 \> 转向 \> 变道 (自动转向)
+**菜单:** 车辆与硬件 \> 转向灯控制 \> 自动点亮
 
 ---
 
@@ -13,15 +13,15 @@
 
 `ModelDesireIndicator`
 
-重复确认模型转弯或变道概率至少50%，且优于直行和反方向时显示转向灯。转弯至少10km/h，变道至少30km/h，并要求横向控制激活；不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。 在30 km/h及以上，若模型最近两个预测时点对同一方向变道的概率均不低于65%，且测得的两侧车道线位置都显示车辆正在向该侧靠近，也可请求转向灯。仅有预测不会触发，也不请求转向。 预测触发后，若分叉处车道变宽，但模型意图与实际移动仍一致，则保持同一请求。意图减弱或反向时结束分叉保持；巡航 CANCEL 会立即解除保持请求。 模型转弯指示还要求同向转角至少15度及实际车身旋转至少3度/秒。行驶中转弯概率低于30%且方向盘在±10度内稳定0.4秒后结束保持。
+重复确认模型转弯或变道概率至少50%，且优于直行和反方向时显示转向灯。转弯至少10km/h，变道至少30km/h，并要求横向控制激活；不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。 在30 km/h及以上，若模型最近两个预测时点对同一方向变道的概率均不低于65%，且测得的两侧车道线位置都显示车辆正在向该侧靠近，也可请求转向灯。仅有预测不会触发，也不请求转向。 预测触发后，若分叉处车道变宽，但模型意图与实际移动仍一致，则保持同一请求。意图减弱或反向时结束分叉保持；巡航 CANCEL 会立即解除保持请求。 模型转弯指示还要求同向转角至少15度及实际车身旋转至少3度/秒。行驶中转弯概率低于30%且方向盘在±10度内稳定0.4秒后结束保持。 当前变道概率触发也要求两侧实测边界在0.30至0.55秒内各向目标方向移动至少0.15米，且目标边界距离不超过1.5米，以抑制细小边界抖动和残留模型概率导致的指示。 支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。
 
 <!-- CARROT:AUTO:BEGIN ModelDesireIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="7cef9fbf6d0c1a9e920d6acc051469d924e9cf25cf203e11506b9dcda6f746be" semantic="d73f84bcf6ba7064705bfb722d8a81eb4a2d19fa2936d3d3e21fe478a59c63b5" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="cb21e13a24cb07304aba2af1d81d976d4802eac9c8dd1fcc5f0ffd752f5ad1c2" semantic="ab969a9e72c9e1eb4c50b88e607952db68cad18841043a225bdbc10218d27b33" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 开关
 - **默认值:** `0`
 - **范围:** `0` ~ `1`
-- **菜单:** 驾驶控制 \> 转向 \> 变道 (自动转向)
+- **菜单:** 车辆与硬件 \> 转向灯控制 \> 自动点亮
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelDesireIndicator -->
 

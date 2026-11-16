@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="en" group="STEER_LANECHANGE" param="LaneChangeLeverWait" -->
+<!-- CARROT:GENERATED schema="1" locale="en" group="INDICATOR_LEVER" param="LaneChangeLeverWait" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # One-touch lane change request waits 5 flashes
 
-**Menu:** Driving \> Steering \> Lane Change (Auto Turn)
+**Menu:** Vehicle & Hardware \> Indicator Control \> Lever Behavior
 
 ---
 
@@ -16,12 +16,12 @@
 Hyundai CAN-FD only (0x3C1 lever signal). When a one-touch lever press is not approved at once (BSD, side vehicle, lane lines: the existing checks), the turn signal is held and the request waits for 5 flashes (about 4 s) from the press. If it clears in time the lane change starts; otherwise the request is dropped and the remaining flashes do not start it. A latched lever keeps waiting as before.
 
 <!-- CARROT:AUTO:BEGIN LaneChangeLeverWait -->
-<!-- CARROT:AUTO:SOURCE facts="a9789852f0269882642c9dfbf052db7270060c161960cda67ef9ce2817a159fb" semantic="ea223332818ad995bfa4b772614a0e20f4c64f676f70ec1be8afd5eb871ae2db" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="e4f0a9fce7cee4ce05397d6f7798b796e8d02ca3ae902b23c7a15f8e868ac7da" semantic="ea223332818ad995bfa4b772614a0e20f4c64f676f70ec1be8afd5eb871ae2db" review="current" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Toggle
 - **Default:** `0`
 - **Range:** `0` ~ `1`
-- **Menu:** Driving \> Steering \> Lane Change (Auto Turn)
+- **Menu:** Vehicle & Hardware \> Indicator Control \> Lever Behavior
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END LaneChangeLeverWait -->
 

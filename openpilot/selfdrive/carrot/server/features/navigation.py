@@ -1,12 +1,8 @@
 """Mapbox search/destination UI and the shared nav-model preview."""
-import asyncio
 import json
 import math
-from dataclasses import dataclass, field
 from pathlib import Path
-import time
 
-import aiohttp
 from aiohttp import web
 
 from openpilot.common.params import Params
@@ -16,16 +12,6 @@ from ..services.static_assets import fingerprint_static_asset
 from ..services.params import get_param_value, set_param_value
 from openpilot.selfdrive.navigation.preview import PREVIEW_PATH, WEB_DEMAND_PATH, preview_fresh, preview_reason
 
-MAX_RESPONSE = 1024 * 1024
-
-
-@dataclass
-class SearchState:
-  lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-  next_request: float = 0.
-
-
-SEARCH_STATE = web.AppKey('navigation_search', SearchState)
 FAVORITES = web.AppKey('navigation_favorites', NavigationFavorites)
 
 
@@ -48,38 +34,8 @@ async def page(request):
 
 
 async def search(request):
-  query = request.query.get('q', '').strip()
-  if not 2 <= len(query) <= 200:
-    return web.json_response({'error': 'Enter 2–200 characters.'}, status=400)
-  token = str(get_param_value('MapboxPublicKey', '') or '').strip()
-  if not token:
-    return web.json_response({'error': 'Set the Mapbox Public key in Settings → Network.'}, status=409)
-  state = request.app[SEARCH_STATE]
-  if state.lock.locked() or time.monotonic() < state.next_request:
-    return web.json_response({'error': 'Please wait before searching again.'}, status=429)
-  async with state.lock:
-    state.next_request = time.monotonic() + 1.
-    try:
-      permanent = request.query.get('permanent') == 'true'
-      params = {'q': query, 'access_token': token, 'limit': '5', 'autocomplete': 'false', 'permanent': str(permanent).lower()}
-      async with request.app['http'].get('https://api.mapbox.com/search/geocode/v6/forward', params=params,
-                                         timeout=aiohttp.ClientTimeout(total=8)) as response:
-        if response.status != 200:
-          return web.json_response({'error': f'Mapbox search failed (HTTP {response.status}).'}, status=502)
-        body = bytearray()
-        async for chunk in response.content.iter_chunked(65536):
-          body.extend(chunk)
-          if len(body) > MAX_RESPONSE:
-            raise ValueError('oversized response')
-        results = []
-        for feature in json.loads(body).get('features', [])[:5]:
-          lon, lat = feature['geometry']['coordinates'][:2]
-          properties = feature.get('properties', {})
-          results.append(dict(destination({'latitude': lat, 'longitude': lon,
-                                           'place_name': properties.get('full_address') or properties.get('name') or query}), permanent=permanent))
-        return web.json_response({'results': results}, headers={'Cache-Control': 'no-store'})
-    except (aiohttp.ClientError, TimeoutError, ValueError, KeyError, TypeError, IndexError, AttributeError):
-      return web.json_response({'error': 'Mapbox search is unavailable.'}, status=502)
+  # Keep old clients from accidentally issuing billable geocoding requests.
+  return web.json_response({'error': '地址搜尋已停用，避免永久地理編碼費用。請直接輸入經緯度，或分享含座標的 Google Maps 連結。'}, status=410)
 
 
 async def get_destination(request):
@@ -89,8 +45,7 @@ async def get_destination(request):
   except (ValueError, KeyError, TypeError, OverflowError):
     current = None
   return web.json_response({'destination': current, 'map_ready': preview_fresh() and preview_reason() == 'ready',
-                            'key_configured': bool(get_param_value('MapboxPublicKey', ''))},
-                           headers={'Cache-Control': 'no-store'})
+                            'key_configured': bool(get_param_value('MapboxPublicKey', ''))})
 
 
 async def set_destination(request):
@@ -98,8 +53,10 @@ async def set_destination(request):
     value = destination(await request.json())
   except (ValueError, KeyError, TypeError, OverflowError):
     return web.json_response({'error': 'Invalid destination.'}, status=400)
-  activate_destination(value)
-  return web.json_response({'destination': value}, headers={'Cache-Control': 'no-store'})
+  Params('/dev/shm/params').remove('NavDestinationTemporary')
+  set_param_value('NavDestination', json.dumps(value, ensure_ascii=False))
+  set_param_value('NavDestinationWaypoints', '')
+  return web.json_response({'destination': value})
 
 
 def activate_destination(value):
@@ -129,7 +86,7 @@ async def favorites(request):
       return web.json_response({'error': 'Invalid favorite.'}, status=400)
   try:
     # Existing saved coordinates may be renamed without another geocode.
-    if value is not None and body.get('permanent') is not True:
+    if value is not None and body.get('permanent') is not True and body.get('coordinate_source') != 'manual':
       previous = next((item for item in store.read() if item['id'] == identifier), None) if identifier else None
       if previous is None or any(value[key] != previous[key] for key in ('latitude', 'longitude', 'place_name')):
         return web.json_response({'error': 'Invalid favorite.'}, status=400)
@@ -156,8 +113,8 @@ async def favorites(request):
 
 
 async def clear_destination(request):
-  set_param_value('NavDestination', '')
   Params('/dev/shm/params').remove('NavDestinationTemporary')
+  set_param_value('NavDestination', '')
   set_param_value('NavDestinationWaypoints', '')
   return web.json_response({'destination': None})
 
@@ -174,8 +131,10 @@ async def preview(request):
 
 
 def register(app):
-  app[SEARCH_STATE] = SearchState()
   app[FAVORITES] = NavigationFavorites(CARROT_NAVIGATION_FAVORITES_PATH)
+
+  from . import google_share
+  google_share.register(app)
   app.router.add_get('/navigation', page)
   app.router.add_get('/api/navigation/search', search)
   app.router.add_get('/api/navigation/destination', get_destination)

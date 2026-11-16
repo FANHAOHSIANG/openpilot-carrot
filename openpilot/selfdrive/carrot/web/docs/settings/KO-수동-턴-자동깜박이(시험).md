@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="ko" group="STEER_LANECHANGE" param="ManualTurnIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="ko" group="INDICATOR_AUTO" param="ManualTurnIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 수동 턴 자동깜박이(시험)
 
-**메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+**메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 자동 점등
 
 ---
 
@@ -13,15 +13,15 @@
 
 `ManualTurnIndicator`
 
-운전자의 조향력과 핸들 회전, 실제 차체 회전을 함께 확인해 좌·우 턴의 깜박이를 켭니다. ATC 설정과 독립적으로 동작하며 차선이 흐린 교차로에서도 감지합니다. 시작 속도 5~60km/h, 같은 방향 조향력 0.15초, 조향각 42도 이상 및 22도 이상 증가, 같은 방향 차체 회전 조건을 확인합니다. 핸들 ±15도 복귀와 회전 안정화 또는 운전자 반대 조향으로 종료하며 최대 30초 유지합니다. 기본 꺼짐. 아이오닉5 PE의 지원 깜박이 장치와 자동 깜박이 제어 1·2번에서 동작합니다. 주차장 코너에서도 켜질 수 있으며 도로 곡선·회피 동작의 오점등 가능성과 실차 점등 검증이 남아 있습니다. 수동 차선변경 표시 중 같은 방향의 수동 턴 조건이 충족되면 기존 요청을 이어받아 턴 종료까지 추적합니다.
+운전자의 조향력과 핸들 회전, 실제 차체 회전을 함께 확인해 좌·우 턴의 깜박이를 켭니다. ATC 설정과 독립적으로 동작하며 차선이 흐린 교차로에서도 감지합니다. 시작 속도 5~60km/h, 같은 방향 조향력 0.15초, 조향각 42도 이상 및 22도 이상 증가, 같은 방향 차체 회전 조건을 확인합니다. 핸들 ±15도 복귀와 회전 안정화 또는 운전자 반대 조향으로 종료하며 최대 30초 유지합니다. 기본 꺼짐. 아이오닉5 PE의 지원 깜박이 장치와 자동 깜박이 제어 1·2번에서 동작합니다. 주차장 코너에서도 켜질 수 있으며 도로 곡선·회피 동작의 오점등 가능성과 실차 점등 검증이 남아 있습니다. 수동 차선변경 표시 중 같은 방향의 수동 턴 조건이 충족되면 기존 요청을 이어받아 턴 종료까지 추적합니다. 교차로의 차선 위치 급변은 조향력·조향각 증가·실제 회전으로 확인하는 수동 턴 감지를 초기화하지 않습니다. 이미 켜진 신호는 D단 정차 확인 중 차속 추정값이 0 부근에서 미세하게 음수로 흔들려도 유지합니다. 지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다. 수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.
 
 <!-- CARROT:AUTO:BEGIN ManualTurnIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="491428b06239c2ab55b4e9365e2a17bd741c375c8f24119418ace5c763cf1d0f" semantic="e08aa7e7e006ddb909a0060571a3f7983d6c70f1249f7f29cc42c19e87f3451a" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="7cc4cc10ffda88b529354257f4f6feb9d995dd7664cd070d9dbe49dc7f700124" semantic="e4bbf6a833570ad6bb05e5eb7b686cd71385572d1c15c465dd90e155a3b801b4" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 토글
 - **기본값:** `0`
 - **범위:** `0` ~ `1`
-- **메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+- **메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 자동 점등
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ManualTurnIndicator -->
 

@@ -13,10 +13,10 @@
 
 `TurnSpeedControlMode`
 
-0:not use, 1:vision, 2:vision+route, 3:route(always)
+0: off, 1: vision, 2: vision + matched route, 3: matched route
 
 <!-- CARROT:AUTO:BEGIN TurnSpeedControlMode -->
-<!-- CARROT:AUTO:SOURCE facts="99dce64487e63c1fb30b6dc73cdcce2d565df6ff830407a1ab8c1428ad673e4e" semantic="0e0a5e58e9061594b9a41986ec433b7b6680c5f6ce99da897cd9b4e52ded8e38" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="df18bc65022efc9abf31fdbe12e0d0c0a9d29f222b1933c5591afba9bcf92a6b" semantic="db2399ff8f834bd37741fa4c0751142f9ca87ceeeb55df6ad1bc86a9828f8ec6" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Segmented choice
 - **Default:** `1`

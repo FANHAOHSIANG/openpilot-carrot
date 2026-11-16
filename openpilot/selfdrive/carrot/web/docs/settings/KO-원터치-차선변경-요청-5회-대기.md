@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="ko" group="STEER_LANECHANGE" param="LaneChangeLeverWait" -->
+<!-- CARROT:GENERATED schema="1" locale="ko" group="INDICATOR_LEVER" param="LaneChangeLeverWait" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 원터치 차선변경 요청 5회 대기
 
-**메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+**메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 레버 동작
 
 ---
 
@@ -16,12 +16,12 @@
 현대 CAN-FD(0x3C1 레버 신호) 전용. 레버를 원터치로 눌렀는데 차선변경이 바로 승인되지 않으면(BSD·옆 차량·차선 등 기존 판단), 누른 시점부터 깜빡이 5회(약 4초) 동안 깜빡이를 유지하며 기다립니다. 그 안에 풀리면 차선변경하고, 안 풀리면 요청을 포기하며 남은 깜빡임으로는 다시 시작하지 않습니다. 레버를 고정한 경우는 기존대로 계속 기다립니다.
 
 <!-- CARROT:AUTO:BEGIN LaneChangeLeverWait -->
-<!-- CARROT:AUTO:SOURCE facts="7f4552cbb499e705e9c82ce9c2c87d2b635759eb768e2d7a8c1dfb60f07673e6" semantic="ea223332818ad995bfa4b772614a0e20f4c64f676f70ec1be8afd5eb871ae2db" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="0c36923e38b66a23eb1429b9337efb826be86bd0a74b26cb2e62f16b3377a5b6" semantic="ea223332818ad995bfa4b772614a0e20f4c64f676f70ec1be8afd5eb871ae2db" review="current" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 토글
 - **기본값:** `0`
 - **범위:** `0` ~ `1`
-- **메뉴:** 주행 제어 \> 차량 조향 \> 차로 변경 (자동 턴)
+- **메뉴:** 차량·하드웨어 \> 깜박이 제어 \> 레버 동작
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END LaneChangeLeverWait -->
 

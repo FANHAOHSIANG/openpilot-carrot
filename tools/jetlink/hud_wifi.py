@@ -70,7 +70,14 @@ class WifiPublisher:
 
 def publisher(client, peer, legacy):
   if peer.get('carrot_host') != 'jetson':
-    return legacy(navi=bool(peer.get('carrot_navi_v1'))) if peer.get('carrot_hud_v1') else None
+    if not peer.get('carrot_hud_v1'):
+      return None
+    options = {'navi': bool(peer.get('carrot_navi_v1'))}
+    if peer.get('carrot_host') == 'mac':
+      # The Mac writer already transports the bounded snapshot JSON unchanged.
+      # Include mapsd's optional mode-7 PNG, without a new inference wire type.
+      options['nav_map'] = True
+    return legacy(**options)
   if peer.get(USB_CAPABILITY) is True:
     # Explicit new receiver contract; older Wi-Fi-only hosts must never be
     # sent USB display traffic just because their Wi-Fi connection failed.

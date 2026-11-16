@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="zh-tw" group="STEER_LANECHANGE" param="ModelDesireIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="zh-tw" group="INDICATOR_AUTO" param="ModelDesireIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 模型意圖轉向燈（試驗）
 
-**選單:** 駕駛控制 \> 轉向 \> 變道 (自動轉向)
+**選單:** 車輛與硬體 \> 轉向燈控制 \> 自動點亮
 
 ---
 
@@ -16,12 +16,12 @@
 重複確認模型轉彎或變道機率至少50%，且優於直行和反方向時顯示轉向燈。轉彎至少10km/h，變道至少30km/h，並要求橫向控制啟用；不新增自動轉向請求。 預設關閉，僅支援Ioniq 5 PE、Jetson USB2CAN及自動轉向燈模式1或2；實車驗證另行進行。 在30 km/h及以上，若模型最近兩個預測時點對同一方向變道的機率均不低於65%，且測得的兩側車道線位置都顯示車輛正在向該側靠近，也可請求轉向燈。僅有預測不會觸發，也不請求轉向。 預測觸發後，若分叉處車道變寬，但模型意圖與實際移動仍一致，則保持同一請求。意圖減弱或反向時結束分叉保持；巡航 CANCEL 會立即解除保持請求。 模型轉彎點燈另須確認同方向方向盤轉角至少15度，以及車身實際旋轉至少每秒3度。行進中，轉彎機率低於30%，且方向盤回到正負10度內穩定0.4秒時，結束保持請求。
 
 <!-- CARROT:AUTO:BEGIN ModelDesireIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="9c53fb1b98bfee9f33b2c1cf8009932bd8aeaf582b416669d1e08a25b036e398" semantic="d73f84bcf6ba7064705bfb722d8a81eb4a2d19fa2936d3d3e21fe478a59c63b5" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="ca0fc6b09d344fcc1786c39d24cb0cb9f3fb4783f96bd879d0beb4fb6372577f" semantic="ab969a9e72c9e1eb4c50b88e607952db68cad18841043a225bdbc10218d27b33" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 開關
 - **預設值:** `0`
 - **範圍:** `0` ~ `1`
-- **選單:** 駕駛控制 \> 轉向 \> 變道 (自動轉向)
+- **選單:** 車輛與硬體 \> 轉向燈控制 \> 自動點亮
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelDesireIndicator -->
 

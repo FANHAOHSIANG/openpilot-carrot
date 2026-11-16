@@ -15,7 +15,6 @@ from cluster_models import (
     DebugPlotSnapshot,
     LaneMarking,
     LiveDebugInfo,
-    ModelPathPoint,
     NaviDebugInfo,
     NaviGuidanceImage,
     NaviTrafficLightInfo,
@@ -164,8 +163,6 @@ class OpenpilotLiveSource:
         self._alert_onroad_started_t: float | None = None
         self._selfdrive_seen_onroad = False
         self._nav_route_coords: tuple[tuple[float, float], ...] = ()
-        self._nav_route_model_path: tuple[ModelPathPoint, ...] = ()
-        self._nav_route_anchor: tuple[float, float, float] | None = None
         self._carrot_navi = None
         self._carrot_navi_generation = -1
         self._carrot_navi_next_expiry_s = math.inf
@@ -677,7 +674,6 @@ class OpenpilotLiveSource:
 
         profile_stage = self._profile_start()
         navi_debug = self._navi_debug_info() if navi_mode else None
-        state = self._with_external_nav_route(state) if navi_mode else state
         state = self._with_navi_speed_limit(state, navi_debug) if navi_mode else state
         self._profile_add("source.live.navi_debug", profile_stage)
 
@@ -1033,8 +1029,6 @@ class OpenpilotLiveSource:
         coords = safe_get(data, "coordinates")
         if not coords:
             self._nav_route_coords = ()
-            self._nav_route_model_path = ()
-            self._nav_route_anchor = None
             return
 
         parsed: list[tuple[float, float]] = []
@@ -1048,20 +1042,6 @@ class OpenpilotLiveSource:
             parsed.append((lat, lon))
 
         self._nav_route_coords = tuple(parsed)
-        self._nav_route_model_path = ()
-        self._nav_route_anchor = None
-
-    def _with_external_nav_route(self, state: ClusterUiState) -> ClusterUiState:
-        path = self._external_nav_route_model_path()
-        if len(path) < 2:
-            return state
-        return replace(
-            state,
-            model_path=path,
-            planned_speed_kph=None,
-            planned_accel_mps2=None,
-            planned_curvature_m_inv=None,
-        )
 
     def _with_navi_speed_limit(self, state: ClusterUiState, navi_debug: NaviDebugInfo | None) -> ClusterUiState:
         if state.speed_limit_kph is not None:
@@ -1069,53 +1049,6 @@ class OpenpilotLiveSource:
         if navi_debug is None or navi_debug.speed_limit_kph is None:
             return state
         return replace(state, speed_limit_kph=navi_debug.speed_limit_kph, speed_limit_source="n")
-
-    def _external_nav_route_model_path(self) -> tuple[ModelPathPoint, ...]:
-        anchor = self._nav_route_anchor_from_carrot_man()
-        if anchor is None or len(self._nav_route_coords) < 2:
-            return ()
-        if self._nav_route_anchor == anchor and self._nav_route_model_path:
-            return self._nav_route_model_path
-
-        lat0, lon0, heading_deg = anchor
-        heading_rad = math.radians(heading_deg)
-        cos_h = math.cos(heading_rad)
-        sin_h = math.sin(heading_rad)
-        meters_per_lat = 40008000.0 / 360.0
-        meters_per_lon = meters_per_lat * math.cos(math.radians(lat0))
-        points: list[ModelPathPoint] = [ModelPathPoint(forward_m=0.0, lateral_m=0.0)]
-        previous_forward = 0.0
-
-        for lat, lon in self._nav_route_coords:
-            east_m = (lon - lon0) * meters_per_lon
-            north_m = (lat - lat0) * meters_per_lat
-            lateral_m = east_m * cos_h - north_m * sin_h
-            forward_m = east_m * sin_h + north_m * cos_h
-            if forward_m < 0.0 or forward_m > 180.0:
-                continue
-            if abs(lateral_m) > 40.0:
-                continue
-            if forward_m <= previous_forward + 0.25:
-                continue
-            points.append(ModelPathPoint(forward_m=forward_m, lateral_m=lateral_m))
-            previous_forward = forward_m
-            if len(points) >= 96:
-                break
-
-        self._nav_route_anchor = anchor
-        self._nav_route_model_path = tuple(points)
-        return self._nav_route_model_path
-
-    def _nav_route_anchor_from_carrot_man(self) -> tuple[float, float, float] | None:
-        carrot_man = self._service_data("carrotMan")
-        lat = self._finite_attr(carrot_man, "xPosLat", 0.0)
-        lon = self._finite_attr(carrot_man, "xPosLon", 0.0)
-        heading = self._finite_attr(carrot_man, "xPosAngle", 0.0)
-        if abs(lat) < 0.000001 or abs(lon) < 0.000001:
-            return None
-        if not -90.0 <= lat <= 90.0 or not -180.0 <= lon <= 180.0:
-            return None
-        return (lat, lon, heading % 360.0)
 
     def _read_cached_live_debug(self) -> LiveDebugInfo | None:
         if self.params is None:

@@ -23,6 +23,7 @@ async function page(responses, language = "en", handleApi = null) {
   };
   vm.runInNewContext(traditionalSource + "\n" + source, {
     document: { documentElement: {}, hidden: false, getElementById: element, createElement: makeElement },
+    window: { confirm: () => true },
     localStorage: { getItem: () => language }, navigator: {},
     URL: { createObjectURL: () => `blob:${++blobs}`, revokeObjectURL: (url) => revoked.push(url) },
     setTimeout: (callback) => timers.push(callback),
@@ -47,7 +48,7 @@ test("keys without a route show destination instructions instead of a black imag
   const p = await page([{ status: 200, reason: "route" }]);
   assert.equal(p.element("map").hidden, true);
   assert.equal(p.element("mapStatus").hidden, false);
-  assert.match(p.element("mapStatus").textContent, /select a destination below/);
+  assert.match(p.element("mapStatus").textContent, /Enter destination coordinates below/);
   assert.match(p.element("mapStatus").textContent, /Saving keys alone/);
   assert.equal(p.blobs(), 0);
 });
@@ -83,13 +84,13 @@ test("network failure displays a localized connection message", async () => {
 test("Traditional navigation explains route and network problems", async () => {
   const p = await page([{ status: 200, reason: "route" }, new Error("offline")], "zh-Hant-TW");
   assert.equal(p.element("title").textContent, "Carrot 導航");
-  assert.match(p.element("mapStatus").textContent, /搜尋並選擇目的地/);
+  assert.match(p.element("mapStatus").textContent, /輸入目的地座標/);
   await p.next();
   assert.match(p.element("mapStatus").textContent, /檢查與車輛的連線/);
   assert.equal(p.element("clear").textContent, "結束當前導航");
 });
 
-test("favorites edit requires a newly selected address and keeps errors in the editor", async () => {
+test("favorites edit requires validated coordinates and keeps errors in the editor", async () => {
   const saved = {id:'a'.repeat(32), name:'家', place_name:'臺北地址', latitude:25, longitude:121};
   const requests = [];
   const p = await page([{status:204, reason:'offroad'}], 'zh-TW', async (url, options) => {
@@ -102,18 +103,18 @@ test("favorites edit requires a newly selected address and keeps errors in the e
   await row.children[2].children[0].trigger('click');
   assert.equal(p.element('favoriteName').value, '家');
   assert.equal(p.element('saveFavorite').disabled, false);
-  p.element('favoriteQuery').value = '新竹';
+  p.element('favoriteQuery').value = '24,120';
   await p.element('favoriteQuery').trigger('input');
   assert.equal(p.element('saveFavorite').disabled, true);
   await p.element('favoriteForm').trigger('submit');
   assert.equal(requests.some(r => r.options.method === 'PUT'), false);
   await p.element('favoriteSearch').trigger('click');
-  assert.ok(requests.some(r => r.url.endsWith('&permanent=true')));
-  await p.element('favoriteResults').children[0].children[0].trigger('click');
+  assert.equal(requests.some(r => r.url.includes('search?')), false);
+  assert.equal(p.element('saveFavorite').disabled, false);
   p.element('favoriteName').value = '公司';
   await p.element('favoriteForm').trigger('submit');
   const body = JSON.parse(requests.find(r => r.options.method === 'PUT').options.body);
-  assert.equal(body.name, '公司'); assert.equal(body.latitude, 24); assert.equal(body.longitude, 120);
+  assert.equal(body.coordinate_source, 'manual'); assert.equal(body.name, '公司'); assert.equal(body.latitude, 24); assert.equal(body.longitude, 120);
   assert.equal(p.element('favoriteForm').hidden, false);
   assert.match(p.element('editorStatus').textContent, /無法讀取或儲存最愛/);
   assert.equal(p.element('saveFavorite').disabled, false);
@@ -138,4 +139,24 @@ test("favorite navigation uses its ID and deletion requires an explicit second c
   assert.equal(requests.filter(r => r.options.method === 'DELETE').length, 1);
   assert.equal(p.element('favorites').children.length, 0);
   assert.match(p.element('favoritesStatus').textContent, /尚未加入最愛/);
+});
+
+
+test("coordinate form rejects invalid inputs and posts confirmed valid coordinates without search", async () => {
+  const calls = [];
+  const p = await page([{status: 204, reason: "offroad"}], "zh-TW", async (url, options) => {
+    calls.push({url, options});
+    if (url.endsWith("favorites")) return {favorites: []};
+    if (options.method === "POST") return {destination: JSON.parse(options.body)};
+    return {destination: null};
+  });
+  p.element("latitude").value = "91"; p.element("longitude").value = "121";
+  await p.element("form").trigger("submit");
+  assert.equal(calls.filter(c => c.options.method === "POST").length, 0);
+  p.element("latitude").value = "25.03";
+  await p.element("form").trigger("submit");
+  const posts = calls.filter(c => c.options.method === "POST");
+  assert.equal(posts.length, 1);
+  assert.deepEqual(JSON.parse(posts[0].options.body), {latitude: 25.03, longitude: 121, place_name: "25.03, 121"});
+  assert.ok(calls.every(c => !c.url.includes("search")));
 });

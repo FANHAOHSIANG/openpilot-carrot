@@ -13,10 +13,10 @@
 
 `TurnSpeedControlMode`
 
-0: 속도제어안함 1: 비젼 2: 비젼+경로(TBT) 3: 경로(항상)
+0: 속도제어안함 1: 비전 2: 비전+일치 확인 경로 3: 일치 확인 경로
 
 <!-- CARROT:AUTO:BEGIN TurnSpeedControlMode -->
-<!-- CARROT:AUTO:SOURCE facts="e0d18053fe490a4ddc6f916fc11280bc1c6b0e3861c86f3d0af13609f86f1b27" semantic="0e0a5e58e9061594b9a41986ec433b7b6680c5f6ce99da897cd9b4e52ded8e38" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="7fa216647ab2373c1acdf6caa365210f93a872a518e90185caa4e3801373982f" semantic="db2399ff8f834bd37741fa4c0751142f9ca87ceeeb55df6ad1bc86a9828f8ec6" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 구간 선택
 - **기본값:** `1`

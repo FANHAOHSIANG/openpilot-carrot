@@ -1,8 +1,8 @@
-<!-- CARROT:GENERATED schema="1" locale="zh-tw" group="STEER_LANECHANGE" param="ModelPathIndicator" -->
+<!-- CARROT:GENERATED schema="1" locale="zh-tw" group="INDICATOR_AUTO" param="ModelPathIndicator" -->
 <!-- CARROT:AUTHORING guide="https://github.com/ajouatom/openpilot/blob/carrot-wip/tools/docs/wiki_settings/AUTHORING_GUIDE.md" editable="CARROT:MANUAL only" -->
 # 模型路徑轉向燈（試驗）
 
-**選單:** 駕駛控制 \> 轉向 \> 變道 (自動轉向)
+**選單:** 車輛與硬體 \> 轉向燈控制 \> 自動點亮
 
 ---
 
@@ -16,12 +16,12 @@
 車速至少30km/h，模型未來1至3秒路徑持續越過彎曲車道邊界，且控制曲率方向一致時顯示轉向燈。要求目標線置信度至少10%、連續邊界及重複觀測。排除左側中央線及右側道路邊緣，不新增自動轉向請求。 預設關閉，僅支援Ioniq 5 PE、Jetson USB2CAN及自動轉向燈模式1或2；實車驗證另行進行。
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="3bc7ff4270b7e83fd03062fbde095c5125648d7188f13b259d62ab75a4a8c5ec" semantic="09c4851f68312e9070186bb23698703b51d5b7dce50dbeca5e9cb4cf5626b6c8" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="e1c9040435e4e3b2473a941637e34df473af3c484f09c36eff4bc1976b89b270" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 開關
 - **預設值:** `0`
 - **範圍:** `0` ~ `1`
-- **選單:** 駕駛控制 \> 轉向 \> 變道 (自動轉向)
+- **選單:** 車輛與硬體 \> 轉向燈控制 \> 自動點亮
 <!-- CARROT:SECTION:END OVERVIEW -->
 <!-- CARROT:AUTO:END ModelPathIndicator -->
 

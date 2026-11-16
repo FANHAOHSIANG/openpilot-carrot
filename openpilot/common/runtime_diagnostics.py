@@ -91,3 +91,36 @@ def communication_snapshot(sm, services):
       'ignore_freq': service in sm.ignore_average_freq or service in sm.ignore_alive,
     }
   return result
+
+
+class InputValidityDiagnostics:
+  """Record the upstream check failure, without changing admission or validity."""
+  def __init__(self, component, emit):
+    self.component, self.emit = component, emit
+    self.last_failure = None
+    self.next_emit = 0.
+
+  def record(self, sm, valid, services):
+    if valid:
+      self.last_failure = None
+      return
+    now = time.monotonic()
+    if now < self.next_emit:
+      return
+    self.next_emit = now + 1.
+    try:
+      snapshot = communication_snapshot(sm, services)
+    except (AttributeError, KeyError, TypeError, ValueError):
+      return
+    failed = {k: v for k, v in snapshot.items()
+              if (not v['valid'] and not v['ignore_valid']) or
+                 (not v['alive'] and not v['ignore_alive']) or
+                 (not v['freq_ok'] and not v['ignore_freq'])}
+    signature = tuple((k, v['valid'], v['alive'], v['freq_ok']) for k, v in failed.items())
+    if signature == self.last_failure:
+      return
+    self.last_failure = signature
+    try:
+      self.emit('inputValidity', component=self.component, timing=failed)
+    except Exception:
+      pass

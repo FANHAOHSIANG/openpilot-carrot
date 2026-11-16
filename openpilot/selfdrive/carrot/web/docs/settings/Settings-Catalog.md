@@ -95,18 +95,12 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 ##### 차로 변경 (자동 턴)
 
 - [ATC: AutoTurnControl(0)](https://github.com/ajouatom/openpilot/wiki/KO-ATC-AutoTurnControl%280%29) — `AutoTurnControl`
-- [수동 차선변경 깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%88%98%EB%8F%99-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ManualLaneChangeIndicator`
-- [수동 턴 자동깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%88%98%EB%8F%99-%ED%84%B4-%EC%9E%90%EB%8F%99%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ManualTurnIndicator`
-- [모델 desire 자동깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AA%A8%EB%8D%B8-desire-%EC%9E%90%EB%8F%99%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ModelDesireIndicator`
-- [모델 경로 자동깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AA%A8%EB%8D%B8-%EA%B2%BD%EB%A1%9C-%EC%9E%90%EB%8F%99%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ModelPathIndicator`
 - [우회전 전 자동 차선변경 거리(m)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%9A%B0%ED%9A%8C%EC%A0%84-%EC%A0%84-%EC%9E%90%EB%8F%99-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EA%B1%B0%EB%A6%AC%28m%29) — `AutoTurnControlRightLaneChange`
 - [ATC: 턴속도(20)](https://github.com/ajouatom/openpilot/wiki/KO-ATC-%ED%84%B4%EC%86%8D%EB%8F%84%2820%29) — `AutoTurnControlSpeedTurn`
+- [ATC: 곡률 기반 속도](https://github.com/ajouatom/openpilot/wiki/KO-ATC-%EA%B3%A1%EB%A5%A0-%EA%B8%B0%EB%B0%98-%EC%86%8D%EB%8F%84) — `AutoTurnControlAdaptiveSpeed`
 - [ATC: 시간거리(3)](https://github.com/ajouatom/openpilot/wiki/KO-ATC-%EC%8B%9C%EA%B0%84%EA%B1%B0%EB%A6%AC%283%29) — `AutoTurnControlTurnEnd`
 - [ATC Helper 맵전환(0)](https://github.com/ajouatom/openpilot/wiki/KO-ATC-Helper-%EB%A7%B5%EC%A0%84%ED%99%98%280%29) — `AutoTurnMapChange`
 - [차선변경 조향토크 사용](https://github.com/ajouatom/openpilot/wiki/KO-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EC%A1%B0%ED%96%A5%ED%86%A0%ED%81%AC-%EC%82%AC%EC%9A%A9) — `LaneChangeNeedTorque`
-- [깜박이 자동제어](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B9%9C%EB%B0%95%EC%9D%B4-%EC%9E%90%EB%8F%99%EC%A0%9C%EC%96%B4) — `AutoBlinkerControl`
-- [깜빡이 레버로 회전/차선변경 구분 (km/h, 0=끔)](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B9%9C%EB%B9%A1%EC%9D%B4-%EB%A0%88%EB%B2%84%EB%A1%9C-%ED%9A%8C%EC%A0%84-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EA%B5%AC%EB%B6%84-%28km-h%2C-0%3D%EB%81%94%29) — `BlinkerLatchedTurn`
-- [원터치 차선변경 요청 5회 대기](https://github.com/ajouatom/openpilot/wiki/KO-%EC%9B%90%ED%84%B0%EC%B9%98-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EC%9A%94%EC%B2%AD-5%ED%9A%8C-%EB%8C%80%EA%B8%B0) — `LaneChangeLeverWait`
 - [차선변경 지연시간x0.1s(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EC%A7%80%EC%97%B0%EC%8B%9C%EA%B0%84x0.1s%280%29) — `LaneChangeDelay`
 - [차선변경 BSD](https://github.com/ajouatom/openpilot/wiki/KO-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-BSD) — `LaneChangeBsd`
 - [차선변경 차선판단](https://github.com/ajouatom/openpilot/wiki/KO-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EC%B0%A8%EC%84%A0%ED%8C%90%EB%8B%A8) — `LaneLineCheck`
@@ -185,6 +179,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 - [모델 주행속도 적용 비율](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AA%A8%EB%8D%B8-%EC%A3%BC%ED%96%89%EC%86%8D%EB%8F%84-%EC%A0%81%EC%9A%A9-%EB%B9%84%EC%9C%A8) — `ApplyModelSpeed`
 - [커브속도 최저속도(30)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%BB%A4%EB%B8%8C%EC%86%8D%EB%8F%84-%EC%B5%9C%EC%A0%80%EC%86%8D%EB%8F%84%2830%29) — `AutoCurveSpeedLowerLimit`
 - [턴속도제어방법](https://github.com/ajouatom/openpilot/wiki/KO-%ED%84%B4%EC%86%8D%EB%8F%84%EC%A0%9C%EC%96%B4%EB%B0%A9%EB%B2%95) — `TurnSpeedControlMode`
+- [대만 OSM 커브 미리보기](https://github.com/ajouatom/openpilot/wiki/KO-%EB%8C%80%EB%A7%8C-OSM-%EC%BB%A4%EB%B8%8C-%EB%AF%B8%EB%A6%AC%EB%B3%B4%EA%B8%B0) — `OsmCurveSpeedEnabled`
 - [경로턴속도반영비율(100%)](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B2%BD%EB%A1%9C%ED%84%B4%EC%86%8D%EB%8F%84%EB%B0%98%EC%98%81%EB%B9%84%EC%9C%A8%28100-%29) — `MapTurnSpeedFactor`
 
 ##### 신호감지
@@ -258,11 +253,33 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 - [HYUNDAI: CAMERA SCC](https://github.com/ajouatom/openpilot/wiki/KO-HYUNDAI-CAMERA-SCC) — `HyundaiCameraSCC`
 - [HYUNDAI: LDWS ONLY CAR(0)](https://github.com/ajouatom/openpilot/wiki/KO-HYUNDAI-LDWS-ONLY-CAR%280%29) — `IsLdwsCar`
 
-#### CANFD·HDA
+#### 깜박이 제어
+
+##### 자동 점등
+
+- [수동 차선변경 깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%88%98%EB%8F%99-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ManualLaneChangeIndicator`
+- [수동 턴 자동깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%88%98%EB%8F%99-%ED%84%B4-%EC%9E%90%EB%8F%99%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ManualTurnIndicator`
+- [모델 desire 자동깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AA%A8%EB%8D%B8-desire-%EC%9E%90%EB%8F%99%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ModelDesireIndicator`
+- [모델 경로 자동깜박이(시험)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AA%A8%EB%8D%B8-%EA%B2%BD%EB%A1%9C-%EC%9E%90%EB%8F%99%EA%B9%9C%EB%B0%95%EC%9D%B4%28%EC%8B%9C%ED%97%98%29) — `ModelPathIndicator`
+- [깜박이 자동제어](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B9%9C%EB%B0%95%EC%9D%B4-%EC%9E%90%EB%8F%99%EC%A0%9C%EC%96%B4) — `AutoBlinkerControl`
+
+##### 출력 장치
 
 - [정차 SPAS 깜박이 시험](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A0%95%EC%B0%A8-SPAS-%EA%B9%9C%EB%B0%95%EC%9D%B4-%EC%8B%9C%ED%97%98) — `CanfdBlinkerTest`
 - [CAN-FD SPAS 깜박이 사용(시험)](https://github.com/ajouatom/openpilot/wiki/KO-CAN-FD-SPAS-%EA%B9%9C%EB%B0%95%EC%9D%B4-%EC%82%AC%EC%9A%A9%28%EC%8B%9C%ED%97%98%29) — `CanfdBlinkerControl`
+- [Panda/SPAS 깜박이 출력](https://github.com/ajouatom/openpilot/wiki/KO-Panda-SPAS-%EA%B9%9C%EB%B0%95%EC%9D%B4-%EC%B6%9C%EB%A0%A5) — `CanfdBlinkerKick`
+- [Panda/SPAS 송신 방식](https://github.com/ajouatom/openpilot/wiki/KO-Panda-SPAS-%EC%86%A1%EC%8B%A0-%EB%B0%A9%EC%8B%9D) — `CanfdBlinkerKickMode`
+
+##### 레버 동작
+
+- [깜빡이 레버로 회전/차선변경 구분 (km/h, 0=끔)](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B9%9C%EB%B9%A1%EC%9D%B4-%EB%A0%88%EB%B2%84%EB%A1%9C-%ED%9A%8C%EC%A0%84-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EA%B5%AC%EB%B6%84-%28km-h%2C-0%3D%EB%81%94%29) — `BlinkerLatchedTurn`
+- [원터치 차선변경 요청 5회 대기](https://github.com/ajouatom/openpilot/wiki/KO-%EC%9B%90%ED%84%B0%EC%B9%98-%EC%B0%A8%EC%84%A0%EB%B3%80%EA%B2%BD-%EC%9A%94%EC%B2%AD-5%ED%9A%8C-%EB%8C%80%EA%B8%B0) — `LaneChangeLeverWait`
+
+#### CANFD·HDA
+
 - [HDP 사용(CCNC)](https://github.com/ajouatom/openpilot/wiki/KO-HDP-%EC%82%AC%EC%9A%A9%28CCNC%29) — `HDPuse`
+- [CCNC 계기판 순정형 표시](https://github.com/ajouatom/openpilot/wiki/KO-CCNC-%EA%B3%84%EA%B8%B0%ED%8C%90-%EC%88%9C%EC%A0%95%ED%98%95-%ED%91%9C%EC%8B%9C) — `CcncClusterDisplay`
+- [CCNC 계기판 신호등 배경](https://github.com/ajouatom/openpilot/wiki/KO-CCNC-%EA%B3%84%EA%B8%B0%ED%8C%90-%EC%8B%A0%ED%98%B8%EB%93%B1-%EB%B0%B0%EA%B2%BD) — `CcncTrafficBackground`
 - [CANFD HDA2지원(0)](https://github.com/ajouatom/openpilot/wiki/KO-CANFD-HDA2%EC%A7%80%EC%9B%90%280%29) — `CanfdHDA2`
 - [계기판 CAN 직접 송신](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B3%84%EA%B8%B0%ED%8C%90-CAN-%EC%A7%81%EC%A0%91-%EC%86%A1%EC%8B%A0) — `HyundaiCanfdClusterDirectTx`
 - [CANFD Debug(0)](https://github.com/ajouatom/openpilot/wiki/KO-CANFD-Debug%280%29) — `CanfdDebug`
@@ -472,18 +489,12 @@ Per-setting pages generated from the current settings catalog.
 ##### Lane Change (Auto Turn)
 
 - [ATC: AutoTurnControl](https://github.com/ajouatom/openpilot/wiki/EN-ATC-AutoTurnControl) — `AutoTurnControl`
-- [Manual lane-change indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Manual-lane-change-indicator-%28trial%29) — `ManualLaneChangeIndicator`
-- [Manual turn indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Manual-turn-indicator-%28trial%29) — `ManualTurnIndicator`
-- [Model desire indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Model-desire-indicator-%28trial%29) — `ModelDesireIndicator`
-- [Model path indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Model-path-indicator-%28trial%29) — `ModelPathIndicator`
 - [Right lane-change distance before a turn (m)](https://github.com/ajouatom/openpilot/wiki/EN-Right-lane-change-distance-before-a-turn-%28m%29) — `AutoTurnControlRightLaneChange`
 - [ATC: Turn Speed(20)](https://github.com/ajouatom/openpilot/wiki/EN-ATC-Turn-Speed%2820%29) — `AutoTurnControlSpeedTurn`
+- [ATC: Curvature-based turn speed](https://github.com/ajouatom/openpilot/wiki/EN-ATC-Curvature-based-turn-speed) — `AutoTurnControlAdaptiveSpeed`
 - [ATC: Speed Ctrl left Time(3)](https://github.com/ajouatom/openpilot/wiki/EN-ATC-Speed-Ctrl-left-Time%283%29) — `AutoTurnControlTurnEnd`
 - [ATC Helper Map display(0)](https://github.com/ajouatom/openpilot/wiki/EN-ATC-Helper-Map-display%280%29) — `AutoTurnMapChange`
 - [LaneChange use steering torque](https://github.com/ajouatom/openpilot/wiki/EN-LaneChange-use-steering-torque) — `LaneChangeNeedTorque`
-- [Automatic turn signals](https://github.com/ajouatom/openpilot/wiki/EN-Automatic-turn-signals) — `AutoBlinkerControl`
-- [Turn-signal lever selects turn / lane change (km/h, 0=off)](https://github.com/ajouatom/openpilot/wiki/EN-Turn-signal-lever-selects-turn-lane-change-%28km-h%2C-0%3Doff%29) — `BlinkerLatchedTurn`
-- [One-touch lane change request waits 5 flashes](https://github.com/ajouatom/openpilot/wiki/EN-One-touch-lane-change-request-waits-5-flashes) — `LaneChangeLeverWait`
 - [LaneChange delayx0.1s(0)](https://github.com/ajouatom/openpilot/wiki/EN-LaneChange-delayx0.1s%280%29) — `LaneChangeDelay`
 - [LaneChange BSD](https://github.com/ajouatom/openpilot/wiki/EN-LaneChange-BSD) — `LaneChangeBsd`
 - [LaneChange LineCheck](https://github.com/ajouatom/openpilot/wiki/EN-LaneChange-LineCheck) — `LaneLineCheck`
@@ -562,6 +573,7 @@ Per-setting pages generated from the current settings catalog.
 - [Model Speed Apply Ratio](https://github.com/ajouatom/openpilot/wiki/EN-Model-Speed-Apply-Ratio) — `ApplyModelSpeed`
 - [AutoCurveSpeed LowerLimit(30)](https://github.com/ajouatom/openpilot/wiki/EN-AutoCurveSpeed-LowerLimit%2830%29) — `AutoCurveSpeedLowerLimit`
 - [TurnSpeedControlMode](https://github.com/ajouatom/openpilot/wiki/EN-TurnSpeedControlMode) — `TurnSpeedControlMode`
+- [Taiwan offline OSM curve preview](https://github.com/ajouatom/openpilot/wiki/EN-Taiwan-offline-OSM-curve-preview) — `OsmCurveSpeedEnabled`
 - [MapTurnSpeedFactor](https://github.com/ajouatom/openpilot/wiki/EN-MapTurnSpeedFactor) — `MapTurnSpeedFactor`
 
 ##### Traffic Light
@@ -635,11 +647,33 @@ Per-setting pages generated from the current settings catalog.
 - [HYUNDAI: CAMERA SCC(0)](https://github.com/ajouatom/openpilot/wiki/EN-HYUNDAI-CAMERA-SCC%280%29) — `HyundaiCameraSCC`
 - [HYUNDAI: LDWS ONLY CAR(0)](https://github.com/ajouatom/openpilot/wiki/EN-HYUNDAI-LDWS-ONLY-CAR%280%29) — `IsLdwsCar`
 
-#### CANFD·HDA
+#### Indicator Control
+
+##### Automatic Indication
+
+- [Manual lane-change indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Manual-lane-change-indicator-%28trial%29) — `ManualLaneChangeIndicator`
+- [Manual turn indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Manual-turn-indicator-%28trial%29) — `ManualTurnIndicator`
+- [Model desire indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Model-desire-indicator-%28trial%29) — `ModelDesireIndicator`
+- [Model path indicator (trial)](https://github.com/ajouatom/openpilot/wiki/EN-Model-path-indicator-%28trial%29) — `ModelPathIndicator`
+- [Automatic turn signals](https://github.com/ajouatom/openpilot/wiki/EN-Automatic-turn-signals) — `AutoBlinkerControl`
+
+##### Output Device
 
 - [Parked SPAS indicator test](https://github.com/ajouatom/openpilot/wiki/EN-Parked-SPAS-indicator-test) — `CanfdBlinkerTest`
 - [CAN-FD SPAS indicators (trial)](https://github.com/ajouatom/openpilot/wiki/EN-CAN-FD-SPAS-indicators-%28trial%29) — `CanfdBlinkerControl`
+- [Panda/SPAS Indicator Output](https://github.com/ajouatom/openpilot/wiki/EN-Panda-SPAS-Indicator-Output) — `CanfdBlinkerKick`
+- [Panda/SPAS Send Mode](https://github.com/ajouatom/openpilot/wiki/EN-Panda-SPAS-Send-Mode) — `CanfdBlinkerKickMode`
+
+##### Lever Behavior
+
+- [Turn-signal lever selects turn / lane change (km/h, 0=off)](https://github.com/ajouatom/openpilot/wiki/EN-Turn-signal-lever-selects-turn-lane-change-%28km-h%2C-0%3Doff%29) — `BlinkerLatchedTurn`
+- [One-touch lane change request waits 5 flashes](https://github.com/ajouatom/openpilot/wiki/EN-One-touch-lane-change-request-waits-5-flashes) — `LaneChangeLeverWait`
+
+#### CANFD·HDA
+
 - [Use HDP(CCNC)](https://github.com/ajouatom/openpilot/wiki/EN-Use-HDP%28CCNC%29) — `HDPuse`
+- [CCNC cluster stock-style display](https://github.com/ajouatom/openpilot/wiki/EN-CCNC-cluster-stock-style-display) — `CcncClusterDisplay`
+- [CCNC cluster traffic-light background](https://github.com/ajouatom/openpilot/wiki/EN-CCNC-cluster-traffic-light-background) — `CcncTrafficBackground`
 - [CANFD HDA2(0)](https://github.com/ajouatom/openpilot/wiki/EN-CANFD-HDA2%280%29) — `CanfdHDA2`
 - [Cluster CAN Direct Send](https://github.com/ajouatom/openpilot/wiki/EN-Cluster-CAN-Direct-Send) — `HyundaiCanfdClusterDirectTx`
 - [CANFD Debug(0)](https://github.com/ajouatom/openpilot/wiki/EN-CANFD-Debug%280%29) — `CanfdDebug`
@@ -849,18 +883,12 @@ Per-setting pages generated from the current settings catalog.
 ##### 变道 (自动转向)
 
 - [ATC: 自动转向控制](https://github.com/ajouatom/openpilot/wiki/ZH-ATC-%E8%87%AA%E5%8A%A8%E8%BD%AC%E5%90%91%E6%8E%A7%E5%88%B6) — `AutoTurnControl`
-- [手动变道转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%89%8B%E5%8A%A8%E5%8F%98%E9%81%93%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ManualLaneChangeIndicator`
-- [手动转弯转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%89%8B%E5%8A%A8%E8%BD%AC%E5%BC%AF%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ManualTurnIndicator`
-- [模型意图转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%A8%A1%E5%9E%8B%E6%84%8F%E5%9B%BE%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ModelDesireIndicator`
-- [模型路径转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%A8%A1%E5%9E%8B%E8%B7%AF%E5%BE%84%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ModelPathIndicator`
 - [右转前自动变道距离(米)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8F%B3%E8%BD%AC%E5%89%8D%E8%87%AA%E5%8A%A8%E5%8F%98%E9%81%93%E8%B7%9D%E7%A6%BB%28%E7%B1%B3%29) — `AutoTurnControlRightLaneChange`
 - [ATC: 转向速度(20)](https://github.com/ajouatom/openpilot/wiki/ZH-ATC-%E8%BD%AC%E5%90%91%E9%80%9F%E5%BA%A6%2820%29) — `AutoTurnControlSpeedTurn`
+- [ATC: 依彎道曲率調速](https://github.com/ajouatom/openpilot/wiki/ZH-ATC-%E4%BE%9D%E5%BD%8E%E9%81%93%E6%9B%B2%E7%8E%87%E8%AA%BF%E9%80%9F) — `AutoTurnControlAdaptiveSpeed`
 - [ATC: 速度控制剩余时间(3)](https://github.com/ajouatom/openpilot/wiki/ZH-ATC-%E9%80%9F%E5%BA%A6%E6%8E%A7%E5%88%B6%E5%89%A9%E4%BD%99%E6%97%B6%E9%97%B4%283%29) — `AutoTurnControlTurnEnd`
 - [ATC 辅助地图显示(0)](https://github.com/ajouatom/openpilot/wiki/ZH-ATC-%E8%BE%85%E5%8A%A9%E5%9C%B0%E5%9B%BE%E6%98%BE%E7%A4%BA%280%29) — `AutoTurnMapChange`
 - [变道使用转向力矩](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8F%98%E9%81%93%E4%BD%BF%E7%94%A8%E8%BD%AC%E5%90%91%E5%8A%9B%E7%9F%A9) — `LaneChangeNeedTorque`
-- [自动转向灯](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%87%AA%E5%8A%A8%E8%BD%AC%E5%90%91%E7%81%AF) — `AutoBlinkerControl`
-- [转向灯拨杆区分转弯/变道 (km/h, 0=关)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%AC%E5%90%91%E7%81%AF%E6%8B%A8%E6%9D%86%E5%8C%BA%E5%88%86%E8%BD%AC%E5%BC%AF-%E5%8F%98%E9%81%93-%28km-h%2C-0%3D%E5%85%B3%29) — `BlinkerLatchedTurn`
-- [单触变道请求等待 5 次闪烁](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8D%95%E8%A7%A6%E5%8F%98%E9%81%93%E8%AF%B7%E6%B1%82%E7%AD%89%E5%BE%85-5-%E6%AC%A1%E9%97%AA%E7%83%81) — `LaneChangeLeverWait`
 - [变道延迟 x0.1s(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8F%98%E9%81%93%E5%BB%B6%E8%BF%9F-x0.1s%280%29) — `LaneChangeDelay`
 - [变道盲点监测 (BSD)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8F%98%E9%81%93%E7%9B%B2%E7%82%B9%E7%9B%91%E6%B5%8B-%28BSD%29) — `LaneChangeBsd`
 - [变道车道判断](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8F%98%E9%81%93%E8%BD%A6%E9%81%93%E5%88%A4%E6%96%AD) — `LaneLineCheck`
@@ -939,6 +967,7 @@ Per-setting pages generated from the current settings catalog.
 - [模型车速应用比例](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%A8%A1%E5%9E%8B%E8%BD%A6%E9%80%9F%E5%BA%94%E7%94%A8%E6%AF%94%E4%BE%8B) — `ApplyModelSpeed`
 - [弯道自动减速下限 (30)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%BC%AF%E9%81%93%E8%87%AA%E5%8A%A8%E5%87%8F%E9%80%9F%E4%B8%8B%E9%99%90-%2830%29) — `AutoCurveSpeedLowerLimit`
 - [转向速度控制模式](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%AC%E5%90%91%E9%80%9F%E5%BA%A6%E6%8E%A7%E5%88%B6%E6%A8%A1%E5%BC%8F) — `TurnSpeedControlMode`
+- [全台離線 OSM 彎道預覽](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%85%A8%E5%8F%B0%E9%9B%A2%E7%B7%9A-OSM-%E5%BD%8E%E9%81%93%E9%A0%90%E8%A6%BD) — `OsmCurveSpeedEnabled`
 - [地图转向速度因子](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%9C%B0%E5%9B%BE%E8%BD%AC%E5%90%91%E9%80%9F%E5%BA%A6%E5%9B%A0%E5%AD%90) — `MapTurnSpeedFactor`
 
 ##### 信号灯
@@ -1012,11 +1041,33 @@ Per-setting pages generated from the current settings catalog.
 - [现代: 摄像头 SCC (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E7%8E%B0%E4%BB%A3-%E6%91%84%E5%83%8F%E5%A4%B4-SCC-%280%29) — `HyundaiCameraSCC`
 - [现代: 仅配备 LDWS 的车辆 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E7%8E%B0%E4%BB%A3-%E4%BB%85%E9%85%8D%E5%A4%87-LDWS-%E7%9A%84%E8%BD%A6%E8%BE%86-%280%29) — `IsLdwsCar`
 
-#### CANFD·HDA
+#### 转向灯控制
+
+##### 自动点亮
+
+- [手动变道转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%89%8B%E5%8A%A8%E5%8F%98%E9%81%93%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ManualLaneChangeIndicator`
+- [手动转弯转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%89%8B%E5%8A%A8%E8%BD%AC%E5%BC%AF%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ManualTurnIndicator`
+- [模型意图转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%A8%A1%E5%9E%8B%E6%84%8F%E5%9B%BE%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ModelDesireIndicator`
+- [模型路径转向灯（试验）](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%A8%A1%E5%9E%8B%E8%B7%AF%E5%BE%84%E8%BD%AC%E5%90%91%E7%81%AF%28%E8%AF%95%E9%AA%8C%29) — `ModelPathIndicator`
+- [自动转向灯](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%87%AA%E5%8A%A8%E8%BD%AC%E5%90%91%E7%81%AF) — `AutoBlinkerControl`
+
+##### 输出设备
 
 - [Parked SPAS indicator test](https://github.com/ajouatom/openpilot/wiki/ZH-Parked-SPAS-indicator-test) — `CanfdBlinkerTest`
 - [CAN-FD SPAS indicators (trial)](https://github.com/ajouatom/openpilot/wiki/ZH-CAN-FD-SPAS-indicators-%28trial%29) — `CanfdBlinkerControl`
+- [Panda/SPAS 转向灯输出](https://github.com/ajouatom/openpilot/wiki/ZH-Panda-SPAS-%E8%BD%AC%E5%90%91%E7%81%AF%E8%BE%93%E5%87%BA) — `CanfdBlinkerKick`
+- [Panda/SPAS 发送方式](https://github.com/ajouatom/openpilot/wiki/ZH-Panda-SPAS-%E5%8F%91%E9%80%81%E6%96%B9%E5%BC%8F) — `CanfdBlinkerKickMode`
+
+##### 拨杆操作
+
+- [转向灯拨杆区分转弯/变道 (km/h, 0=关)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%AC%E5%90%91%E7%81%AF%E6%8B%A8%E6%9D%86%E5%8C%BA%E5%88%86%E8%BD%AC%E5%BC%AF-%E5%8F%98%E9%81%93-%28km-h%2C-0%3D%E5%85%B3%29) — `BlinkerLatchedTurn`
+- [单触变道请求等待 5 次闪烁](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8D%95%E8%A7%A6%E5%8F%98%E9%81%93%E8%AF%B7%E6%B1%82%E7%AD%89%E5%BE%85-5-%E6%AC%A1%E9%97%AA%E7%83%81) — `LaneChangeLeverWait`
+
+#### CANFD·HDA
+
 - [使用 HDP (CCNC)](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%BD%BF%E7%94%A8-HDP-%28CCNC%29) — `HDPuse`
+- [CCNC 仪表原厂式显示](https://github.com/ajouatom/openpilot/wiki/ZH-CCNC-%E4%BB%AA%E8%A1%A8%E5%8E%9F%E5%8E%82%E5%BC%8F%E6%98%BE%E7%A4%BA) — `CcncClusterDisplay`
+- [CCNC 仪表信号灯背景](https://github.com/ajouatom/openpilot/wiki/ZH-CCNC-%E4%BB%AA%E8%A1%A8%E4%BF%A1%E5%8F%B7%E7%81%AF%E8%83%8C%E6%99%AF) — `CcncTrafficBackground`
 - [CANFD HDA2 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-CANFD-HDA2-%280%29) — `CanfdHDA2`
 - [仪表 CAN 直接发送](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%BB%AA%E8%A1%A8-CAN-%E7%9B%B4%E6%8E%A5%E5%8F%91%E9%80%81) — `HyundaiCanfdClusterDirectTx`
 - [CANFD 调试 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-CANFD-%E8%B0%83%E8%AF%95-%280%29) — `CanfdDebug`
@@ -1226,18 +1277,12 @@ Per-setting pages generated from the current settings catalog.
 ##### 變道 (自動轉向)
 
 - [ATC: 自動轉向控制](https://github.com/ajouatom/openpilot/wiki/ZH-TW-ATC-%E8%87%AA%E5%8B%95%E8%BD%89%E5%90%91%E6%8E%A7%E5%88%B6) — `AutoTurnControl`
-- [手動變道轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%89%8B%E5%8B%95%E8%AE%8A%E9%81%93%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ManualLaneChangeIndicator`
-- [手動轉彎轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%89%8B%E5%8B%95%E8%BD%89%E5%BD%8E%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ManualTurnIndicator`
-- [模型意圖轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%A8%A1%E5%9E%8B%E6%84%8F%E5%9C%96%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ModelDesireIndicator`
-- [模型路徑轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%A8%A1%E5%9E%8B%E8%B7%AF%E5%BE%91%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ModelPathIndicator`
 - [右轉前自動變道距離(米)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%8F%B3%E8%BD%89%E5%89%8D%E8%87%AA%E5%8B%95%E8%AE%8A%E9%81%93%E8%B7%9D%E9%9B%A2%28%E7%B1%B3%29) — `AutoTurnControlRightLaneChange`
 - [ATC: 轉向速度(20)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-ATC-%E8%BD%89%E5%90%91%E9%80%9F%E5%BA%A6%2820%29) — `AutoTurnControlSpeedTurn`
+- [ATC: 依彎道曲率調速](https://github.com/ajouatom/openpilot/wiki/ZH-TW-ATC-%E4%BE%9D%E5%BD%8E%E9%81%93%E6%9B%B2%E7%8E%87%E8%AA%BF%E9%80%9F) — `AutoTurnControlAdaptiveSpeed`
 - [ATC: 速度控制剩餘時間(3)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-ATC-%E9%80%9F%E5%BA%A6%E6%8E%A7%E5%88%B6%E5%89%A9%E9%A4%98%E6%99%82%E9%96%93%283%29) — `AutoTurnControlTurnEnd`
 - [ATC 輔助地圖顯示(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-ATC-%E8%BC%94%E5%8A%A9%E5%9C%B0%E5%9C%96%E9%A1%AF%E7%A4%BA%280%29) — `AutoTurnMapChange`
 - [變道使用轉向力矩](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%AE%8A%E9%81%93%E4%BD%BF%E7%94%A8%E8%BD%89%E5%90%91%E5%8A%9B%E7%9F%A9) — `LaneChangeNeedTorque`
-- [自動轉向燈](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%87%AA%E5%8B%95%E8%BD%89%E5%90%91%E7%87%88) — `AutoBlinkerControl`
-- [轉向燈撥杆區分轉彎/變道 (km/h, 0=關)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BD%89%E5%90%91%E7%87%88%E6%92%A5%E6%9D%86%E5%8D%80%E5%88%86%E8%BD%89%E5%BD%8E-%E8%AE%8A%E9%81%93-%28km-h%2C-0%3D%E9%97%9C%29) — `BlinkerLatchedTurn`
-- [單觸變道請求等待 5 次閃爍](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%96%AE%E8%A7%B8%E8%AE%8A%E9%81%93%E8%AB%8B%E6%B1%82%E7%AD%89%E5%BE%85-5-%E6%AC%A1%E9%96%83%E7%88%8D) — `LaneChangeLeverWait`
 - [變道延遲 x0.1s(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%AE%8A%E9%81%93%E5%BB%B6%E9%81%B2-x0.1s%280%29) — `LaneChangeDelay`
 - [變道盲點監測 (BSD)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%AE%8A%E9%81%93%E7%9B%B2%E9%BB%9E%E7%9B%A3%E6%B8%AC-%28BSD%29) — `LaneChangeBsd`
 - [變道車道判斷](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%AE%8A%E9%81%93%E8%BB%8A%E9%81%93%E5%88%A4%E6%96%B7) — `LaneLineCheck`
@@ -1316,6 +1361,7 @@ Per-setting pages generated from the current settings catalog.
 - [模型車速應用比例](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%A8%A1%E5%9E%8B%E8%BB%8A%E9%80%9F%E6%87%89%E7%94%A8%E6%AF%94%E4%BE%8B) — `ApplyModelSpeed`
 - [彎道自動減速下限 (30)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%BD%8E%E9%81%93%E8%87%AA%E5%8B%95%E6%B8%9B%E9%80%9F%E4%B8%8B%E9%99%90-%2830%29) — `AutoCurveSpeedLowerLimit`
 - [轉向速度控制模式](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BD%89%E5%90%91%E9%80%9F%E5%BA%A6%E6%8E%A7%E5%88%B6%E6%A8%A1%E5%BC%8F) — `TurnSpeedControlMode`
+- [全臺離線 OSM 彎道預覽](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%85%A8%E8%87%BA%E9%9B%A2%E7%B7%9A-OSM-%E5%BD%8E%E9%81%93%E9%A0%90%E8%A6%BD) — `OsmCurveSpeedEnabled`
 - [地圖轉向速度因子](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%9C%B0%E5%9C%96%E8%BD%89%E5%90%91%E9%80%9F%E5%BA%A6%E5%9B%A0%E5%AD%90) — `MapTurnSpeedFactor`
 
 ##### 訊號燈
@@ -1389,11 +1435,33 @@ Per-setting pages generated from the current settings catalog.
 - [現代: 攝影機 SCC (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E7%8F%BE%E4%BB%A3-%E6%94%9D%E5%BD%B1%E6%A9%9F-SCC-%280%29) — `HyundaiCameraSCC`
 - [現代: 僅配備 LDWS 的車輛 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E7%8F%BE%E4%BB%A3-%E5%83%85%E9%85%8D%E5%82%99-LDWS-%E7%9A%84%E8%BB%8A%E8%BC%9B-%280%29) — `IsLdwsCar`
 
-#### CANFD·HDA
+#### 轉向燈控制
+
+##### 自動點亮
+
+- [手動變道轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%89%8B%E5%8B%95%E8%AE%8A%E9%81%93%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ManualLaneChangeIndicator`
+- [手動轉彎轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%89%8B%E5%8B%95%E8%BD%89%E5%BD%8E%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ManualTurnIndicator`
+- [模型意圖轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%A8%A1%E5%9E%8B%E6%84%8F%E5%9C%96%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ModelDesireIndicator`
+- [模型路徑轉向燈（試驗）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%A8%A1%E5%9E%8B%E8%B7%AF%E5%BE%91%E8%BD%89%E5%90%91%E7%87%88%28%E8%A9%A6%E9%A9%97%29) — `ModelPathIndicator`
+- [自動轉向燈](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%87%AA%E5%8B%95%E8%BD%89%E5%90%91%E7%87%88) — `AutoBlinkerControl`
+
+##### 輸出裝置
 
 - [Parked SPAS indicator test](https://github.com/ajouatom/openpilot/wiki/ZH-TW-Parked-SPAS-indicator-test) — `CanfdBlinkerTest`
 - [CAN-FD SPAS indicators (trial)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-CAN-FD-SPAS-indicators-%28trial%29) — `CanfdBlinkerControl`
+- [Panda/SPAS 轉向燈輸出](https://github.com/ajouatom/openpilot/wiki/ZH-TW-Panda-SPAS-%E8%BD%89%E5%90%91%E7%87%88%E8%BC%B8%E5%87%BA) — `CanfdBlinkerKick`
+- [Panda/SPAS 傳送方式](https://github.com/ajouatom/openpilot/wiki/ZH-TW-Panda-SPAS-%E5%82%B3%E9%80%81%E6%96%B9%E5%BC%8F) — `CanfdBlinkerKickMode`
+
+##### 撥杆操作
+
+- [轉向燈撥杆區分轉彎/變道 (km/h, 0=關)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BD%89%E5%90%91%E7%87%88%E6%92%A5%E6%9D%86%E5%8D%80%E5%88%86%E8%BD%89%E5%BD%8E-%E8%AE%8A%E9%81%93-%28km-h%2C-0%3D%E9%97%9C%29) — `BlinkerLatchedTurn`
+- [單觸變道請求等待 5 次閃爍](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%96%AE%E8%A7%B8%E8%AE%8A%E9%81%93%E8%AB%8B%E6%B1%82%E7%AD%89%E5%BE%85-5-%E6%AC%A1%E9%96%83%E7%88%8D) — `LaneChangeLeverWait`
+
+#### CANFD·HDA
+
 - [使用 HDP (CCNC)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E4%BD%BF%E7%94%A8-HDP-%28CCNC%29) — `HDPuse`
+- [CCNC 儀表原廠式顯示](https://github.com/ajouatom/openpilot/wiki/ZH-TW-CCNC-%E5%84%80%E8%A1%A8%E5%8E%9F%E5%BB%A0%E5%BC%8F%E9%A1%AF%E7%A4%BA) — `CcncClusterDisplay`
+- [CCNC 儀表訊號燈背景](https://github.com/ajouatom/openpilot/wiki/ZH-TW-CCNC-%E5%84%80%E8%A1%A8%E8%A8%8A%E8%99%9F%E7%87%88%E8%83%8C%E6%99%AF) — `CcncTrafficBackground`
 - [CANFD HDA2 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-CANFD-HDA2-%280%29) — `CanfdHDA2`
 - [儀表 CAN 直接傳送](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%84%80%E8%A1%A8-CAN-%E7%9B%B4%E6%8E%A5%E5%82%B3%E9%80%81) — `HyundaiCanfdClusterDirectTx`
 - [CANFD 除錯 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-CANFD-%E9%99%A4%E9%8C%AF-%280%29) — `CanfdDebug`

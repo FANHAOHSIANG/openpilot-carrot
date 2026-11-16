@@ -1,0 +1,96 @@
+name: Carrot Test CAN FD official sync gate
+on:
+  push:
+    branches:
+      - sync/carrot-wip-official-ecdd0439-to-test-20261111
+      - test/carrot-wip-upstream-20261104
+    paths:
+      - opendbc_repo/opendbc/car/hyundai/**
+      - openpilot/selfdrive/controls/**
+      - openpilot/selfdrive/selfdrived/**
+      - .github/workflows/carrot-test-canfd-official-gate.yaml
+  pull_request:
+    branches:
+      - test/carrot-wip-upstream-20261104
+    paths:
+      - opendbc_repo/opendbc/car/hyundai/**
+      - openpilot/selfdrive/controls/**
+      - openpilot/selfdrive/selfdrived/**
+      - .github/workflows/carrot-test-canfd-official-gate.yaml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate-preservation:
+    name: Pinned official and custom-bridge source tree
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure exact official change and unchanged Test custom blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          check() { test "$(git rev-parse "HEAD:$1")" = "$2" || { echo "Mismatch: $1"; exit 1; }; }
+          check opendbc_repo/opendbc/car/hyundai/hyundaicanfd.py aeaebf3cf5552c1894e3f5817ee84b7d5d47f44c
+          check opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py 81308c66883e59cf0087c0f23c72676e558a5a4d
+          check tools/iphone_led 11232ceba02150870db08c49889cdf6e68d6d11d
+          check openpilot/selfdrive/carrot/iphone_led_bridge.py 425b919eac4fc35440691aff477249c79e0a1313
+          # Reviewed 1104 integration: resident OSM worker and shipped truck observer.
+          # Official comma Connect/C3 updates change process_config legitimately.
+          # Check the integration boundary rather than an obsolete entire-file hash.
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          tree = ast.parse(Path("openpilot/system/manager/process_config.py").read_text())
+          proc = {}
+          for n in ast.walk(tree):
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in ("PythonProcess", "DaemonProcess"):
+              if n.args and isinstance(n.args[0], ast.Constant) and isinstance(n.args[0].value, str):
+                proc[n.args[0].value] = n
+          def kw(name, key):
+            return next((ast.unparse(k.value) for k in proc[name].keywords if k.arg == key), None)
+          led = proc["iphone_led_bridge"]
+          assert ast.literal_eval(led.args[1]) == "openpilot.selfdrive.carrot.iphone_led_bridge"
+          admission = ast.unparse(led.args[2])
+          assert "started" in admission and "os.path.isfile('/data/iphone-led/token')" in admission, admission
+          assert kw("iphone_led_bridge", "enabled") == "TICI"
+          assert kw("iphone_led_bridge", "spawn") == "True"
+          assert kw("iphone_led_bridge", "restart_if_crash") == "True"
+          assert kw("manage_athenad", "enabled") == "comma_connect_enabled()"
+          assert kw("modem", "enabled") == "TICI and HARDWARE.get_device_type() != 'tici'"
+          assert "osmd" in proc and "carrot_navi" in proc and "xiaoge_data" in proc
+          assert kw("osmd", "enabled") == "TICI" and kw("osmd", "spawn") == "True"
+          assert kw("xiaoge_data", "spawn") == "True"
+          print("Validated official C3/comma Connect + Test LED/OSM/process admission boundaries")
+          PY
+          check openpilot/cereal/custom.capnp ab580c4a794a4e5e4690490b3dc2cac8d7ccc0db
+          check openpilot/tools/clearance_shadow 6bcb1b1a99f42ca1223a6c0517fef63b3d323464
+  canfd-safety:
+    name: Native CAN FD/Panda safety and stop-state regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install existing offline validation dependencies
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Build native CAN and Panda safety test hooks (no vehicle I/O)
+        shell: bash
+        run: |
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+          cd opendbc_repo/opendbc/safety
+          gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -I. -Iboard tests/libsafety/safety.c -o tests/libsafety/libsafety.so
+      - name: Run focused Hyundai stopping, SCC, CAN FD safety and controls tests
+        run: |
+          python tools/signal_validation/run.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_casper_fault_reporting.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_alt_buttons.py \
+            openpilot/selfdrive/controls/tests/test_controlsd_publish.py \
+            openpilot/selfdrive/selfdrived/tests/test_vehicle_faults.py

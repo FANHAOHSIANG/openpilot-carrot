@@ -1,5 +1,38 @@
 # 7713 / 7714 내비 감속 적용 비교
 
+## 2026-11-13：1104 高德原始路線整合
+
+`FANHAOHSIANG/openpilot-carrot` 的維護與更新入口固定為
+`test/carrot-wip-upstream-20261104`。App 使用
+[Carrot Bridge main／wide.56](https://github.com/FANHAOHSIANG/copilot-Tw/tree/main/variants/wide56)，
+已包含 wide.55 的 Link 傳送修正；不需要切換高德功能分支。
+
+本次將 7714 `route.polyline` 在 cereal 轉換及 control 解析的上限由 256 點改為 4,096 點。
+兩端均整條保留或整條撤銷：超過上限、座標型別／範圍錯誤或不可讀的幾何，不能截斷後冒充完整路線。
+布林值、NaN、無限值及超大整數不會被當作有效座標。下方 2026-07 的 256 點比較是歷史行為。
+
+App 使用高德所選路線及下一段轉彎，不另行 Mapbox 規劃；7713、速限選擇、減速公式與車輛控制設定不變。
+未核實的道路限速不填入。42 項 focused Python 測試通過；另核對 Java 路線解析與接收器回送、
+4,096 點 cereal 序列化、終點保留及超限撤銷。網卡探索測試因隔離環境限制未執行。
+
+這次是程式碼整合，並非實車導引驗收：wide.56 APK 尚需原簽章，仍缺同時段的手機 Link 原始路線
+與 C4 GPS 對照，不能由投屏成功或離線測試推論 NOO 已可使用。
+## 2026-11-11 test branch: matched route-curve preview
+
+`test/truck-clearance-204f9cca` adds `route_curve.py`: selected 7713/7714/Mapbox
+geometry is matched to fresh position/heading and the near model path before it
+supplies a speed ceiling. Mode 2 no longer depends on the TBT +/-500 m gate;
+mode 3 also requires geometry agreement. Factor and floor apply to the curve
+target before the distance envelope. No-route values are never factor-scaled.
+The original source ownership is unchanged: an external session without a
+polyline does not borrow a saved Mapbox route. Confirmed easing, supported by fresh matched frames spanning 0.2 s,
+releases at up to 7.2 km/h/s. Invalid-data release remains at 3.6 km/h/s after
+a 0.35 s hold; all existing speed selection and driver gas
+policies remain. `rc=` in `szPosRoadName` records admission/exclusion reasons.
+Tests: `test_route_curve.py`, `test_route_curve_integration.py`, `test_curve_speed.py`.
+This describes offline-tested candidate code, not measured vehicle performance.
+
+
 ## 2026-09-27 Jetlink 실험의 7714 연결 보호
 
 `carrot-jetlink`에서는 최초 협상에 성공한 제어 WebSocket이 연결된 동안
@@ -677,3 +710,7 @@ km/h다.
 ## 2026-10-12 carrot-nav 지도 모델 연동
 
 `carrot-nav`에서 기존 7713/7714 TBT·route를 콤마의 새 eGPU Nav 모델 입력에 연결했습니다. 연결된 외부 네비가 지도 경로와 안내를 모두 소유하며, 경로가 없거나 이탈 상태이면 저장된 Mapbox 경로를 섞지 않습니다. 외부 경로 수신은 Mapbox 목적지를 덮어쓰지 않고, 연결 종료 후 Mapbox가 재계산합니다. 기존 과속카메라·구간·회전 감속 계산과 순정 네비 우선순위 규칙은 유지합니다. [통합 설계와 검증 범위](nav_model_integration_20261012.md)를 참고하세요. 이 변경은 carrot-nav 전용이며 다른 브랜치의 동작을 변경한 것으로 해석하지 않습니다.
+
+## 2026-11-11 테스트 브랜치: 목적지 없는 대만 OSM 커브 미리보기
+
+`test/truck-clearance-204f9cca`는 선택된 내비 폴리라인이 없을 때 `OsmCurveSpeedEnabled`와 턴속도 모드 2/3으로 로컬 OSM 도로를 속도 전용 입력에 사용할 수 있습니다. 본섬·펑후·진먼·마쭈 지도는 주차 중 비과금 Wi-Fi에서 자동 다운로드하며, 위치·방향·근거리 비전 일치 및 갈림길 종료 조건을 적용합니다. 7713/7714의 원래 경로 소유권·TBT·SDI는 변경하지 않고, OSM 도로를 `navRoute`로 보내지 않습니다. 외부 세션에 폴리라인이 없더라도 OSM의 독립적인 도로 확인은 가능하며 저장된 Mapbox 경로를 빌려오는 것은 아닙니다. 최종 geometry 소스 이름 `route`를 유지하고 로그 `rc=osm/...`로 구분합니다. [설계·사용·검증](osm_curve_preview_20261111.md).

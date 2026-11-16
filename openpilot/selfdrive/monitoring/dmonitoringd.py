@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import openpilot.cereal.messaging as messaging
 from openpilot.common.params import Params
+from openpilot.common.runtime_diagnostics import InputValidityDiagnostics
+from openpilot.common.swaglog import cloudlog
 from openpilot.common.realtime import config_realtime_process
 from openpilot.selfdrive.monitoring.policy import DriverMonitoring
 
@@ -14,6 +16,7 @@ def dmonitoringd_thread():
 
   DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), always_on=params.get_bool("AlwaysOnDM"))
   demo_mode=False
+  validity = InputValidityDiagnostics("dmonitoringd", cloudlog.event)
 
   # 20Hz <- dmonitoringmodeld
   while True:
@@ -23,6 +26,7 @@ def dmonitoringd_thread():
       continue
 
     valid = sm.all_checks()
+    validity.record(sm, valid, ['driverStateV2', 'liveCalibration', 'carState', 'selfdriveState', 'modelV2'])
     if demo_mode and sm.valid['driverStateV2']:
       DM.run_step(sm, demo=True)
     elif valid:

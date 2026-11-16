@@ -1,0 +1,31 @@
+name: Android LED build
+on:
+  push:
+    branches: [carrot-wip]
+    paths: ['tools/iphone_led/android/**', '.github/workflows/android-led-build.yaml']
+  pull_request:
+    paths: ['tools/iphone_led/android/**', '.github/workflows/android-led-build.yaml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: tools/iphone_led/android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Vehicle rules and protocol regressions
+        run: tools/iphone_led/android/test-core.sh
+      - name: Compile and verify test APK
+        run: tools/iphone_led/android/build-apk.sh

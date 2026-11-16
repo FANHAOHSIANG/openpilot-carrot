@@ -212,3 +212,25 @@ comma-compatible `API_HOST`; none of the desktop tool sources require a
 modification. The web URL itself opens in a browser, while the displayed
 command supplies its `/api` endpoint and the same single-segment or consecutive
 slice to the desktop tool.
+
+## Upload retries and daily quota
+
+Authenticated GET on the upload file URL returns its size and SHA-256. Clients
+compare both before sending and before retrying; identical files consume no new
+quota. PUT with X-File-SHA256 also skips an existing identical file before quota
+reservation and verifies new content before installation. New clients talking to an old receiver can stream an existing public original
+and hash it locally; this costs download traffic but no upload quota. Old clients without a
+checksum retain their original transfer accounting.
+
+Quota exhaustion returns HTTP 413 with code `daily_quota_exceeded`, scope, quota,
+used and reserved bytes. The client stops retries and pending segments in that
+batch. Other permanent 4xx responses are not retried.
+
+New receiver defaults are 10 GiB/device/day and 40 GiB/IP/day; per-file limits
+and minimum free disk checks are unchanged. Existing explicit environment
+settings override the defaults. On the NAS, set the existing service environment
+to `CARROT_DAILY_DEVICE_QUOTA_BYTES=10737418240` and
+`CARROT_DAILY_IP_QUOTA_BYTES=42949672960` to raise the old limits, preserving all
+other ports, mounts, secrets and user settings. Recreate that service and verify
+`/api/v1/health` reports the intended quota and source commit. A vehicle GitPull
+alone does not deploy this receiver or change an explicit NAS quota.

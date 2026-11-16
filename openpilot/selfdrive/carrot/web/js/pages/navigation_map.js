@@ -8,10 +8,10 @@
   const tr = (k, e) => traditional ? (globalThis.CarrotNavigationZhTw[e] || e) : language.startsWith("ko") ? k : e;
   document.documentElement.lang = traditional ? "zh-Hant" : language.startsWith("ko") ? "ko" : "en";
   $("title").textContent = tr("Carrot 내비게이션", "Carrot Navigation");
-  $("searchTitle").textContent = tr("목적지 검색", "Find a destination");
-  $("search").textContent = tr("검색", "Search");
+  $("searchTitle").textContent = "目的地座標 / Destination coordinates";
+  $("search").textContent = "傳送座標 / Send coordinates";
   $("clear").textContent = tr("현재 내비게이션 종료", "End current navigation");
-  $("note").textContent = tr("키 등록 후 목적지를 검색하고 선택하세요. 선택한 위치는 현재 주행 세션에만 사용되며, 주행이 끝나거나 장치가 재시작되면 지워집니다. 경로 지도는 주행 화면이 켜져 있고 현재 위치와 안내 경로가 있을 때 표시됩니다. 외부 내비 안내가 우선이며, 연결이 끝나면 현재 주행의 Mapbox 목적지를 사용합니다.", "After saving your Public key, search for and select a destination. The selected place is used only for the current drive and is cleared when the drive ends or the device restarts. The route map needs the driving screen, a current position and route guidance. External navigation takes priority; the current drive's Mapbox destination resumes after it disconnects.");
+  $("note").textContent = "已停用付費地址搜尋。請輸入緯度、經度並核對位置；地圖與路線仍依用量計費。";
   async function api(path, options) {
     let response, value;
     try {
@@ -29,14 +29,14 @@
   const labels = {
     favoritesTitle: ["즐겨찾기", "Favorites"], addFavorite: ["즐겨찾기 추가", "Add favorite"],
     saveCurrent: ["현재 목적지 저장", "Save current destination"], nameLabel: ["이름", "Name"],
-    addressLabel: ["주소 또는 장소", "Address or place"], favoriteSearch: ["주소 검색", "Search address"],
+    addressLabel: ["위도, 경도", "Latitude, longitude"], favoriteSearch: ["좌표 확인", "Use coordinates"],
     saveFavorite: ["저장", "Save"], cancelFavorite: ["취소", "Cancel"], retryFavorites: ["다시 시도", "Retry"],
   };
   for (const [id, words] of Object.entries(labels)) $(id).textContent = tr(...words);
   $("favoritesNote").textContent = tr("즐겨찾기는 차량에 저장되어 앱과 웹에서 함께 사용합니다. 이름을 누르면 바로 목적지로 설정합니다.", "Favorites are saved on this vehicle and shared by the app and web. Tap a name to navigate.");
-  $("storageNote").textContent = tr("주소 저장 검색은 Mapbox 영구 지오코딩을 사용합니다. 계정에서 지원해야 하며 Mapbox 요금이 적용됩니다. 이름만 수정할 때는 다시 검색하지 않아도 됩니다.", "Saving an address uses Mapbox permanent geocoding. Your account must support it and Mapbox charges apply. Renaming an existing favorite does not require another search.");
+  $("storageNote").textContent = "輸入緯度, 經度即可儲存，不會呼叫付費地址搜尋。";
   function current(value) {
-    currentPlace = value.destination || null;
+    currentPlace = value.destination ? {...value.destination, coordinate_source:"manual"} : null;
     $("current").textContent = currentPlace?.place_name || tr("현재 목적지 없음", "No current destination");
     $("saveCurrent").disabled = !currentPlace;
   }
@@ -63,12 +63,16 @@
     }
   }
   $("form").addEventListener("submit", async (event) => {
-    event.preventDefault(); $("search").disabled = true; $("results").replaceChildren();
-    $("status").textContent = tr("검색 중…", "Searching…");
+    event.preventDefault();
+    const latitude = Number($("latitude").value), longitude = Number($("longitude").value);
+    if (!$("latitude").value.trim() || !$("longitude").value.trim() || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 85.05112878 || Math.abs(longitude) > 180) {
+      $("status").textContent = "請輸入有效緯度與經度。"; return;
+    }
+    if (!window.confirm(`確認目的地座標：緯度 ${latitude}，經度 ${longitude}？`)) return;
+    $("search").disabled = true;
     try {
-      const value = await api(`search?q=${encodeURIComponent($("query").value.trim())}`);
-      renderResults(value.results, $("results"), place => navigate("destination", place));
-      $("status").textContent = value.results.length ? tr("목적지를 선택하세요.", "Select a destination.") : tr("검색 결과 없음", "No results.");
+      current(await api("destination", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({latitude, longitude, place_name:`${latitude}, ${longitude}`})}));
+      $("status").textContent = "已傳送座標，等待目前定位與路線。未呼叫地址搜尋；地圖和路線仍依用量計費。";
     } catch (error) { $("status").textContent = error.message; }
     finally { $("search").disabled = false; }
   });
@@ -81,7 +85,7 @@
   api("destination").then(current).catch((error) => { $("status").textContent = error.message; });
   function renderFavorites(value) {
     savedPlaces = value.favorites; $("favorites").replaceChildren(); $("retryFavorites").hidden = true;
-    $("favoritesStatus").textContent = savedPlaces.length ? "" : tr("즐겨찾기가 없습니다. 주소를 검색하여 추가하세요.", "No favorites yet. Search for an address to add one.");
+    $("favoritesStatus").textContent = savedPlaces.length ? "" : tr("즐겨찾기가 없습니다. 좌표를 입력하여 추가하세요.", "No favorites yet. Enter coordinates to add one.");
     for (const place of savedPlaces) {
       const row = document.createElement("li"); row.className = "favorite-row";
       const go = button(place.name, () => navigate(`favorites/${encodeURIComponent(place.id)}/destination`)); go.className = "go";
@@ -103,11 +107,11 @@
   function syncEditor() { $("saveFavorite").disabled = !editorPlace || searchingEditor || savingEditor; }
   function openEditor(id, place) {
     if (savingEditor) return;
-    editorVersion++; editingId = id; editorPlace = place && (id || place.permanent) ? {...place} : null;
+    editorVersion++; editingId = id; editorPlace = place && (id || place.permanent || place.coordinate_source === "manual") ? {...place} : null;
     $("favoriteForm").hidden = false; $("editorTitle").textContent = id ? tr("즐겨찾기 편집", "Edit favorite") : tr("즐겨찾기 추가", "Add favorite");
     $("favoriteName").value = place?.name || place?.place_name?.slice(0,80) || "";
     $("favoriteQuery").value = place?.place_name || ""; $("favoriteResults").replaceChildren();
-    $("editorStatus").textContent = editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Search the address and select the location to save.");
+    $("editorStatus").textContent = editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Enter latitude, longitude and confirm the coordinates.");
     syncEditor(); $("favoriteName").focus();
   }
   $("addFavorite").addEventListener("click", () => openEditor(null, null));
@@ -120,13 +124,13 @@
     searchingEditor = true; $("favoriteSearch").disabled = true; syncEditor();
     $("editorStatus").textContent = tr("검색 중…", "Searching…");
     try {
-      const value = await api(`search?q=${encodeURIComponent(query)}&permanent=true`);
+      const parts = query.split(",").map(part => part.trim());
+      const latitude = Number(parts[0]), longitude = Number(parts[1]);
+      if (parts.length !== 2 || parts.some(part => !part) || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 85.05112878 || Math.abs(longitude) > 180) throw new Error("請輸入有效的緯度, 經度 / Enter latitude, longitude");
       if (version !== editorVersion) return;
-      renderResults(value.results, $("favoriteResults"), place => {
-        editorPlace = place; $("favoriteQuery").value = place.place_name; $("favoriteResults").replaceChildren();
-        $("editorStatus").textContent = tr("주소를 선택했습니다. 이름을 확인하고 저장하세요.", "Address selected. Check the name and save."); syncEditor();
-      });
-      $("editorStatus").textContent = value.results.length ? tr("목적지를 선택하세요.", "Select a destination.") : tr("검색 결과 없음", "No results.");
+      editorPlace = {latitude, longitude, place_name:query, coordinate_source:"manual"};
+      $("editorStatus").textContent = "座標已確認，請命名並儲存 / Coordinates ready; name and save.";
+      syncEditor();
     } catch (error) { if (version === editorVersion) $("editorStatus").textContent = error.message; }
     finally { searchingEditor = false; $("favoriteSearch").disabled = false; syncEditor(); }
   });
@@ -164,7 +168,7 @@
         const reasons = {
           ready: tr("Nav 모델 지도 · 실시간 경로", "Nav model map · Live route"),
           tiles: tr("지도 데이터를 받지 못했습니다. Mapbox 키와 네트워크를 확인하세요.", "Map data unavailable. Check your Mapbox key and network."),
-          route: tr("아래에서 목적지를 검색·선택하거나 외부 네비의 안내를 시작하세요. 키 등록만으로는 경로 지도가 표시되지 않습니다.", "Search for and select a destination below, or start external navigation guidance. Saving keys alone does not display a route map."),
+          route: tr("아래에서 목적지를 검색·선택하거나 외부 네비의 안내를 시작하세요. 키 등록만으로는 경로 지도가 표시되지 않습니다.", "Enter destination coordinates below, or start external navigation guidance. Saving keys alone does not display a route map."),
           offroad: tr("차량의 주행 화면이 켜지면 경로 지도를 표시합니다. 먼저 아래에서 목적지를 선택하세요.", "The route map is available when the vehicle's driving screen is active. Select a destination below first."),
           waiting: tr("지도 서비스를 기다리는 중입니다. 목적지와 현재 위치를 확인하세요.", "Waiting for the map service. Check your destination and current position."),
           position: tr("현재 GPS 위치를 기다리는 중입니다.", "Waiting for a current GPS position."),

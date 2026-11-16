@@ -300,3 +300,49 @@ Selecting Traditional Chinese (`zh-tw`) loads the 212 per-setting reference page
 ## FormosaLink on carrot-wip
 
 Open Device → FormosaLink (C3X) or Settings → FormosaLink (C4) for independent QR pairing. `FormosaLinkEnabled` defaults on for the background agent; pairing remains required. `FormosaLinkRemoteWeb` is a separate, default-off local grant for the full native Carrot web, including its existing tools and terminal. It requires fresh parked/ignition-off state and closes when permission, ownership or state expires. `FormosaLinkRemoteSettings` does not grant full web access. The portal's Carrot adapter reports health; setting edits use Carrot's own web validation. The Live section provides owner-leased wide-road/driver MJPEG video. Update the device and IIS backend together; see [deployment and limits](../../../formosalink/docs/CARROT_REMOTE.md).
+
+### Share a Google Maps destination to Carrot
+
+Open `/navigation/share` on the same Carrot Web host and port. This imports a
+**destination**, not the Google Maps route or live turn-by-turn session. Carrot
+calculates its own route using its existing navigation setup; the resulting
+route can differ from Google Maps. A working Mapbox key, current position and
+active navigation services are still required. Existing HUD mode 7 displays the
+Carrot route once the map is ready.
+
+After parking, generate a one-use, ten-minute pairing code on C4:
+
+```bash
+cd /data/openpilot
+python3 tools/navigation/pair_google_share.py
+```
+
+Enter that code on the phone's share page. A new code revokes the previous
+pairing. The browser stores the paired credential; the shortcut does not need
+it. Do not share the code or expose Carrot Web directly to the internet.
+
+Paste a Google Maps place link and select **解析地點** (Resolve place). The page
+shows the destination name and coordinates. Select **確認，傳送到 Carrot**
+(Confirm and send) only after checking them. If a link provides only a name,
+open the place in Google Maps and share a link containing its destination coordinates. Camera-center
+coordinates and ambiguous route overviews are not used as the destination.
+Some short links may fail to expand; paste a full place URL with destination coordinates instead. Resolving a link never changes the saved destination automatically.
+
+For an iPhone share-sheet Shortcut:
+
+1. Enable **Show in Share Sheet** and accept URLs/text.
+2. Add **URL Encode** for the Shortcut Input (use the first URL if several are shared).
+3. Add a **Text** action containing your normal Carrot Web base URL followed by
+   `/navigation/share#url=` and the encoded input.
+4. Add **Open URLs** using that text. Name the shortcut “Send to Carrot”.
+
+From Google Maps, share a single place to the shortcut, then resolve and confirm
+it on the Carrot page. Use the same browser and Carrot host/port as during
+pairing. If automatic opening is inconvenient, copying and pasting the share
+link into the same page performs the identical import. The shipped share page
+currently uses Traditional Chinese labels. This does not require reinstalling
+the Mac HUD App and does not import Google's route into the driving model.
+
+## Integrated branch navigation
+
+This integration retains coordinate-only destination entry and disables the address-search endpoint, including permanent geocoding. Google Maps sharing requires a link with usable destination coordinates. Tony favorites remain available: enter latitude, longitude, confirm them, give the place a name and save. Existing favorites can be renamed, deleted or activated without an address search. Direct coordinates retain the Test destination behavior; favorite activation uses the current-drive temporary destination, and selecting direct coordinates clears that temporary destination.

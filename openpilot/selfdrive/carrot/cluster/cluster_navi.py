@@ -218,7 +218,11 @@ def parse_carrot_navi(
                     max(0, _int(speed_item, "secondarySdiSpeedLimitKph"))
                     if bool(_get(speed_item, "secondarySdiPresent")) else None
                 ),
-                section_active=bool(_get(speed_item, "sectionActive", False)),
+                section_active=(
+                    bool(_get(speed_item, "sectionActive", False))
+                    and not bool(_get(speed_item, "sectionSuspended", False))
+                    and not bool(_get(speed_item, "sectionOffRoute", False))
+                ),
                 section_speed_limit_kph=(
                     max(0, _int(speed_item, "sectionSpeedLimitKph")) if bool(_get(speed_item, "sectionPresent")) else None
                 ),
@@ -263,6 +267,11 @@ def parse_carrot_navi(
                 right_on=bool(_get(traffic_item, "rightOn")) if bool(_get(traffic_item, "rightValid")) else None,
                 uturn_on=bool(_get(traffic_item, "uturnOn")) if bool(_get(traffic_item, "uturnValid")) else None,
                 meta=traffic_meta,
+                counter_s=(
+                    _int(traffic_item, "uiCounterRemainSec")
+                    if bool(_get(traffic_item, "uiCounterValid")) else None
+                ),
+                source=_text(traffic_item, "source"),
             )
 
     crossroad_item = _get(data, "crossroad")

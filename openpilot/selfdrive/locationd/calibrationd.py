@@ -274,7 +274,10 @@ def main() -> NoReturn:
     timeout = 0 if sm.frame == -1 else 100
     sm.update(timeout)
 
-    if sm.updated['cameraOdometry']:
+    # Never feed an invalid camera pose into the persistent calibration estimate.
+    # Keep the original sm.all_checks() publish validity below: a missing or
+    # dropped frame must still propagate through the safety-critical gates.
+    if sm.updated['cameraOdometry'] and sm.valid['cameraOdometry'] and sm.valid['carState']:
       calibrator.handle_v_ego(sm['carState'].vEgo)
 
       yaw_trim_deg = params_reader.get_float("CameraYawTrimDeg") * 0.01

@@ -41,3 +41,25 @@ def test_future_fix_and_unknown_heading():
   assert gps.select(10)[1].heading is None
   gps.put('phone', 37, 127, -1, 0, 10)
   assert gps.select(10)[1].heading is None
+
+
+def test_osm_device_preview_keeps_original_timestamp_and_navigation_owner():
+  gps = GPSSources()
+  gps.put('phone', 25.1, 121.1, 180., 20., 10.)
+  gps.put('device', 25., 121., 90., 20., 10.)
+  fix = gps.device_preview(10.5, 20.)
+  assert fix.stamp == 10. and fix.latitude == pytest.approx(25.)
+  assert fix.longitude > 121. and fix.heading == 90.
+  assert gps.select(10.5)[0] == 'phone'
+  assert gps.fixes['device'].longitude == 121.
+  gps.remove('device')
+  assert gps.device_preview(10.5, 20.) is None
+
+
+@pytest.mark.parametrize('now,speed,heading', [(9., 20., 90.), (11.51, 20., 90.), (10., math.nan, 90.),
+                                             (10., 91., 90.), (10., 20., None)])
+def test_osm_preview_rejects_invalid_or_expired_fix(now, speed, heading):
+  gps = GPSSources()
+  gps.put('device', 25., 121., heading, 20., 10.)
+  gps.put('phone', 25., 121., 90., 20., 10.)
+  assert gps.device_preview(now, speed) is None

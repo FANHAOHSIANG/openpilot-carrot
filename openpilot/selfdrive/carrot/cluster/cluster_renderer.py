@@ -10,6 +10,7 @@ import json  # EV6 HUD patch v17
 import math
 import threading  # EV6 HUD patch v17
 import os
+import re
 import time
 import zlib
 from pathlib import Path
@@ -27,7 +28,10 @@ from cluster_gles_dmabuf import DirectNv12DmabufError, create_tici_nv12_dmabuf_p
 from cluster_gles_readback import DirectNv12ReadbackError, create_tici_direct_readback
 from cluster_display import (
     CLUSTER_LANGUAGE_KO,
+    CLUSTER_LANGUAGE_ZH_TW,
     cluster_text,
+    localize_hud_text,
+    HUD_ZH_LABELS,
     display_speed,
     format_navi_distance,
     format_radar_distance,
@@ -1242,6 +1246,8 @@ class ClusterUiRenderer:
         self._owns_font = False
         self._korean_font = None
         self._owns_korean_font = False
+        self._cjk_fonts = {}
+        self._known_font_codepoints = frozenset(self._navi_font_codepoints())
         self._capture_target = None
         self._trip_report_target = None
         self._trip_report_cache_key: tuple[object, ...] | None = None
@@ -1294,6 +1300,7 @@ class ClusterUiRenderer:
         self._navi_guidance_hash = ""
         self._navi_guidance_size: tuple[int, int] | None = None
         self._navi_media_textures: dict[str, CachedNaviMediaTexture] = {}
+        self._summary_green_phase: tuple[str, float] | None = None
         self._navi_yuv_shader = None
         self._navi_yuv_shader_locations: dict[str, int] = {}
         self._navi_external_shader = None
@@ -1669,6 +1676,9 @@ class ClusterUiRenderer:
             rl.unload_shader(self._navi_yuv_shader)
             self._navi_yuv_shader = None
             self._navi_yuv_shader_locations = {}
+        for font in self._cjk_fonts.values():
+            rl.unload_font(font)
+        self._cjk_fonts.clear()
         if self._owns_font and self._font is not None:
             rl.unload_font(self._font)
         if self._owns_korean_font and self._korean_font is not None:
@@ -2081,15 +2091,19 @@ class ClusterUiRenderer:
         # EV6 HUD patch v17: [icon] 18°  맑음 / 최고 21°  최저 12°  ● 미세먼지 좋음
         self._ev6_draw_weather_icon(weather["kind"], 100, 272, 62, dark)
         text(f"{weather['temp']:.0f}°", 150, 272, 52, "text")
-        text(weather["label"], 262, 276, 30, "text")
+        weather_label = weather["label"]
+        if self.language == CLUSTER_LANGUAGE_ZH_TW:
+            weather_label = {"맑음": "晴朗", "구름조금": "晴時多雲", "안개": "霧", "눈": "下雪", "비": "下雨", "뇌우": "雷雨", "흐림": "陰天"}.get(weather_label, weather_label)
+        text(weather_label, 262, 276, 30, "text")
         line = []
         if weather.get("max") is not None and weather.get("min") is not None:
-            line.append(f"최고 {weather['max']:.0f}°  최저 {weather['min']:.0f}°")
+            line.append(f"最高 {weather['max']:.0f}°  最低 {weather['min']:.0f}°" if self.language == CLUSTER_LANGUAGE_ZH_TW else f"최고 {weather['max']:.0f}°  최저 {weather['min']:.0f}°")
         text("  ".join(line), 70, 330, 22, "muted")
         if weather.get("dust") is not None:
             label, color = EV6_DUST_GRADES[weather["dust"]]
             rl.draw_circle(262, 330, 7, rl_color(color))
-            text(f"미세먼지 {label}", 278, 330, 22, "muted")
+            dust_text = f"空氣品質 { ('良好', '普通', '不佳', '很差')[weather['dust']] }" if self.language == CLUSTER_LANGUAGE_ZH_TW else f"미세먼지 {label}"
+            text(dust_text, 278, 330, 22, "muted")
 
     @staticmethod
     def _ev6_draw_weather_icon(kind: str, cx: float, cy: float, s: float, dark: bool) -> None:
@@ -2136,8 +2150,10 @@ class ClusterUiRenderer:
         text(f"{int(level)}%", x + w + 16, cy, 34, "text")
 
     @staticmethod
-    def _ev6_park_duration_text(seconds: float, korean: bool = True) -> str:
+    def _ev6_park_duration_text(seconds: float, korean: bool = True, traditional_chinese: bool = False) -> str:
         minutes = int(round(max(0.0, seconds) / 60.0))
+        if traditional_chinese:
+            return f"{minutes // 60}時 {minutes % 60:02d}分" if minutes >= 60 else f"{minutes}分"
         if korean:
             return f"{minutes // 60}시간 {minutes % 60:02d}분" if minutes >= 60 else f"{minutes}분"
         return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
@@ -2160,6 +2176,8 @@ class ClusterUiRenderer:
             now = time.localtime()
             if self.language == CLUSTER_LANGUAGE_KO:
                 date_text = f"{now.tm_mon}월 {now.tm_mday}일 {EV6_PARK_WEEKDAYS_KO[now.tm_wday]}요일"
+            elif self.language == CLUSTER_LANGUAGE_ZH_TW:
+                date_text = f"{now.tm_mon}月{now.tm_mday}日 星期{'一二三四五六日'[now.tm_wday]}"
             else:
                 date_text = time.strftime("%a, %b %d", now)
             text(date_text, 70, 92, 34, "muted")
@@ -2170,7 +2188,7 @@ class ClusterUiRenderer:
                 self._ev6_draw_weather(weather, colors, theme.is_dark, text)
                 gear_y = 400
             text("P", 70, gear_y, 64, "accent")
-            text("주차" if self.language == CLUSTER_LANGUAGE_KO else "Park", 130, gear_y + 4, 30, "muted")
+            text("주차" if self.language == CLUSTER_LANGUAGE_KO else "停車" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Park", 130, gear_y + 4, 30, "muted")
             # Use the existing vehicle decoder, never infer EV6 CAN layout from the fallback picture.
             soc = state.fuel_gauge if state.energy_gauge_label == "battery" else None
             if soc is not None:
@@ -2198,18 +2216,18 @@ class ClusterUiRenderer:
             for key, dx, dy in (("fl", -70, -34), ("fr", 70, -34), ("rl", -70, 34), ("rr", 70, 34)):
                 value = getattr(tpms, key, None) if tpms is not None else None
                 text("--" if value is None or value <= 0 else f"{value:.0f}", cx + dx, cy + dy, 30, "text", "center")
-            text("공기압 (psi)" if korean else "Tyres (psi)", cx, cy + 86, 22, "muted", "center")
+            text("공기압 (psi)" if korean else "胎壓 (psi)" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Tyres (psi)", cx, cy + 86, 22, "muted", "center")
 
             # right: this trip
             trip = getattr(state, "trip_report", None)
             x0, x1 = 1420, 1860
-            text("이번 주행" if korean else "This trip", x0, 70, 30, "muted")
+            text("이번 주행" if korean else "本次行程" if self.language == CLUSTER_LANGUAGE_ZH_TW else "This trip", x0, 70, 30, "muted")
             rows = (
-                ("거리" if korean else "Distance", format_trip_distance(trip.distance_m, self.is_metric) if trip else "--"),
-                ("시간" if korean else "Time", self._ev6_park_duration_text(trip.duration_s, korean) if trip else "--"),
-                ("평균" if korean else "Average",
+                ("거리" if korean else "距離" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Distance", format_trip_distance(trip.distance_m, self.is_metric) if trip else "--"),
+                ("시간" if korean else "時間" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Time", self._ev6_park_duration_text(trip.duration_s, korean, self.language == CLUSTER_LANGUAGE_ZH_TW) if trip else "--"),
+                ("평균" if korean else "平均" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Average",
                  f"{display_speed(trip.average_speed_kph, self.is_metric):.1f} {speed_unit(self.is_metric)}" if trip else "--"),
-                ("자동주행" if korean else "Automatic", f"{trip.auto_ratio_percent:.0f} %" if trip else "--"),
+                ("자동주행" if korean else "輔助駕駛" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Automatic", f"{trip.auto_ratio_percent:.0f} %" if trip else "--"),
             )
             for i, (label, value) in enumerate(rows):
                 y = 135 + i * 78
@@ -2219,6 +2237,7 @@ class ClusterUiRenderer:
                     rl.draw_line_ex(rl.Vector2(x0, y + 39), rl.Vector2(x1, y + 39), 2, rl_color(colors["line"]))
             if trip:
                 summary = (f"급가속 {trip.hard_accel_count} · 급감속 {trip.hard_brake_count} · 급코너 {trip.hard_corner_count}" if korean
+                           else f"急加速 {trip.hard_accel_count} · 急煞車 {trip.hard_brake_count} · 急轉彎 {trip.hard_corner_count}" if self.language == CLUSTER_LANGUAGE_ZH_TW
                            else f"Hard accel {trip.hard_accel_count} · brake {trip.hard_brake_count} · corner {trip.hard_corner_count}")
                 text(summary, x0, 445, 24, "muted")
         finally:
@@ -2414,27 +2433,29 @@ class ClusterUiRenderer:
                 text(label, x, y, 24, "muted", "center")
             korean = self.language == CLUSTER_LANGUAGE_KO
             text("R", 70, 150, 140, "text")
-            text("후진" if korean else "Reverse", 190, 180, 34, "muted")
+            text("후진" if korean else "倒車" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Reverse", 190, 180, 34, "muted")
             speed = display_speed(abs(state.speed_kph), self.is_metric)
             text(f"{speed:.0f}", 70, 330, 84, "text")
             text(speed_unit(self.is_metric), 150 if speed < 9.5 else 190, 350, 30, "muted")
 
             x0, x1 = 1500, 1860
             if abs(steering_deg) < 5.0:
-                steer_text = "가운데" if korean else "Centre"
+                steer_text = "가운데" if korean else "置中" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Centre"
+            elif self.language == CLUSTER_LANGUAGE_ZH_TW:
+                steer_text = f"{'左' if steering_deg > 0 else '右'} {abs(steering_deg):.0f}°"
             elif korean:
                 steer_text = f"{'왼쪽' if steering_deg > 0 else '오른쪽'} {abs(steering_deg):.0f}°"
             else:
                 steer_text = f"{'Left' if steering_deg > 0 else 'Right'} {abs(steering_deg):.0f}°"
-            text("핸들" if korean else "Wheel", x0, 110, 28, "muted")
+            text("핸들" if korean else "方向盤" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Wheel", x0, 110, 28, "muted")
             text(steer_text, x1, 110, 40, "text", "right")
             rl.draw_line_ex(rl.Vector2(x0, 150), rl.Vector2(x1, 150), 2, rl_color(colors["line"]))
-            text("후측방" if korean else "Blind spot", x0, 200, 28, "muted")
-            for i, (label, active) in enumerate((("좌" if korean else "L", left_bsd), ("우" if korean else "R", right_bsd))):
+            text("후측방" if korean else "盲點" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Blind spot", x0, 200, 28, "muted")
+            for i, (label, active) in enumerate((("좌" if korean else "左" if self.language == CLUSTER_LANGUAGE_ZH_TW else "L", left_bsd), ("우" if korean else "右" if self.language == CLUSTER_LANGUAGE_ZH_TW else "R", right_bsd))):
                 cx = 1700 + i * 130
                 rl.draw_circle(cx, 200, 14, rl_color(warn if active else colors["line"]))
                 text(label, cx + 26, 200, 28, "text" if active else "muted")
-            text("후방 카메라와 주변을 함께 확인하세요" if korean else "Check the rear camera and surroundings",
+            text("후방 카메라와 주변을 함께 확인하세요" if korean else "請同時確認後方影像及周圍環境" if self.language == CLUSTER_LANGUAGE_ZH_TW else "Check the rear camera and surroundings",
                  x0, 420, 24, "muted")
         finally:
             rl.rl_pop_matrix()
@@ -3785,6 +3806,10 @@ class ClusterUiRenderer:
         return (
             *range(0x20, 0x0250),
             *range(0x2000, 0x2070),
+            *sorted({ord(char) for char in '駕駛資訊行程摘要時間距離平均速度最高速度輔助駕駛最大加速最大減速急加速急煞車急轉彎系統裝置安裝角度節能安全一般運動導航下一個區間平均路線已連線等待連線偏離路線openpilot 無法使用等待啟動請立即接手駕駛系統無回應請重新啟動裝置停車胎壓 (psi)本次行程距離時間平均輔助駕駛倒車置中方向盤盲點左右請同時確認後方影像及周圍環境月日星期一二三四五六時分左右急加速煞車轉彎' if ord(char) > 0x2070}),
+            *map(ord, "晴朗時多雲霧下雪雨雷陰天最高低空氣品質良好普通不佳很差"),
+            *sorted({ord(c) for value in HUD_ZH_LABELS.values() for c in value}),
+            *map(ord, "檢查更新可號誌候選前次辨識即時等待資料："),
             0x20A9,
             *range(0x3131, 0x3190),
             *range(0xAC00, 0xD7A4),
@@ -5030,11 +5055,16 @@ class ClusterUiRenderer:
         rl.rl_push_matrix()
         rl.rl_scalef(sx, sy, 1.0)
         self._profile_add("hud.push_scale", profile_stage)
+        screen_mode = self._effective_screen_mode(state)
         try:
-            screen_mode = self._effective_screen_mode(state)
             if screen_mode == CLUSTER_SCREEN_MODE_NAV_MODEL:
                 self._draw_driving_hud_content(state, screen_mode, left_signal_lit, right_signal_lit)
-                self._draw_nav_model_map()
+                if (getattr(state, "navi_live", None) is not None
+                        or getattr(state, "external_nav_active", False)
+                        or self._navi_map_frame_present(getattr(state, "navi_dashboard", None))):
+                    self._draw_mode7_map_card(state)
+                else:
+                    self._draw_nav_model_map()
                 self._draw_status_footer(state)
                 return
             if screen_mode == CLUSTER_SCREEN_MODE_NAVI:
@@ -5123,7 +5153,10 @@ class ClusterUiRenderer:
             )
         finally:
             profile_stage = self._profile_start()
-            rl.rl_pop_matrix()
+            try:
+                self._draw_navi_summary_alerts(state, screen_mode)
+            finally:
+                rl.rl_pop_matrix()
             self._profile_add("hud.pop_matrix", profile_stage)
 
     def _draw_alert_overlay(self, alert: ClusterAlert | None) -> None:
@@ -5257,7 +5290,8 @@ class ClusterUiRenderer:
             if (
                 traffic_frame is not None
                 and not traffic_drawn_in_map
-                and screen_mode != CLUSTER_SCREEN_MODE_TRIP_REPORT
+                and self._summary_signal(state.navi_live, time.monotonic()) is None
+                and screen_mode not in (CLUSTER_SCREEN_MODE_TRIP_REPORT, CLUSTER_SCREEN_MODE_DEBUG_SYSTEM)
             ):
                 profile_stage = self._profile_start()
                 traffic_panel_right = self._traffic_panel_right(screen_mode)
@@ -5622,6 +5656,58 @@ class ClusterUiRenderer:
         label_y = clamp(latest.y + (24.0 if series_index > 0 else 0.0), plot_y + 12.0, plot_y + plot_h - 12.0)
         self._draw_text(label, label_x, label_y, label_size, color, anchor="right")
 
+    def _draw_mode7_map_card(self, state: ClusterUiState) -> None:
+        theme = self._current_theme()
+        x = self._information_panel_x(NAVI_LIVE_PANEL_X) + 12.0
+        width = NAVI_LIVE_PANEL_W - 24.0
+        self._rounded_rect(x, 12.0, width, DESIGN_HEIGHT - 30.0, 14.0,
+                           theme.panel_bg, theme.faint, 2.0)
+        navi = state.navi_live
+        if navi is not None and navi.status is not None and navi.status.off_route:
+            navi = None
+        guidance = navi.current if navi is not None else None
+        map_rect = rl.Rectangle(x + 16.0, 94.0, width - 32.0, DESIGN_HEIGHT - 132.0)
+        title = self._draw_navigation_map_content(state.navi_live, state.navi_dashboard, map_rect)
+        self._draw_text(title, x + 20.0, 22.0, 18.0, BLUE_SOFT)
+        if guidance is not None:
+            wording = self._readable_navi_text(guidance.main_text, guidance.road_name, guidance.near_direction)
+            self._draw_text(self._ellipsize_text(wording, 24.0, width - 240.0),
+                            x + 20.0, 51.0, 24.0, theme.text)
+            self._draw_text(self._format_navi_distance(guidance.distance_m),
+                            x + width - 22.0, 58.0, 30.0, theme.text, anchor="right")
+
+
+    def _draw_navigation_map_content(self, navi, dashboard, rect) -> str:
+        theme = self._current_theme()
+        traditional = self.language == CLUSTER_LANGUAGE_ZH_TW
+        off_route = navi is not None and navi.status is not None and navi.status.off_route
+        if off_route:
+            navi = None
+        rl.draw_rectangle_rec(rect, rl_color((9, 13, 18)))
+        if not off_route and dashboard is not None and dashboard.connected and not dashboard.map_stream_stalled:
+            frame = next((item for item in dashboard.media
+                          if item.key == "render:map_main" and item.present), None)
+            if frame is not None and self._draw_navi_media(frame, rect, cover=False):
+                return "即時地圖" if traditional else "LIVE MAP"
+        if navi is not None and navi.route is not None and len(navi.route.polyline) >= 2:
+            self._draw_navi_route_fallback(navi, rect)
+            return "導航路線" if traditional else "NAV ROUTE"
+
+        center_x = rect.x + rect.width * 0.5
+        guidance = navi.current if navi is not None else None
+        if guidance is not None:
+            self._draw_navi_turn_icon(guidance.turn_type, center_x, rect.y + rect.height * 0.40, 104.0)
+            prompt = self._format_navi_distance(guidance.distance_m)
+            self._draw_text(prompt, center_x, rect.y + rect.height * 0.64, 46.0, theme.text, anchor="center")
+            message = "只收到轉彎指引" if traditional else "TURN GUIDANCE ONLY"
+            message_y = rect.y + rect.height * 0.85
+        else:
+            message = "等待導航資料" if traditional else "WAITING FOR NAVIGATION"
+            message_y = rect.y + rect.height * 0.5
+        self._draw_text(message, center_x, message_y, 24.0, theme.muted, anchor="center")
+        return "導航指引" if traditional else "GUIDANCE"
+
+
     def _draw_navi_dashboard(self, state: ClusterUiState) -> None:
         theme = self._current_theme()
         dashboard = state.navi_dashboard
@@ -5649,16 +5735,19 @@ class ClusterUiRenderer:
 
         media = {frame.key: frame for frame in dashboard.media} if dashboard is not None else {}
         map_rect = rl.Rectangle(NAVI_MODE_MAP_X, 0.0, NAVI_MODE_MAP_W, DESIGN_HEIGHT)
-        map_frame = media.get("render:map_main")
-        rl.draw_rectangle_rec(map_rect, rl_color(NAVI_MAP_BACKGROUND))
-        if not self._draw_navi_media(map_frame, map_rect, cover=False):
-            self._draw_navi_route_fallback(navi, map_rect)
-        if dashboard is not None and dashboard.map_stream_stalled:
-            self._draw_navi_map_stalled(map_rect, dashboard.map_frame_age_ms)
+        self._draw_navigation_map_content(navi, dashboard, map_rect)
 
-        self._draw_navi_map_media(media)
+        self._draw_navi_map_media(media, navi)
         self._draw_navi_left_band(state, navi, media)
         self._draw_navi_right_band(navi, dashboard, media)
+
+    @staticmethod
+    def _readable_navi_text(*values: str) -> str:
+        for value in values:
+            if value and not re.search(r"[?？]{2,}|\ufffd", value):
+                return value
+        return ""
+
 
     def _draw_navi_left_band(
         self,
@@ -5678,7 +5767,7 @@ class ClusterUiRenderer:
         if current is not None and not (drew_full or drew_compact):
             self._draw_navi_turn_icon(current.turn_type, 72.0, 78.0, 92.0)
             self._draw_text(self._format_navi_distance(current.distance_m), 136.0, 30.0, 42.0, theme.text)
-            current_text = current.main_text or current.road_name or current.near_direction
+            current_text = self._readable_navi_text(current.main_text, current.road_name, current.near_direction)
             self._draw_text(
                 self._ellipsize_text(current_text, 26.0, 350.0),
                 136.0,
@@ -5702,7 +5791,7 @@ class ClusterUiRenderer:
         road_name = ""
         if navi is not None:
             if navi.vehicle is not None:
-                road_name = navi.vehicle.road_name
+                road_name = self._readable_navi_text(navi.vehicle.road_name)
             if road_limit is None and navi.speed is not None:
                 road_limit = navi.speed.road_limit_kph
         self._draw_text(f"{displayed_speed:.0f}", 32.0, 284.0, 82.0, theme.text)
@@ -5733,7 +5822,7 @@ class ClusterUiRenderer:
                 route_text += f"  {max(1, round(route.remaining_time_s / 60.0))} min"
             self._draw_text(route_text, 20.0, 431.0, 24.0, BLUE_SOFT)
 
-    def _draw_navi_map_media(self, media: dict[str, NaviMediaFrame]) -> None:
+    def _draw_navi_map_media(self, media: dict[str, NaviMediaFrame], navi: NaviLiveState | None = None) -> None:
         expanded = media.get("image:crossroad_expanded")
         minimized = media.get("image:crossroad_minimized")
         if expanded is not None and expanded.present:
@@ -5748,10 +5837,11 @@ class ClusterUiRenderer:
             media.get("image:lane_bottom"),
             rl.Rectangle(NAVI_MODE_MAP_X + 80.0, 298.0, NAVI_MODE_MAP_W - 160.0, 174.0),
         )
-        self._draw_navi_media(
-            media.get("image:traffic_signal"),
-            rl.Rectangle(NAVI_MODE_MAP_X + 16.0, 18.0, 230.0, 98.0),
-        )
+        if self._summary_signal(navi, time.monotonic()) is None:
+            self._draw_navi_media(
+                media.get("image:traffic_signal"),
+                rl.Rectangle(NAVI_MODE_MAP_X + 16.0, 18.0, 230.0, 98.0),
+            )
 
         center_x = NAVI_MODE_MAP_X + NAVI_MODE_MAP_W * 0.5
         self._draw_navi_media(
@@ -5780,7 +5870,7 @@ class ClusterUiRenderer:
         next_guidance = navi.next if navi is not None else None
         self._draw_text(self._text("navigation"), x, 14.0, 16.0, theme.muted)
         if current is not None:
-            current_text = current.main_text or current.road_name or current.near_direction
+            current_text = self._readable_navi_text(current.main_text, current.road_name, current.near_direction)
             self._draw_text(
                 self._ellipsize_text(current_text, 27.0, width - 120.0),
                 x,
@@ -5797,7 +5887,7 @@ class ClusterUiRenderer:
                 anchor="right",
             )
         if next_guidance is not None:
-            next_text = next_guidance.main_text or next_guidance.road_name or next_guidance.near_direction
+            next_text = self._readable_navi_text(next_guidance.main_text, next_guidance.road_name, next_guidance.near_direction)
             next_line = f"{self._text('next')} {self._format_navi_distance(next_guidance.distance_m)}  {next_text}"
             self._draw_text(self._ellipsize_text(next_line, 18.0, width), x, 82.0, 18.0, theme.muted)
 
@@ -5890,35 +5980,94 @@ class ClusterUiRenderer:
         if dashboard.error:
             self._draw_text(self._ellipsize_text(dashboard.error, 13.0, width), x, 436.0, 13.0, RED)
 
+    @staticmethod
+    def _local_route_preview(points, vehicle):
+        """Return heading-up geometry near the vehicle, or a distant overview."""
+        lat, lon = points[0]
+        east_scale = 111320.0 * max(0.01, math.cos(math.radians(lat)))
+
+        def meters(point):
+            return (point[1] - lon) * east_scale, (point[0] - lat) * 111320.0
+
+        xy = tuple(meters(point) for point in points)
+        if vehicle is None or not all(math.isfinite(v) for v in (vehicle.latitude, vehicle.longitude)):
+            return xy, None
+        car_x, car_y = meters((vehicle.latitude, vehicle.longitude))
+        heading = vehicle.heading_deg
+        bearing = math.radians(heading) if math.isfinite(heading) and 0 <= heading < 360 else None
+        best = None
+        for i, ((ax, ay), (bx, by)) in enumerate(zip(xy, xy[1:])):
+            dx, dy = bx - ax, by - ay
+            length = math.hypot(dx, dy)
+            if length < 0.5:
+                continue
+            if bearing is not None and (dx * math.sin(bearing) + dy * math.cos(bearing)) / length < 0:
+                continue
+            fraction = min(1.0, max(0.0, ((car_x - ax) * dx + (car_y - ay) * dy) / length**2))
+            px, py = ax + fraction * dx, ay + fraction * dy
+            distance = math.hypot(px - car_x, py - car_y)
+            if best is None or distance < best[0]:
+                best = distance, i, px, py, dx / length, dy / length
+        if best is None or best[0] > 65.0:
+            return xy, None
+
+        _, segment, px, py, forward_x, forward_y = best
+        if bearing is not None:
+            forward_x, forward_y = math.sin(bearing), math.cos(bearing)
+        ahead = [(px, py)]
+        remaining = 1800.0
+        for bx, by in xy[segment + 1:]:
+            ax, ay = ahead[-1]
+            length = math.hypot(bx - ax, by - ay)
+            if length > remaining:
+                ahead.append((ax + (bx - ax) * remaining / length, ay + (by - ay) * remaining / length))
+                break
+            ahead.append((bx, by))
+            remaining -= length
+        return tuple(((x - car_x) * forward_y - (y - car_y) * forward_x,
+                      (x - car_x) * forward_x + (y - car_y) * forward_y) for x, y in ahead), (0.0, 0.0)
+
+
     def _draw_navi_route_fallback(self, navi: NaviLiveState | None, rect: rl.Rectangle) -> None:
         theme = self._current_theme()
         rl.draw_rectangle_rec(rect, rl_color((9, 13, 18)))
-        route = navi.route if navi is not None else None
+        off_route = navi is not None and navi.status is not None and navi.status.off_route
+        route = navi.route if navi is not None and not off_route else None
         points = route.polyline if route is not None else ()
-        if len(points) >= 2:
-            latitudes = [point[0] for point in points]
-            longitudes = [point[1] for point in points]
-            min_lat, max_lat = min(latitudes), max(latitudes)
-            min_lon, max_lon = min(longitudes), max(longitudes)
-            lat_span = max(0.00001, max_lat - min_lat)
-            lon_span = max(0.00001, max_lon - min_lon)
+        traditional = self.language == CLUSTER_LANGUAGE_ZH_TW
+        if len(points) < 2:
+            self._draw_text("等待地圖或路線" if traditional else "WAITING FOR MAP OR ROUTE",
+                            rect.x + rect.width * 0.5, rect.y + rect.height * 0.5,
+                            18.0, theme.muted, anchor="center")
+            return
+        geometry, vehicle = self._local_route_preview(points, navi.vehicle)
+        bounds = (*geometry, vehicle) if vehicle is not None else geometry
+        xs, ys = zip(*bounds)
+        mid_x, mid_y = (min(xs) + max(xs)) * 0.5, (min(ys) + max(ys)) * 0.5
+        scale = min((rect.width - 84.0) / max(100.0, max(xs) - min(xs)),
+                    (rect.height - 148.0) / max(100.0, max(ys) - min(ys)))
 
-            def project(latitude: float, longitude: float) -> rl.Vector2:
-                px = rect.x + 42.0 + (longitude - min_lon) / lon_span * (rect.width - 84.0)
-                py = rect.y + rect.height - 42.0 - (latitude - min_lat) / lat_span * (rect.height - 84.0)
-                return rl.Vector2(px, py)
+        def project(x, y):
+            return rl.Vector2(rect.x + rect.width * 0.5 + (x - mid_x) * scale,
+                              rect.y + rect.height * 0.5 + 24.0 - (y - mid_y) * scale)
 
-            previous = project(*points[0])
-            for point in points[1:]:
-                current = project(*point)
-                rl.draw_line_ex(previous, current, 7.0, rl_color((21, 58, 96)))
-                rl.draw_line_ex(previous, current, 3.0, rl_color(BLUE_SOFT))
-                previous = current
-            if navi is not None and navi.vehicle is not None:
-                vehicle = project(navi.vehicle.latitude, navi.vehicle.longitude)
-                rl.draw_circle_v(vehicle, 11.0, rl_color(WHITE))
-                rl.draw_circle_v(vehicle, 7.0, rl_color(BLUE))
-        self._draw_text("MAP STREAM WAITING", rect.x + rect.width * 0.5, 224.0, 18.0, theme.muted, anchor="center")
+        previous = project(*geometry[0])
+        for point in geometry[1:]:
+            current = project(*point)
+            rl.draw_line_ex(previous, current, 10.0, rl_color((19, 61, 88)))
+            rl.draw_line_ex(previous, current, 5.0, rl_color((83, 219, 252)))
+            previous = current
+        if vehicle is not None:
+            marker = project(*vehicle)
+            rl.draw_circle_v(marker, 11.0, rl_color(WHITE))
+            rl.draw_circle_v(marker, 7.0, rl_color(BLUE))
+        if traditional:
+            title = "前方路線（無底圖）" if vehicle is not None else "路線總覽（無底圖）"
+        else:
+            title = "ROUTE AHEAD · NO BASEMAP" if vehicle is not None else "ROUTE OVERVIEW · NO BASEMAP"
+        self._draw_text(title, rect.x + rect.width * 0.5, rect.y + rect.height - 28.0,
+                        18.0, BLUE_SOFT, anchor="center")
+
 
     def _draw_navi_media(
         self,
@@ -6496,12 +6645,13 @@ class ClusterUiRenderer:
                 ),
             )
             traffic_rect = rl.Rectangle(x + w - 242.0, y + 12.0, 230.0, 98.0)
-            self._draw_navi_media(
-                media.get("image:traffic_signal"),
-                traffic_rect,
-                align_x=1.0,
-                align_y=0.0,
-            )
+            if self._summary_signal(navi, time.monotonic()) is None:
+                self._draw_navi_media(
+                    media.get("image:traffic_signal"),
+                    traffic_rect,
+                    align_x=1.0,
+                    align_y=0.0,
+                )
 
             safety_frame = next(
                 (
@@ -6564,7 +6714,7 @@ class ClusterUiRenderer:
                     2,
                 )
 
-            road_name = navi.vehicle.road_name if navi is not None and navi.vehicle is not None else ""
+            road_name = self._readable_navi_text(navi.vehicle.road_name) if navi is not None and navi.vehicle is not None else ""
             right_x = x + w - 14.0
             right_width = right_x - lane_right - 14.0
             if road_name and right_width >= 70.0:
@@ -6589,7 +6739,7 @@ class ClusterUiRenderer:
             self._draw_navi_turn_icon(current.turn_type, x + 72.0, NAVI_LIVE_ICON_Y, NAVI_LIVE_ICON_SIZE)
             distance_text = self._format_navi_distance(current.distance_m)
             self._draw_text(distance_text, x + 136.0, y + 26.0, 38.0, theme.text)
-            main_text = current.main_text or current.road_name or current.near_direction
+            main_text = self._readable_navi_text(current.main_text, current.road_name, current.near_direction)
             self._draw_text(
                 self._ellipsize_text(main_text, 25.0, NAVI_LIVE_CONTENT_W),
                 x + 136.0,
@@ -6607,7 +6757,7 @@ class ClusterUiRenderer:
                     theme.muted,
                 )
         elif navi.vehicle is not None and navi.vehicle.road_name:
-            road_name = self._ellipsize_text(navi.vehicle.road_name, 28.0, w - 48.0)
+            road_name = self._ellipsize_text(self._readable_navi_text(navi.vehicle.road_name), 28.0, w - 48.0)
             self._draw_text(road_name, x + 24.0, y + 34.0, 28.0, theme.text)
 
         next_guidance = navi.next
@@ -6626,7 +6776,7 @@ class ClusterUiRenderer:
                 24.0,
                 theme.text,
             )
-            next_text = next_guidance.main_text or next_guidance.road_name or next_guidance.near_direction
+            next_text = self._readable_navi_text(next_guidance.main_text, next_guidance.road_name, next_guidance.near_direction)
             self._draw_text(
                 self._ellipsize_text(next_text, 18.0, w - 180.0),
                 x + 180.0,
@@ -6849,6 +6999,85 @@ class ClusterUiRenderer:
             self._draw_text(text, panel_x + 24, y, line_size, color)
             y += 31.0
         self._draw_navi_guidance_image_box(info.guidance_image)
+
+    @staticmethod
+    def _summary_signal(navi: NaviLiveState | None, now: float) -> tuple[int | None, int | None] | None:
+        if navi is None or (navi.status is not None and navi.status.off_route):
+            return None
+        signal = navi.traffic_light
+        if signal is None or signal.meta is None:
+            return None
+        age = now - signal.meta.received_mono_s
+        if not 0 <= age < 2.5:
+            return None
+        phase, remaining = None, signal.counter_s
+        if signal.source != "amap_link":
+            if signal.red_on is True:
+                phase, remaining = 0, signal.red_s or remaining
+            elif signal.straight_on is True:
+                phase, remaining = 2, signal.straight_s or remaining
+        seconds = None if remaining is None else remaining - int(age)
+        if seconds is not None and not 0 < seconds <= 999:
+            return None
+        return (phase, seconds) if phase is not None or seconds is not None else None
+
+
+    @staticmethod
+    def _summary_camera(navi: NaviLiveState | None, now: float) -> tuple[float, float] | None:
+        speed = navi.speed if navi is not None else None
+        if speed is None or speed.meta is None or not 0 <= now - speed.meta.received_mono_s < 3.0:
+            return None
+        notices = (
+            (speed.section_active, speed.section_speed_limit_kph, speed.section_remaining_distance_m),
+            (speed.sdi_type not in (None, -1, 22), speed.sdi_speed_limit_kph, speed.sdi_distance_m),
+            (speed.secondary_sdi_type not in (None, -1, 22),
+             speed.secondary_sdi_speed_limit_kph, speed.secondary_sdi_distance_m),
+        )
+        for valid, limit, distance in notices:
+            if valid and limit and distance is not None and distance > 0:
+                return limit, distance
+        return None
+
+
+    def _draw_navi_summary_alerts(self, state: ClusterUiState, screen_mode: int) -> None:
+        navi = getattr(state, "navi_live", None)
+        if navi is None or (navi.status is not None and navi.status.off_route):
+            return
+        now = time.monotonic()
+        signal = self._summary_signal(navi, now)
+        camera = self._summary_camera(navi, now)
+        if signal is None and camera is None:
+            return
+
+        x, y = 560.0 + self._driving_hud_offset_design_x(screen_mode), 14.0
+        if screen_mode == CLUSTER_SCREEN_MODE_NAVI:
+            x, y = NAVI_MODE_MAP_X + 16.0, 14.0
+        elif screen_mode == CLUSTER_SCREEN_MODE_DEBUG_GRAPH:
+            x, y = 145.0, 14.0
+
+        theme = self._current_theme()
+        width = 148.0
+        if signal is not None:
+            phase, seconds = signal
+            color = (NAVI_TRAFFIC_RED if phase == 0 else NAVI_TRAFFIC_GREEN if phase == 2 else theme.text)
+            self._rounded_rect(x, y, width, 76.0, 12.0, theme.panel_bg, color, 2.0)
+            for index, lamp in enumerate((NAVI_TRAFFIC_RED, AMBER, NAVI_TRAFFIC_GREEN)):
+                rl.draw_circle_v(rl.Vector2(x + 24.0, y + 16.0 + index * 22.0), 8.0,
+                                 rl_color(lamp if phase == index else (91, 98, 107)))
+            if seconds is not None:
+                self._draw_text(f"{seconds} s", x + 89.0, y + 18.0, 38.0, theme.text, anchor="center")
+            x += width + 10.0
+        if camera is not None:
+            limit, distance = camera
+            self._rounded_rect(x, y, width + 28.0, 76.0, 12.0, theme.panel_bg, AMBER, 2.0)
+            center = rl.Vector2(x + 37.0, y + 38.0)
+            rl.draw_circle_v(center, 27.0, rl_color(WHITE))
+            rl.draw_ring(center, 22.0, 27.0, 0.0, 360.0, 48, rl_color(RED))
+            self._draw_text(f"{display_speed(limit, self.is_metric):.0f}", center.x, center.y - 13.0,
+                            23.0, (20, 24, 28), anchor="center")
+            self._draw_text(self._format_navi_distance(distance), x + 117.0, y + 18.0,
+                            31.0, theme.text, anchor="center")
+
 
     def _draw_navi_traffic_light_panel(
         self,
@@ -7980,7 +8209,8 @@ class ClusterUiRenderer:
         text_x = GIT_STATUS_MARGIN + GIT_STATUS_DOT_RADIUS * 2 + GIT_STATUS_DOT_TEXT_GAP
         if status is not None:
             color = self._git_status_color(status, theme)
-            text = status.branch if not status.detail else f"{status.branch} ({status.detail})"
+            detail = localize_hud_text(self.language, status.detail)
+            text = status.branch if not detail else f"{status.branch} ({detail})"
             text = self._ellipsize_text(text, text_size, GIT_STATUS_MAX_TEXT_W)
             dot_center_x = GIT_STATUS_MARGIN + GIT_STATUS_DOT_RADIUS
             rl.draw_circle_v(rl.Vector2(dot_center_x, center_y), GIT_STATUS_DOT_RADIUS, rl_color(color))
@@ -9065,6 +9295,7 @@ class ClusterUiRenderer:
         color: tuple[int, int, int],
         anchor: str = "left",
     ) -> None:
+        text = localize_hud_text(self.language, text)
         if not text:
             return
         font = self._font_for_text(text)
@@ -9083,6 +9314,28 @@ class ClusterUiRenderer:
         rl.draw_text_ex(font, text, rl.Vector2(draw_x, draw_y), size, spacing, rl_color(color))
 
     def _font_for_text(self, text: str):
+        if any(0x3400 <= ord(c) <= 0x9FFF for c in text):
+            known = self._known_font_codepoints
+            if any(0x3400 <= ord(c) <= 0x9FFF and ord(c) not in known for c in text):
+                key = tuple(sorted(set(map(ord, text))))
+                cache = self._cjk_fonts
+                if key not in cache:
+                    for candidate in self._font_candidates():
+                        if not candidate.exists():
+                            continue
+                        try:
+                            font = rl.load_font_ex(str(candidate), KOREAN_FONT_BASE_SIZE, rl.ffi.new("int[]", key), len(key))
+                        except Exception:
+                            continue
+                        if font.texture.id > 0 and font.texture.id != rl.get_font_default().texture.id:
+                            rl.set_texture_filter(font.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
+                            if len(cache) >= 16:
+                                rl.unload_font(cache.pop(next(iter(cache))))
+                                self._text_measure_cache.clear()
+                            cache[key] = font
+                            break
+                if key in cache:
+                    return cache[key]
         if self._font is None:
             self._font = rl.get_font_default()
         if self._korean_font is not None and any(ord(char) > 0x7F for char in text):
@@ -9101,6 +9354,7 @@ class ClusterUiRenderer:
         anchor: str = "left",
         cache: bool = False,
     ) -> None:
+        text = localize_hud_text(self.language, text)
         if not text:
             return
         if cache and stroke_width > 0 and self._stroked_text_texture_cache_enabled:
@@ -9488,6 +9742,7 @@ class ClusterUiRenderer:
         spacing: float | None = None,
         font=None,
     ) -> tuple[float, float]:
+        text = localize_hud_text(self.language, text)
         if font is None:
             font = self._font_for_text(text)
         measure_spacing = max(1.0, size * 0.02) if spacing is None else spacing
@@ -9503,6 +9758,7 @@ class ClusterUiRenderer:
         return measured
 
     def _ellipsize_text(self, text: str, size: float, max_width: float) -> str:
+        text = localize_hud_text(self.language, text)
         spacing = max(1.0, size * 0.02)
         if self._measure_text(text, size, spacing)[0] <= max_width:
             return text

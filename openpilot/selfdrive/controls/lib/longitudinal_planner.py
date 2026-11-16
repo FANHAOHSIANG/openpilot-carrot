@@ -26,6 +26,7 @@ from openpilot.selfdrive.controls.lib.longitudinal_preview import (
 from openpilot.selfdrive.controls.lib.turn_accel import get_future_curvature, limit_accel_in_turns
 from openpilot.selfdrive.car.cruise import V_CRUISE_MAX, V_CRUISE_UNSET
 from openpilot.common.swaglog import cloudlog
+from openpilot.common.runtime_diagnostics import InputValidityDiagnostics
 from openpilot.common.params import Params
 from openpilot.common.stopping_params import get_stopping_speed
 from openpilot.selfdrive.carrot.carrot_man_input import get_carrot_man
@@ -517,6 +518,9 @@ class LongitudinalPlanner:
     plan_send = messaging.new_message('longitudinalPlan')
 
     plan_send.valid = sm.all_checks(service_list=['carState', 'controlsState', 'selfdriveState'])
+    if not hasattr(self, '_validity_diagnostics'):
+      self._validity_diagnostics = InputValidityDiagnostics('longitudinalPlan', cloudlog.event)
+    self._validity_diagnostics.record(sm, plan_send.valid, ['carState', 'controlsState', 'selfdriveState'])
 
     longitudinalPlan = plan_send.longitudinalPlan
     longitudinalPlan.modelMonoTime = sm.logMonoTime['modelV2']

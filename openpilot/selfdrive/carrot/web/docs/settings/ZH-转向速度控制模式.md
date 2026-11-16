@@ -13,10 +13,10 @@
 
 `TurnSpeedControlMode`
 
-0: 不使用, 1: 视觉, 2: 视觉 + 路线, 3: 路线 (始终)
+0: 关闭，1: 视觉，2: 视觉 + 匹配路线，3: 匹配路线
 
 <!-- CARROT:AUTO:BEGIN TurnSpeedControlMode -->
-<!-- CARROT:AUTO:SOURCE facts="0574689f35959069b8e0c9c29e3cbcfba5a07ad618c8a0c11119e97456d070e0" semantic="0e0a5e58e9061594b9a41986ec433b7b6680c5f6ce99da897cd9b4e52ded8e38" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="0c0646a78e23b0c2fec32d98407015f66554f92b53519aa6fa8be7bc0cbc79eb" semantic="db2399ff8f834bd37741fa4c0751142f9ca87ceeeb55df6ad1bc86a9828f8ec6" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 分段选择
 - **默认值:** `1`

@@ -23,10 +23,22 @@ def test_jetson_never_uses_usb_display_even_on_setup_failure(monkeypatch, capabi
   legacy.assert_not_called()
 
 
-def test_other_hosts_keep_their_existing_display(monkeypatch):
+def test_mac_receives_official_map_preview():
   legacy = Mock(return_value='legacy')
   assert policy.publisher(None, {'carrot_host': 'mac', 'carrot_hud_v1': True}, legacy) == 'legacy'
+  legacy.assert_called_once_with(navi=False, nav_map=True)
+
+
+def test_other_hosts_keep_their_existing_display():
+  legacy = Mock(return_value='legacy')
+  assert policy.publisher(None, {'carrot_host': 'other', 'carrot_hud_v1': True}, legacy) == 'legacy'
   legacy.assert_called_once_with(navi=False)
+
+
+def test_mac_without_hud_does_not_start_publisher():
+  legacy = Mock()
+  assert policy.publisher(None, {'carrot_host': 'mac'}, legacy) is None
+  legacy.assert_not_called()
 
 
 def test_explicit_usb_receiver_uses_navigation_and_model_preview(monkeypatch):

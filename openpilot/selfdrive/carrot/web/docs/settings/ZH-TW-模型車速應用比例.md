@@ -16,7 +16,7 @@
 按設定比例應用模型計算的行駛速度。
 
 <!-- CARROT:AUTO:BEGIN ApplyModelSpeed -->
-<!-- CARROT:AUTO:SOURCE facts="dc20b9f84614d57f771b3156317ee100589e8e042337b6a3c07ef03fb2502f9c" semantic="8039edb57e0c4c2bb0d6e9911d247c64a6f0c42f2e912402bc572f0a4701f388" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="adf154b2f8306ad93f2389f3978b4bb2f3c74c14f31f5816bc1d80ad000951b9" semantic="af76e5561f6e0bbefc54c91f7b945aab79d8f017c8706ca26a324cbcc31a3514" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 數值
 - **預設值:** `0%`

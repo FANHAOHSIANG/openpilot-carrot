@@ -1,0 +1,83 @@
+name: Route curve checks
+on:
+  pull_request:
+    paths:
+      - 'openpilot/selfdrive/car/cruise.py'
+      - 'openpilot/selfdrive/car/tests/test_cruise_manual_ceiling.py'
+      - 'openpilot/selfdrive/modeld/jetlink/**'
+      - 'tools/jetlink/test_*readiness.py'
+      - 'tools/jetlink/test_warp_startup.py'
+      - 'openpilot/common/runtime_diagnostics.py'
+      - 'openpilot/selfdrive/carrot/route_curve.py'
+      - 'openpilot/selfdrive/carrot/osm*'
+      - 'openpilot/selfdrive/carrot/tests/test_osm_curve.py'
+      - 'openpilot/system/manager/process_config.py'
+      - 'openpilot/selfdrive/selfdrived/selfdrived.py'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - 'openpilot/selfdrive/carrot/curve_speed.py'
+      - 'openpilot/selfdrive/carrot/carrot_man.py'
+      - 'openpilot/selfdrive/carrot/carrot_serv.py'
+      - 'openpilot/selfdrive/carrot/tests/test_route_curve*.py'
+      - 'openpilot/selfdrive/controls/tests/test_turn_accel.py'
+      - '.github/workflows/route-curve-checks.yml'
+  push:
+    branches: ['test/truck-clearance-204f9cca', 'test/carrot-wip-upstream-20261104']
+    paths:
+      - 'openpilot/selfdrive/car/cruise.py'
+      - 'openpilot/selfdrive/car/tests/test_cruise_manual_ceiling.py'
+      - 'openpilot/selfdrive/modeld/jetlink/**'
+      - 'tools/jetlink/test_*readiness.py'
+      - 'tools/jetlink/test_warp_startup.py'
+      - 'openpilot/common/runtime_diagnostics.py'
+      - 'openpilot/selfdrive/carrot/route_curve.py'
+      - 'openpilot/selfdrive/carrot/osm*'
+      - 'openpilot/selfdrive/carrot/tests/test_osm_curve.py'
+      - 'openpilot/system/manager/process_config.py'
+      - 'openpilot/selfdrive/selfdrived/selfdrived.py'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - 'openpilot/selfdrive/carrot/curve_speed.py'
+      - 'openpilot/selfdrive/carrot/carrot_man.py'
+      - 'openpilot/selfdrive/carrot/carrot_serv.py'
+      - 'openpilot/selfdrive/carrot/tests/test_route_curve*.py'
+      - 'openpilot/selfdrive/controls/tests/test_turn_accel.py'
+      - '.github/workflows/route-curve-checks.yml'
+permissions:
+  contents: read
+jobs:
+  offline-geometry-and-speed-selection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install numpy pytest pycapnp ruff requests setproctitle pyserial pycryptodome zstandard pyzmq
+      - run: python -m ruff check openpilot/selfdrive/carrot/route_curve.py openpilot/selfdrive/carrot/osm*.py openpilot/selfdrive/carrot/tests/test_route_curve*.py openpilot/selfdrive/carrot/tests/test_osm_curve.py
+      - run: python -m compileall -q openpilot/selfdrive/carrot/osm_curve.py openpilot/selfdrive/carrot/osm_map.py openpilot/selfdrive/carrot/osmd.py openpilot/selfdrive/carrot/carrot_man.py openpilot/system/manager/process_config.py openpilot/selfdrive/selfdrived/selfdrived.py
+      - run: >-
+          python -m pytest --confcutdir=openpilot/selfdrive/carrot/tests -c /dev/null
+          openpilot/selfdrive/carrot/tests/test_osm_curve.py
+          openpilot/selfdrive/carrot/tests/test_route_curve.py
+          openpilot/selfdrive/carrot/tests/test_route_curve_integration.py
+          openpilot/selfdrive/carrot/tests/test_curve_speed.py
+          openpilot/selfdrive/controls/tests/test_turn_accel.py -q
+        env:
+          PYTHONPATH: .
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+      - run: python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q
+
+      - name: Cruise buttons and manual ceiling with isolated settings and no live IPC
+        run: >-
+          python tools/signal_validation/run.py
+          openpilot/selfdrive/car/tests/test_carrot_cruise_buttons.py
+          openpilot/selfdrive/car/tests/test_cruise_manual_ceiling.py
+      - name: Jetlink readiness, preparation and upstream diagnostics
+        run: >-
+          python -m pytest --noconftest -c /dev/null
+          tools/jetlink/test_warp_startup.py tools/jetlink/test_hotplug_resources.py
+          tools/jetlink/test_peer_readiness.py openpilot/common/tests/test_runtime_diagnostics.py -q
+        env:
+          PYTHONPATH: .:tools/jetlink
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'

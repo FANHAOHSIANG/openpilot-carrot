@@ -93,3 +93,15 @@ git apply --unidiff-zero /absolute/path/to/rav4-radar-display.patch
 
 Only the matching manual regions are edited. Validate both pages and regenerate
 the catalog before publishing, following the authoring guide.
+
+
+## Matched route-curve preview
+
+`route-curve-preview.patch` adds only KO/EN manual explanations for
+`TurnSpeedControlMode` and `MapTurnSpeedFactor`. Its base is empty manual regions
+generated from this test branch catalog. Reconcile existing text if applying to
+a live Wiki. It has been validated locally; it does not publish to the Wiki.
+
+## Manual cruise ceiling on the Taiwan test branch
+
+`manual-cruise-ceiling.patch` contains KO/EN/ZH manual-region updates for the three affected road/model settings, generated from this branch catalog. It is staged and validated, not published to the upstream Wiki. Reconcile existing manual text before application.
