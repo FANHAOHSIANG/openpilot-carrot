@@ -54,3 +54,15 @@ tests, not a replay of that incident.
 Detailed user logs, paths, identifiers and the generated report remain outside
 the repository. The report is for the user's review. Do not treat threshold
 passing or same-model lane agreement as proof of safe vehicle behavior.
+
+## Follow-up: control source semantics
+
+Further inspection of 55 complete local logs and the pinned controlsd source
+identified a misleading UI label: dPathPoints is an MPC input, not necessarily
+the selected control source. Model mode uses action.desiredCurvature directly
+through smoothing and clipping. Correct the labels and expose model action,
+preceding actuator command and feedback-estimated curvature separately.
+27 focused tests now pass, including separation of those three signals from
+MPC geometry. No controller or planner behavior is changed. Selected video
+frames were paired through qRoadEncodeIdx; model geometry still is not an
+independent vehicle-position measurement. User evidence remains outside Git.

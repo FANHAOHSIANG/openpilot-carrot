@@ -153,6 +153,17 @@ class TestGeometry:
 
 
 class TestAdmission:
+  def test_model_action_and_actual_command_are_distinct_from_mpc_geometry(self):
+    records = sample(request_bias=0.6)
+    records[-2]['data']['action'] = {'desiredCurvature': 0.001}
+    records[1]['data']['actuators'] = {'curvature': 0.002}
+    records[2]['data']['curvature'] = 0.003
+    r = feed(Observer(), records)
+    assert r['model_action_curvature'] == 0.001
+    assert r['command_curvature'] == 0.002
+    assert r['estimated_curvature'] == 0.003
+    assert r['geometry']['request_bias_m'] > 0.5
+
   def test_exact_model_join_not_nearest(self):
     records = sample()
     records[-1]['data']['modelMonoTime'] += 1

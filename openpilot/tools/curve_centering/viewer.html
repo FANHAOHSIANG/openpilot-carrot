@@ -194,11 +194,11 @@
         <div class="value" id="eligible">—</div>
       </div>
       <div class="card">
-        左彎路徑偏差 P95
+        左彎 MPC 輸入偏差 P95
         <div class="value" id="left">—</div>
       </div>
       <div class="card">
-        右彎路徑偏差 P95
+        右彎 MPC 輸入偏差 P95
         <div class="value" id="right">—</div>
       </div>
     </div>
@@ -214,17 +214,19 @@
         <h2>道路與規劃路徑</h2>
         <canvas
           id="road"
-          aria-label="車道、原始模型路徑、採用路徑及 MPC 預測"
+          aria-label="車道、原始模型路徑、MPC 輸入路徑及 MPC 預測"
         ></canvas>
         <div class="legend">
           <span style="--c: #8296a5">車道邊界</span
           ><span style="--c: #6de0b5">車道中心</span
           ><span style="--c: #c391ff">原始模型</span
-          ><span style="--c: #65baff">採用路徑</span
+          ><span style="--c: #65baff">MPC 輸入路徑</span
           ><span style="--c: #ffb66c">MPC 預測</span>
         </div>
         <p class="muted">
-          上方為車前；橫向與縱向比例不同，僅用來比較路徑。左右偏差以車道法向近似計算。
+          上方為車前；橫向與縱向比例不同，僅用來比較路徑。左右偏差以車道法向近似計算。MPC
+          輸入與預測不代表控制器實際採用；模型模式直接使用
+          modelV2.action.desiredCurvature。
         </p>
       </section>
       <section class="panel">
@@ -251,7 +253,7 @@
       <canvas
         id="trend"
         style="height: 190px"
-        aria-label="採用路徑偏差趨勢"
+        aria-label="MPC 輸入路徑偏差趨勢"
       ></canvas>
       <p class="muted">
         右側為正、左側為負；灰點代表未通過評估條件。點擊圖表可跳到該畫面。
@@ -261,8 +263,8 @@
       <section class="panel">
         <h2>持續偏移候選</h2>
         <p class="muted">
-          超過 20 cm 且持續至少 0.5
-          秒的採用路徑偏差，需影片核對；不是已確認故障。
+          超過 20 cm 且持續至少 0.5 秒的MPC
+          輸入路徑偏差，需影片核對；不是已確認故障。
         </p>
         <div id="episodes" class="scroll"></div>
       </section>
@@ -324,7 +326,7 @@
         stale_carState: "車況過期／缺失",
         stale_carControl: "控制狀態過期／缺失",
         stale_controlsState: "控制器資料過期／缺失",
-        requested_path_bias: "採用路徑偏離車道中心",
+        requested_path_bias: "MPC 輸入路徑偏離車道中心",
         raw_model_path_bias: "原始模型路徑偏離中心",
         lane_centering_inactive: "車道線置中未啟用",
         steering_saturated: "轉向輸出達限制",
@@ -466,8 +468,26 @@
           [
             ["車速", fmt(r.speed_kph, 1) + " km/h"],
             ["車道線置中", r.use_lane_lines ? "啟用" : "未啟用"],
-            ["採用路徑偏差", cm(g?.request_bias_m)],
+            ["MPC 輸入路徑偏差", cm(g?.request_bias_m)],
             ["MPC 預測偏差", cm(g?.mpc_bias_m)],
+            [
+              "模型目標曲率 (1/km)",
+              r.model_action_curvature == null
+                ? "—"
+                : fmt(r.model_action_curvature * 1000, 3),
+            ],
+            [
+              "先前送出曲率 (1/km)",
+              r.command_curvature == null
+                ? "—"
+                : fmt(r.command_curvature * 1000, 3),
+            ],
+            [
+              "回授估計曲率 (1/km)",
+              r.estimated_curvature == null
+                ? "—"
+                : fmt(r.estimated_curvature * 1000, 3),
+            ],
             ["模型原點偏差（估計）", cm(g?.origin_offset_m)],
             ["車身中心偏差（需校正）", cm(g?.vehicle_offset_m)],
             ["車身側邊最小餘量（估計）", cm(g?.estimated_body_clearance_m)],

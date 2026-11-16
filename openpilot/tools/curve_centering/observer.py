@@ -207,6 +207,14 @@ class Observer:
       self.geometry_since = None
       return out
     cs, cc, controls = (states[k]['data'] for k in ('carState', 'carControl', 'controlsState'))
+    # MPC geometry can exist while controlsd uses model action directly.
+    # Commands are the latest at/before the model timestamp, not its future response.
+    for key, value in (
+      ('model_action_curvature', model['data'].get('action', {}).get('desiredCurvature')),
+      ('command_curvature', cc.get('actuators', {}).get('curvature')),
+      ('estimated_curvature', controls.get('curvature')),
+    ):
+      out[key] = value if finite(value) else None
     speed = cs.get('vEgo')
     if not finite(speed) or speed < 0:
       reasons.append('invalid_speed')
