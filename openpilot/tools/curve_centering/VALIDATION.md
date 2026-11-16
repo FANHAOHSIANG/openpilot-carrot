@@ -66,3 +66,22 @@ preceding actuator command and feedback-estimated curvature separately.
 MPC geometry. No controller or planner behavior is changed. Selected video
 frames were paired through qRoadEncodeIdx; model geometry still is not an
 independent vehicle-position measurement. User evidence remains outside Git.
+
+## 2026-11-17: model-branch scalar baseline
+
+Research parent: bea7574032e6f85a14cb883f417774f063fd5d64. Latest target
+checked: 4a9fb70b1330e3148d6c0930827c70825e17a85e. controlsd.py and
+drive_helpers.py are unchanged between the logged base and that target.
+
+35 focused tests pass. The new scalar baseline is compared against the actual
+source smoothing/clip helpers over 2,000 deterministic synthetic combinations
+of speed, curvature, roll, active state and process-start state. Tests also
+cover rate-only limiting (the original limited flag remains false), first
+engagement versus later engagement, non-finite inputs and unsupported modes.
+Ruff and whitespace checks pass. No vehicle/control code changes.
+
+This is an initial A-baseline building block, NOT a completed A/B/C comparator.
+Exact consumed-input alignment at each 100 Hz control tick, real-log command
+reproduction, lane-mode baseline B and hybrid candidate C remain pending.
+Do not apply this function once per 20 Hz model row and call it control replay.
+No new real-log driving-performance or closed-loop result is claimed.
