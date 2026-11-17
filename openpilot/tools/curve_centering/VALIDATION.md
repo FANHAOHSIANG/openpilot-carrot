@@ -224,3 +224,15 @@ No parameter was retuned against the failure grid, and no vehicle limit changed.
 Use both recorded passes in candidate reviews. The driver identified the successful pass as the onboard small model. Keep its recorded model action as the positive reference, alongside the earlier intervention. In the retained 40-second success window all 800 model rows have lateral control active and none have steeringPressed. Crossing clearance and independently measured vehicle center are unavailable. A candidate that increases exit bias, oscillation or saturation relative to this reference needs investigation before promotion. Leave unevaluated comparisons pending.
 
 Successful recording software: 5945301512e41a791b3cd8c61d7b7b4edae3b61c. Earlier recording software: 0e462225e4184df0ee4e8cfda7b4cc7f69fbbf38. Both source trees already contain the same driving_supercombo.onnx Git blob 1aac351ca371f1f68c565470e07a530c7a65f185. Runtime model identity needs separate evidence, particularly for external inference. Treat these as two observed driving outcomes with different speeds and poses. Do not use a recorded action as a steering command or training target at a different pose. Keep full logs and location data private.
+
+### Runtime cadence on the paired ramp recordings
+
+Full cereal decode of the earlier ramp segment and the two newer segments spanning the successful passage. Whole-segment modelV2 metrics, not matched-frame or end-to-end latency measurements:
+
+| Segment role | Valid publications | Median modelExecutionTime (ms) | P95 publication interval (ms) | Missing intermediate frame IDs |
+| --- | ---: | ---: | ---: | ---: |
+| Earlier intervention | 1030 | 47.34 | 105.73 | 170 |
+| Successful approach | 1200 | 23.81 | 60.92 | 0 |
+| Successful exit | 1201 | 23.82 | 63.16 | 0 |
+
+Intervals use successive logMonoTime differences and statistics.quantiles (exclusive). Missing IDs sum positive forward gaps within each segment. All three segments have 1200 roadCameraState publications. Older logs contain explicit Jetlink timing and slow-frame messages. Model weight identity was not recovered from these measurements. Keep update cadence as a separate variable when comparing path prediction, entry speed and delayed unwind. These segment-level differences do not identify the cause of an individual intervention. The GPS pairing timestamps did not exactly match model publication times in the attempted join; no paired timing estimate is reported.
