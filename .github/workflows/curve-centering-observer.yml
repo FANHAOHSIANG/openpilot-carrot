@@ -42,11 +42,15 @@ jobs:
         run: |
           python -m openpilot.tools.curve_centering.bridge_demo --output bridge-results
           node openpilot/tools/curve_centering/spatial-ramp.mjs > spatial-ramp.jsonl
+          node openpilot/tools/curve_centering/spatial-diagnostics.mjs > spatial-diagnostics.json
+          python -m openpilot.tools.curve_centering.failure_analysis curve-simulation.json --output failure-analysis.json
       - uses: actions/upload-artifact@v4
         with:
           name: curve-synthetic-falsification
           path: |
             curve-simulation.json
             spatial-ramp.jsonl
+            spatial-diagnostics.json
+            failure-analysis.json
             bridge-results/summary.json
             bridge-results/results.jsonl

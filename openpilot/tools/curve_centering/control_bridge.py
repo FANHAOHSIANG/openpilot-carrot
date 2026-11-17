@@ -65,7 +65,8 @@ class ControlBridge:
     t = tick
     result = {'mode': self.mode, 'vehicle_output': False, 'deployment_approved': False,
               'now_ns': t.now_ns, 'reasons': [], 'injected_delta_curvature': 0.0,
-              'baseline': None, 'candidate': None, 'selected_curvature': None, 'residual_curvature': None}
+              'baseline': None, 'candidate': None, 'selected_curvature': None, 'residual_curvature': None,
+              'same_state_baseline': None, 'policy_delta_curvature': None}
     reasons = result['reasons']
     times = (t.now_ns, t.model_ns, t.car_state_ns, t.parameters_ns)
     flags = (t.lat_active, t.driver_steering, t.driver_gas, t.driver_brake, t.maneuver, t.saturated,
@@ -113,7 +114,7 @@ class ControlBridge:
       if (type(ns) is not int or ns != t.model_ns or type(available) is not int
           or not ns <= available <= t.now_ns or t.now_ns-available > 200_000_000
           or not finite(row.get('model_t')) or abs(row['model_t']-ns/1e9) > 1e-9
-          or not finite(row.get('t')) or abs(row['t']-available/1e9) > 1e-9
+          or not finite(row.get('t')) or not ns/1e9-1e-9 <= row['t'] <= available/1e9+1e-9
           or row.get('model_action_curvature') != t.action):
         reasons.append('unmatched_stale_or_future_observation')
       if (row.get('eligible') is not True or row.get('lat_active') is not True
@@ -144,12 +145,14 @@ class ControlBridge:
     delta = 0.0 if self.proposal is None else self.proposal['delta_accel']/t.speed**2
     if self.proposal is not None and not self.proposal['active_candidate']:
       reasons.extend(self.proposal['reasons'])
+    same_state = self.source.step(**args, previous=self.previous['C'], lateral_started=self.started['C'])
     candidate = self.source.step(**dict(args, action=t.action+delta),
                                  previous=self.previous['C'], lateral_started=self.started['C'])
     for arm, output in (('A', baseline), ('C', candidate)):
       self.previous[arm] = output['curvature']
       self.started[arm] = output['lateral_started']
     result.update(baseline=baseline, candidate=candidate, injected_delta_curvature=delta,
+                  same_state_baseline=same_state, policy_delta_curvature=candidate['curvature']-same_state['curvature'],
                   selected_curvature=(baseline if self.mode == 'shadow' else candidate)['curvature'],
                   residual_curvature=candidate['curvature']-baseline['curvature'])
     return result

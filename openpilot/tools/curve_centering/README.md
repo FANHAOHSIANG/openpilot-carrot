@@ -2,7 +2,9 @@
 
 目標是找出左右彎偏離中央的來源，讓後續路徑或轉向修正有可重現的依據。
 本版提供即時只讀監看、離線 rlog 分析、繁體中文回放頁與結構化 JSON。
-**沒有自動調參、控制輸出或新訓練的駕駛模型，也沒有修改既有規劃器。**
+**沒有自動調參、候選致動輸出或新訓練的駕駛模型，也沒有修改既有規劃器。**
+獨立整合分支另有預設關閉的實際 controlsd 只讀影子接線，詳見文末最新章節；
+它不把候選送入轉向或控速。
 
 ## 看什麼
 
@@ -158,7 +160,7 @@ geometric proxy; these constants are not driving recommendations.
 
 This prototype does not infer body center, apply PathOffset, learn driver
 preferences, or bypass existing steering protection. Body calibration remains a
-separate blocker. No production path imports this module. Before considering a
+separate blocker. The optional runtime shadow tap imports this module for observation only; production commands never use its proposal. Before considering a
 controller candidate, replay the original 100 Hz smoothing/curvature/rate limits,
 verify handover continuity, and evaluate a closed-loop vehicle model with camera
 bias, actuator delay, saturation and missing-line sweeps. The current same-input
@@ -199,8 +201,8 @@ regression. Invalid plant-domain runs are excluded from valid comparisons and
 reported separately, never counted as passes. Lower RMS can coexist with a
 peak regression. Results within and outside the assumed bound are separated.
 A green software CI means the harness and guards behave as tested; the report
-always has `deployment_approved=false`. No production code imports either
-proposal or simulator; no installable vehicle fix is claimed.
+always has `deployment_approved=false`. The optional runtime shadow imports the original C proposal for observation; no production command uses either
+proposal or simulator, and no installable vehicle fix is claimed.
 
 ## Offline entry-speed feasibility
 
@@ -230,7 +232,8 @@ that deceleration happened early enough in the real recordings.
 本節描述 `test/carrot-pr52-integration-20261117` 的新增介面。已接通的是：
 **Observer 輸出 → 每個控制步的防護 → C 候選 → 此分支實際曲率選擇／平滑／限幅
 程式 → 記憶體中的比較輸出**。不是只列出候選修正量；可以看到限幅後的差異與退出殘留。
-沒有接到執行中的 controlsd、LaC 扭力／角度控制器、carControl 發布或 CAN。
+本段為 fb59c77e 的隔離介面；後續已新增 controlsd 只讀接線，見下一節。
+候選仍沒有接到 LaC 扭力／角度控制器、carControl 發布或 CAN。
 車上安裝這個分支不會啟用過彎修正；沒有新增 Params、車機選項或開機程序。
 
 `source_control.py` 校驗 `controlsd.py`、`drive_helpers.py` 的完整 Git blob 雜湊，
@@ -291,3 +294,70 @@ eligible 當成啟用許可。此工具不從歷史日誌猜測這個結果；�
 U 的假設誤差界限沒有冒充量測值，這個 bridge 只串接原始 C 候選。
 尚需獨立幾何校驗、經校準且耦合縱橫向的閉迴路測試、完整原生控制鏈與退出／重入
 驗證，才能重新評估是否適合接入致動。這份交付不提供上路測試流程。
+
+## 實際 controlsd 只讀影子接線與失敗歸因（後續版本）
+
+這次不再只有 CLI：`Controls.state_control()` 完成原有啟用判定、曲率限制、
+LaC 與有限值檢查後，新增只讀觀察點。它取得**實際消費的**前次曲率、
+process-lifetime lateral_started、VM 回授、採用的 roll、模式與當次 actuator
+curvature；工作執行緒用這些資料核對 A 基準及 C 假設輸出。
+**仍沒有把 C 輸出寫回任何 actuator 或 desired_curvature。原本車控沒有新增致動模式。**
+
+此入口只有在建立 Controls 程序時明確設定環境變數 `CURVE_CENTERING_SHADOW=1`
+才建立，未設定時不載入研究模組、不啟動工作執行緒。它不是 Params 或 UI 開關，
+也不由 manager／啟動腳本自動設定。這是給具備原生依賴的桌面／受控控制程序測試端的
+觀察入口，尚未通過 C4 負載資格；本文件不提供車輛安裝或行駛操作步驟。
+
+觀察點只複製需要的欄位，幾何陣列最多64點／4條線，不擷取 GPS、VIN 或路線識別。
+容量4的佇列不等待可用空間；滿載時丟棄並換代，使積壓證據失效，下一份接受資料
+重新帶入模型與規劃資料並重新穩定。分析和每秒最多一次的
+`curve_centering_shadow` cloudlog 診斷在工作執行緒處理，內含：
+
+- `actual_baseline_error`：以實際前次狀態重算 A，與當次實際曲率的差。
+- `policy_delta_curvature`：C 與**同一前次 C 狀態**下原政策的差，辨識當步新增修正。
+- `history_delta_curvature`：不同歷史狀態下的 A/C 差，不當成當步新增修正。
+- `reasons`、丟棄數與擷取耗時。資料缺失／模式不支援時差異可能為 null，不能當成通過。
+
+觀察器或診斷輸出例外只會停止觀察，不得壓掉、替代或更動既有控制輸出。工作執行緒
+仍與 Python GIL／排程共享資源；有界佇列不等於硬即時保證。桌面首輪3000次擷取
+中位19.2 µs、P95 68.4 µs，但最大13.255 ms；這個尖峰保留為負面負載證據。
+另輪同時量測 wall/thread CPU 的3000次最大0.339 ms，不能用重跑較好結果抹掉前輪。
+原生 C4 的端到端時限、排程競爭與關閉恢復仍待驗證，保持預設關閉。
+
+桌面可先執行實際控制方法與只讀觀察點回歸，不需車輛或私人資料：
+
+```bash
+python -m pytest -o addopts='' --confcutdir=openpilot/tools/curve_centering \
+  openpilot/tools/curve_centering/tests/test_runtime_shadow.py -q
+python -m openpilot.tools.curve_centering.simulation --output /tmp/curve-sweep.json
+python -m openpilot.tools.curve_centering.failure_analysis /tmp/curve-sweep.json \
+  --output /tmp/curve-failures.json
+node openpilot/tools/curve_centering/spatial-diagnostics.mjs
+```
+
+`test_runtime_shadow` 執行整個生產 `state_control` 方法，保留原生 cereal 資料型別，
+但替代硬體／IPC、VM／LaC／LoC 等依賴；不是完整原生控制驗證。
+原方法移除新增觀察敘述後的 AST 雜湊必須與 fb59c77e 一致，再比對所有 CarControl
+欄位及狀態。此機器原生扭力測試缺 params_pyx，針對性編譯又缺 acados，未聲稱通過。
+
+### 三類否定結果應如何解讀
+
+1. **0.867 m 空間匝道**完全沒有 C/U 候選。原代理駕駛在偏差0.3 m、傳遞延遲0.3 s、
+   致動滯後0.15 s及平滑0.1 s下，出彎42個步驟超過原0.85 m假設。峰值時已在反向修正，
+   當步未達3 m/s²致動上限；不能簡化成「這時沒有轉向能力」。零偏差／零傳遞延遲
+   探針可消除此合成越界，並不代表真車可消除偏差／延遲。用已知玩具模型延遲總和
+   做 oracle 道路預覽，峰值可降至0.426 m；真實道路預覽與延遲均未獲證，因此沒有
+   把這個只在合成資料成立的先知修法接到車控。
+2. **24/96 案**是同一組原基準 A、C、低增益U均越界，全部具0.3 s傳遞延遲與0.3 m
+   代理模型偏差。候選沒有新增越界案例，但這不等於候選無害：C在此子集最大額外
+   峰值0.05857 m，U為0.01181 m。原0.85 m門檻、案例及所有相對退化仍保留。
+3. **212個退出殘留步驟**的同狀態政策差異全部為0；不同歷史狀態的差按既有
+   `exp(-0.01/0.1)` 衰減，並非212次新注入。第一步仍有約0.226 m/s²假設加速度差，
+   所以不能說物理影響為零。直接重置到另一個基準狀態會產生約25 m/s³跳變，
+   超過原5 m/s³變化率限制，沒有採用這種掩蓋殘留的修法。實際LaC、駕駛接管與EPS
+   如何消化這段歷史仍缺原生／校準閉迴路證據。
+
+這輪修正的是時間可用性檢查（規劃發布可早於實際消費時間，仍禁止未來資料）、
+退出歸因與真實消費點的只讀接線，**不是宣稱舊越界已解決**。
+要接入致動，至少還需獨立道路／車身標籤與可信幾何符號、實際模型執行身分及延遲、
+含LaC/EPS及縱橫耦合的校準閉迴路、原生退出／重入及最壞時限證據。

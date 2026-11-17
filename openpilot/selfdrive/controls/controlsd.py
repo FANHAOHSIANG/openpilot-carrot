@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import os
 import time
 from numbers import Number
 
@@ -77,6 +78,15 @@ class Controls:
     self.desired_curvature = 0.0
     self.lateral_startup = LateralStartupGate()
     self.lateral_started = False
+    # Explicit process-local diagnostic opt-in; never changes control outputs.
+    # No Params, startup registration or actuator mode. Device timing unqualified.
+    self.curve_shadow = None
+    if os.getenv("CURVE_CENTERING_SHADOW") == "1":
+      try:
+        from openpilot.tools.curve_centering.runtime_shadow import RuntimeShadow
+        self.curve_shadow = RuntimeShadow(lambda result: cloudlog.event("curve_centering_shadow", **result))
+      except Exception:
+        cloudlog.exception("curve_centering_shadow_init_failed")
 
     # VW MEB(ID.4/ID.5)에서만 사용. infiniteCable2 LatControlCurvature 정확 복제:
     # EnableCurvatureController=1(기본 ON) 상태의 곡률 폐루프 PID + useCarSteerCurvature 보정
@@ -173,6 +183,7 @@ class Controls:
 
     set_lane_change_blinkers(CC, model_v2.meta)
 
+    curve_previous, curve_started = self.desired_curvature, self.lateral_started
     if not CC.latActive:
       self.LaC.reset()
     if CC.latActive and not self.lateral_started:
@@ -276,6 +287,18 @@ class Controls:
         cloudlog.error(f"actuators.{p} not finite {actuators.to_dict()}")
         setattr(actuators, p, 0.0)
 
+    shadow = getattr(self, 'curve_shadow', None)
+    if shadow is not None:
+      try:
+        shadow.observe(self.sm, CC, lac_log, feedback=self.curvature, roll=lp.roll, previous=curve_previous,
+                       lateral_started=curve_started, lane_mode=self.lanefull_mode_enabled,
+                       vw_meb=self.is_vw_meb, safety_limited=self.steer_limited_by_safety)
+        if getattr(shadow, 'failed', False):
+          cloudlog.event("curve_centering_shadow_stopped", reason=shadow.failure_reason)
+          self.curve_shadow = None
+      except Exception:
+        # Diagnostics cannot suppress/replace a completed production control step.
+        self.curve_shadow = None
     return CC, lac_log
 
   def lat_hud_state(self, lat_active, lac_log):

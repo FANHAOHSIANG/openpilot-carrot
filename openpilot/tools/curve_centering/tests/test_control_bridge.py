@@ -189,7 +189,8 @@ def test_input_observation_not_mutated():
 def test_no_production_import_of_bridge():
   for folder in ('selfdrive', 'system', 'common'):
     for path in (ROOT/folder).rglob('*.py'):
-      assert 'tools.curve_centering' not in path.read_text(errors='replace'), str(path)
+      if path != ROOT/'selfdrive/controls/controlsd.py':
+        assert 'tools.curve_centering' not in path.read_text(errors='replace'), str(path)
   assert not (Path(__file__).parents[1]/'control_bridge.py').read_text().count('PubMaster')
 
 
@@ -201,3 +202,18 @@ def test_malformed_geometry_withdraws(geometry):
   result = bridge.step(tick, obs)
   assert result['injected_delta_curvature'] == 0
   assert 'invalid_geometry' in result['reasons']
+
+
+def test_withdrawal_has_zero_same_state_policy_difference():
+  bridge, _ = warm()
+  tick, obs = inputs(301, driver_steering=True)
+  result = bridge.step(tick, obs)
+  assert result['policy_delta_curvature'] == 0
+  assert result['residual_curvature'] != 0  # different historical states, not new injection
+
+
+def test_available_time_can_follow_plan_publication_without_lookahead():
+  tick, obs = inputs(1)
+  obs['available_ns'] = tick.now_ns
+  result = ControlBridge().step(tick, obs)
+  assert 'unmatched_stale_or_future_observation' not in result['reasons']

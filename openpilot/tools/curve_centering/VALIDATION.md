@@ -293,3 +293,78 @@ replay, actuator/EPS/Panda integration, calibrated closed-loop and physical
 handover tests were not performed. No C4 connection, installation, deployment,
 vehicle action or raw private data publication occurred. Vehicle actuation
 remains blocked by these evidence gaps and reproduced counterexamples.
+
+## Follow-up: actual consumer shadow tap, attribution and precise blockers
+
+Continues `fb59c77e3b670dc2332b6a5c217a6ca726302e72` on the same independent
+branch. The original target branch remains untouched. No actuator assignment,
+steering limit, CAN safety, controller permission or startup registration changes.
+The new controlsd hook is observation-only and explicitly process-opt-in via
+`CURVE_CENTERING_SHADOW=1`; default construction does not import/start it.
+
+This supersedes the earlier description of 212 residual ticks as a generic
+"handover failure". Same-state comparison proves zero new policy contribution
+on every such tick. A/C have different past states; their residual decays with
+the original 0.1 s filter. At the first withdrawn tick the synthetic lateral
+acceleration difference is -0.226208563 m/s². Resetting the state directly to A
+would require ~24.9999 m/s³ in that step against the original 5 m/s³ rate limit.
+We retain the state decay, all original counts and the physical handover gap;
+we do not reset state or relax a threshold to manufacture a pass.
+
+The original 24/96 assumed-clearance failures are the same cases in A, C and
+low-gain U (delay=.3, bias=.3). New candidate exceedances vs A: zero. However,
+C's maximum extra peak in this subset is 0.0585662 m and U's is 0.0118083 m.
+Representative original A/C/U peaks are 1.02051/0.987893/1.02340 m. These remain
+failures. Zero-bias and zero-transport-delay ablations locate the toy-model
+interaction; they are not attainable production fixes or independent events.
+
+The separate spatial-ramp example uses no C/U at all. Its 0.867016795 m peak
+occurs on exit, with 42 steps above the unmodified assumed 0.85 m clearance.
+At peak, speed is 17.8465 m/s, command -0.00241478/m, actual -0.00184070/m and
+road +0.000544252/m; steering authority is +/-0.00941926/m. Correction is already
+inward at this late peak and not currently saturated. Removing bias, transport
+delay, lag or command smoothing individually changes the counterexample. An
+oracle feedforward preview using the known artificial .3+.15+.1 second lag sum
+reduces peak to .426235 m. That assumes road knowledge/plant calibration absent
+in real data; it is kept only as a diagnostic probe, not a vehicle implementation.
+Default eight spatial-ramp rows remain byte-identical after adding trace support.
+
+Historical evidence retrieval:
+
+- Re-read the existing Library curve-verification report and revised paired-ramp
+  report. The revised report explicitly corrects the earlier unmatched-window
+  speed comparison: approximately position-matched exit speeds are similar,
+  while most of the earlier exit samples already have driver intervention.
+  We do not infer a solely speed-caused or solely model-caused real incident.
+- The Library report is a retained analysis, not newly decoded raw evidence.
+  Exact-title raw-log search did not locate the relevant later route; the current
+  Library helper failed with `hosted apps tools/list request failed: network`
+  both normally and with approved broader execution. No raw-log replay is claimed.
+- Independently fetched successful-pass source commit
+  `5945301512e41a791b3cd8c61d7b7b4edae3b61c`: controlsd and drive_helpers are
+  unchanged from `0e462225e4184df0ee4e8cfda7b4cc7f69fbbf38`; both contain ONNX
+  Git blob `1aac351ca371f1f68c565470e07a530c7a65f185`. This is source identity,
+  not proof of which internal/external model actually executed on the vehicle.
+
+Local checks: 174 focused tests passed (four preexisting environment/config
+warnings). Tests exercise actual cereal snapshots through the consumer tap and
+processor, copied data ownership, bounded queue overflow/generation reset,
+exception isolation, source-mode rejection and same-state withdrawal accounting.
+The entire production state_control method is compared to its pinned pre-hook
+AST in off/capture/throw/real-runtime-tap configurations over 1,200 steps; every
+CarControl field and selected state matches. VM, LaC, LoC, settings and hardware
+are substitutes in this check; do not call it complete native torque validation.
+
+Native `test_lateral_startup_control.py` collection remains blocked by missing
+`openpilot.common.params_pyx` after installing Python dependencies. Attempted
+`scons -j2 openpilot/common/params_pyx.so` stops during configuration with
+`ModuleNotFoundError: No module named 'acados'`. Native and hardware tests remain
+unexecuted. No vehicle was connected or operated.
+
+Desktop capture-only performance, 3,000 calls: median 19.209 us, P95 68.372 us,
+maximum 13,255.122 us (no simultaneous CPU measurement for that spike). A second
+3,000-call wall/thread-CPU probe has maximum wall/CPU 339.160/339.714 us. Keep the
+first negative tail; neither run includes worker contention or proves device
+100 Hz deadlines. Shadow remains disabled by default. Device timing, native
+controller/EPS handover, calibrated coupled dynamics and independent geometry
+remain concrete blockers to actuator connection, not a generic "research" label.
