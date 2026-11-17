@@ -789,6 +789,7 @@ class CarrotNaviReceiver:
           "present": record.present,
           "sequence": record.sequence,
           "source_timestamp_ms": record.source_timestamp_ms,
+          "sent_at_ms": record.sent_at_ms,
           "received_mono_ns": record.received_mono_ns,
           "value": copy.deepcopy(record.value) if record.present else None,
         }
@@ -1329,3 +1330,4 @@ def main() -> None:
 
 if __name__ == "__main__":
   main()
+

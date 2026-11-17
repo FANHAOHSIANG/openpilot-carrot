@@ -38,6 +38,8 @@ class NaviSpeedControl:
   present: bool
   sequence: int
   road_limit_kph: int | None = None
+  pre_adjust_kph: int | None = None
+  pre_adjust_deadline_ns: int = 0
   sdi_present: bool = False
   sdi_type: int = -1
   sdi_distance_m: int = 0
@@ -265,6 +267,9 @@ def parse_carrot_navi_control(data: Any) -> CarrotNaviControl | None:
     present=speed_present,
     sequence=speed_sequence,
     road_limit_kph=road_limit_kph,
+    pre_adjust_kph=(_int(speed_item, "preAdjustKph")
+                    if speed_present and _get(speed_item, "preAdjustValid", False) is True else None),
+    pre_adjust_deadline_ns=max(0, _int(speed_item, "preAdjustDeadlineMonoTimeNanos")),
     sdi_present=sdi_present,
     sdi_type=_int(speed_item, "sdiType", -1) if sdi_present else -1,
     sdi_distance_m=max(0, _int(speed_item, "sdiDistanceM")) if sdi_present else 0,
@@ -306,3 +311,4 @@ def parse_carrot_navi_control(data: Any) -> CarrotNaviControl | None:
     guidance_active=guidance_active,
     road_category=road_category,
   )
+

@@ -233,3 +233,17 @@ bump ...` 구조라서, 적용 가능한 primary camera 또는 section이 있으
 ## 2026-11-11 테스트 브랜치: 목적지 없는 대만 OSM 커브 미리보기
 
 `test/truck-clearance-204f9cca`는 선택된 내비 폴리라인이 없을 때 `OsmCurveSpeedEnabled`와 턴속도 모드 2/3으로 로컬 OSM 도로를 속도 전용 입력에 사용할 수 있습니다. 본섬·펑후·진먼·마쭈 지도는 주차 중 비과금 Wi-Fi에서 자동 다운로드하며, 위치·방향·근거리 비전 일치 및 갈림길 종료 조건을 적용합니다. 7713/7714의 원래 경로 소유권·TBT·SDI는 변경하지 않고, OSM 도로를 `navRoute`로 보내지 않습니다. 외부 세션에 폴리라인이 없더라도 OSM의 독립적인 도로 확인은 가능하며 저장된 Mapbox 경로를 빌려오는 것은 아닙니다. 최종 geometry 소스 이름 `route`를 유지하고 로그 `rc=osm/...`로 구분합니다. [설계·사용·검증](osm_curve_preview_20261111.md).
+
+
+
+## wide.78 高德車機版預調恢復（2026-11-17）
+
+Android 原生預調原先共用 `road_limit_kph`，被 TDX／OSM 速限過濾覆蓋。本次保持原生策略，新增獨立 `speed.value.pre_adjust = {source: "amap_auto", target_kph, generated_at_ms}`；道路限速與測速欄位保持原義。
+
+接收端快照保留原有封包 `sent_at_ms`，以發送前策略年齡加接收後單調時間計算兩秒有效期，不假設跨裝置時鐘同步（不包含網路傳輸耗時）。Cap'n Proto Speed 末尾追加 `preAdjustValid @30`、`preAdjustKph @31`、`preAdjustDeadlineMonoTimeNanos @32`，不重排舊欄位。沒有新欄位的舊 App 不產生候選；舊車端忽略 JSON 擴充。
+
+CarrotServ 每周期驗證期限。僅在導航連線、有效引導、未偏離路線且 `AutoNaviSpeedCtrlMode > 0` 時，以 `pre` 加入既有最小值速度仲裁；不改變道路速限，不提高巡航設定，不越過較低 ATC／測速候選。App 必須選高德車機版並開啟原生預調；不宣稱高德一般版或 Google 已支援此原生策略。
+
+需搭配 wide.78 與更新後的測試分支，重啟 comma 以載入訊息格式；不要求變更轉向設定或開啟額外道路速限來源。維持 wide.77 正式版，實車仍待驗證。
+
+離線檢查：`python3 tools/check_pre_adjust_portable.py`，73 項通過。使用真實 Cap'n Proto schema 與原始 CarrotServ 方法，隔離原生 Params／socket／硬體，不等於裝置或實車驗收。
