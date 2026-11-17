@@ -458,7 +458,7 @@ def test_production_card_send_boundary(output, monkeypatch, tmp_path, blocked):
     return car.CarControl.Actuators.new_message().as_reader(), frames
   stages = ('apply', 'sendcan', 'total')
   sent = []
-  card = NS(kick_output=gate, spas_signals=NS(enabled=False), native_voice_indicator=None, initialized_prev=True,
+  card = NS(kick_output=gate, spas_signals=NS(enabled=False), spas_diagnostic_at=float('inf'), native_voice_indicator=None, initialized_prev=True,
             params=gate.params, sm=sm, CI=NS(CC=controller, apply=apply), tesla_signals=NS(configured=False),
             lateral_startup=NS(update=lambda *args:True), pm=NS(send=lambda *args:sent.append(args)),
             card_diag_recv_ns=10_000_000_000, card_diag_stage_names=stages,
