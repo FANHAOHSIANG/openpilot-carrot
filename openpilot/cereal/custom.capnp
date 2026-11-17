@@ -211,6 +211,8 @@ struct CarrotNaviState @0xaedffd8f31e7b55d {
 		guidanceActive @2 :Bool;
 		offRoute @3 :Bool;
 		routePresent @4 :Bool;
+		sharedPreAdjustSource @5 :Text;
+		sharedPreAdjustDeadlineMonoTimeNanos @6 :UInt64;
 	}
 }
 

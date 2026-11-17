@@ -21,7 +21,7 @@ from openpilot.common.constants import CV
 from openpilot.common.gps import get_gps_location_service
 from openpilot.selfdrive.carrot.gps_sources import GPSSources
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
-from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate
+from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate, shared_pre_adjust_candidate
 
 nav_type_mapping = {
   12: ("turn", "left", 1),
@@ -1478,6 +1478,12 @@ class CarrotServ:
       #self.debugText = ""
       pass
 
+    shared_pre_speed = shared_pre_adjust_candidate(
+      self.carrot_navi_control if self.carrot_navi_active else None,
+      self.external_navigation_active and self.autoNaviSpeedCtrlMode > 0
+      and 10 <= self.autoTurnControlSpeedTurn <= 80, time.monotonic_ns(), atc_desired,
+    )
+
     if self.autoTurnControl not in [2, 3]:    # auto turn speed control
       atc_desired = atc_desired_next = 250
 
@@ -1515,6 +1521,7 @@ class CarrotServ:
       self.carrot_navi_control if self.carrot_navi_active else None,
       self.external_navigation_active and self.autoNaviSpeedCtrlMode > 0, time.monotonic_ns(),
     )
+    pre_speed = min(pre_speed, shared_pre_speed)
     if pre_speed < 250:
       speed_n_sources.append((pre_speed, "pre"))
 

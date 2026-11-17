@@ -94,6 +94,8 @@ class CarrotNaviControl:
   off_route: bool = False
   guidance_active: bool = False
   road_category: int | None = None
+  shared_pre_adjust_source: str = ""
+  shared_pre_adjust_deadline_ns: int = 0
 
 
 def _get(obj: Any, name: str, default: Any = None) -> Any:
@@ -310,5 +312,7 @@ def parse_carrot_navi_control(data: Any) -> CarrotNaviControl | None:
     off_route=off_route,
     guidance_active=guidance_active,
     road_category=road_category,
+    shared_pre_adjust_source=_text(status, "sharedPreAdjustSource") if status_present else "",
+    shared_pre_adjust_deadline_ns=max(0, _int(status, "sharedPreAdjustDeadlineMonoTimeNanos")) if status_present else 0,
   )
 

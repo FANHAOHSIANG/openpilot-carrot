@@ -88,7 +88,7 @@ def select_with_production_code(navi, **values):
   start = next(i for i,n in enumerate(method.body) if assigns(n, 'speed_n_sources'))
   end = next(i for i,n in enumerate(method.body) if assigns(n, 'desired_speed'))
   block = ast.Module(body=method.body[start:end+1], type_ignores=[])
-  env = dict(pre_adjust_candidate=pre_adjust_candidate, math=__import__('math'),
+  env = dict(shared_pre_speed=250, pre_adjust_candidate=pre_adjust_candidate, math=__import__('math'),
              time=SimpleNamespace(monotonic_ns=lambda: 10_100_000_000),
              self=SimpleNamespace(carrot_navi_active=True, carrot_navi_control=navi,
                                   external_navigation_active=True, autoNaviSpeedCtrlMode=1,

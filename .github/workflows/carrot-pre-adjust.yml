@@ -1,7 +1,7 @@
 name: Carrot pre-adjust protocol regression
 on:
   push:
-    branches: [test/carrot-wip-upstream-20261104, test/tony-carrot-wip-integrated-20261117]
+    branches: [test/three-map-pre-adjust, test/carrot-wip-upstream-20261104, test/tony-carrot-wip-integrated-20261117]
     paths: ['openpilot/selfdrive/carrot/**', 'openpilot/cereal/**', 'tools/check_pre_adjust_portable.py', '.github/workflows/carrot-pre-adjust.yml']
   workflow_dispatch:
 permissions:
