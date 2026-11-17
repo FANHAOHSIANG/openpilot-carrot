@@ -9,10 +9,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Import exact reviewed upstream commit into isolated source ref
+      - name: Advance isolated source ref without workflow changes
         run: |
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git d2b5b1be1cc5ea6b4497a7dc4f0a997b4640108c
-          test "$(git rev-parse FETCH_HEAD)" = d2b5b1be1cc5ea6b4497a7dc4f0a997b4640108c
-          git push origin d2b5b1be1cc5ea6b4497a7dc4f0a997b4640108c:refs/heads/sync/tony-source-d2b5b1be
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git a49eb08d56e3fab095650895377a58848be3e0f8
+          test "$(git rev-parse FETCH_HEAD)" = a49eb08d56e3fab095650895377a58848be3e0f8
+          git push origin a49eb08d56e3fab095650895377a58848be3e0f8:refs/heads/sync/tony-source-reviewed
