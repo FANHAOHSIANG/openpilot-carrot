@@ -85,6 +85,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 
 ##### 조향감
 
+- [현대·기아 4차종 조향·커브 보조](https://github.com/ajouatom/openpilot/wiki/KO-%ED%98%84%EB%8C%80%C2%B7%EA%B8%B0%EC%95%84-4%EC%B0%A8%EC%A2%85-%EC%A1%B0%ED%96%A5%C2%B7%EC%BB%A4%EB%B8%8C-%EB%B3%B4%EC%A1%B0) — `HkgPhase1Assist`
 - [SteerActuatorDelay(30)](https://github.com/ajouatom/openpilot/wiki/KO-SteerActuatorDelay%2830%29) — `SteerActuatorDelay`
 - [무게중심 비율](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AC%B4%EA%B2%8C%EC%A4%91%EC%8B%AC-%EB%B9%84%EC%9C%A8) — `CenterToFrontRatio`
 - [LatSmoothSec(13)x0.01](https://github.com/ajouatom/openpilot/wiki/KO-LatSmoothSec%2813%29x0.01) — `LatSmoothSec`
@@ -133,7 +134,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 ###### 조향 제한
 
 - [\_CustomSteerMax(0)](https://github.com/ajouatom/openpilot/wiki/KO-_CustomSteerMax%280%29) — `CustomSteerMax`
-- [저속 모델 조향 여유](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A0%80%EC%86%8D-%EB%AA%A8%EB%8D%B8-%EC%A1%B0%ED%96%A5-%EC%97%AC%EC%9C%A0) — `LowSpeedSteerReserve`
+- [저속 요구 추종·응답 기록](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A0%80%EC%86%8D-%EC%9A%94%EA%B5%AC-%EC%B6%94%EC%A2%85%C2%B7%EC%9D%91%EB%8B%B5-%EA%B8%B0%EB%A1%9D) — `LowSpeedSteerReserve`
 - [\_CustomSteerDeltaUp(0)](https://github.com/ajouatom/openpilot/wiki/KO-_CustomSteerDeltaUp%280%29) — `CustomSteerDeltaUp`
 - [\_CustomSteerDeltaDown(0)](https://github.com/ajouatom/openpilot/wiki/KO-_CustomSteerDeltaDown%280%29) — `CustomSteerDeltaDown`
 - [\_CustomSteerDeltaUpLC(0)](https://github.com/ajouatom/openpilot/wiki/KO-_CustomSteerDeltaUpLC%280%29) — `CustomSteerDeltaUpLC`
@@ -479,6 +480,7 @@ Per-setting pages generated from the current settings catalog.
 
 ##### Steering Feel
 
+- [Hyundai Kia four-family steering and curve assist](https://github.com/ajouatom/openpilot/wiki/EN-Hyundai-Kia-four-family-steering-and-curve-assist) — `HkgPhase1Assist`
 - [SteerActuatorDelay(30)](https://github.com/ajouatom/openpilot/wiki/EN-SteerActuatorDelay%2830%29) — `SteerActuatorDelay`
 - [Center of gravity ratio](https://github.com/ajouatom/openpilot/wiki/EN-Center-of-gravity-ratio) — `CenterToFrontRatio`
 - [LatSmoothSec(13)](https://github.com/ajouatom/openpilot/wiki/EN-LatSmoothSec%2813%29) — `LatSmoothSec`
@@ -527,7 +529,7 @@ Per-setting pages generated from the current settings catalog.
 ###### Steering Limits
 
 - [\_CustomSteerMax(0)](https://github.com/ajouatom/openpilot/wiki/EN-_CustomSteerMax%280%29) — `CustomSteerMax`
-- [Low-speed model steering reserve](https://github.com/ajouatom/openpilot/wiki/EN-Low-speed-model-steering-reserve) — `LowSpeedSteerReserve`
+- [Low-speed demand follow and response records](https://github.com/ajouatom/openpilot/wiki/EN-Low-speed-demand-follow-and-response-records) — `LowSpeedSteerReserve`
 - [\_CustomSteerDeltaUp(0)](https://github.com/ajouatom/openpilot/wiki/EN-_CustomSteerDeltaUp%280%29) — `CustomSteerDeltaUp`
 - [\_CustomSteerDeltaDown(0)](https://github.com/ajouatom/openpilot/wiki/EN-_CustomSteerDeltaDown%280%29) — `CustomSteerDeltaDown`
 - [\_CustomSteerDeltaUpLC(0)](https://github.com/ajouatom/openpilot/wiki/EN-_CustomSteerDeltaUpLC%280%29) — `CustomSteerDeltaUpLC`
@@ -873,6 +875,7 @@ Per-setting pages generated from the current settings catalog.
 
 ##### 转向手感
 
+- [现代起亚四车系转向与弯道辅助](https://github.com/ajouatom/openpilot/wiki/ZH-%E7%8E%B0%E4%BB%A3%E8%B5%B7%E4%BA%9A%E5%9B%9B%E8%BD%A6%E7%B3%BB%E8%BD%AC%E5%90%91%E4%B8%8E%E5%BC%AF%E9%81%93%E8%BE%85%E5%8A%A9) — `HkgPhase1Assist`
 - [转向执行器延迟(30)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%AC%E5%90%91%E6%89%A7%E8%A1%8C%E5%99%A8%E5%BB%B6%E8%BF%9F%2830%29) — `SteerActuatorDelay`
 - [重心位置比例](https://github.com/ajouatom/openpilot/wiki/ZH-%E9%87%8D%E5%BF%83%E4%BD%8D%E7%BD%AE%E6%AF%94%E4%BE%8B) — `CenterToFrontRatio`
 - [转向平滑时间(30)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%AC%E5%90%91%E5%B9%B3%E6%BB%91%E6%97%B6%E9%97%B4%2830%29) — `LatSmoothSec`
@@ -921,7 +924,7 @@ Per-setting pages generated from the current settings catalog.
 ###### 转向限制
 
 - [自定义最大转向力矩(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%87%AA%E5%AE%9A%E4%B9%89%E6%9C%80%E5%A4%A7%E8%BD%AC%E5%90%91%E5%8A%9B%E7%9F%A9%280%29) — `CustomSteerMax`
-- [低速模型转向余量](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%BD%8E%E9%80%9F%E6%A8%A1%E5%9E%8B%E8%BD%AC%E5%90%91%E4%BD%99%E9%87%8F) — `LowSpeedSteerReserve`
+- [低速需求跟随与反应记录](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%BD%8E%E9%80%9F%E9%9C%80%E6%B1%82%E8%B7%9F%E9%9A%8F%E4%B8%8E%E5%8F%8D%E5%BA%94%E8%AE%B0%E5%BD%95) — `LowSpeedSteerReserve`
 - [自定义转向增大斜率(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%87%AA%E5%AE%9A%E4%B9%89%E8%BD%AC%E5%90%91%E5%A2%9E%E5%A4%A7%E6%96%9C%E7%8E%87%280%29) — `CustomSteerDeltaUp`
 - [自定义转向减小斜率(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%87%AA%E5%AE%9A%E4%B9%89%E8%BD%AC%E5%90%91%E5%87%8F%E5%B0%8F%E6%96%9C%E7%8E%87%280%29) — `CustomSteerDeltaDown`
 - [变道自定义转向增大斜率(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%8F%98%E9%81%93%E8%87%AA%E5%AE%9A%E4%B9%89%E8%BD%AC%E5%90%91%E5%A2%9E%E5%A4%A7%E6%96%9C%E7%8E%87%280%29) — `CustomSteerDeltaUpLC`
@@ -1267,6 +1270,7 @@ Per-setting pages generated from the current settings catalog.
 
 ##### 轉向手感
 
+- [現代起亞四車系轉向與彎道輔助](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E7%8F%BE%E4%BB%A3%E8%B5%B7%E4%BA%9E%E5%9B%9B%E8%BB%8A%E7%B3%BB%E8%BD%89%E5%90%91%E8%88%87%E5%BD%8E%E9%81%93%E8%BC%94%E5%8A%A9) — `HkgPhase1Assist`
 - [轉向執行器延遲(30)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BD%89%E5%90%91%E5%9F%B7%E8%A1%8C%E5%99%A8%E5%BB%B6%E9%81%B2%2830%29) — `SteerActuatorDelay`
 - [重心位置比例](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E9%87%8D%E5%BF%83%E4%BD%8D%E7%BD%AE%E6%AF%94%E4%BE%8B) — `CenterToFrontRatio`
 - [轉向平滑時間(30)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BD%89%E5%90%91%E5%B9%B3%E6%BB%91%E6%99%82%E9%96%93%2830%29) — `LatSmoothSec`
@@ -1315,7 +1319,7 @@ Per-setting pages generated from the current settings catalog.
 ###### 轉向限制
 
 - [自定義最大轉向力矩(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%87%AA%E5%AE%9A%E7%BE%A9%E6%9C%80%E5%A4%A7%E8%BD%89%E5%90%91%E5%8A%9B%E7%9F%A9%280%29) — `CustomSteerMax`
-- [低速模型轉向餘量](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E4%BD%8E%E9%80%9F%E6%A8%A1%E5%9E%8B%E8%BD%89%E5%90%91%E9%A4%98%E9%87%8F) — `LowSpeedSteerReserve`
+- [低速需求跟隨與反應記錄](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E4%BD%8E%E9%80%9F%E9%9C%80%E6%B1%82%E8%B7%9F%E9%9A%A8%E8%88%87%E5%8F%8D%E6%87%89%E8%A8%98%E9%8C%84) — `LowSpeedSteerReserve`
 - [自定義轉向增大斜率(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%87%AA%E5%AE%9A%E7%BE%A9%E8%BD%89%E5%90%91%E5%A2%9E%E5%A4%A7%E6%96%9C%E7%8E%87%280%29) — `CustomSteerDeltaUp`
 - [自定義轉向減小斜率(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%87%AA%E5%AE%9A%E7%BE%A9%E8%BD%89%E5%90%91%E6%B8%9B%E5%B0%8F%E6%96%9C%E7%8E%87%280%29) — `CustomSteerDeltaDown`
 - [變道自定義轉向增大斜率(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%AE%8A%E9%81%93%E8%87%AA%E5%AE%9A%E7%BE%A9%E8%BD%89%E5%90%91%E5%A2%9E%E5%A4%A7%E6%96%9C%E7%8E%87%280%29) — `CustomSteerDeltaUpLC`

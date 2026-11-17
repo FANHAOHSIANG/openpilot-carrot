@@ -146,6 +146,10 @@ class CarInterface(CarInterfaceBase):
       if CAN.ECAN >= 4:
         cfgs.insert(0, get_safety_config(structs.CarParams.SafetyModel.noOutput))
       ret.safetyConfigs = cfgs
+      if params.get_int("AlwaysLateral") > 0:
+        ret.safetyConfigs[-1].safetyParam |= HyundaiSafetyFlags.CANFD_ALWAYS_LATERAL.value
+      if ret.flags & HyundaiFlags.ANGLE_CONTROL:
+        ret.safetyConfigs[-1].safetyParam |= HyundaiSafetyFlags.CANFD_ANGLE_CONTROL.value
       from opendbc.car.hyundai.spas import compatible
       # CanfdBlinkerKick (carcontroller.aprk_blinkers): KICK_CARS on the camera-SCC harness only, the one whose Kick buses
       # are known. It and this path both pause APRK and send 0x16A; Kick wins and switches this one off at boot so the

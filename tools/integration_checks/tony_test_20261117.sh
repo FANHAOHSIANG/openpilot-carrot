@@ -43,7 +43,26 @@ python tools/signal_validation/run.py \
   openpilot/selfdrive/carrot/server/tests/test_cockpit_page.py \
   openpilot/selfdrive/carrot/server/tests/test_road_detector_mime.py \
   openpilot/selfdrive/carrot/server/tests/test_web_settings_road_detector.py
+python tools/signal_validation/run.py \
+  opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_steering_guard.py \
+  opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py \
+  opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_spas_piggyback.py \
+  openpilot/selfdrive/car/tests/test_canfd_steering_safety_config.py \
+  openpilot/selfdrive/car/tests/test_cruise_settings.py \
+  openpilot/selfdrive/car/tests/test_cruise_timing.py \
+  openpilot/selfdrive/controls/tests/test_hkg_phase1.py \
+  openpilot/selfdrive/controls/tests/test_low_speed_steer_reserve.py \
+  openpilot/selfdrive/controls/tests/test_lateral_startup_control.py \
+  opendbc_repo/opendbc/car/hyundai/tests/test_steering_observations.py \
+  openpilot/selfdrive/ui/tests/test_steering_learning_view.py \
+  openpilot/selfdrive/pandad/tests/test_integrated_firmware_gate.py
+python tools/signal_validation/run.py \
+  formosalink/tests/test_training_contributions.py formosalink/tests/test_training_api.py \
+  tools/training_studio/tests \
+  openpilot/selfdrive/carrot/server/tests/test_training_data_http.py \
+  openpilot/selfdrive/carrot/server/tests/test_navigation_google.py \
+  openpilot/selfdrive/carrot/server/tests/test_compact_heartbeat.py
 python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q
 cd openpilot/selfdrive/carrot/web
-node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs 'tests/cockpit_*.test.mjs' tests/hud_constant_heartbeat.test.mjs
+node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs 'tests/cockpit_*.test.mjs' tests/hud_constant_heartbeat.test.mjs tests/training_data.test.mjs tests/compact_connection.test.mjs tests/navigation_google.test.mjs
 npm run build
