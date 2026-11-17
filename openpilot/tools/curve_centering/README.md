@@ -163,3 +163,41 @@ controller candidate, replay the original 100 Hz smoothing/curvature/rate limits
 verify handover continuity, and evaluate a closed-loop vehicle model with camera
 bias, actuator delay, saturation and missing-line sweeps. The current same-input
 replay cannot establish that the car will actually become more centered.
+
+## Synthetic closed-loop falsification and uncertainty experiment
+
+Run `python -m openpilot.tools.curve_centering.simulation --output /tmp/curve-simulation.json`.
+CI runs the same command and retains the synthetic results as an artifact.
+This reconstructs an auditable harness from the interrupted research, not the
+unavailable original scratch files. Its v2 counts must not be mixed with the
+earlier 128-case sweep.
+
+A is an analytic preview-driver surrogate through the pinned 100 Hz model
+limits; C adds the existing shadow proposal; U adds a conservative error interval.
+They evolve separate poses through a Frenet kinematic plant with delay, lag and
+an assumed 3 m/s² actuator ceiling. No neural model, actual EPS, tire forces,
+banking, longitudinal policy or recorded-route reconstruction is present.
+The 320 scenarios include mirror bends, error-bound violations, line loss,
+stale data, takeover and deliberately infeasible demand. Three U gains are
+experimental settings, not a selected optimum. B lane mode remains missing.
+
+`UncertaintyShadow` accepts an explicit, time-bounded `GeometryBound` for
+differential model-path/lane geometry error. If the interval includes zero,
+its target correction is zero; missing, expired or mismatched assumptions
+withdraw with the existing decay and stable reentry. Driver and maneuver
+gates still discard the unactuated proposal. The original C defaults are unchanged.
+
+A common translation of camera coordinates cancels in relative path-minus-lane
+geometry. The injected differential error therefore must NOT be described as a
+measured camera/body offset, or used to explain the user's real incident.
+The bound supplied in simulation is an assumption. There is no automatically
+trusted bound from rlogs, PathOffset, user preference or same-model agreement.
+Independent labels and body calibration remain required before physical use.
+
+RMS deterioration >0.02 m OR peak deterioration >0.05 m marks a synthetic
+regression. Invalid plant-domain runs are excluded from valid comparisons and
+reported separately, never counted as passes. Lower RMS can coexist with a
+peak regression. Results within and outside the assumed bound are separated.
+A green software CI means the harness and guards behave as tested; the report
+always has `deployment_approved=false`. No production code imports either
+proposal or simulator; no installable vehicle fix is claimed.

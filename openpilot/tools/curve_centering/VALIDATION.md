@@ -160,3 +160,38 @@ Closed-loop work should first reproduce the unmodified model/controller response
 then sweep speed, camera bias, delay, line loss and saturation. No calibrated
 closed-loop model has been run here. No C4 or vehicle operation is authorized
 by this research candidate, and no steering limits were changed.
+
+## 2026-11-18: recoverable synthetic harness and uncertainty experiment
+
+Research parent: `6af382f0fc615677cf8ef76b18cf4867c90392d0`.
+Latest Test observed: `2b50cff45e9125501d7eb18d4d622e49c25817b7`.
+The logged-source scalar baseline remains pinned to
+`0e462225e4184df0ee4e8cfda7b4cc7f69fbbf38`; this is not a compatibility
+certification of the current Test branch.
+
+The prior scratch-only 128-case sweep reported 29/49/37 regressions for
+0.10/0.25/0.40 m/s² correction caps, and 12/16/16 invalid comparison pairs.
+The execution environment then became unavailable before source publication.
+Those historical counts are not reproducible from this new v2 harness and are
+not evidence that v2 passed. The original pending scratch files must be retained
+and reconciled when that environment returns.
+
+This commit reconstructs a separately labeled v2 simulator and adds an
+uncertainty-interval candidate. CI is the execution source for this revision:
+the local executor is unavailable. Exact test results and full synthetic
+artifact are attached to the matching GitHub Actions run, not inferred here.
+Tests retain the centered-model/differential-error negative case and cover
+interval signs, expired/missing assumptions, reentry, input immutability,
+mirroring, independently evolving feedback, faults and original rate limits.
+
+No arbitrary common camera shift should be blamed for relative geometric error:
+common translation cancels. A synthetic differential error demonstrates one
+failure mode, not its presence in the vehicle. U's 0.2 m bound is an explicit
+unverified assumption; +/-0.4 m cases test its violation. Neither U nor original
+C is approved for deployment. Unknown bound means no initial correction.
+No driver preference or PathOffset is treated as body center.
+
+Pending: actual B planner comparison; calibrated independent road/body labels;
+neural small/large model closed-loop inference; lateral/longitudinal interaction;
+physical steering-response calibration; smooth actual actuator handover; and
+controlled validation before any proposal is connected to vehicle outputs.

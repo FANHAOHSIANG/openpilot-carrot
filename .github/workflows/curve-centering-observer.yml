@@ -26,5 +26,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install pycapnp==2.1.0 zstandard pytest numpy
+      - run: python -m pip install pycapnp==2.1.0 zstandard pytest numpy ruff==0.17.5
       - run: python -m pytest -o addopts='' --confcutdir=openpilot/tools/curve_centering openpilot/tools/curve_centering/tests -q
+      - run: python -m ruff check openpilot/tools/curve_centering
+      - name: Synthetic closed-loop falsification
+        run: python -m openpilot.tools.curve_centering.simulation --output curve-simulation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: curve-synthetic-falsification
+          path: curve-simulation.json
