@@ -169,7 +169,11 @@ def sweep():
           'deployment_approved':False, 'road_validation':False, 'neural_model_loaded':False,
           'scenario_count':len(list(grid())), 'gain_count':3,
           'regression_thresholds':{'rms_m':0.02, 'peak_m':0.05},
-          'summary':summary, 'cases':cases}
+          'summary':summary,
+          'covered_low_gain_regressions':[
+            {'scenario':r['scenario'], 'comparison':r['U_vs_A'], 'baseline':r['A'], 'candidate':r['U']}
+            for r in cases if r['gain'] == 0.25 and r['assumption_covered'] and r['U_vs_A']['regression'] is True],
+          'cases':cases}
 
 
 def main():
