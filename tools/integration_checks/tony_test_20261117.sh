@@ -45,5 +45,5 @@ python tools/signal_validation/run.py \
   openpilot/selfdrive/carrot/server/tests/test_web_settings_road_detector.py
 python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q
 cd openpilot/selfdrive/carrot/web
-node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs 'tests/cockpit_*.test.mjs'
+node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs 'tests/cockpit_*.test.mjs' tests/hud_constant_heartbeat.test.mjs
 npm run build
