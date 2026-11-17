@@ -1,0 +1,629 @@
+diff --cc .github/workflows/signal-checks.yaml
+index 2cf9e5d9,35f60402..00000000
+--- a/.github/workflows/signal-checks.yaml
++++ b/.github/workflows/signal-checks.yaml
+@@@ -71,24 -69,16 +71,37 @@@ jobs
+          env:
+            CARROT_NATIVE_CPU: '0'
+          run: python tools/signal_validation/run.py opendbc_repo/opendbc/car/hyundai/tests/test_pedal_interceptor.py
+++<<<<<<< HEAD
+ +      - name: CAN FD Kick ownership and stock handover regressions
+ +        run: |
+ +          python tools/signal_validation/run.py \
+ +            openpilot/selfdrive/car/tests/test_hyundai_kick.py \
+ +            tools/jetlink/test_blinker_boundary.py \
+ +            tools/jetlink/test_boundary_recent_intent.py \
+ +            tools/jetlink/test_manual_turn_indicator.py \
+ +            tools/jetlink/test_indicator_reconstruction.py \
+ +            openpilot/selfdrive/car/tests/test_card_diagnostics.py \
+ +            opendbc_repo/opendbc/car/hyundai/tests/test_aprk_blinkers.py \
+ +            opendbc_repo/opendbc/car/hyundai/tests/test_camera_set_speed_sync.py \
+ +            opendbc_repo/opendbc/car/hyundai/tests/test_ccnc_cluster.py \
+ +            opendbc_repo/opendbc/car/hyundai/tests/test_stock_cruise_adopt.py \
+ +            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_spas_piggyback.py \
+ +            openpilot/selfdrive/carrot/tests/test_radar_moving_lead_shield.py \
+ +            openpilot/selfdrive/carrot/tests/test_red_stop_hold.py
+ +          python tools/signal_validation/run.py \
+ +            openpilot/selfdrive/carrot/bluetooth/tests/test_b1.py tools/jetlink/test_blink_owner.py
+++=======
++       - name: Bounded low-speed steering and passive response records
++         run: |
++           python tools/signal_validation/run.py \
++             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_steering_guard.py \
++             openpilot/selfdrive/car/tests/test_canfd_steering_safety_config.py \
++             opendbc_repo/opendbc/car/hyundai/tests/test_low_speed_steer_reserve.py \
++             opendbc_repo/opendbc/car/hyundai/tests/test_steering_observations.py \
++             openpilot/selfdrive/controls/tests/test_low_speed_steer_reserve.py \
++             openpilot/common/tests/test_steering_learning.py \
++             openpilot/selfdrive/ui/tests/test_steering_learning_view.py
+++>>>>>>> b77f4702
+        - name: Vehicle fault admission and CAN FD signal-stop object
+          run: |
+            python tools/signal_validation/run.py \
+diff --cc opendbc_repo/opendbc/car/hyundai/values.py
+index 232f3de1,261f5a3f..00000000
+--- a/opendbc_repo/opendbc/car/hyundai/values.py
++++ b/opendbc_repo/opendbc/car/hyundai/values.py
+@@@ -89,7 -90,7 +90,11 @@@ class HyundaiSafetyFlags(IntFlag)
+    CANFD_SPAS_BLINKERS = 4096
+    PEDAL_INTERCEPTOR = 8192
+    PEDAL_INTERCEPTOR_RAY = 16384
+++<<<<<<< HEAD
+ +  CANFD_BLINKER_KICK = 32768  # CAN-FD only: CanfdBlinkerKick on a KICK_CARS model with the camera-SCC harness
+++=======
++   CANFD_ANGLE_CONTROL = 32768
+++>>>>>>> b77f4702
+  
+  
+  class HyundaiFlags(IntFlag):
+diff --cc openpilot/selfdrive/carrot/server/features/navigation.py
+index 6aedda27,03adef16..00000000
+--- a/openpilot/selfdrive/carrot/server/features/navigation.py
++++ b/openpilot/selfdrive/carrot/server/features/navigation.py
+@@@ -7,11 -11,21 +7,11 @@@ from aiohttp import we
+  
+  from openpilot.common.params import Params
+  from ..config import WEB_DIR, CARROT_NAVIGATION_FAVORITES_PATH
+- from ..services.navigation_favorites import FavoritesFull, NavigationFavorites
++ from ..services.navigation_favorites import FavoritesFull, NavigationFavorites, google_reference
+  from ..services.static_assets import fingerprint_static_asset
+  from ..services.params import get_param_value, set_param_value
+- from openpilot.selfdrive.navigation.preview import PREVIEW_PATH, WEB_DEMAND_PATH, preview_fresh, preview_reason
++ from openpilot.selfdrive.navigation.preview import PREVIEW_PATH, VIEW_PATH, WEB_DEMAND_PATH, preview_fresh, preview_reason
+  
+ -MAX_RESPONSE = 1024 * 1024
+ -
+ -
+ -@dataclass
+ -class SearchState:
+ -  lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+ -  next_request: float = 0.
+ -
+ -
+ -SEARCH_STATE = web.AppKey('navigation_search', SearchState)
+  FAVORITES = web.AppKey('navigation_favorites', NavigationFavorites)
+  
+  
+@@@ -33,9 -47,58 +33,28 @@@ async def page(request)
+    return web.Response(text=html, content_type='text/html', headers={'Cache-Control': 'no-store'})
+  
+  
++ async def map_config(_request):
++   return web.json_response({'provider': 'mapbox', 'basemaps': ['mapbox', 'openstreetmap'],
++                             'search': 'mapbox', 'routing': 'mapbox', 'model': 'mapsd'},
++                            headers={'Cache-Control': 'no-store'})
++ 
++ 
++ async def route_view(_request):
++   try:
++     WEB_DEMAND_PATH.touch()
++     if VIEW_PATH.stat().st_size > 512 * 1024:
++       raise ValueError('oversized view')
++     value = json.loads(VIEW_PATH.read_text(encoding='utf-8'))
++     if not isinstance(value, dict) or not 0 <= time.time() - float(value['generated_at']) < 3.:
++       raise ValueError('stale view')
++   except (OSError, ValueError, KeyError, TypeError, OverflowError):
++     value = {'position': None, 'coordinates': [], 'route_id': 0}
++   return web.json_response(value, headers={'Cache-Control': 'no-store'})
++ 
++ 
+  async def search(request):
+ -  query = request.query.get('q', '').strip()
+ -  if not 2 <= len(query) <= 200:
+ -    return web.json_response({'error': 'Enter 2–200 characters.'}, status=400)
+ -  token = str(get_param_value('MapboxPublicKey', '') or '').strip()
+ -  if not token:
+ -    return web.json_response({'error': 'Set the Mapbox Public key in Settings → Network.'}, status=409)
+ -  state = request.app[SEARCH_STATE]
+ -  if state.lock.locked() or time.monotonic() < state.next_request:
+ -    return web.json_response({'error': 'Please wait before searching again.'}, status=429)
+ -  async with state.lock:
+ -    state.next_request = time.monotonic() + 1.
+ -    try:
+ -      permanent = request.query.get('permanent') == 'true'
+ -      params = {'q': query, 'access_token': token, 'limit': '5', 'autocomplete': 'false', 'permanent': str(permanent).lower()}
+ -      async with request.app['http'].get('https://api.mapbox.com/search/geocode/v6/forward', params=params,
+ -                                         timeout=aiohttp.ClientTimeout(total=8)) as response:
+ -        if response.status != 200:
+ -          return web.json_response({'error': f'Mapbox search failed (HTTP {response.status}).'}, status=502)
+ -        body = bytearray()
+ -        async for chunk in response.content.iter_chunked(65536):
+ -          body.extend(chunk)
+ -          if len(body) > MAX_RESPONSE:
+ -            raise ValueError('oversized response')
+ -        results = []
+ -        for feature in json.loads(body).get('features', [])[:5]:
+ -          lon, lat = feature['geometry']['coordinates'][:2]
+ -          properties = feature.get('properties', {})
+ -          results.append(dict(destination({'latitude': lat, 'longitude': lon,
+ -                                           'place_name': properties.get('full_address') or properties.get('name') or query}), permanent=permanent))
+ -        return web.json_response({'results': results}, headers={'Cache-Control': 'no-store'})
+ -    except (aiohttp.ClientError, TimeoutError, ValueError, KeyError, TypeError, IndexError, AttributeError):
+ -      return web.json_response({'error': 'Mapbox search is unavailable.'}, status=502)
+ +  # Keep old clients from accidentally issuing billable geocoding requests.
+ +  return web.json_response({'error': '地址搜尋已停用，避免永久地理編碼費用。請直接輸入經緯度，或分享含座標的 Google Maps 連結。'}, status=410)
+  
+  
+  async def get_destination(request):
+@@@ -86,7 -159,7 +116,11 @@@ async def favorites(request)
+        return web.json_response({'error': 'Invalid favorite.'}, status=400)
+    try:
+      # Existing saved coordinates may be renamed without another geocode.
+++<<<<<<< HEAD
+ +    if value is not None and body.get('permanent') is not True and body.get('coordinate_source') != 'manual':
+++=======
++     if value is not None and value.get('provider') != 'google' and body.get('permanent') is not True:
+++>>>>>>> b77f4702
+        previous = next((item for item in store.read() if item['id'] == identifier), None) if identifier else None
+        if previous is None or any(value[key] != previous[key] for key in ('latitude', 'longitude', 'place_name')):
+          return web.json_response({'error': 'Invalid favorite.'}, status=400)
+@@@ -131,11 -206,11 +167,13 @@@ async def preview(request)
+  
+  
+  def register(app):
+ -  app[SEARCH_STATE] = SearchState()
+    app[FAVORITES] = NavigationFavorites(CARROT_NAVIGATION_FAVORITES_PATH)
+ +
+ +  from . import google_share
+ +  google_share.register(app)
+    app.router.add_get('/navigation', page)
++   app.router.add_get('/api/navigation/config', map_config)
++   app.router.add_get('/api/navigation/route_view', route_view)
+    app.router.add_get('/api/navigation/search', search)
+    app.router.add_get('/api/navigation/destination', get_destination)
+    app.router.add_post('/api/navigation/destination', set_destination)
+diff --cc openpilot/selfdrive/carrot/web/js/pages/navigation_map.js
+index 87f2c8d0,f9b160f6..00000000
+--- a/openpilot/selfdrive/carrot/web/js/pages/navigation_map.js
++++ b/openpilot/selfdrive/carrot/web/js/pages/navigation_map.js
+@@@ -6,12 -6,18 +6,22 @@@
+    const language = preferred.toLowerCase().replaceAll("_", "-");
+    const traditional = /^zh-(tw|hk|mo|hant|cht)(-|$)/.test(language);
+    const tr = (k, e) => traditional ? (globalThis.CarrotNavigationZhTw[e] || e) : language.startsWith("ko") ? k : e;
++   let viewVisible=true;
++   const navText=(tw,en)=>traditional?tw:en;
++   const legacyNote=navText('此最愛只有舊版地點 ID；請用 Mapbox 重新搜尋、選取地址並儲存後再導航。原有名稱會保留。','This favorite has a legacy place ID. Search with Mapbox, select and save its address before navigating. Your name is preserved.');
++   if(typeof IntersectionObserver==='function')new IntersectionObserver(entries=>{viewVisible=entries[0]?.isIntersecting===true;}).observe(document.querySelector('main'));
+    document.documentElement.lang = traditional ? "zh-Hant" : language.startsWith("ko") ? "ko" : "en";
+    $("title").textContent = tr("Carrot 내비게이션", "Carrot Navigation");
+ -  $("searchTitle").textContent = tr("목적지 검색", "Find a destination");
+ -  $("search").textContent = tr("검색", "Search");
+ +  $("searchTitle").textContent = "目的地座標 / Destination coordinates";
+ +  $("search").textContent = "傳送座標 / Send coordinates";
+    $("clear").textContent = tr("현재 내비게이션 종료", "End current navigation");
+++<<<<<<< HEAD
+ +  $("note").textContent = "已停用付費地址搜尋。請輸入緯度、經度並核對位置；地圖與路線仍依用量計費。";
+++=======
++   $("note").textContent = tr("키 등록 후 목적지를 검색하고 선택하세요. 선택한 위치는 현재 주행 세션에만 사용되며, 주행이 끝나거나 장치가 재시작되면 지워집니다. 경로 지도는 주행 화면이 켜져 있고 현재 위치와 안내 경로가 있을 때 표시됩니다. 외부 내비 안내가 우선이며, 연결이 끝나면 현재 주행의 Mapbox 목적지를 사용합니다.", "After saving your Public key, search for and select a destination. The selected place is used only for the current drive and is cleared when the drive ends or the device restarts. The route map needs the driving screen, a current position and route guidance. External navigation takes priority; the current drive's Mapbox destination resumes after it disconnects.");
++   $('mapConfigTitle').textContent=tr('지도와 검색 소스','Map sources and search');
++   $('mapSourceNote').textContent=tr('Mapbox 검색과 경로를 사용하고 차량의 Mapbox / OpenStreetMap·Protomaps 지도를 표시합니다. 내비게이션 모델과 동일한 지도 미리보기를 공유합니다. 설정 → 네트워크에서 Mapbox Public key를 등록하세요.','Search and routes use Mapbox. The map shares the vehicle’s Mapbox / OpenStreetMap–Protomaps preview with the navigation model. Set your Mapbox Public key in Settings → Network.');
+++>>>>>>> b77f4702
+    async function api(path, options) {
+      let response, value;
+      try {
+@@@ -85,11 -87,14 +95,14 @@@
+    api("destination").then(current).catch((error) => { $("status").textContent = error.message; });
+    function renderFavorites(value) {
+      savedPlaces = value.favorites; $("favorites").replaceChildren(); $("retryFavorites").hidden = true;
+ -    $("favoritesStatus").textContent = savedPlaces.length ? "" : tr("즐겨찾기가 없습니다. 주소를 검색하여 추가하세요.", "No favorites yet. Search for an address to add one.");
+ +    $("favoritesStatus").textContent = savedPlaces.length ? "" : tr("즐겨찾기가 없습니다. 좌표를 입력하여 추가하세요.", "No favorites yet. Enter coordinates to add one.");
+      for (const place of savedPlaces) {
+        const row = document.createElement("li"); row.className = "favorite-row";
+-       const go = button(place.name, () => navigate(`favorites/${encodeURIComponent(place.id)}/destination`)); go.className = "go";
+-       const address = document.createElement("small"); address.textContent = place.place_name;
++       const go = button(place.name, () => {
++         if(place.provider==='google'){openEditor(place.id,place);$('status').textContent=legacyNote;return;}
++         return navigate(`favorites/${encodeURIComponent(place.id)}/destination`);
++       }); go.className = "go";
++       const address = document.createElement("small"); address.textContent = place.provider==='google'?navText('舊版最愛 · 需重新選定地址','Legacy favorite · Reselect its address'):place.place_name;
+        const actions = document.createElement("div"); actions.className = "actions";
+        actions.append(button(tr("편집", "Edit"), () => openEditor(place.id, place)));
+        actions.append(button(deletePending === place.id ? tr("삭제 확인", "Confirm delete") : tr("삭제", "Delete"), async () => {
+@@@ -107,11 -112,11 +120,16 @@@
+    function syncEditor() { $("saveFavorite").disabled = !editorPlace || searchingEditor || savingEditor; }
+    function openEditor(id, place) {
+      if (savingEditor) return;
+ -    editorVersion++; editingId = id; editorPlace = place && (id || place.permanent) ? {...place} : null;
+ +    editorVersion++; editingId = id; editorPlace = place && (id || place.permanent || place.coordinate_source === "manual") ? {...place} : null;
+      $("favoriteForm").hidden = false; $("editorTitle").textContent = id ? tr("즐겨찾기 편집", "Edit favorite") : tr("즐겨찾기 추가", "Add favorite");
+      $("favoriteName").value = place?.name || place?.place_name?.slice(0,80) || "";
+++<<<<<<< HEAD
+ +    $("favoriteQuery").value = place?.place_name || ""; $("favoriteResults").replaceChildren();
+ +    $("editorStatus").textContent = editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Enter latitude, longitude and confirm the coordinates.");
+++=======
++     $("favoriteQuery").value = place?.place_name || place?.name || "";$("favoriteQuery").required=place?.provider!=='google'; $("favoriteResults").replaceChildren();
++     $("editorStatus").textContent = place?.provider==='google'?legacyNote:editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Search the address and select the location to save.");
+++>>>>>>> b77f4702
+      syncEditor(); $("favoriteName").focus();
+    }
+    $("addFavorite").addEventListener("click", () => openEditor(null, null));
+diff --cc openpilot/selfdrive/carrot/web/js/pages/navigation_zh_tw.js
+index 455c8147,85fdaef4..00000000
+--- a/openpilot/selfdrive/carrot/web/js/pages/navigation_zh_tw.js
++++ b/openpilot/selfdrive/carrot/web/js/pages/navigation_zh_tw.js
+@@@ -1,7 -1,8 +1,13 @@@
+  "use strict";
+  globalThis.CarrotNavigationZhTw = Object.freeze({
+++<<<<<<< HEAD
+ +  "Enter destination coordinates below, or start external navigation guidance. Saving keys alone does not display a route map.": "請在下方輸入目的地座標，或啟動外部導航；只設定金鑰不會顯示路線。",
+ +  "Latitude, longitude": "緯度, 經度", "Use coordinates": "確認座標",
+++=======
++   "Map sources and search": "地圖與搜尋來源",
++   "Search and routes use Mapbox. The map shares the vehicle’s Mapbox / OpenStreetMap–Protomaps preview with the navigation model. Set your Mapbox Public key in Settings → Network.": "搜尋與路徑由 Mapbox 提供；地圖共用車機的 Mapbox／OpenStreetMap·Protomaps 預覽，與導航模型使用相同來源。請在「設定 → 網路」填入 Mapbox 公開金鑰。",
++   "Reselect this legacy favorite with Mapbox before navigating.": "請先用 Mapbox 重新搜尋並儲存此舊版最愛的地址，再開始導航。",
+++>>>>>>> b77f4702
+    "Carrot Navigation": "Carrot 導航",
+    "Find a destination": "搜尋目的地", "Search": "搜尋", "End current navigation": "結束當前導航",
+    "Favorites": "我的最愛", "Add favorite": "新增最愛", "Edit favorite": "編輯最愛",
+diff --cc openpilot/selfdrive/carrot/web/navigation.html
+index a4a99074,e52d72f9..00000000
+--- a/openpilot/selfdrive/carrot/web/navigation.html
++++ b/openpilot/selfdrive/carrot/web/navigation.html
+@@@ -16,10 -16,11 +16,16 @@@ ul{padding:0}.map-frame{position:relati
+  .favorite-row small{display:block;overflow-wrap:anywhere}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}li .actions button{width:auto}
+  #favoriteForm{display:grid;gap:10px;margin-top:16px;padding:16px;border:1px solid #516072;border-radius:12px}
+  #favoriteForm[hidden]{display:none}label{display:block}label input{display:block;margin-top:4px}.address-search{display:flex;gap:8px}
++ #mapConfig{margin-bottom:16px;border:1px solid #33404f;padding:14px;border-radius:10px}#mapConfig summary{cursor:pointer}
+  </style><script src="/js/generated/display-preferences.js" defer></script></head><body><main><header><h1 id="title">Carrot 내비게이션</h1><a href="/">Carrot Web ↗</a></header>
+  <div class="layout"><section><div class="map-frame"><img id="map" alt="Navigation route map" hidden><p id="mapStatus" role="status">Waiting for route map…</p></div>
+++<<<<<<< HEAD
+ +<small>© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://protomaps.com/">Protomaps</a> · <a href="https://apps.mapbox.com/feedback/">Improve this map</a></small></section>
+ +<section><p><a href="/navigation/share">Google Maps → Carrot · 分享目的地</a></p><h2 id="searchTitle">直接輸入目的地座標</h2><form id="form" style="flex-wrap:wrap"><input id="latitude" type="number" step="any" min="-85.05112878" max="85.05112878" placeholder="緯度，例如 24.8" aria-label="Latitude" required><input id="longitude" type="number" step="any" min="-180" max="180" placeholder="經度，例如 121.0" aria-label="Longitude" required><button id="search" type="submit">確認座標並傳送</button></form>
+++=======
++ <small id="mapAttribution">© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://protomaps.com/">Protomaps</a> · <a href="https://apps.mapbox.com/feedback/">Improve this map</a></small></section>
++ <section><details id="mapConfig"><summary id="mapConfigTitle">地圖與搜尋來源</summary><p id="mapSourceNote" class="note">Mapbox 搜尋及路徑規劃；共用車機的 Mapbox／OpenStreetMap·Protomaps 地圖。</p></details><h2 id="searchTitle">목적지 검색</h2><form id="form"><input id="query" maxlength="200" minlength="2" required aria-label="Destination"><button id="search" type="submit">검색</button></form>
+++>>>>>>> b77f4702
+  <ul id="results"></ul><p id="status" role="status" aria-live="polite"></p><p id="current"></p>
+  <div class="actions"><button id="clear">End current navigation</button><button id="saveCurrent" disabled>Save current destination</button></div>
+  <h2 id="favoritesTitle">Favorites</h2><p id="favoritesNote" class="note"></p>
+diff --cc openpilot/selfdrive/carrot/web/src/entries/cockpit.js
+index b8b1c6bf,3341184a..00000000
+--- a/openpilot/selfdrive/carrot/web/src/entries/cockpit.js
++++ b/openpilot/selfdrive/carrot/web/src/entries/cockpit.js
+@@@ -34,13 -47,52 +47,57 @@@ core.addEventListener('load',()=>
+  });
+  nav.addEventListener('load',()=>{try{
+    const d=nav.contentDocument;if(nav.contentWindow.location.origin!==location.origin)return;
+-   const style=d.createElement('style');style.textContent=`:root{color-scheme:light;background:#e8e9eb;color:#252a30}body{background:#e8e9eb}main{padding:0;max-width:none}header{display:none}.layout{display:block}.layout>section:first-child{border:0;border-radius:0;padding:0;background:#e8e9eb}.map-frame{height:calc(100vh - 28px);height:calc(100dvh - 28px);aspect-ratio:auto;background:#e8e9eb}small,.note{color:#68717c}small{font-size:9px;padding:4px}.layout>section:nth-child(2){position:fixed;top:12px;left:12px;right:12px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;box-shadow:0 6px 28px #0003;background:#fff;border:1px solid #dadde2;color:#252a30;display:none}body.search-open .layout>section:nth-child(2){display:block}input,button{background:#f4f5f6;border-color:#d5d9df;color:#252a30}#map{object-fit:contain}h2{font-size:16px}html.cockpit-night,html.cockpit-night body,html.cockpit-night .map-frame,html.cockpit-night .layout>section:first-child{background:#17191e;color:#e7ebf1}html.cockpit-night .layout>section:nth-child(2){background:#24272d;color:#e7ebf1}html.cockpit-night input,html.cockpit-night button{background:#343943;color:#e7ebf1}`;d.head.append(style);d.documentElement.classList.toggle('cockpit-night',document.body.classList.contains('night'));
++   const navStyle=d.createElement('link');navStyle.rel='stylesheet';navStyle.href=$('navigationStyle').href;
++   const style=d.createElement('style');style.textContent=`:root{color-scheme:light;background:#e8e9eb;color:#252a30}body{background:#e8e9eb}main{padding:0;max-width:none}header{display:none}.layout{display:block}.layout>section:first-child{border:0;border-radius:0;padding:0;background:#e8e9eb}.map-frame{height:calc(100vh - 28px);height:calc(100dvh - 28px);aspect-ratio:auto;background:#e8e9eb}small,.note{color:#68717c}small{font-size:9px;padding:4px}.layout>section:nth-child(2){position:fixed;top:12px;left:12px;right:12px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;box-shadow:0 6px 28px #0003;background:#fff;border:1px solid #dadde2;color:#252a30;display:none}body.search-open .layout>section:nth-child(2){display:block}input,button{background:#f4f5f6;border-color:#d5d9df;color:#252a30}#map{object-fit:contain}h2{font-size:16px}html.cockpit-night,html.cockpit-night body,html.cockpit-night .map-frame,html.cockpit-night .layout>section:first-child{background:#17191e;color:#e7ebf1}html.cockpit-night .layout>section:nth-child(2){background:#24272d;color:#e7ebf1}html.cockpit-night input,html.cockpit-night button{background:#343943;color:#e7ebf1}html,body,main,.layout{height:100%;min-height:0}.layout>section:first-child{height:100%;display:flex;flex-direction:column;min-height:0}.map-frame{flex:1;min-height:0;height:auto;aspect-ratio:auto}#mapStatus{font-size:12px;line-height:1.6;padding:12px}#mapAttribution{flex:none;font-size:9px;line-height:1.4;padding:3px 5px;overflow-wrap:anywhere;color:#62666d}#mapAttribution a{color:inherit}html.cockpit-night #mapAttribution{color:#b4b6ba}`;d.head.append(style);d.documentElement.classList.toggle('cockpit-night',document.body.classList.contains('night'));
++   d.head.append(navStyle);
++   syncNavigationTextScale();
+  }catch{status('導航頁面無法載入。');}});
+++<<<<<<< HEAD
+ +$('visionTools').onclick=()=>{const w=coreWindow();if(w)w.document.body.classList.toggle('cockpit-vision-tools');};
+ +$('searchNav').onclick=()=>{try{const d=nav.contentDocument,input=d?.getElementById('latitude');if(!input)throw Error('Navigation not ready');if(d.body.classList.toggle('search-open'))input.focus();status('');}catch{status('請先等待導航頁載入。');}};
+++=======
++ $('visionTools').onclick=()=>{$('visionSettingFeedback').textContent='';$('visionSettings').showModal();};
++ $('visionShortcut').onclick=()=>{$('apps').close();$('visionTools').onclick();};
++ $('vehicleButton').onclick=()=>$('vehicleDetails').showModal();
++ $('vehicleShortcut').onclick=()=>{$('apps').close();$('vehicleDetails').showModal();};
++ $('profileShortcut').onclick=()=>{$('apps').close();$('profile').onclick();};
++ $('advancedVisionTools').onclick=()=>{
++   $('visionSettings').close();panel('vision');const w=coreWindow();
++   if(w){const open=w.document.body.classList.toggle('cockpit-vision-tools');document.body.classList.toggle('advanced-vision',open);}
++ };
++ $('openBev').onclick=async()=>{
++   const w=coreWindow();if(!w)return;const next=w.CarrotWebSettingsState?.vision_presentation==='bev'?'tesla':'bev';
++   try{await w.setWebSettingByKey('vision_presentation',next);$('visionSettingFeedback').textContent=next==='bev'?'已切換為俯視視角。':'已切換為道路視角。';}
++   catch{$('visionSettingFeedback').textContent='視角設定未確認，請重新查看。';}
++ };
++ $('connectVision').onclick=()=>{
++   panel('vision');const w=coreWindow(),button=w?.document.getElementById('btnStartVision');
++   if(!button||button.disabled){$('visionSettingFeedback').textContent=button?.title||'車機尚未開放鏡頭，請查看工具／診斷。';return;}
++   button.click();$('visionSettingFeedback').textContent='已提出鏡頭連線要求，請等待影像狀態更新。';
++ };
++ $('visionDiagnosis').onclick=()=>{$('visionSettings').close();window.CarrotSelfDiagnostics.open?.();};
++ $('retryDetection').onclick=()=>{
++   const api=coreWindow()?.CarrotVisionPerception;
++   if(!api){$('visionSettingFeedback').textContent='請先等待座艙視覺載入。';return;}
++   api.retry();$('visionSettingFeedback').textContent='已重新初始化已啟用的辨識模型；未啟用項目保持關閉。';
++ };
++ let savingVision=false;
++ for(const [id,key] of [['detectionObjects','vision_object_detection'],['detectionRoad','vision_road_detection']])$(id).onchange=async()=>{
++   if(savingVision)return;const w=coreWindow(),value=$(id).checked;
++   savingVision=true;$('detectionObjects').disabled=true;$('detectionRoad').disabled=true;
++   try{if(typeof w?.setWebSettingByKey!=='function')throw Error();await w.setWebSettingByKey(key,value);
++     if(w.CarrotWebSettingsState?.[key]!==value)throw Error();
++     $('visionSettingFeedback').textContent='辨識開關已儲存；模型狀態請見上方。';
++   }catch{$('visionSettingFeedback').textContent='設定未確認，請確認連線後重試；不會自動重送。';}
++   finally{savingVision=false;$('detectionObjects').disabled=false;$('detectionRoad').disabled=false;}
++ };
++ $('searchNav').onclick=()=>{try{nav.contentDocument.body.classList.toggle('search-open');nav.contentDocument.getElementById('query').focus();}catch{status('請先等待導航頁載入。');}};
+++>>>>>>> b77f4702
+  $('appsButton').onclick=()=>$('apps').showModal();
+  document.querySelectorAll('[data-panel]').forEach(b=>b.onclick=()=>{const next=b.dataset.panel;const fromApps=b.closest?.('#apps');if(fromApps)$('apps').close();panel(!fromApps&&next==='setting'&&view==='setting'?primary:next);});
+- function expand(){document.body.classList.toggle('scene-full');$('sceneMode').classList.toggle('selected',document.body.classList.contains('scene-full'));}
++ // Every road-view entry uses the same camera/classification renderer. The old
++ // parent-only expansion had model/radar data but no classified camera objects.
++ function expand(){$('apps').close();panel('vision');}
+  $('expand').onclick=expand;$('sceneMode').onclick=expand;
+  let appearance=readAppearance(localStorage),appliedAppearance=null,appliedNight=null;
+  function applyAppearance(){
+diff --cc openpilot/selfdrive/carrot/web/tests/cockpit_actions.test.mjs
+index fb4f54bd,835393df..00000000
+--- a/openpilot/selfdrive/carrot/web/tests/cockpit_actions.test.mjs
++++ b/openpilot/selfdrive/carrot/web/tests/cockpit_actions.test.mjs
+@@@ -81,25 -111,42 +111,66 @@@ test('controls toggles its panel and th
+    assert.equal(h.context.document.body.dataset.panel,'tools');assert.equal(h.writes.length,0);
+  });
+  
+++<<<<<<< HEAD
+ +
+ +test('cockpit navigation opens the integrated coordinate form without a legacy paid-search input',()=>{
+ +  const h=harness(),d=h.el('navigation').contentDocument;
+ +  let focused=0;
+ +  d.getElementById=id=>id==='latitude'?{focus(){focused++;}}:null;
+ +  h.el('searchNav').onclick();
+ +  assert.equal(d.body.classList.contains('search-open'),true);
+ +  assert.equal(focused,1);
+ +  assert.equal(h.el('panelStatus').hidden,true);
+ +  h.el('searchNav').onclick();
+ +  assert.equal(d.body.classList.contains('search-open'),false);
+ +  assert.equal(focused,1);
+ +  assert.equal(h.writes.length,0);
+ +});
+ +test('cockpit navigation waits for the coordinate page before opening the form',()=>{
+ +  const h=harness(),d=h.el('navigation').contentDocument;
+ +  d.getElementById=()=>null;
+ +  h.el('searchNav').onclick();
+ +  assert.equal(d.body.classList.contains('search-open'),false);
+ +  assert.match(h.el('panelStatus').textContent,/請先等待導航頁載入/);
+ +  assert.equal(h.writes.length,0);
+++=======
++ // A half-open WebSocket may never emit close. Recovery must not depend on it.
++ test('silent socket is detached and replaced without reloading features or replaying writes',()=>{
++  const h=harness();h.park();const old=h.sockets[0],late=old.onmessage,count=h.pages.length;
++  h.run(14000);assert.equal(h.sockets.length,2);assert.equal(old.readyState,3);assert.equal(old.onmessage,null);
++  assert.equal(h.writes.length,0);assert.equal(h.pages.length,count);
++  const data=new Uint8Array(1);data.frames=[{service:'carState',sequence:999,decoded:{vEgoCluster:99,gearShifter:'drive'}}];late({data});h.tick();assert.equal(h.el('speed').textContent,'—');
++  h.park();h.tick();assert.equal(h.el('gear').textContent,'P');
++ });
++ test('native pause and online/pageshow events cannot reopen background sockets',()=>{
++  const h=harness();h.context.CarrotCockpit.pause();const count=h.sockets.length;
++  h.events.online();h.events.pageshow();h.run(60000);assert.equal(h.sockets.length,count);assert.equal(h.timers.size,0);
++  h.context.CarrotCockpit.resume();assert.equal(h.sockets.length,count+1);h.park();h.tick();assert.equal(h.el('gear').textContent,'P');assert.equal(h.writes.length,0);
++ });
++ 
++ test('object detection settings require explicit action and never start a camera or write driving parameters',async()=>{
++  const h=harness(),saved=[];let cameraStarts=0;
++  h.frame.CarrotWebSettingsState={vision_object_detection:false,vision_road_detection:false};
++  h.frame.setWebSettingByKey=async(key,value)=>{saved.push([key,value]);h.frame.CarrotWebSettingsState[key]=value;return value;};
++  const camera={disabled:false,click:()=>{cameraStarts++;}};h.register('btnStartVision',camera);
++  h.tick();assert.equal(cameraStarts,0);assert.equal(saved.length,0);assert.match(h.el('visionTools').textContent,/未啟用/);
++  h.el('detectionObjects').checked=true;await h.el('detectionObjects').onchange();h.tick();
++  assert.deepEqual(saved,[['vision_object_detection',true]]);assert.equal(cameraStarts,0);assert.match(h.el('visionDiagnostic').textContent,/等待前鏡頭/);
++  h.el('connectVision').onclick();assert.equal(cameraStarts,1);
++  camera.disabled=true;h.el('connectVision').onclick();assert.equal(cameraStarts,1);
++  h.el('detectionObjects').checked=false;await h.el('detectionObjects').onchange();assert.equal(h.writes.length,0);
++ });
++ 
++ test('font storage updates reach the same-origin navigation frame without writes',()=>{
++   const h=harness(),applied=[];h.el('navigation').contentWindow.CarrotDisplayPreferences={apply:value=>applied.push(value.web_text_scale)};
++   h.context.localStorage.getItem=key=>key==='carrot_web_text_scale'?'125':null;
++   h.events.storage({key:'carrot_web_text_scale'});assert.deepEqual(applied,[125]);assert.equal(h.writes.length,0);
++   h.el('navigation').contentWindow.location.origin='https://other.example';h.events.storage({key:'carrot_web_text_scale'});assert.deepEqual(applied,[125]);
++ });
++ 
++ test('tools navigation returns to the cockpit while modified link clicks keep native behavior',()=>{
++   const h=harness(),link={};h.frame.document.querySelector=selector=>selector==='#toolsPrimaryActions a[href="/navigation"]'?link:null;h.el('features').emit('load');
++   let prevented=0;link.onclick({button:0,preventDefault(){prevented++;}});assert.equal(prevented,1);assert.equal(h.context.document.body.dataset.panel,'navigation');
++   h.panel('tools').onclick();link.onclick({button:0,metaKey:true,preventDefault(){prevented++;}});assert.equal(prevented,1);assert.equal(h.context.document.body.dataset.panel,'tools');assert.equal(h.writes.length,0);
+++>>>>>>> b77f4702
+  });
+diff --cc openpilot/selfdrive/carrot/web/tests/navigation_map.test.mjs
+index 05bee2b5,d0342e01..00000000
+--- a/openpilot/selfdrive/carrot/web/tests/navigation_map.test.mjs
++++ b/openpilot/selfdrive/carrot/web/tests/navigation_map.test.mjs
+@@@ -141,22 -142,23 +143,44 @@@ test("favorite navigation uses its ID a
+    assert.match(p.element('favoritesStatus').textContent, /尚未加入最愛/);
+  });
+  
+++<<<<<<< HEAD
+ +
+ +test("coordinate form rejects invalid inputs and posts confirmed valid coordinates without search", async () => {
+ +  const calls = [];
+ +  const p = await page([{status: 204, reason: "offroad"}], "zh-TW", async (url, options) => {
+ +    calls.push({url, options});
+ +    if (url.endsWith("favorites")) return {favorites: []};
+ +    if (options.method === "POST") return {destination: JSON.parse(options.body)};
+ +    return {destination: null};
+ +  });
+ +  p.element("latitude").value = "91"; p.element("longitude").value = "121";
+ +  await p.element("form").trigger("submit");
+ +  assert.equal(calls.filter(c => c.options.method === "POST").length, 0);
+ +  p.element("latitude").value = "25.03";
+ +  await p.element("form").trigger("submit");
+ +  const posts = calls.filter(c => c.options.method === "POST");
+ +  assert.equal(posts.length, 1);
+ +  assert.deepEqual(JSON.parse(posts[0].options.body), {latitude: 25.03, longitude: 121, place_name: "25.03, 121"});
+ +  assert.ok(calls.every(c => !c.url.includes("search")));
+++=======
++ test('legacy Google favorite opens explicit address migration and replaces it with a Mapbox selection',async()=>{
++   const old={id:'c'.repeat(32),provider:'google',google_place_id:'legacy_id',name:'我的家'},requests=[];
++   const selected={latitude:25,longitude:121,place_name:'臺北測試地址',permanent:true};
++   const p=await page([{status:204,reason:'offroad'}],'zh-TW',async(url,options)=>{
++     requests.push({url,options});
++     if(url.includes('/search?'))return {results:[selected]};
++     if(url.endsWith('/destination'))return {destination:null};
++     return {favorites:[old]};
++   });
++   await p.element('favorites').children[0].children[0].trigger('click');
++   assert.equal(p.element('favoriteForm').hidden,false);assert.equal(p.element('favoriteName').value,'我的家');
++   assert.match(p.element('editorStatus').textContent,/重新搜尋/);
++   assert.equal(requests.some(r=>r.options.method==='POST'),false);
++   await p.element('favoriteSearch').trigger('click');
++   await p.element('favoriteResults').children[0].children[0].trigger('click');
++   await p.element('favoriteForm').trigger('submit');
++   const update=requests.find(r=>r.options.method==='PUT'),body=JSON.parse(update.options.body);
++   assert.equal(body.name,'我的家');assert.equal(body.latitude,25);assert.equal(body.permanent,true);
++   assert.equal(body.provider,undefined);assert.equal(body.google_place_id,undefined);
+++>>>>>>> b77f4702
+  });
+diff --cc openpilot/selfdrive/ui/translations/app_ko.po
+index 577f4723,c5f8934a..00000000
+--- a/openpilot/selfdrive/ui/translations/app_ko.po
++++ b/openpilot/selfdrive/ui/translations/app_ko.po
+@@@ -1828,5 -1828,157 +1828,162 @@@ msgstr "무지개 도로 (SP 스타일)
+  msgid "Show an animated rainbow on the predicted path while lateral control is active. Display only; changes apply without restarting."
+  msgstr "횡방향 제어 중 예측 경로를 움직이는 무지개로 표시합니다. 표시 전용이며 재시작 없이 적용됩니다。"
+  
+++<<<<<<< HEAD
+ +msgid "comma Connect is disabled"
+ +msgstr "comma Connect가 꺼져 있습니다"
+++=======
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Low-speed demand follow · observed response"
++ msgstr "저속 요구 추종 · 응답 기록"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Hyundai/Kia CAN-FD torque control only. Command units are not Nm; up/down is CAN units per 10 ms. Observed peaks are not hardware limits and never increase control limits. No physical limit probing."
++ msgstr "현대/기아 CAN-FD 토크 제어 전용입니다. 명령 단위는 Nm가 아니며 증가/감소율은 10 ms당 CAN 명령 변화량입니다. 관찰 최대값은 하드웨어 한계가 아니며 제어 한계를 높이는 데 사용하지 않습니다. 물리 한계를 시험하지 않습니다."
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Requested / sent torque command"
++ msgstr "요구 / 전송 토크 명령"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Target / measured steering angle"
++ msgstr "목표 / 실제 핸들 각도"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Measured steering angle rate"
++ msgstr "실제 핸들 각속도"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Factory baseline / available ceiling"
++ msgstr "공장 기본 / 사용 가능 한계"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Command increase / decrease per 10 ms"
++ msgstr "10 ms당 명령 증가 / 감소"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Left-command observed peaks"
++ msgstr "좌측 명령 중 관찰 최대값"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Right-command observed peaks"
++ msgstr "우측 명령 중 관찰 최대값"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Samples (not learning progress)"
++ msgstr "유효 표본 수 (학습 진행률 아님)"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Command / angle / angle rate"
++ msgstr "명령 / 각도 / 각속도"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Enabled"
++ msgstr "켜짐"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Disabled"
++ msgstr "꺼짐"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Current restriction / phase"
++ msgstr "현재 제한 / 단계"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Mode disabled"
++ msgstr "기능 꺼짐"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Lateral control inactive"
++ msgstr "횡방향 제어 비활성"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "CAN unavailable"
++ msgstr "CAN 데이터 무효"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Steering fault"
++ msgstr "조향 오류"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Driver takeover"
++ msgstr "운전자 개입"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Stationary"
++ msgstr "정차 중"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Not in Drive"
++ msgstr "D단 아님"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Factory limit at 40 km/h or above"
++ msgstr "40 km/h 이상 공장 기본 한계"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Model data missing or expired"
++ msgstr "모델 데이터 없음 또는 만료"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Invalid data or configuration"
++ msgstr "잘못된 데이터 또는 구성"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Within baseline demand"
++ msgstr "기본 범위 내 요구"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Confirming sustained demand (0.30 s)"
++ msgstr "지속 요구 확인 중 (0.30 s)"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Following demand within limits"
++ msgstr "한계 내 요구 추종"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "30–40 km/h taper"
++ msgstr "30–40 km/h 여유 감쇠"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Demand exceeds available software ceiling"
++ msgstr "사용 가능 소프트웨어 한계 초과"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Existing steering request inhibition"
++ msgstr "기존 조향 요청 차단"
++ 
++ 
++ #: openpilot/selfdrive/ui/widgets/steering_learning.py
++ msgid "Command rate limit or steering yield"
++ msgstr "명령 변화율 제한 또는 조향 양보"
+++>>>>>>> b77f4702
