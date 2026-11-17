@@ -33,10 +33,10 @@ def nearest_zero_error(error, bound):
 
 
 class UncertaintyShadow:
-  def __init__(self, cfg=ShadowConfig(), *, gain=0.5):
+  def __init__(self, cfg=None, *, gain=0.5):
     if not finite(gain) or not 0 < gain <= 1:
       raise ValueError('gain must be in (0, 1]')
-    self.shadow = CenteringShadow(cfg)
+    self.shadow = CenteringShadow(ShadowConfig() if cfg is None else cfg)
     self.gain = gain
 
   def update(self, row, bound=None):

@@ -8,7 +8,7 @@ from openpilot.tools.curve_centering.tests.test_centering_shadow import sample
 
 
 def evidence(**changes):
-  values = dict(error_bound_m=0.2, preview_m=20.0, valid_from=0.0, valid_until=20.0, reference='synthetic-test')
+  values = {'error_bound_m':0.2, 'preview_m':20.0, 'valid_from':0.0, 'valid_until':20.0, 'reference':'synthetic-test'}
   values.update(changes)
   return GeometryBound(**values)
 
