@@ -6,7 +6,7 @@
       "kind": "bundle",
       "source": "src/entries/cockpit.js",
       "path": "js/generated/cockpit.js",
-      "hash": "194cf2f2818ff5e9e706239da61177cbf1690c842aa4ab083c70b5056a66d052"
+      "hash": "db9f9ed0adad55313e406ae6c73d0f52ea4c510eb6cbbba2bc08b238f470f4d9"
     },
     {
       "id": "tools.lane-mapping",
@@ -34,7 +34,7 @@
       "kind": "bundle",
       "source": "src/entries/drive.js",
       "path": "js/generated/drive.js",
-      "hash": "291aff772b5fc67206618f6628a6efdcb2eb71b1df47d7e1723565929a67740d"
+      "hash": "b6e2a9b5af90db32e98d0f083ac5640c7e52ae3f6e0ecae6e78816e1faa4c68e"
     },
     {
       "id": "replay.runtime",
@@ -55,7 +55,7 @@
       "kind": "bundle",
       "source": "src/entries/tools.js",
       "path": "js/generated/tools.js",
-      "hash": "2368c4558e665ca5d0cd99be99219ae290973a8b1c252c8fdfae11640b2cb361"
+      "hash": "57bf3795274393ea88d38dc074123508492d1c12849ccf5e4f11bc06cc0d49f8"
     },
     {
       "id": "logs.runtime",
@@ -170,10 +170,16 @@
       "hash": "f4dfadc44115c1df243eaade83192aac63adcfe881f13d521742386895d5b48e"
     },
     {
+      "id": "vision.road-detector-worker",
+      "kind": "worker",
+      "path": "js/generated/road-detector-worker.js",
+      "hash": "f509da13efe0c7bed705e313b59c74235ce71fa82f38ba2fda521f7d45b7fa98"
+    },
+    {
       "id": "vision.object-detector-worker",
       "kind": "worker",
       "path": "js/generated/bev-detector-worker.js",
-      "hash": "135f47e60ebc8888b0a5bf7dd2e331f23375cf05fed381a54564a9016cc5961d"
+      "hash": "cf3d69fb354c30e8c8ff960637adda7ae44bb5b957810e6c25546f8b5e2feafe"
     },
     {
       "id": "vision.webgl2.worker",

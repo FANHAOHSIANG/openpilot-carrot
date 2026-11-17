@@ -1,6 +1,6 @@
 {
   "catalogCommit": "2d0d8d152503dfe7209afa1b353f54a570592e34",
-  "contentHash": "c0b0dfc51d42e85a2447905e7319ba8c1a0fa9356fb6b01a88274cf94f467cb7",
+  "contentHash": "f8a69626315905e48bcef7d8561ac7d15b02299b5f4b97eb5c3d0f703538a442",
   "generatedAt": "2026-11-17T00:00:00+08:00",
   "locales": [
     "ko",
@@ -498,8 +498,8 @@
       "hash": "7e064adcc7b9e83932ef70a6666c8faed0bcbb7b0a6b552e14f3d1e7157de856"
     },
     "EN-Manual-lane-change-indicator-(trial).md": {
-      "bytes": 5763,
-      "hash": "6fabdc11374e1035e87c65015d2fc144f017fa7225f12a15a5623d4e0876f4a8"
+      "bytes": 6067,
+      "hash": "86addf9e3690ef41331fb6f3861afce1bcb7f8be2d7bcc974787754a0b5c8e90"
     },
     "EN-Manual-turn-indicator-(trial).md": {
       "bytes": 4221,
@@ -1422,8 +1422,8 @@
       "hash": "f7f120e629c0a3b793893bde72469ec4aa91db42e6061cb03252d92d4ec51d9f"
     },
     "KO-수동-차선변경-깜박이(시험).md": {
-      "bytes": 6407,
-      "hash": "85d033b67f400a7f11dec976c4169ea1ec353a852fc492aa588f7ddceb9ac7b4"
+      "bytes": 6788,
+      "hash": "4f840b68bdd275ac701ea2a5c12880828adb5a7866bb2b9254df4bc97fd8bba8"
     },
     "KO-수동-턴-자동깜박이(시험).md": {
       "bytes": 4548,
@@ -2294,8 +2294,8 @@
       "hash": "8967bc57bb7601c313ef4e3900e6a302878973b1bb1d7be49c75d52aa9ee366b"
     },
     "ZH-TW-手動變道轉向燈(試驗).md": {
-      "bytes": 4442,
-      "hash": "863b74db780b0824b8d8bfc43ac16fc929cdfd87ce8f40fcade45cb37e14573c"
+      "bytes": 5258,
+      "hash": "00216e208a771e9d8ed144f8b9c12a3736ba6f41c1088beb524444e052e114ef"
     },
     "ZH-TW-手動轉彎轉向燈(試驗).md": {
       "bytes": 3071,
@@ -3154,8 +3154,8 @@
       "hash": "b7cc3edd0bdcf8ba4687fd99d5f7fa69b095d847f6190cbab35b649d76c6f9c4"
     },
     "ZH-手动变道转向灯(试验).md": {
-      "bytes": 4968,
-      "hash": "70955a0a9c28bb22839d6da1c90aa148067da416ad5e6f20a3e7968c76fadd49"
+      "bytes": 5243,
+      "hash": "aa1361c6e106cf67c611d69f1e9d1f097942286719c20dfeadbb53afa7bf25bf"
     },
     "ZH-手动转弯转向灯(试验).md": {
       "bytes": 3600,
@@ -7824,31 +7824,31 @@
       "locales": {
         "en": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "bb323320d6f5753fcddd3c3aebc496e7ca95da16ab9bce554b6d98f748e29e14",
+          "factsHash": "93e11e96f766c565a75e61b79a3d4399bb2920fdfa23fcc04ec7a4171f04409a",
           "page": "EN-Manual-lane-change-indicator-(trial).md",
           "reviewStatus": "needs_review"
         },
         "ko": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "c7c7a17ccc1ea15cb1455f2b8e3bcf588e4de16f888b4ad1706ef0e127f774c0",
+          "factsHash": "cd93011942890ef551ca5b59bc9fa6c452116abf5d6231b066987c7ede423d31",
           "page": "KO-수동-차선변경-깜박이(시험).md",
           "reviewStatus": "needs_review"
         },
         "zh": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "c377b8332865cfe9b454925cad1a95776986fc49fd85d0b7dd400f216ddf325c",
+          "factsHash": "e88f5b9379b10e45fe15994e93fb0cd829b111f75bbf93684d5959f338f6461c",
           "page": "ZH-手动变道转向灯(试验).md",
           "reviewStatus": "needs_review"
         },
         "zh-tw": {
           "anchor": "ManualLaneChangeIndicator",
-          "factsHash": "f8cea8ff94e0be5f3d1bbaae10ca929241b252011815a9b797019eced188b734",
+          "factsHash": "fb9e2eaf1ceb556b70d536202ae47fa131e4ec2b47a697c5b4af92bf60f314dd",
           "page": "ZH-TW-手動變道轉向燈(試驗).md",
           "reviewStatus": "needs_review"
         }
       },
       "reviewStatus": "needs_review",
-      "semanticHash": "e186819fff6543b2009f5aa5f2fe8f8cafec3d6e7e48cfdbc02319647576a4d6"
+      "semanticHash": "dd31ea92ae49772a7e3e094c8b735bb5ed572b98861d94740721708458e18e8a"
     },
     "ManualTurnIndicator": {
       "group": "INDICATOR_AUTO",

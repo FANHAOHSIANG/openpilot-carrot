@@ -1,7 +1,7 @@
 name: Tony Test integration (offline)
 on:
   push:
-    branches: ['test/tony-carrot-wip-integrated-20261117']
+    branches: ['test/tony-carrot-wip-integrated-20261117', 'sync/tony-integrated-*']
   workflow_dispatch:
 permissions:
   contents: read

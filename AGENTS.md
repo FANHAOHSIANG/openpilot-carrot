@@ -1,5 +1,63 @@
 # Repository memory
 
+- 2026-11-17 Optional vision_road_detection is separate/default-off. Bundled
+  pinned YOLOv8 Safety Cone class6 (640 stretch) and GPL YOLOv5s6 crosswalk
+  class0 (320 letterbox, obj*class) run in one ORT Web1.22 WASM single-thread
+  worker, model SHA verification via noble hash on LAN HTTP. Cones have image
+  notices and calibrated approximate ROAD ground meshes; crosswalks image-only.
+  Stop lines/motor waiting zones remain unsupported: RLMD defines them but no
+  released licensed checkpoint. Do not invent them from geometry/other labels.
+  Source weights/code/licenses bundled, cone card CC-BY4 vs embedded AGPL3 both
+  retained. Export safe_globals/weights_only=True; reproduce SHA9434014d.
+  Independent original detector, 1.2s TTL, freeze/background/source guards kept.
+  Browser real positive +blank smoke ~580-650ms on desktop, not Android/road
+  validation;37 focused JS +4HTTP/preferences passed. See road-model guide.
+
+
+- 2026-11-17 Cockpit0.2.0/code3 native source8df33f29 owns fullscreen on
+  verified /cockpit independent of Vision dismissal; Back opens device menu.
+  layoutVersion>=2 check warns if vehicle UI is old. APK SHA256
+  b0f34c5720707540801046e91bbf0cefa2d42b9b4b697319fb24a9d88c50b888.
+  Adaptive workspace, app drawer, toggled controls, full description disclosures;
+  no new setters. Full-frame Vision removes duplicate outer readouts, transient
+  presentation override preserves BEV and regular web preferences. Original
+  class-specific meshes render detected traffic/animals; radar unknown stays
+  neutral. Pinned EfficientDet labels verified: nine ground animals plus bird,
+  traffic light, stop sign. Last three are image-only notices, no ground depth,
+  distance or light colour; 1.2s expiry and opt-in unchanged. Cones, crosswalk,
+  scooter waiting areas and stop lines have NO detector and need new licensed
+  weights/data/validation. No control integration or real-world accuracy claim.
+  306 focused JS and6 HTTP tests; synthetic browser checks only, Android box
+  acceptance pending. Further web classes do not change native build inputs.
+
+
+- 2026-11-17 Cockpit0.1.1/code2 fixes unsupported-dvh body auto-height.
+  Vehicle CSS has html100%, body100%/vh/dvh fallbacks; APK injects idempotent
+  percent-height style only on trusted cockpit package/path, so old439fc3d0
+  vehicle pages also get the outer-layout fix without resetting preferences.
+  No cached pixel heights or resize listeners. Native source b25b8802; SHA256
+  4e836ff95b6dc342b90c2f998481fc222bcd4819fbe826399ca69ef715bbb812.
+  297 JS and6 HTTP tests, synthetic browser no-dvh reproduction/resize checks.
+  Actual Android box acceptance pending; preserve immutable0.1.0 and standard APK.
+
+
+- 2026-11-17: Evening11ee and morning11ef/f0 add23 full rlogs to retained
+  indicator audit, now426segments/55routes/477798aligned inputs. Bound invalid
+  lane-width gaps by existing150ms continuity while clearing new-admission time.
+  Recover video-confirmed11ee/6+41.508 left crossing; external replay324->325,
+  all existing starts/sides/sources/ends exact. Remove duplicate source adjacency
+  lookup for fresh already-admitted manual edges. Native Kick samples time after
+  reading worker to avoid concurrent publication appearing future-dated, and
+  records one bounded request-end diagnostic. Nine baseline regressions reproduced;
+  96 source-loop comparisons/768 ordinary packets exact; local1249pass/9skip.
+  Reject rearm steering accumulation (new parked-car avoidance indications),
+  invalid-width admission accumulation (11ee/9), and broader2s native tail (five
+  historical requests suppressed in fixed-input counterfactual). Normal-completion
+  minimum retained; two actual f0 short outputs each report two lamp pulses.
+  Unknown-left11f0/5, close opposite turn11f0/8 and other intersection misses remain.
+  Historical11ef/1 handshake cancellation cause and11ee/0 startup admission remain
+  unproven. No vehicle writes/physical cure proof. Details in existing replay doc
+  and private .analysis/scratch/2026-11-17-indicator-fixes. Native/full CI follows.
 - 2026-11-16 Cockpit0.1.0/code1 published as a prerelease, public APK SHA256
   7497f5fadb1ae76cfdeb403e90bbe6450fc1fd58e7863a83dc290dc3257acd3d.
   Native source2bf69134; vehicle UI requires439fc3d0 or later. Native build inputs

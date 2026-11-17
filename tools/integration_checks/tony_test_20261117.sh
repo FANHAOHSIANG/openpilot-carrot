@@ -33,7 +33,17 @@ python tools/signal_validation/run.py \
   openpilot/common/tests/test_steering_learning.py \
   openpilot/selfdrive/carrot/server/tests/test_steering_learning_api.py \
   openpilot/selfdrive/controls/tests/test_live_lateral_geometry.py
+python tools/signal_validation/run.py \
+  openpilot/selfdrive/car/tests/test_hyundai_kick.py \
+  tools/jetlink/test_blinker_boundary.py \
+  tools/jetlink/test_boundary_recent_intent.py \
+  tools/jetlink/test_manual_turn_indicator.py \
+  tools/jetlink/test_indicator_reconstruction.py \
+  openpilot/selfdrive/car/tests/test_card_diagnostics.py \
+  openpilot/selfdrive/carrot/server/tests/test_cockpit_page.py \
+  openpilot/selfdrive/carrot/server/tests/test_road_detector_mime.py \
+  openpilot/selfdrive/carrot/server/tests/test_web_settings_road_detector.py
 python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q
 cd openpilot/selfdrive/carrot/web
-node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs
+node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs 'tests/cockpit_*.test.mjs'
 npm run build

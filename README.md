@@ -24,11 +24,15 @@
   <img src="https://github.com/user-attachments/assets/4d80d256-7e66-4473-a289-04a50733b7e0" alt="carrotpilot" width="640">
 </p>
 
+## 道路辨識（網頁／APK）
+
+新增預設關閉的「三角錐與斑馬線辨識」，保留原有人車／動物辨識與繁中功能。三角錐可作近似地面定位；斑馬線為影像提示。**停止線與機車停等區仍缺可部署且授權明確的權重，尚未完成辨識**。需更新車機網頁；[開啟方式、模型來源、效能及後續條件](tools/carrot_road_models/README.md)。僅顯示，不介入駕駛控制。
+
 ## 下載與安裝
 
 **[⬇ 下載 CarrotAssist 繁體中文版 0.2.19（Android APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-assist-tw-v0.2.19/CarrotAssist-TW-0.2.19.apk)**
 
-**[下載 Carrot Cockpit 座艙版 0.1.0（獨立 APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.1.0/CarrotCockpit-TW-0.1.0.apk)**：中央觸控螢幕式車況／導航分割、道路視覺放大、底部快捷列與 Carrot 駕駛模式卡片。可與原版並存，須更新並重啟 carrot-wip 車機。[操作與實際支援範圍](tools/carrot_android/COCKPIT.md)；尚未完成實體 Android 盒子與實車驗收。
+**[下載 Carrot Cockpit 座艙版 0.2.0（獨立 APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.2.0/CarrotCockpit-TW-0.2.0.apk)**：中央觸控螢幕式車況／導航分割、道路視覺放大、底部快捷列與 Carrot 駕駛模式卡片。可與原版並存，須更新並重啟 carrot-wip 車機。[操作與實際支援範圍](tools/carrot_android/COCKPIT.md)；尚未完成實體 Android 盒子與實車驗收。
 
 | 項目 | 說明 |
 |---|---|
