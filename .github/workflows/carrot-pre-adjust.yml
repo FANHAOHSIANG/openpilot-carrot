@@ -1,0 +1,28 @@
+name: Carrot pre-adjust protocol regression
+on:
+  push:
+    branches: [test/carrot-wip-upstream-20261104, test/tony-carrot-wip-integrated-20261117]
+    paths: ['openpilot/selfdrive/carrot/**', 'openpilot/cereal/**', 'tools/check_pre_adjust_portable.py', '.github/workflows/carrot-pre-adjust.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /openpilot/selfdrive/carrot/
+            /openpilot/common/constants.py
+            /openpilot/cereal/
+            /opendbc_repo/opendbc/car/
+            /tools/check_pre_adjust_portable.py
+      - name: Run real-schema offline regression
+        run: |
+          python3 -m venv /tmp/pre-adjust-venv
+          /tmp/pre-adjust-venv/bin/pip install pytest aiohttp numpy psutil pycapnp
+          /tmp/pre-adjust-venv/bin/python tools/check_pre_adjust_portable.py

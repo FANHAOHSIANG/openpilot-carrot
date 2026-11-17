@@ -6,6 +6,8 @@ import threading
 import time
 from typing import Any, TYPE_CHECKING
 
+from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_payload
+
 if TYPE_CHECKING:
   from openpilot.selfdrive.carrot.carrot_navi import CarrotNaviReceiver
 
@@ -158,6 +160,8 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
   section = _dict(speed.get("section"))
   road_limit_kph = _valid_road_limit_kph(speed.get("road_limit_kph"))
   road_limit_valid = road_limit_kph is not None
+  publish_mono_ns = time.monotonic_ns() if publish_mono_ns is None else publish_mono_ns
+  pre_target, pre_deadline = pre_adjust_payload(speed_record, publish_mono_ns)
 
   traffic_record = _record(snapshot, "traffic_signal")
   traffic = _dict(traffic_record.get("value")) if traffic_record.get("present") else {}
@@ -225,6 +229,9 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
       "meta": _meta(speed_record),
       "currentKph": _finite(speed.get("current_kph"), minimum=0.0, maximum=300.0),
       "roadLimitValid": road_limit_valid,
+      "preAdjustValid": pre_target > 0,
+      "preAdjustKph": pre_target,
+      "preAdjustDeadlineMonoTimeNanos": pre_deadline,
       "roadLimitKph": _integer(road_limit_kph, minimum=0, maximum=MAX_ROAD_LIMIT_KPH),
       "sdiPresent": bool(sdi),
       "sdiType": _integer(sdi.get("type"), default=-1, minimum=-1, maximum=100_000),
@@ -433,3 +440,4 @@ class CarrotNaviCerealPublisher:
       except Exception as exc:
         self.receiver.record_cereal_publish(str(exc))
         last_publish = time.monotonic()
+

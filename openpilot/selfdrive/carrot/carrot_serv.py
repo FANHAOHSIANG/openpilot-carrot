@@ -21,6 +21,7 @@ from openpilot.common.constants import CV
 from openpilot.common.gps import get_gps_location_service
 from openpilot.selfdrive.carrot.gps_sources import GPSSources
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
+from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate
 
 nav_type_mapping = {
   12: ("turn", "left", 1),
@@ -1509,6 +1510,14 @@ class CarrotServ:
     if self.turnSpeedControlMode in [2, 3, 4] and math.isfinite(route_speed) and route_speed < 250:
       speed_n_sources.append((route_speed, "route"))
 
+    # Independent advisory: no road-limit offset, no cruise setpoint writes.
+    pre_speed = pre_adjust_candidate(
+      self.carrot_navi_control if self.carrot_navi_active else None,
+      self.external_navigation_active and self.autoNaviSpeedCtrlMode > 0, time.monotonic_ns(),
+    )
+    if pre_speed < 250:
+      speed_n_sources.append((pre_speed, "pre"))
+
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
 
     if CS is not None:
@@ -1853,3 +1862,4 @@ def main():
 
 if __name__ == "__main__":
   main()
+

@@ -153,6 +153,9 @@ struct CarrotNaviState @0xaedffd8f31e7b55d {
 		secondarySdiBlockType @27 :Int32;
 		secondarySdiBlockSpeedKph @28 :Int16;
 		secondarySdiBlockDistanceM @29 :Int32;
+		preAdjustValid @30 :Bool;
+		preAdjustKph @31 :Int16;
+		preAdjustDeadlineMonoTimeNanos @32 :UInt64;
 	}
 
 	struct TrafficSignal {
@@ -279,3 +282,4 @@ struct CustomReserved18 @0xc86a3d38d13eb3ef {
 
 struct CustomReserved19 @0xa4f1eb3323f5f582 {
 }
+
