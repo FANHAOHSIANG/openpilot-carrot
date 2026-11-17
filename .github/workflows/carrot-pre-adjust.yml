@@ -24,5 +24,5 @@ jobs:
       - name: Run real-schema offline regression
         run: |
           python3 -m venv /tmp/pre-adjust-venv
-          /tmp/pre-adjust-venv/bin/pip install pytest aiohttp numpy psutil pycapnp
+          /tmp/pre-adjust-venv/bin/pip install pytest pytest-asyncio aiohttp numpy psutil pycapnp
           /tmp/pre-adjust-venv/bin/python tools/check_pre_adjust_portable.py

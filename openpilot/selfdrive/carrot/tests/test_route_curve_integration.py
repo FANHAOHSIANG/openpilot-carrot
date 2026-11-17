@@ -18,6 +18,7 @@ from openpilot.common.constants import CV
 from openpilot.common.filter_simple import MyMovingAverage
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
 from openpilot.selfdrive.carrot.gps_sources import GPSSources
+from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate
 from openpilot.selfdrive.carrot.route_curve import RouteCurveSpeed
 from openpilot.selfdrive.carrot.osm_curve import OsmCurveClient, read_message
 from openpilot.selfdrive.carrot.osmd import OsmWorker
@@ -67,8 +68,8 @@ def pipeline(tmp_path):
       return bool(self.get_int(key))
 
   env = {'np': np, 'math': math, 'collections': collections, 'Params': Params, 'CV': CV, 'log': log,
-             'time': NS(monotonic=lambda: now[0]), 'GPSSources': GPSSources, 'MyMovingAverage': MyMovingAverage,
-             'CarrotNaviControl': CarrotNaviControl, 'parse_carrot_navi_control': parse_carrot_navi_control,
+             'time': NS(monotonic=lambda: now[0], monotonic_ns=lambda: int(now[0] * 1e9)), 'GPSSources': GPSSources, 'MyMovingAverage': MyMovingAverage,
+             'pre_adjust_candidate': pre_adjust_candidate, 'CarrotNaviControl': CarrotNaviControl, 'parse_carrot_navi_control': parse_carrot_navi_control,
              'messaging': NS(new_message=new_message), 'RouteCurveSpeed': RouteCurveSpeed,
              'Any': Any, 'Dict': dict, 'List': list, 'Optional': Optional}
   serv_cls = load_class('carrot_serv.py', 'CarrotServ', env)
