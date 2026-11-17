@@ -34,12 +34,13 @@ class Scenario:
   authority_accel: float = 3.0
   assumed_error_bound: float = 0.2
   fault: str = 'none'
+  half_clearance_m: float = 0.85  # Assumed lane/vehicle widths only; not user measurements.
 
   def __post_init__(self):
     numeric = (self.speed, self.peak_curvature, self.model_bias, self.differential_error,
-               self.delay, self.lag, self.authority_accel, self.assumed_error_bound)
+               self.delay, self.lag, self.authority_accel, self.assumed_error_bound, self.half_clearance_m)
     if (not all(math.isfinite(x) for x in numeric) or self.speed <= 0 or self.peak_curvature < 0
-        or self.delay < 0 or self.lag <= 0 or self.authority_accel <= 0 or self.assumed_error_bound < 0
+        or self.half_clearance_m <= 0 or self.delay < 0 or self.lag <= 0 or self.authority_accel <= 0 or self.assumed_error_bound < 0
         or self.direction not in (-1, 1) or self.fault not in ('none', 'line_loss', 'stale', 'takeover')):
       raise ValueError('invalid scenario')
 
@@ -65,7 +66,7 @@ def run(scenario, arm='A', *, gain=0.5, retain_trace=False):
   y = heading = actual = command = held = 0.0
   queue = deque([0.0] * round(scenario.delay/DT))
   squared = peak = exit_peak = max_rate = 0.0
-  saturated = limited = samples = 0
+  saturated = limited = samples = boundary_steps = 0
   counts = Counter()
   trace = []
   valid = True
@@ -111,6 +112,7 @@ def run(scenario, arm='A', *, gain=0.5, retain_trace=False):
       break
     y += scenario.speed*math.sin(heading)*DT
     heading += scenario.speed*(actual-road*math.cos(heading)/denominator)*DT
+    boundary_steps += abs(y) > scenario.half_clearance_m
     squared += y*y
     peak = max(peak, abs(y))
     if t >= 18:
@@ -121,6 +123,7 @@ def run(scenario, arm='A', *, gain=0.5, retain_trace=False):
   return {'valid':valid, 'samples':samples, 'rms_m':math.sqrt(squared/max(samples, 1)),
           'peak_m':peak, 'exit_peak_m':exit_peak, 'max_command_rate':max_rate,
           'saturated_steps':saturated, 'rate_limited_steps':limited,
+          'boundary_exceeded_steps':boundary_steps, 'within_assumed_lane':valid and boundary_steps == 0,
           'reasons':dict(counts), 'trace':trace}
 
 
@@ -170,6 +173,13 @@ def sweep():
           'scenario_count':len(list(grid())), 'gain_count':3,
           'regression_thresholds':{'rms_m':0.02, 'peak_m':0.05},
           'summary':summary,
+          'covered_low_gain_physically_feasible':{
+            'cases':sum(r['gain'] == 0.25 and r['assumption_covered']
+                        and r['scenario']['speed']**2*r['scenario']['peak_curvature'] <= r['scenario']['authority_accel'] for r in cases),
+            'regressions':sum(r['gain'] == 0.25 and r['assumption_covered'] and r['U_vs_A']['regression'] is True
+                              and r['scenario']['speed']**2*r['scenario']['peak_curvature'] <= r['scenario']['authority_accel'] for r in cases),
+            'lane_exceedance_cases':sum(r['gain'] == 0.25 and r['assumption_covered'] and not r['U']['within_assumed_lane']
+                                       and r['scenario']['speed']**2*r['scenario']['peak_curvature'] <= r['scenario']['authority_accel'] for r in cases)},
           'covered_low_gain_regressions':[
             {'scenario':r['scenario'], 'comparison':r['U_vs_A'], 'baseline':r['A'], 'candidate':r['U']}
             for r in cases if r['gain'] == 0.25 and r['assumption_covered'] and r['U_vs_A']['regression'] is True],

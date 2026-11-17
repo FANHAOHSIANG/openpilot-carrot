@@ -201,3 +201,26 @@ peak regression. Results within and outside the assumed bound are separated.
 A green software CI means the harness and guards behave as tested; the report
 always has `deployment_approved=false`. No production code imports either
 proposal or simulator; no installable vehicle fix is claimed.
+
+## Offline entry-speed feasibility
+
+`speed_feasibility.preview_speed_limit` accepts explicit upper curvature bounds
+at forward distances, a chosen lateral-acceleration budget, braking deceleration
+and latency. It computes the hypothetical present-speed limit needed to reach
+each future curve cap after reaction delay. There is no default vehicle capability,
+no map trust assumption and no vehicle-control hookup. It does not model jerk,
+friction, banking or hazards, and cannot guarantee safety beyond the supplied preview.
+Raw model action is not independently measured road curvature.
+
+The low-gain U sweep's 12 covered-bound regressions all have 18 m/s and 0.01 /m:
+demand 3.24 m/s² exceeds the toy plant's 3.0 m/s² authority. Original A also has
+roughly 9.3–9.4 m peak displacement in these cases. Their numerical domain was
+valid; that must not be mistaken for lane keeping. The simulator now separately
+reports boundary exceedance against an explicitly assumed 0.85 m half-clearance.
+No user vehicle width or real lane measurement is inferred from that number.
+
+For illustration only, a 2.4 m/s² budget and 0.01 /m curve bound imply
+sqrt(2.4/0.01) = 15.49 m/s (55.77 km/h) at the curve. This is not a speed
+recommendation for the user's interchange. Integration of longitudinal dynamics
+and uncertain preview remains pending; this function alone does not establish
+that deceleration happened early enough in the real recordings.

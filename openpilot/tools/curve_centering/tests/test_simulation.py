@@ -77,3 +77,8 @@ def test_regression_threshold_and_peak_rms_tradeoff():
   b = {'valid':True, 'rms_m':.2, 'peak_m':.5}
   comparison = compare_pair(a, b)
   assert comparison['regression'] and comparison['rms_improved']
+
+def test_numerically_valid_does_not_mean_within_lane():
+  result = run(Scenario(speed=18, peak_curvature=.01, delay=.3), 'A')
+  assert result['boundary_exceeded_steps'] > 0
+  assert not result['within_assumed_lane']

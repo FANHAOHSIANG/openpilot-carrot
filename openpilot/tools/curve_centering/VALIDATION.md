@@ -195,3 +195,26 @@ Pending: actual B planner comparison; calibrated independent road/body labels;
 neural small/large model closed-loop inference; lateral/longitudinal interaction;
 physical steering-response calibration; smooth actual actuator handover; and
 controlled validation before any proposal is connected to vehicle outputs.
+
+### Confirmed v2 CI and remaining failure mechanism
+
+At faf7749c6f26cafc18d924ba56d37c0bef251816, push run
+[44144928132](https://github.com/FANHAOHSIANG/openpilot-carrot/actions/runs/44144928132)
+completed 104 tests, Ruff and the 320-case/three-gain sweep. Initial dcf8db4 CI
+passed tests but failed two lint checks; the failure is retained in history.
+For 192 bound-covered scenarios, original C had 81 regressions/28 invalid pairs;
+U gain 0.25 had 12/12, gain 0.5 had 20/12, and gain 1.0 had 21/12.
+For 128 bound-violating scenarios, U regressions were 20/28/60 respectively.
+Gains trade improvement against degradation; none is a verified optimum.
+
+Diagnostic commit 0eb8f7af3c3b77cf5ce1172b03e72e4df8f01100 retained all 12
+covered low-gain regressions. All have nominal demand 3.24 m/s² above toy
+authority 3.0 m/s². Peak displacement is already >9 m in baseline A.
+The four fault variants duplicate three underlying combinations; these are
+scenario counts, not twelve independent observed driving incidents.
+This motivates speed feasibility analysis; it does not establish real-world
+speed as the cause or show that any speed change fixes the user's ramp.
+
+Added explicit assumed lane-boundary metrics and standalone braking-distance
+feasibility tests. These new changes require their own matching-head CI.
+No parameter was retuned against the failure grid, and no vehicle limit changed.
