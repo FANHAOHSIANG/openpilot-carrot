@@ -6,12 +6,18 @@
   const language = preferred.toLowerCase().replaceAll("_", "-");
   const traditional = /^zh-(tw|hk|mo|hant|cht)(-|$)/.test(language);
   const tr = (k, e) => traditional ? (globalThis.CarrotNavigationZhTw[e] || e) : language.startsWith("ko") ? k : e;
+  let viewVisible=true;
+  const navText=(tw,en)=>traditional?tw:en;
+  const legacyNote=navText('此最愛只有舊版地點 ID；請輸入經緯度並儲存後再導航。原有名稱會保留。','This favorite has a legacy place ID. Enter and save its coordinates before navigating. Your name is preserved.');
+  if(typeof IntersectionObserver==='function')new IntersectionObserver(entries=>{viewVisible=entries[0]?.isIntersecting===true;}).observe(document.querySelector('main'));
   document.documentElement.lang = traditional ? "zh-Hant" : language.startsWith("ko") ? "ko" : "en";
   $("title").textContent = tr("Carrot 내비게이션", "Carrot Navigation");
   $("searchTitle").textContent = "目的地座標 / Destination coordinates";
   $("search").textContent = "傳送座標 / Send coordinates";
   $("clear").textContent = tr("현재 내비게이션 종료", "End current navigation");
   $("note").textContent = "已停用付費地址搜尋。請輸入緯度、經度並核對位置；地圖與路線仍依用量計費。";
+  $('mapConfigTitle').textContent=tr('지도와 검색 소스','Map sources and search');
+  $('mapSourceNote').textContent=tr('Mapbox 검색과 경로를 사용하고 차량의 Mapbox / OpenStreetMap·Protomaps 지도를 표시합니다. 내비게이션 모델과 동일한 지도 미리보기를 공유합니다. 설정 → 네트워크에서 Mapbox Public key를 등록하세요.','Address search is disabled. Routes use Mapbox. The map shares the vehicle’s Mapbox / OpenStreetMap–Protomaps preview with the navigation model. Set your Mapbox Public key in Settings → Network.');
   async function api(path, options) {
     let response, value;
     try {
@@ -88,8 +94,11 @@
     $("favoritesStatus").textContent = savedPlaces.length ? "" : tr("즐겨찾기가 없습니다. 좌표를 입력하여 추가하세요.", "No favorites yet. Enter coordinates to add one.");
     for (const place of savedPlaces) {
       const row = document.createElement("li"); row.className = "favorite-row";
-      const go = button(place.name, () => navigate(`favorites/${encodeURIComponent(place.id)}/destination`)); go.className = "go";
-      const address = document.createElement("small"); address.textContent = place.place_name;
+      const go = button(place.name, () => {
+        if(place.provider==='google'){openEditor(place.id,place);$('status').textContent=legacyNote;return;}
+        return navigate(`favorites/${encodeURIComponent(place.id)}/destination`);
+      }); go.className = "go";
+      const address = document.createElement("small"); address.textContent = place.provider==='google'?navText('舊版最愛 · 需重新選定地址','Legacy favorite · Reselect its address'):place.place_name;
       const actions = document.createElement("div"); actions.className = "actions";
       actions.append(button(tr("편집", "Edit"), () => openEditor(place.id, place)));
       actions.append(button(deletePending === place.id ? tr("삭제 확인", "Confirm delete") : tr("삭제", "Delete"), async () => {
@@ -110,8 +119,8 @@
     editorVersion++; editingId = id; editorPlace = place && (id || place.permanent || place.coordinate_source === "manual") ? {...place} : null;
     $("favoriteForm").hidden = false; $("editorTitle").textContent = id ? tr("즐겨찾기 편집", "Edit favorite") : tr("즐겨찾기 추가", "Add favorite");
     $("favoriteName").value = place?.name || place?.place_name?.slice(0,80) || "";
-    $("favoriteQuery").value = place?.place_name || ""; $("favoriteResults").replaceChildren();
-    $("editorStatus").textContent = editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Enter latitude, longitude and confirm the coordinates.");
+    $("favoriteQuery").value = place?.place_name || place?.name || "";$("favoriteQuery").required=place?.provider!=='google'; $("favoriteResults").replaceChildren();
+    $("editorStatus").textContent = place?.provider==='google'?legacyNote:editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Enter latitude, longitude and confirm the coordinates.");
     syncEditor(); $("favoriteName").focus();
   }
   $("addFavorite").addEventListener("click", () => openEditor(null, null));
@@ -142,7 +151,7 @@
     $("favoriteName").disabled = true; $("favoriteQuery").disabled = true; $("favoriteSearch").disabled = true;
     try {
       renderFavorites(await api(editingId ? `favorites/${encodeURIComponent(editingId)}` : "favorites", {
-        method:editingId ? "PUT" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...editorPlace, name}),
+        method:editingId ? "PUT" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(editorPlace.provider==='google'?{provider:'google',google_place_id:editorPlace.google_place_id,name}:{...editorPlace, name}),
       }));
       $("favoriteForm").hidden = true; $("status").textContent = tr("즐겨찾기를 저장했습니다.", "Favorite saved.");
     } catch (error) { $("editorStatus").textContent = error.message; }
@@ -161,7 +170,7 @@
   }
   waiting(tr("현재 위치와 목적지를 확인하고 있습니다.", "Checking position and destination."));
   async function refresh() {
-    if (!document.hidden) {
+    if (!document.hidden && viewVisible) {
       try {
         const response = await fetch("/api/navigation/map.png", {cache:"no-store"});
         if (response.status !== 200 && response.status !== 204) throw new Error("waiting");

@@ -9,11 +9,12 @@ from opendbc.car.hyundai.tests.test_steering_handover_controller import setup_co
 
 
 def state(**kw):
-  return structs.CarState(canValid=True, vEgo=7, vEgoRaw=7, gearShifter='drive', **kw)
+  return structs.CarState(canValid=True, vEgo=7, vEgoRaw=7, gearShifter='drive',
+                          wheelSpeeds=dict(fl=7,fr=7,rl=7,rr=7), **kw)
 
 
 def warm(helper, cs=None, **kw):
-  args = dict(enabled=True, active=True, cs=cs or state(), base=270, demand=1.2)
+  args = dict(enabled=True, active=True, cs=cs or state(), base=270, demand=2.)
   args.update(kw)
   return [helper.update(model_frame=n // 5, **args) for n in range(100)]
 
@@ -23,7 +24,7 @@ def warm(helper, cs=None, **kw):
 def test_speed_ceiling_and_sustained_demand(speed, ceiling, sign):
   cs = state()
   cs.vEgo = cs.vEgoRaw = speed / 3.6
-  trace = warm(LowSpeedSteerReserve(), cs, demand=sign * 1.2)
+  trace = warm(LowSpeedSteerReserve(), cs, demand=sign * 2.)
   assert trace[:29] == [270] * 29
   assert trace[-1] == ceiling
 
@@ -84,7 +85,8 @@ def test_real_can_packing_rates_and_feedback_scale(monkeypatch, sign):
   values = [a.torqueOutputCan for a, _ in trace]
   assert abs(values[-1]) == 405  # 1.5 * unchanged 270 baseline
   assert all(abs(v) <= 409 for v in values)
-  assert all(abs(b - a) <= 2 for a, b in zip(values, values[1:]))
+  assert all(abs(b - a) <= 4 for a, b in zip(values, values[1:]))
+  assert max(abs(b-a) for a,b in zip(values[:29],values[1:29])) <= 2
   output, messages = trace[-1]
   data = next(data for addr, data, _ in messages if addr == 0x12a)
   assert ((int.from_bytes(data, 'little') >> 41) & 0x7ff) - 1024 == sign * 405
@@ -128,3 +130,94 @@ def test_support_scope():
   cp.brand = 'toyota'
   cp.flags = int(HyundaiFlags.CANFD)
   assert not supports_reserve(cp)
+
+
+@pytest.mark.parametrize('demand,expected', [(1., 270), (1.1, 297), (1.2, 324), (1.5, 405), (2., 409)])
+def test_only_requested_headroom_is_available(demand, expected):
+  assert warm(LowSpeedSteerReserve(), demand=demand)[-1] == expected
+
+
+def test_enabled_mode_uses_factory_max_and_slew_even_with_manual_values(monkeypatch):
+  controller, cs, cc, settings = torque_fixture(monkeypatch)
+  settings.update(CustomSteerMax=409, CustomSteerDeltaUp=20, CustomSteerDeltaDown=30,
+                  CustomSteerDeltaUpLC=25, CustomSteerDeltaDownLC=35)
+  cc.hudControl.modelDesire = 3
+  cc.actuators.torque = 2.
+  trace = [step(controller, cs, cc)[0].torqueOutputCan for _ in range(300)]
+  assert trace[-1] == 409 and max(abs(b-a) for a,b in zip(trace, trace[1:])) == 4
+  cs.out.vEgo = cs.out.vEgoRaw = 100 / 3.6
+  trace = [step(controller, cs, cc)[0].torqueOutputCan for _ in range(100)]
+  assert trace[-1] == 270 and max(abs(b-a) for a,b in zip(trace, trace[1:])) <= 3
+  assert controller.params.STEER_MAX == 270
+  assert (controller.params.STEER_DELTA_UP, controller.params.STEER_DELTA_DOWN) == (2, 3)
+  assert settings['CustomSteerMax'] == 409 and settings['CustomSteerDeltaUpLC'] == 25
+  settings['LowSpeedSteerReserve'] = 0
+  for _ in range(100):
+    step(controller, cs, cc)
+  assert controller.params.STEER_MAX == 409
+  assert (controller.params.STEER_DELTA_UP, controller.params.STEER_DELTA_DOWN) == (25, 35)
+
+
+def test_demand_follow_reaches_same_target_sooner_without_scaling_small_commands(monkeypatch):
+  controller,cs,cc,_=torque_fixture(monkeypatch)
+  dynamic=[step(controller,cs,cc)[0].torqueOutputCan for _ in range(300)]
+  controller,cs,cc,_=torque_fixture(monkeypatch)
+  controller.low_speed_steer_reserve.rates=lambda **kw:(kw['up'],kw['down'])
+  factory=[step(controller,cs,cc)[0].torqueOutputCan for _ in range(300)]
+  assert dynamic[-1]==factory[-1]==405
+  assert next(i for i,v in enumerate(dynamic) if v>=400)+30 < next(i for i,v in enumerate(factory) if v>=400)
+  assert max(abs(b-a) for a,b in zip(dynamic,dynamic[1:]))==4
+
+
+@pytest.mark.parametrize('speed,max_up,max_down', [(10,4,4),(30,4,4),(35,3,3),(40,2,3),(100,2,3)])
+def test_dynamic_rate_taper_and_exit(speed,max_up,max_down):
+  helper=LowSpeedSteerReserve()
+  cs=state()
+  cs.vEgo=cs.vEgoRaw=speed/3.6
+  warm(helper,cs)
+  assert helper.rates(requested=400,previous=100,base=270,up=2,down=3)==(max_up,max_down)
+  assert helper.rates(requested=101,previous=100,base=270,up=2,down=3)==(2,3)
+  assert helper.rates(requested=-400,previous=100,base=270,up=2,down=3)==(2,3)
+
+
+@pytest.mark.parametrize('field,value', [('steeringPressed',True),('canValid',False),('steerFaultTemporary',True),
+                                       ('standstill',True),('gearShifter','reverse')])
+def test_health_loss_withdraws_extra_rate_immediately(field,value):
+  helper,cs=LowSpeedSteerReserve(),state()
+  warm(helper,cs)
+  assert helper.rates(requested=400,previous=100,base=270,up=2,down=3)==(4,4)
+  setattr(cs,field,value)
+  helper.update(enabled=True,active=True,cs=cs,base=270,model_frame=100,demand=1.5)
+  assert helper.rates(requested=400,previous=100,base=270,up=2,down=3)==(2,3)
+
+
+def test_fastest_wheel_cannot_be_hidden_by_filtered_or_rescaled_ego_speed():
+  helper,cs=LowSpeedSteerReserve(),state()
+  cs.wheelSpeeds=dict(fl=40/3.6,fr=40/3.6,rl=40/3.6,rr=40/3.6)
+  assert set(warm(helper,cs))=={270}
+  assert helper.rates(requested=400,previous=100,base=270,up=2,down=3)==(2,3)
+  cs.wheelSpeeds=dict(fl=7,fr=7,rl=7,rr=8)
+  assert set(warm(helper,cs))=={270}  # inconsistent wheel speed cannot grant headroom
+
+
+@pytest.mark.parametrize('fingerprint', ['KIA_EV6', 'HYUNDAI_IONIQ_5', 'KIA_CARNIVAL_4TH_GEN', 'KIA_SORENTO_4TH_GEN'])
+def test_phase1_selects_same_bounded_can_path_and_keeps_driver_withdrawal(monkeypatch, fingerprint):
+  controller, cs, cc, settings = torque_fixture(monkeypatch, enabled=False)
+  controller.CP.brand = 'hyundai'
+  controller.CP.carFingerprint = fingerprint
+  controller.CP.steerControlType = 'torque'
+  settings['HkgPhase1Assist'] = 1
+  settings['CustomSteerMax'] = 409
+  settings['CustomSteerDeltaUp'] = 10
+  trace = [step(controller, cs, cc)[0].torqueOutputCan for _ in range(300)]
+  assert trace[-1] == 405
+  assert controller.params.STEER_MAX == 270
+  assert max(abs(b-a) for a,b in zip(trace,trace[1:])) <= 4
+  cs.out.steeringPressed = True
+  cs.out.steeringTorque = -2000
+  withdrawn = [step(controller, cs, cc)[0].torqueOutputCan for _ in range(200)]
+  assert withdrawn[-1] == 0
+  assert controller.low_speed_steer_reserve.reason == 'driver'
+  # User settings remain stored; disabling both modes restores their selection.
+  assert settings['CustomSteerMax'] == 409
+  assert settings['CustomSteerDeltaUp'] == 10

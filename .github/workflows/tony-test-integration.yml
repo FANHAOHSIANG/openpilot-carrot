@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install offline dependencies
-        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-mock pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp jeepney tqdm hypothesis
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-mock pytest-subtests pytest-asyncio numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp jeepney tqdm hypothesis -r formosalink/requirements.txt
       - name: Build CPU test libraries
         run: |
           scons -Q -f tools/native_cpu/SConstruct -j2
@@ -31,3 +31,21 @@ jobs:
         run: bash tools/integration_checks/tony_test_20261117.sh
       - name: Check reproducible web assets
         run: git diff --exit-code -- openpilot/selfdrive/carrot/web/css/generated openpilot/selfdrive/carrot/web/js/generated openpilot/selfdrive/carrot/web/generated
+
+  firmware:
+    name: Panda F4 and H7 firmware
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install ARM compiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+          pip install scons pycryptodome
+      - name: Compile production firmware
+        working-directory: panda
+        run: scons --minimal -j2

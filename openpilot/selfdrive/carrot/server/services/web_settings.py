@@ -441,6 +441,9 @@ WEB_SETTINGS_SPEC: List[_Field] = [
   _Field("web_sound_volume", "str", "1.00", normalize=_normalize_web_sound_volume, hidden=True),
   _Field("web_language", "str", "", normalize=_normalize_language),
   _Field("web_text_scale", "enum", "100", choices={"80", "90", "100", "110", "125", "150", "175", "200"}),
+  # Compatibility: old Google selections normalize to the shared native map.
+  # Deprecated browser keys are deliberately absent from the client schema.
+  _Field("navigation_map_provider", "enum", "mapbox", choices={"mapbox"}, hidden=True),
   _Field("web_lab_enabled", "bool", False),
   _Field("vision_presentation", "enum", "carrot", choices={"carrot", "live_view", "tesla", "bev"}),
   _Field("vision_custom_metrics", "bool", False),
