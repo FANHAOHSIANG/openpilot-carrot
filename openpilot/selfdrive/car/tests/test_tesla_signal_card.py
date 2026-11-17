@@ -127,7 +127,7 @@ def test_final_card_boundary_uses_gated_control_and_fresh_intent(gate, suspend_n
   controller = NS(apply=apply)
   stages = ("apply", "sendcan", "total")
   card = NS(kick_output=NS(configured=False, isolate=lambda frames, model, now: frames),
-            spas_signals=NS(enabled=False), native_voice_indicator=None, initialized_prev=True, params=params, sm=sm, CI=controller,
+            spas_signals=NS(enabled=False), spas_diagnostic_at=float('inf'), native_voice_indicator=None, initialized_prev=True, params=params, sm=sm, CI=controller,
             xiaoge_vision_result=None,
             pm=NS(send=lambda *args: sent.append(args)), tesla_signals=signals,
             lateral_startup=LateralStartupGate(ready=gate != "startup"), card_diag_recv_ns=N - suspend_ns,
@@ -179,7 +179,7 @@ def test_production_card_loop_lamp_observations_preserve_controls(direction, gat
 
   stages = ("apply", "sendcan", "total")
   card = NS(kick_output=NS(configured=False, isolate=lambda frames, model, now: frames),
-            spas_signals=NS(enabled=False), native_voice_indicator=None, initialized_prev=True,
+            spas_signals=NS(enabled=False), spas_diagnostic_at=float('inf'), native_voice_indicator=None, initialized_prev=True,
             params=NS(get_bool=lambda name: gate == "dashcam" and name == "ImpactDashcamReboot"),
             sm=sm, CI=NS(apply=apply), pm=NS(send=lambda *args: sent.append(args)), tesla_signals=signals,
             lateral_startup=LateralStartupGate(ready=gate != "startup"),
