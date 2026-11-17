@@ -1,0 +1,16 @@
+name: Import reviewed Tony source
+on:
+  push:
+    branches: ['sync/import-tony-7917c0bd-20261117']
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Advance isolated source ref
+        run: |
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 7917c0bd857e39957fd01633ff8fe1d1bfd540d0
+          test "$(git rev-parse FETCH_HEAD)" = 7917c0bd857e39957fd01633ff8fe1d1bfd540d0
+          git push origin 7917c0bd857e39957fd01633ff8fe1d1bfd540d0:refs/heads/sync/tony-source-reviewed
