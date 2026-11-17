@@ -312,8 +312,9 @@ We retain the state decay, all original counts and the physical handover gap;
 we do not reset state or relax a threshold to manufacture a pass.
 
 The original 24/96 assumed-clearance failures are the same cases in A, C and
-low-gain U (delay=.3, bias=.3). New candidate exceedances vs A: zero. However,
-C's maximum extra peak in this subset is 0.0585662 m and U's is 0.0118083 m.
+low-gain U (delay=.3, bias=.3). New candidate exceedances vs A: zero. C still has **33/96 threshold
+regressions** versus A; low-gain U has 0/96 (all pairs numerically valid). These
+relative results do not cancel the shared boundary failures. C's maximum extra peak in this subset is 0.0585662 m and U's is 0.0118083 m.
 Representative original A/C/U peaks are 1.02051/0.987893/1.02340 m. These remain
 failures. Zero-bias and zero-transport-delay ablations locate the toy-model
 interaction; they are not attainable production fixes or independent events.

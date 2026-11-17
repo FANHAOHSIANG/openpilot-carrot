@@ -16,7 +16,10 @@ def analyze(sweep):
   arms = {}
   for arm in ('A', 'C', 'U'):
     bad = [r for r in rows if not r[arm]['within_assumed_lane']]
+    comparisons = [r[arm+'_vs_A'] for r in rows] if arm != 'A' else []
     arms[arm] = {'exceedances': len(bad),
+                 'threshold_regressions_vs_A': sum(c['regression'] is True for c in comparisons),
+                 'invalid_pairs_vs_A': sum(not c['valid_pair'] for c in comparisons),
                  'new_exceedances_vs_A': sum(r['A']['within_assumed_lane'] for r in bad),
                  'peak_range_m': [min(r[arm]['peak_m'] for r in bad), max(r[arm]['peak_m'] for r in bad)],
                  'max_peak_delta_vs_A_m': max(r[arm]['peak_m']-r['A']['peak_m'] for r in rows),
