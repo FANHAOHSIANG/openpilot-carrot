@@ -395,3 +395,37 @@ remain concrete blockers to actuator connection, not a generic "research" label.
 - The 0.867 m exit failure and 212 historical filter-residual ticks are not fixed.
   Independent geometry uncertainty, vehicle delay/plant calibration, native
   control-path replay and physical handover evidence remain missing.
+
+### Native dependency recovery in the same follow-up
+
+The earlier acados/params blocker was resolved locally. Installed the pinned
+x86_64 acados/json11 wheels and the repository-declared comma dependencies
+(bzip2, capnproto, eigen, ffmpeg, libjpeg, libyuv, zstd, ncurses, zeromq,
+libusb, bootstrap-icons, imgui), plus pycryptodome. SCons needs the virtualenv
+and capnproto `install/bin` on PATH and an absolute repository PYTHONPATH because
+it evaluates subordinate scripts from other directories. The unchanged target
+` scons -j2 --minimal openpilot/common/params_pyx.so ` then compiled successfully.
+No native artifacts or dependency changes are committed.
+
+The first test attempt failed all 13 cases before control execution because the
+default Params directory was read-only. Setting a private scratch PARAMS_ROOT
+resolved that environment failure. This exact focused test then passed 13 cases:
+
+```sh
+PARAMS_ROOT=/tmp/pr52-native-params PYTHONPATH="$PWD" python -m pytest \
+  -o addopts='' --confcutdir=openpilot/selfdrive/controls/tests \
+  openpilot/selfdrive/controls/tests/test_lateral_startup_control.py -q
+```
+
+These tests execute the actual torque controller and full state_control method;
+IPC, settings, longitudinal control and hardware construction remain substituted.
+They validate existing startup/fault behavior with shadow default off, not R
+actuation, full process IPC, live CAN/EPS, or on-device timing. The earlier desktop
+13.3 ms capture spike remains unresolved. Do not retain the obsolete claim that
+acados or params_pyx is still the local blocker.
+
+Two existing raw-log Library entries were located. Ordinary signed-URL downloads
+failed with proxy 403; escalated download was rejected by automatic authorization
+review for lacking explicit permission for those private records. No raw bytes
+were obtained and no new real-log replay is claimed. Authorization is pending;
+none of the logs, identifiers, signed URLs or private metadata is committed.
