@@ -1,0 +1,2070 @@
+diff --git a/.github/workflows/signal-checks.yaml b/.github/workflows/signal-checks.yaml
+index 747d37e4..aef412a5 100644
+--- a/.github/workflows/signal-checks.yaml
++++ b/.github/workflows/signal-checks.yaml
+@@ -79,6 +79,7 @@ jobs:
+             tools/jetlink/test_boundary_recent_intent.py \
+             tools/jetlink/test_manual_turn_indicator.py \
+             tools/jetlink/test_indicator_reconstruction.py \
++            tools/jetlink/test_indicator_continuity.py \
+             openpilot/selfdrive/car/tests/test_card_diagnostics.py \
+             opendbc_repo/opendbc/car/hyundai/tests/test_aprk_blinkers.py \
+             opendbc_repo/opendbc/car/hyundai/tests/test_camera_set_speed_sync.py \
+diff --git a/.github/workflows/tests.yaml b/.github/workflows/tests.yaml
+index 17ddde60..299f0378 100644
+--- a/.github/workflows/tests.yaml
++++ b/.github/workflows/tests.yaml
+@@ -242,6 +242,7 @@ jobs:
+           opendbc_repo/opendbc/car/hyundai/tests/test_navi_speedcam.py
+           opendbc_repo/opendbc/car/hyundai/tests/test_section_average.py
+           opendbc_repo/opendbc/car/hyundai/tests/test_speed_camera.py
++          opendbc_repo/opendbc/car/hyundai/tests/test_ev4_navi.py
+           opendbc_repo/opendbc/car/hyundai/tests/test_blink_hold.py
+           opendbc_repo/opendbc/car/hyundai/tests/test_blinker_stalks.py
+           opendbc_repo/opendbc/car/hyundai/tests/test_ccnc_cluster.py
+diff --git a/AGENTS.md b/AGENTS.md
+index 4da35e2a..9978df1d 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -201,6 +201,42 @@
+   4e836ff95b6dc342b90c2f998481fc222bcd4819fbe826399ca69ef715bbb812.
+   297 JS and6 HTTP tests, synthetic browser no-dvh reproduction/resize checks.
+   Actual Android box acceptance pending; preserve immutable0.1.0 and standard APK.
++- 2026-11-18: Indicator continuity replay now covers467 retained full segments/
++  60routes/523934aligned inputs. Bound early manual near-edge retreat by150ms
++  paired-rebase memory; uncertain near-line retreat requires same-side torque,
++  far-line progress and stable geometry within3s. Opposite driver/input guards
++  remain. Consecutive opposite manual turns bridge only the last250ms before
++  existing2s/1s-dark rearm, at10kmh+, with current growing steering. Independent
++  ordinary detector preserves5kmh admission and survives retained-intent expiry.
++  Native363->365, delayed-first-send410ms362->364, external364->366; no previous
++  request removed, two existing starts~100ms earlier/same ends, five lane ends
++  extended. Video confirms added11d6/0+17.410 and11f5/8+49.368. Todayf5/4 hold
++  .200->2.990s, f5/7 .246->2.446s delayed-native. f5/8 cancels after1.700s on
++  opposite driver, so two physical flashes not guaranteed. Reject broad history
++  causing parking/exit indications and next-signal suppression. Three baseline
++  failure shapes reproduced;1184localpass/9platformskip, Wiki25pass. Unknown
++  marking/narrow-width/source-delivery misses remain; no whole-corpus truth rate
++  or physical lamp proof. No vehicle writes. Native/full CI follows publication.
++  Evidence .analysis/archive/2026-11-18/indicator-continuity-fixes/INDEX.md.
++
++- 2026-11-18: Review PR581 EV4 wrapped navigation and PR582 radar load shedding.
++  Integrate EV4 message selection with the existing navigation policy. Scope
++  empty wrapped-route padding and HDA-only availability to EV4, preserving PV5
++  and legacy route handling. Tests cover real EV4 camera/HDA payloads, both HDA
++  buses, startup caching, mode/route admission and padding timeout. Extended
++  inventory covers104segments/23routes/two EV4s, three incomplete tails retained
++  only through complete messages. PR0x092 legacy mapping yields impossible
++  averages384+ and reproduces false section admission on the recorded payload.
++  Remove that unverified position DBC/registration, retain camera/bump/route
++  support; both-bus regressions fail before/pass after. Local252 checks pass;
++  native/full CI follows publication.
++  Hold PR582: exact contributor controller under smooth0.8m/s2 target slowing
++  reproduces lost leadCutInRisk/leadsCutIn and changed leadTwo once vLead falls
++  through0.5m/s. Existing confirmed holds depend on history beyond common_ok.
++  Two deterministic full-controller cases change14/11 frames; this is not a
++  replay of a captured maneuver. Reporter I9 route4cd/26..27 does confirm low
++  radarState cadence. No vehicle writes or measured physical improvement.
++  Private review and raw-log inventory .analysis/scratch/2026-11-18-pr581-582.
+ 
+ - 2026-11-17: Carnival c4dcf95545dafe68 route299/14 on2b202df126 has
+   card state_tail71.409ms and per-frame threadCPUmax13.191ms in the same
+diff --git a/docs/cheddar_model_review_20261118.md b/docs/cheddar_model_review_20261118.md
+new file mode 100644
+index 00000000..1103d692
+--- /dev/null
++++ b/docs/cheddar_model_review_20261118.md
+@@ -0,0 +1,60 @@
++# Cheddar internal-model review, 2026-11-18
++
++## Decision
++
++Hold the internal-model replacement. The current compilation entry point rejects the Cheddar input contract. An isolated adapter reaches the installed QCOM backend, but the first native attempt fails during kernel preparation and trial execution. Cheddar has no valid steady-state latency measurement from this review.
++
++## Artifacts
++
++The reviewed upstream PR is [commaai/openpilot #39255](https://github.com/commaai/openpilot/pull/39255), head `10548c12dee3e6b5507b2d105ec4203360aa65cd`, merged as `b3ab22efe1be5d6c0ad46503f0985b26f8b7a36f`.
++
++| Item | Installed CD210 | Cheddar |
++| --- | --- | --- |
++| ONNX bytes | 60,792,584 | 69,671,018 |
++| SHA-256 | `f73a9e535523d5e9acb9e642c64e33d631825dc8ba74123757d107cedd047bb5` | `350a47ea36e554fb71634c7361b2c2a2a3da07ecb211a4c6cff3d2c3013d1d82` |
++| Prediction output | `[1, 2576]` | `[1, 2580]` |
++| Direct action output | Absent | Four values, existing action consumer reads the first two |
++
++The Cheddar file was fetched from the official model repository and matched the PR's exact byte count and hash. Its hosted filename is `big_driving_supercombo.onnx`; the PR installs those same bytes as the internal `driving_supercombo.onnx`. The checkpoint metadata is `c8198a2a-674c-4c0b-af1d-e7c4bb28cbf8/40960/26ada517-d522-4c97-b358-c91c34bf40b1/16384`. [Verified model source](https://huggingface.co/commaai/openpilot_driving_models/blob/main/26ada517-d522-4c97-b358-c91c34bf40b1/16384/big_driving_supercombo.onnx)
++
++## Compatibility
++
++CD210 receives separate `img` and `big_img` inputs, `desire_pulse`, and `features_buffer`. Carrot's compiler builds and samples these queues outside the ONNX graph.
++
++Cheddar receives `new_img`, a current `desire`, and three recurrent state inputs. It returns updated states for the following frame.
++
++| State input | Shape | Type |
++| --- | --- | --- |
++| `state_img_q` | `[2, 5, 6, 128, 256]` | uint8 |
++| `state_desire_q` | `[132, 1, 8]` | float32 |
++| `state_feat_q` | `[128, 1, 512]` | float32 |
++
++Calling the current production `get_policy_npy_shapes()` with Cheddar metadata reproduces `KeyError: 'desire_pulse'`. The current warp queue builder also requires `img`. Runtime vision-stream naming, state feedback, reset, standby warmup, and recovery must accommodate the new contract before installation.
++
++Both files pass the ONNX checker. An isolated ONNX Runtime CPU sequence runs 140 frames per model with recurrent feedback and finite outputs. Frames 0, 4, 39, and 139 pass the production `Parser`, `fill_model_msg`, and real cereal serialization. This verifies prediction layout compatibility. The native Cheddar execution failed before numerical comparison against the CPU reference was possible.
++
++Cheddar includes direct lateral-acceleration and acceleration outputs. The current action consumer already supports that path for other models. CD210 derives actions from the predicted plan, so changing the internal model also changes the action source.
++
++## Native timing and failure
++
++The owner's TICI device was reachable and reported offroad throughout testing. Tests used its installed code `b5df7d4d3` and tinygrad tree `2c7501785916e365318c31976d4aef5b6e44a332`, which matches the reviewed workspace runtime tree. Online CPUs were 0–3. The observed GPU clock was 675 MHz, with a reported ceiling of 710 MHz.
++
++Temporary model, script and cache files were placed in a dedicated device scratch directory. A 200 ms offroad observer terminates the benchmark if ignition/onroad state changes or becomes unavailable.
++
++The benchmark uses fixed prewarped images, recurrent updates, and synchronous prediction readback. It excludes camera warp, live camera delivery, and the concurrent onroad workload. Five warmup calls and 40 settling frames precede 140 measured calls. These are offroad policy measurements; a full onroad deadline assessment needs the remaining pipeline and load.
++
++| Run | Mean | Median | p95 | Maximum | Above 50 ms |
++| --- | --- | --- | --- | --- | --- |
++| CD210 before Cheddar | 25.58 ms | 25.12 ms | 29.62 ms | 34.50 ms | 0 / 140 |
++| Cheddar | Unavailable | Unavailable | Unavailable | Unavailable | Unavailable |
++| CD210 after Cheddar failure | 25.25 ms | 25.15 ms | 29.03 ms | 35.02 ms | 0 / 140 |
++
++The temporary Cheddar adapter executes the official ONNX graph and feeds its next-state outputs back into device buffers. It fails on its first call while realizing the graph, before recurrent-state assignment and before a completed warmup call. The retained traceback reaches `compile_linear`, then `optimize_local_size`, and reports `AssertionError: all optimize_local_size exec failed`. QCOM synchronization reports a 30,000 ms wait timeout, with expected signal 7181 and observed 7180. This timeout is a kernel-preparation failure and provides no steady-state inference-time value. The underlying kernel/driver cause remains unresolved.
++
++A bounded diagnostic retry retained a log and reached its 150-second process limit during preparation (exit 124). It did not produce a completed inference or a second independently reproduced kernel failure. The first attempt's tool output truncated repetitive cleanup exceptions, so the private evidence explicitly identifies its retained traceback as a summary.
++
++The failure-after-CD210 sequence and successful subsequent CD210 run establish that this candidate does not pass the installed execution path. They do not establish that Cheddar fails with every tinygrad version or on every comma device. The upstream snapshot pins tinygrad `ec91b74b5b6b0fc924b72d3f27689679ca2438b9` and uses a different generic compilation and state-buffer integration.
++
++## Evidence
++
++Private artifacts, metadata, reference outputs, native scripts, timings and diagnostics are under `.analysis/scratch/2026-11-18-cheddar-review`. The test adapter is an evaluation artifact. Installation remains blocked on stateful runtime integration, successful native execution and numerical comparison, followed by representative end-to-end latency validation.
+diff --git a/docs/indicator_replay_20261114.md b/docs/indicator_replay_20261114.md
+index faf86e30..f31ff234 100644
+--- a/docs/indicator_replay_20261114.md
++++ b/docs/indicator_replay_20261114.md
+@@ -294,3 +294,72 @@ checks pass 1,249 cases with nine platform-specific skips. Native/full CI is
+ checked after publication. Private evidence is retained under
+ `.analysis/scratch/2026-11-17-indicator-fixes` and
+ `.analysis/scratch/2026-11-17-indicators`.
++
++## November 18 boundary lifetime and consecutive-turn follow-up
++
++The retained corpus now contains 467 full-log segments from 60 routes, including
++41 additional November 17–18 segments. A/B comparisons process 523,934 aligned
++model inputs per variant. Both sides use identical recorded motion, input validity,
++prior indication journals and lamp/lever feedback. Receiver readiness is simulated.
++The production observer sources are frozen independently for every candidate.
++
++Only an existing manual lane indication gets the new boundary tolerance. An early
++retreat very near the boundary can wait 150 ms for paired lane reassignment, using
++the pre-retreat pair as its anchor. A separate early uncertain-boundary case requires
++same-side driver torque and opposite-boundary progress; it must establish continued
++progress within 250 ms and recover stable centered geometry within three seconds.
++Opposite driver steering, invalid inputs and bounded geometry/continuity failures
++still cancel. New lane admission, left marking and right road-edge gates are unchanged.
++
++For consecutive turns, only opposite steering that ends a recognized manual turn
++can seed retained intent. The extension requires at least 10 km/h, expires in three
++seconds, and bridges only the last 250 ms of steering before rearm. Emission still
++requires growing same-side driver steering, the existing two-second rearm and one
++continuous dark second. Ordinary fresh-steering detection runs independently, so
++expiry of retained intent cannot erase an otherwise valid turn. Ordinary manual-turn
++admission remains 5–60 km/h. No automatic steering or transport changes are added.
++
++| Fixed-input output assumption | Requests before / after | Lost previous requests |
++| --- | --- | --- |
++| Native first submission at request | 363 / 365 | 0 |
++| Native first submission delayed 410 ms | 362 / 364 | 0 |
++| External output, existing zero minimum | 364 / 366 | 0 |
++
++All three comparisons add the same two visually confirmed right turns:
++11d6/0+17.410s and 11f5/8+49.368s. Two existing turns start about 100–102 ms
++earlier with exactly the same ends. Every other existing start/side/source is
++unchanged. Five existing lane requests have changed ends; all other ends agree.
++The following durations are observation requests, not measured physical lamp times.
++
++| Request | Before | After, native with 410 ms submission delay |
++| --- | --- | --- |
++| 11f5/4+17.162s right | 0.200s, returned | 2.990s, completed |
++| 11f5/7+28.690s left | 0.246s, returned | 2.446s, completed |
++| 11d9/4+21.688s right | 0.156s, returned | 2.202s, relabel |
++| 11e1/3+9.716s right | 0.103s, returned | 2.430s, completed |
++| 118a/9+40.860s left | 0.203s, returned | 0.351s, relabel |
++
++The last case remains shorter than the modeled 410 ms preparation delay and is
++not counted as a recovered physical indication. The new 11f5/8 turn requests
++1.700s before opposite driver steering cancels it; cancellation deliberately takes
++priority over a two-second normal-completion minimum. Two full flashes are not
++promised for this cancellation case. The other new turn requests 2.445s under the
++delayed native assumption. No new false indication was identified in the two added
++video scenes; this is not a whole-corpus false-positive rate. Existing falsely
++classified curves/parking maneuvers are not comprehensively labeled or eliminated.
++
++Broader candidates were rejected: retaining an entire steering sweep introduced
++parking and exit-alignment indications and delayed subsequent requests; sharing
++that memory with ordinary detection erased an existing turn when memory expired.
++The retained 250 ms bridge and independent ordinary observer avoid those reproduced
++regressions. Three deterministic failure-shape regressions fail on the baseline
++and pass after correction. Local observer/source/native-ownership checks pass
++1,184 cases with nine platform-specific skips; Linux CI separately covers native
++imports and integration after publication.
++
++Still unresolved: the 11f5/6 2.463 m lane-width admission rejection, unknown left
++markings, and the 11f3/4 source-delivery gap without a recorded worker refusal.
++Recorded output feedback cannot prove how a newly emitted lamp would affect a
++closed-loop drive. No vehicle installation, CAN actuation or physical cure is
++claimed. Private inputs, frozen sources, all comparison tables and visual evidence
++are indexed in `.analysis/archive/2026-11-18/indicator-continuity-fixes/INDEX.md`.
+diff --git a/docs/user/en/indicator-adapters.md b/docs/user/en/indicator-adapters.md
+index 3d9b9b9d..f06a6d89 100644
+--- a/docs/user/en/indicator-adapters.md
++++ b/docs/user/en/indicator-adapters.md
+@@ -23,3 +23,13 @@ Use a verified vehicle CAN H/L connection point. An OBD connector or a bus name
+ CANable V1.0, different-MCU clones, CANable Pro, PCAN-USB FD/Pro and other USB CAN products have not been validated for this installer. The lower Pro board in the CANable photograph is a location comparison, not an installation approval.
+ 
+ [Open the CANable PC/Jetson guide](canable.md) · [한국어](../ko/indicator-adapters.md)
++
++## Compatibility selected by CAN protocol
++
++There is no vehicle-model allowlist. USB, BLE and Panda/SPAS outputs use the same manual-steering, model-intent and ATC indication settings, retaining CANCEL, speed, lane and driver-priority conditions. Only a matching output protocol may transmit.
++
++- **USB/BLE:** the existing B1 classic CAN profile requires 500 kbit/s, eight-byte `0x3C1` and `0x413`, matching signal meanings, CRC and fresh reception. An adapter's CAN-FD hardware support does not extend this control profile.
++- **Kicker/Panda:** camera-SCC wiring must expose ECAN SPAS `0x165` (24 bytes), `0x16A` (32 bytes) and stalk `0x3C1` (8 bytes). A new request requires ten CRC-valid advancing stock SPAS frames and a fresh neutral stalk. Selecting Kicker continues to suspend external USB/BLE output.
++- **Holding:** comma maintains an indication when camera-side `0x1EA` (32 bytes) is observed and its existing transmit path is enabled. Otherwise BLE uses S3 holding; USB retains one-touch and relight behavior.
++
++The reported EV4 `0x3E3` CAN-FD+BRS, 16-byte format is a separate protocol. Removing model-name restrictions does not add transmission support for it. Verify physical illumination, holding and release separately on a newly supported vehicle. Apply the comma update and restart; this change requires no S3 or CANable firmware reinstall.
+diff --git a/docs/user/en/lane-change.md b/docs/user/en/lane-change.md
+index d9608247..24aaeeb2 100644
+--- a/docs/user/en/lane-change.md
++++ b/docs/user/en/lane-change.md
+@@ -11,7 +11,7 @@
+ 
+ Cruise CANCEL stops automatic indicator requests and releases an automatic hold. Parking maneuvers no longer trigger an indication until SET/RES or +/− clears the cruise cancel state. The stock lever and explicit Bluetooth indicator buttons remain available.
+ 
+-`ManualLaneChangeIndicator` is a separate option, OFF by default, for Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2. At 5km/h or above, same-direction steering is confirmed for 0.15s. Release or brief countersteer does not erase continued boundary approach: recent intent is retained for up to 1.5s. Approach stopping for over 0.3s, retreat exceeding 0.15m for 0.15s or a four-second episode limit cancels tracking. On the left, fresh OEM white-line classification excludes centre lines; yellow, unknown or stale classifications block requests. On the right, road-edge clearance beyond the approached boundary must be at least 2.5m both nearby and ahead. Outer-line probability, adjacent lane width and road-edge standard deviation are not admission conditions. A wide shoulder can also pass the distance condition.
++`ManualLaneChangeIndicator` is a separate option, OFF by default, for protocol-matched USB2CAN, BLE or Panda/SPAS outputs and AutoBlinkerControl 1 or 2. At 5km/h or above, same-direction steering is confirmed for 0.15s. Release or brief countersteer does not erase continued boundary approach: recent intent is retained for up to 1.5s. Approach stopping for over 0.3s, retreat exceeding 0.15m for 0.15s or a four-second episode limit cancels tracking. On the left, fresh OEM white-line classification excludes centre lines; yellow, unknown or stale classifications block requests. On the right, road-edge clearance beyond the approached boundary must be at least 2.5m both nearby and ahead. Outer-line probability, adjacent lane width and road-edge standard deviation are not admission conditions. A wide shoulder can also pass the distance condition.
+ 
+ This feature's lamp feedback does not request an automatic lane change or turn. The driver steers the maneuver. Detection works during ATC preparation, but an executing automatic lane change or another indicator request takes precedence. Episode admission requires target-line confidence of at least 10% within the preceding second; continuous geometry/intent tracking lasts at most four seconds. Inconsistent boundary jumps and invalid inputs block new requests. A request then tracks completion or return for at most 12 seconds. Another request requires at least three seconds since the previous hold ended, one continuous second with the lamps off, and fresh driver steering/boundary approach conditions. It does not repeat automatically every three seconds. Owned lamp feedback and synthesized lever counts remain excluded from automatic steering for at least 12 seconds after the latest hold and until extinction is confirmed. A quick opposite request preserves protection for the previous direction too.
+ 
+@@ -29,13 +29,15 @@ With a continuous target boundary and recent driver intent, a brief jump of the
+ 
+ An invalid lane width pauses new approach admission. An established approach can continue when valid geometry returns within 0.15s of its last valid sample. Lane admission for a manual crossing is decided by the detector. The output stage checks request freshness, vehicle state and driver cancellation.
+ 
++An early boundary fluctuation is checked only within an existing request. Near-edge paired lane reassignment can wait 0.15s. When an uncertain target boundary retreats but the opposite boundary and driver steering support continued approach, stable lane geometry must return within three seconds. Opposite driver steering and invalid inputs still cancel.
++
+ ## Manual turn indicator (trial)
+ 
+-`ManualTurnIndicator` is a separate option in the Lane Change (Auto Turn) settings group, OFF by default. It supports Ioniq 5 PE with a supported indicator adapter and `AutoBlinkerControl=1·2`. Driver observation operates independently of ATC, navigation and lateral-control activation. Its lamp feedback receives automatic-steering request isolation.
++`ManualTurnIndicator` is a separate option under Vehicle & Hardware > Indicator Control > Automatic Indication, OFF by default. It supports a protocol-matched USB2CAN, BLE or Panda/SPAS adapter and `AutoBlinkerControl=1·2`. Driver observation operates independently of ATC, navigation and lateral-control activation. Its lamp feedback receives automatic-steering request isolation.
+ 
+ Admission uses 5–60km/h, 0.15s of same-direction driver torque and up to 0.8s of remembered intent. The wheel must reach 42 degrees and increase by at least 22 degrees from intent onset. Same-direction vehicle rotation must reach 3 degrees/s and accumulate 1.5 degrees, followed by 0.10s confirmation. Each intent is tracked for at most four seconds. Recognized curved lane geometry agreeing with measured rotation suppresses admission.
+ 
+-After a request, moving wheel return within ±15 degrees and rotation at most 3 degrees/s for 0.3s completes the indication. Opposite driver torque with the wheel crossing zero cancels it. A stop retains the hold, with a total 30s limit. Disabling the option, stale inputs, physical stalk intervention, opposite lamps or an executing lane change also ends the request. A subsequent manual turn requires two seconds since the previous automatic indication last renewed its hold and one second with both lamps continuously off. The intervals run concurrently. Only fresh steering evidence after both intervals can trigger the next request.
++After a request, moving wheel return within ±15 degrees and rotation at most 3 degrees/s for 0.3s completes the indication. Opposite driver torque with the wheel crossing zero cancels it. A stop retains the hold, with a total 30s limit. Disabling the option, stale inputs, physical stalk intervention, opposite lamps or an executing lane change also ends the request. A subsequent manual turn requires two seconds since the previous automatic indication last renewed its hold and one second with both lamps continuously off. The intervals run concurrently. After opposite steering ends a manual turn, the next opposite turn can retain recent steering evidence at 10km/h or above. Only the last 0.25s before rearm bridges the angle reference; the existing two-second wait, one continuous dark second and current same-direction steering remain required. Retained intent expires after three seconds without resetting ordinary fresh-steering detection.
+ 
+ The comma display labels the source as a manual driver turn. Existing USB HUD bundles receive the compatible driver-boundary category with the turning reason. Parking aisles, ramps and parking entry can also trigger. Unmarked bends and evasive movements can produce false indications. Recorded-input replay and physical lamp validation require separate evaluation. Apply with Git Pull and a full comma restart. Physical vehicle validation remains pending.
+ 
+@@ -45,7 +47,7 @@ Lane-position jumps at junctions do not reset manual turns established through d
+ 
+ ## Model indication (trial)
+ 
+-`ModelDesireIndicator` and `ModelPathIndicator` are separate default-off options for Ioniq 5 PE with Jetson USB2CAN and `AutoBlinkerControl=1` or `2`. Initiation requires active lateral control. Their lamp feedback is not reused as a new automatic steering request. At 30 km/h or above, the two nearest model forecasts can also trigger an indication when both predict the same lane change with at least 65% probability and both measured lane boundaries show the vehicle approaching that side. A forecast alone does not light the indicator or request steering. After forecast-based initiation, widening lane lines at a fork do not end the hold while the model and measured motion still indicate the same direction. Fading or opposite intent ends the fork hold; cruise CANCEL releases it immediately.
++`ModelDesireIndicator` and `ModelPathIndicator` are separate default-off options for protocol-matched USB2CAN, BLE or Panda/SPAS outputs and `AutoBlinkerControl=1` or `2`. Initiation requires active lateral control. Their lamp feedback is not reused as a new automatic steering request. At 30 km/h or above, the two nearest model forecasts can also trigger an indication when both predict the same lane change with at least 65% probability and both measured lane boundaries show the vehicle approaching that side. A forecast alone does not light the indicator or request steering. After forecast-based initiation, widening lane lines at a fork do not end the hold while the model and measured motion still indicate the same direction. Fading or opposite intent ends the fork hold; cruise CANCEL releases it immediately.
+ 
+ - Model desire: repeatedly confirms a turn/lane-change probability of at least 50%, dominant over straight and opposite predictions. Turns require 10km/h; lane changes require 30km/h.
+ - Model path: at 30km/h or above, compares the 1–3 second prediction with curved boundaries at identical forward positions. Requires target-line confidence of at least 10%, continued crossing, agreeing control curvature and at least four observations spanning 0.2 seconds within 0.4 seconds. Boundary jumps, left centre lines and nearby right road edges block initiation.
+@@ -74,7 +76,7 @@ These gates are aids, not a replacement for the driver's safety judgment. openpi
+ 
+ ## Who decides what?
+ 
+-The `AutoTurnControlRightLaneChange` distance under ATC details defaults to 0m (off), with 50m steps up to 500m. The former ON setting migrates to 250m at restart and OFF stays at 0m. It adds to `AutoTurnControl=1` or `2`. It is a TBT right-indicator trigger for the Ioniq 5 PE USB2CAN setup. It checks **10km/h or above AND within the configured distance of the right turn or right fork**, until the turn desire starts. Select 250m for the former distance or 300–400m to check conditions earlier. It requires `AutoBlinkerControl=2`, `LaneChangeNeedTorque=0`, active lateral control, a speed of at least 10km/h, a detected right lane and the existing right-side availability check. The additional rear gate uses fresh OEM BSD warnings only; corner distances and the former 20 m threshold are not used. Every front target in the right destination lane must be at least 5 m away now and satisfy `distance + relative speed × 3 seconds >= 5 m`. The full right-target list includes close objects omitted from the representative lead. Stale or faulty radar/BSD input blocks initiation. No detection or a constant-speed projection guarantees a safe gap; existing side-object admission remains in force.
++The `AutoTurnControlRightLaneChange` distance under ATC details defaults to 0m (off), with 50m steps up to 500m. The former ON setting migrates to 250m at restart and OFF stays at 0m. It adds to `AutoTurnControl=1` or `2`. It is a TBT right-indicator trigger for the protocol-matched USB2CAN, BLE or Panda/SPAS setup. It checks **10km/h or above AND within the configured distance of the right turn or right fork**, until the turn desire starts. Select 250m for the former distance or 300–400m to check conditions earlier. It requires `AutoBlinkerControl=2`, `LaneChangeNeedTorque=0`, active lateral control, a speed of at least 10km/h, a detected right lane and the existing right-side availability check. The additional rear gate uses fresh OEM BSD warnings only; corner distances and the former 20 m threshold are not used. Every front target in the right destination lane must be at least 5 m away now and satisfy `distance + relative speed × 3 seconds >= 5 m`. The full right-target list includes close objects omitted from the representative lead. Stale or faulty radar/BSD input blocks initiation. No detection or a constant-speed projection guarantees a safe gap; existing side-object admission remains in force.
+ 
+ After one second of qualifying conditions, the existing physical-indicator path lights the right lamp. Signals started below 30km/h remain indication-only until they end. Feedback from starts at or above 30km/h enters the unchanged ordinary lane-change logic; no separate lane-change command is sent. A repeat requires observed completion, lamps off, two seconds of waiting and a fresh condition check. Steering before a request restarts the one-second confirmation. After a request, steering/manual intervention, lost inputs or a failed start cancels repetition in the current TBT window. Manual/remote admission is unchanged. Existing ATC turns/lane changes remain available. The add-on is inactive in mode 0 (off) and 3 (speed only). On restart, the retired mode 4 migrates to mode 1 with the add-on enabled, without newly enabling speed control. Desktop tests are not physical lamp or road acceptance.
+ 
+diff --git a/docs/user/en/settings.md b/docs/user/en/settings.md
+index fa076a3e..5d6f5dbb 100644
+--- a/docs/user/en/settings.md
++++ b/docs/user/en/settings.md
+@@ -261,7 +261,7 @@ Force-sensor trends do not establish loss of hand contact or driver consent to h
+ 
+ | Section | Parameters | Purpose |
+ |---|---|---|
+-| [Speed cameras](speed-deceleration.md#speed-camera) | `AutoNaviSpeedCtrlMode`, `AutoNaviSpeedCtrlEnd`, `AutoNaviRearCameraHoldDistance`, `AutoNaviSpeedDecelRate`, `AutoNaviSpeedSafetyFactor`, `AutoNaviCountDownMode`, `VehicleNaviCanControl`, `VehicleNaviSchoolZoneControl`, `VehicleNaviDecelCancel`(`VehicleNaviDecelCancelBox`, `VehicleNaviDecelCancelMobileZone`, `VehicleNaviDecelCancelBump`, `VehicleNaviDecelCancelUnknown`, `VehicleNaviDecelCancelEarlyWarning`), `VehicleNaviSectionAvgControl`, `VehicleSpeedCameraControlMode`, `VehicleSpeedCameraDistanceTime` | Event types, rear-camera post-pass hold, stock camera distance matching and virtual distance, PV5 warning-confirmed camera retention/cancellation and section speed caps, deceleration start, and target speed |
++| [Speed cameras](speed-deceleration.md#speed-camera) | `AutoNaviSpeedCtrlMode`, `AutoNaviSpeedCtrlEnd`, `AutoNaviRearCameraHoldDistance`, `AutoNaviSpeedDecelRate`, `AutoNaviSpeedSafetyFactor`, `AutoNaviCountDownMode`, `VehicleNaviCanControl`, `VehicleNaviSchoolZoneControl`, `VehicleNaviDecelCancel`(`VehicleNaviDecelCancelBox`, `VehicleNaviDecelCancelMobileZone`, `VehicleNaviDecelCancelBump`, `VehicleNaviDecelCancelUnknown`, `VehicleNaviDecelCancelEarlyWarning`), `VehicleNaviSectionAvgControl`, `VehicleSpeedCameraControlMode`, `VehicleSpeedCameraDistanceTime` | Event types, rear-camera post-pass hold, stock camera distance matching and virtual distance, EV4 camera/bump support and average-speed validation status, PV5 warning-confirmed camera retention/cancellation and section speed caps, deceleration start, and target speed |
+ | [Road speed limit](speed-deceleration.md#road-speed-limit) | `AutoRoadSpeedLimitOffset`, `AutoRoadSpeedAdjust`, `AutoSpeedUptoRoadSpeedLimit` | Desired-speed adjustment from the road limit |
+ | [Speed bumps](speed-deceleration.md#speed-bump) | `AutoNaviSpeedBumpTime`, `AutoNaviSpeedBumpSpeed`, `AutoNaviSpeedBumpEndDistance` | Completion time, crossing speed, and early-release distance |
+ | [Curves and turns](speed-deceleration.md#curve-turn) | `AutoCurveSpeedFactor`, `AutoCurveSpeedLowerLimit`, `TurnSpeedControlMode`, `OsmCurveSpeedEnabled`, `MapTurnSpeedFactor`, `ApplyModelSpeed` | Vision and route matching, device-GPS OSM bend confirmation, and bounded speed recovery |
+@@ -301,7 +301,6 @@ Eco caps lead response at 2 and Safe at 3; Normal and High retain the selected v
+ 
+ `SpeedTFFactor` applies a linear speed multiplier to the selected base TF: 10 is unchanged; 20 doubles it at 100 km/h. `LeadAccelResponseTF1`–`TF4` use the common response at -1 and a gap-specific response at 0–5. Levels 4–5 retain speed TF. The driving-screen bar shows the dynamically adjusted following target in metres.
+ 
+-
+ Deceleration preview operates independently of the response level. During active control, remaining correction releases progressively when relative acceleration eases or the lead switches between radar and vision or disappears. Accelerator or brake intervention and longitudinal control exit clear it immediately.
+ 
+ `LongTuning*` and `LongActuatorDelay` are advanced settings that directly affect vehicles using openpilot longitudinal control. Identified Ray EV Comma Pedal configurations expose these gains and apply saved values to speed PID. Other Hyundai, Kia, and Genesis configurations fix `LongTuningKpV`, `LongTuningKiV`, and `LongTuningKf` at the safe `100/0/100` values and hide them from settings. Toyota/Lexus fix and hide common gains at `0/0/100` to avoid duplicate correction before their dedicated controller. Some parameters have no effect when stock ACC remains responsible for acceleration and braking.
+@@ -344,7 +343,7 @@ Manual lane-change detection retains an established approach when valid width re
+ 
+ Settings > Vehicle & Hardware > Indicator Control contains Automatic Indication, Output Device and Lever Behavior. Automatic Indication contains `AutoBlinkerControl`, `ManualLaneChangeIndicator`, `ManualTurnIndicator`, `ModelDesireIndicator` and `ModelPathIndicator`. Output Device contains `CanfdBlinkerKick`, `CanfdBlinkerKickMode`, `CanfdBlinkerControl` and `CanfdBlinkerTest`. Lever Behavior contains `BlinkerLatchedTurn` and `LaneChangeLeverWait`.
+ 
+-**Panda/SPAS Indicator Output** (`CanfdBlinkerKick`) transmits requests from the common indication policy through Panda. It supports IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD. Manual lane changes, manual turns, model observations, navigation turns and voice lane changes use the existing common settings for starting, holding and ending indication. Physical lever input and stale inputs stop transmission. An ended request requires a new request to restart.
++**Panda/SPAS Indicator Output** (`CanfdBlinkerKick`) transmits requests from the common indication policy through Panda. It supports camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction. Manual lane changes, manual turns, model observations, navigation turns and voice lane changes use the existing common settings for starting, holding and ending indication. Physical lever input and stale inputs stop transmission. An ended request requires a new request to restart.
+ 
+ `CanfdBlinkerKickMode` selects ECU-acknowledged transmission with 0 or the existing stock-frame piggyback fallback with 1. Enabling applies on the next onroad start and requires updated Panda firmware. Disabling applies immediately. Enabling Kick suspends USB2CAN/BT2CAN output and waits for outstanding commands and exclusive ownership. It disables `CanfdBlinkerControl` on the next onroad start.
+ 
+@@ -390,7 +389,6 @@ Display contains 34 settings. External-HUD settings control the layout and outpu
+ ESP32-S3 Wi-Fi display support has been removed. Connect the USB display to Jetson. Supported receivers accept HUD, navigation and signal information over bounded USB transfers during inference; older receivers keep Wi-Fi until updated. Update through Git Pull and reboot both devices when the Jetson runtime changes.
+ 
+ 
+-
+ The Jetson HUD shows the highest internal sensor temperature below `jetSON`, or in the upper-right corner in full-screen navigation/graph modes. If temperature data has not refreshed for three seconds, it shows `--°C`. A top-strip temperature warning starts 5°C below each sensor's configured thermal limit; reaching that limit shows an overheating warning. For example, a device configured to throttle at 99°C warns from 94°C. Check the fan and ventilation when warned. Vehicle driving alerts take precedence, and Jetson temperature remains separate from device temperature/memory statistics. This feature requires updated Jetson HUD software.
+ 
+ With `CarrotVisionEnabled` on, the external HUD and web camera view can be used together. Simultaneous video use may increase device load. See the [Carrot Web guide](carrot-web.md).
+@@ -597,12 +595,16 @@ A hold-start request without confirmed lamp activation expires after four second
+ 
+ `ManualTurnIndicator` requests an indicator when driver steering and vehicle rotation agree. The wheel must reach 42 degrees and move at least 22 degrees from the start of steering. Detection resumes two seconds after the previous indication last renewed its hold, once both lamps have also been off for one continuous second. The setting defaults to off and can detect parking turns. [Manual turn conditions](lane-change.md)
+ 
++After opposite steering ends a manual turn, the next opposite turn can retain recent steering evidence at 10km/h or above. Only the last 0.25s before rearm bridges the angle reference; the existing two-second wait, one continuous dark second and current same-direction steering remain required. Retained intent expires after three seconds without resetting ordinary fresh-steering detection.
++
+ Junction lane-position changes preserve manual turn detection, and confirmed standstill permits small negative speed-estimator noise during a hold. Current model lane-change probability also requires measured approach of both boundaries.
+ 
+ Manual boundary tracking checks brief boundary retreat for 0.15s. If manual-turn conditions are also met, the same indication continues through turn completion. Model-turn indication additionally requires at least 15 degrees of same-direction steering and 3 degrees/s of measured rotation.
+ 
+ `AutoTurnControlRightLaneChange` remains the separate ATC distance add-on. `ManualLaneChangeIndicator` detects manual lane changes from 5 km/h and retains recent driver intent for up to 1.5s. The left side excludes centre lines using fresh white-line classification; the right requires at least 2.5m from the target boundary to the road edge. Outer-line probability is not required. It never requests automatic steering. See [lane changes](lane-change.md).
+ 
++An early boundary fluctuation is checked only within an existing request. Near-edge paired lane reassignment can wait 0.15s. When an uncertain target boundary retreats but the opposite boundary and driver steering support continued approach, stable lane geometry must return within three seconds. Opposite driver steering and invalid inputs still cancel.
++
+ The manual lane-change indicator can request again after at least three seconds, one continuous second of lamp extinction and fresh steering/approach conditions. Automatic-steering feedback isolation remains at least 12 seconds.
+ 
+ An ATC recovery attempt has a new four-second activation deadline. It does not extend the five-minute maximum measured from the original request.
+@@ -613,7 +615,6 @@ Manual indication projects 0.3s of measured boundary approach, advancing the cen
+ 
+ After confirmed turn entry, the TBT indicator ends its hold as the wheel returns within ±15 degrees while moving, without waiting for the remaining 30m. Pre-turn traffic-light waits remain held; see [lane changes](lane-change.md) for the entry conditions.
+ 
+-
+ The ATC right lane-change distance uses 0m for off and 50m steps up to 500m. The former ON setting migrates to 250m at restart.
+ 
+ ## Interface language
+diff --git a/docs/user/en/speed-deceleration.md b/docs/user/en/speed-deceleration.md
+index 83134e41..a643a985 100644
+--- a/docs/user/en/speed-deceleration.md
++++ b/docs/user/en/speed-deceleration.md
+@@ -70,6 +70,8 @@ When external navigation is connected, deceleration and countdowns use external
+ 
+ `VehicleNaviCanControl` selects when exact camera and speed-bump distances from stock navigation are used on supported Hyundai/Kia CAN-FD vehicles. The modes below apply only without an external navigation connection. Always apply in mode `1` means independent of stock route guidance.
+ 
++The Kia EV4 uses stock-navigation camera and speed-bump distances and route information. Section average-speed integration is undergoing validation. Route-dependent modes require valid current-route information, and empty EV4 route messages do not extend its freshness period.
++
+ A current camera warning is associated only with a nearby distance candidate with the same limit. If only a distant same-speed camera is available, the current warning uses its own virtual distance while the distant camera remains queued for a later approach.
+ 
+ | Value | vNAVI future-event scope |
+diff --git a/docs/user/ko/indicator-adapters.md b/docs/user/ko/indicator-adapters.md
+index fab396c6..97bbcb1c 100644
+--- a/docs/user/ko/indicator-adapters.md
++++ b/docs/user/ko/indicator-adapters.md
+@@ -25,3 +25,13 @@ USB 장치가 인식된다는 것과 해당 차량의 깜빡이를 제어할 수
+ CANable V1.0, MCU가 다른 복제품, CANable Pro, PCAN-USB FD/Pro와 다른 USB CAN 제품은 이 설치 파일의 지원 대상으로 확인하지 않았습니다. 이름이나 케이스가 비슷하다는 이유로 펌웨어를 넣지 마세요. CANable 사진의 아래쪽 **Pro** 모델은 부품 위치를 비교하는 참고 사진입니다.
+ 
+ **[CANable PC·젯슨 설치 안내로 이동](canable.md)** · [English](../en/indicator-adapters.md)
++
++## CAN 규격으로 선택하는 지원 범위
++
++차종 이름의 허용 목록은 사용하지 않습니다. USB·BLE·Panda/SPAS 출력은 수동 조향·모델 의도·ATC의 같은 자동 점등 설정을 사용하며, CANCEL과 기존 속도·차선·운전자 우선 조건을 유지합니다. 지원 규격을 확인한 출력만 송신합니다.
++
++- **USB·BLE:** 기존 B1 클래식 CAN 500 kbit/s, `0x3C1`·`0x413` 각 8바이트와 해당 데이터 의미·CRC·최신 수신 조건이 필요합니다. USB 장치의 CAN-FD 지원 여부와 이 제어 프로필의 지원 범위는 별개입니다.
++- **Kicker/Panda:** 카메라 SCC 배선의 ECAN에서 SPAS `0x165` 24바이트, `0x16A` 32바이트와 레버 `0x3C1` 8바이트를 확인해야 합니다. 새 요청 전에 순정 SPAS CRC·연속 카운터 10프레임과 최신 중립 레버를 확인합니다. Kicker 옵션을 켜면 기존 방식대로 외부 USB·BLE 출력을 중지합니다.
++- **유지:** 카메라 쪽 `0x1EA` 32바이트가 확인되고 기존 송신 경로가 활성화된 경우 콤마가 유지합니다. 그 경로가 없는 BLE는 S3가 유지하며, USB는 기존 원터치·재요청 방식으로 동작합니다.
++
++EV4에서 제보된 `0x3E3` CAN-FD+BRS 16바이트는 별도 규격입니다. 이번 차종 제한 해제만으로 해당 프레임의 송신을 지원하지 않습니다. 실제 점등과 유지·해제 동작은 새 차량에서 별도 확인이 필요합니다. 콤마 코드를 받은 뒤 재시작하면 적용되며, 이번 변경에는 S3나 CANable 펌웨어 재설치가 필요하지 않습니다.
+diff --git a/docs/user/ko/lane-change.md b/docs/user/ko/lane-change.md
+index c75256bb..ec1232b4 100644
+--- a/docs/user/ko/lane-change.md
++++ b/docs/user/ko/lane-change.md
+@@ -2,7 +2,7 @@
+ 
+ [English](../en/lane-change.md)
+ 
+-ATC 세부 설정의 `AutoTurnControlRightLaneChange`는 거리 설정입니다. 기본 0m는 끄기이며 0~500m를 50m 단위로 설정합니다. 기존 켜짐은 재시작 시 250m로 전환하고 기존 꺼짐은 0m로 유지합니다. 이 기능은 `AutoTurnControl=1·2`에 추가되는 기능입니다. 이 옵션은 아이오닉5 PE USB2CAN 구성에서 TBT 우회전·우측 분기 안내에 따라 우측 깜박이를 켜는 모드입니다. **10km/h 이상이고 우회전·우측 분기까지 설정 거리 이내일 때, 실제 턴 desire 시작 전까지** 확인합니다. 250m를 선택하면 기존 거리에서, 300~400m를 선택하면 더 앞에서 조건을 확인합니다. `AutoBlinkerControl=2`, `LaneChangeNeedTorque=0`, 횡제어 활성, 10km/h 이상, 실제 우측 차선 인식 및 기존 우측 변경 가능 조건이 필요합니다. 후방 추가 조건은 차량 BSD 경고가 없고 해당 CAN 입력이 유효한 것입니다. 코너 거리와 20m 기준은 사용하지 않습니다. 우측 목표 차로의 전방 차량은 현재 거리 및 `현재 거리 + 상대속도 × 3초`가 모두 5m 이상이어야 합니다. 대표 차량 값에서 빠지는 근거리 물체도 전체 우측 목록에서 확인합니다. 레이더·BSD 수신 지연이나 오류는 시작을 막습니다. 미감지나 등속 예측은 안전한 차간을 보장하지 않으며 기존 측면 장애물 차단도 유지됩니다.
++ATC 세부 설정의 `AutoTurnControlRightLaneChange`는 거리 설정입니다. 기본 0m는 끄기이며 0~500m를 50m 단위로 설정합니다. 기존 켜짐은 재시작 시 250m로 전환하고 기존 꺼짐은 0m로 유지합니다. 이 기능은 `AutoTurnControl=1·2`에 추가되는 기능입니다. 이 옵션은 규격이 확인된 USB2CAN·BLE·Panda/SPAS 구성에서 TBT 우회전·우측 분기 안내에 따라 우측 깜박이를 켜는 모드입니다. **10km/h 이상이고 우회전·우측 분기까지 설정 거리 이내일 때, 실제 턴 desire 시작 전까지** 확인합니다. 250m를 선택하면 기존 거리에서, 300~400m를 선택하면 더 앞에서 조건을 확인합니다. `AutoBlinkerControl=2`, `LaneChangeNeedTorque=0`, 횡제어 활성, 10km/h 이상, 실제 우측 차선 인식 및 기존 우측 변경 가능 조건이 필요합니다. 후방 추가 조건은 차량 BSD 경고가 없고 해당 CAN 입력이 유효한 것입니다. 코너 거리와 20m 기준은 사용하지 않습니다. 우측 목표 차로의 전방 차량은 현재 거리 및 `현재 거리 + 상대속도 × 3초`가 모두 5m 이상이어야 합니다. 대표 차량 값에서 빠지는 근거리 물체도 전체 우측 목록에서 확인합니다. 레이더·BSD 수신 지연이나 오류는 시작을 막습니다. 미감지나 등속 예측은 안전한 차간을 보장하지 않으며 기존 측면 장애물 차단도 유지됩니다.
+ 
+ 조건이 1초간 유지되면 기존 깜박이 제어 경로로 우측 점등을 요청합니다. 30km/h 미만에서 시작한 신호는 끝날 때까지 표시 전용이며 조향 요청에서 제외합니다. 30km/h 이상에서 시작한 신호의 실제 깜박이 피드백을 기존 차선변경 코드가 처리하며 별도 차선변경 명령은 보내지 않습니다. 완료를 확인한 뒤 깜박이가 꺼지고 2초가 지나면 조건을 다시 확인합니다. 요청 전 잠깐의 조향은 1초 조건 확인을 다시 시작합니다. 요청 후 핸들·수동 깜박이 개입, 입력 오류 또는 시작 실패 시 현재 TBT 구간의 자동 반복을 취소합니다. 기존 깜박이·리모컨의 차선변경 로직은 유지됩니다. 기존 ATC 턴·차선변경은 그대로 작동하며, 0번(끔)과 3번(속도만)에서는 추가 기능이 작동하지 않습니다. 이전 4번 설정은 재시작 시 1번으로 전환하며, 별도 거리 설정이 없으면 250m를 사용합니다. 데스크톱 시험만으로 실차 점등이나 주행 안전성이 검증된 것은 아닙니다.
+ 
+@@ -15,7 +15,7 @@ ATC 세부 설정의 `AutoTurnControlRightLaneChange`는 거리 설정입니다.
+ 
+ 크루즈 CANCEL을 누르면 자동 깜빡이 요청과 유지가 중단됩니다. 주차 중 핸들을 돌려도 새로 켜지지 않으며, SET/RES 또는 +/−로 기존 크루즈 취소 상태를 해제하면 새 동작부터 재개합니다. 직접 쓰는 레버와 블루투스 깜빡이 버튼은 계속 사용할 수 있습니다.
+ 
+-`ManualLaneChangeIndicator`는 기본 꺼짐인 별도 옵션으로, 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 제어 1·2번에서 지원합니다. 5km/h 이상에서 같은 방향의 조향을 0.15초 확인한 뒤, 힘을 풀거나 잠깐 반대 토크가 나와도 차선 접근이 계속되면 최근 의도를 최대 1.5초 기억합니다. 접근이 0.3초 넘게 멈추거나 0.15m 넘게 복귀한 상태가 0.15초 지속되면 취소하며 한 접근은 최대 4초만 추적합니다. 왼쪽은 최신 차량 카메라의 흰 차선 분류로 중앙선이 아님을 확인하며 노란 선·불명확하거나 오래된 분류는 차단합니다. 오른쪽은 넘으려는 차선부터 로드에지까지 현재·전방 모두 2.5m 이상 여유가 있어야 합니다. 바깥쪽 차선 인식 확률·옆 차로 폭·로드에지 표준편차는 조건으로 사용하지 않습니다. 넓은 갓길도 거리 조건을 만족할 수 있습니다.
++`ManualLaneChangeIndicator`는 기본 꺼짐인 별도 옵션으로, 규격이 확인된 USB2CAN·BLE·Panda/SPAS 출력 및 자동 깜박이 제어 1·2번에서 지원합니다. 5km/h 이상에서 같은 방향의 조향을 0.15초 확인한 뒤, 힘을 풀거나 잠깐 반대 토크가 나와도 차선 접근이 계속되면 최근 의도를 최대 1.5초 기억합니다. 접근이 0.3초 넘게 멈추거나 0.15m 넘게 복귀한 상태가 0.15초 지속되면 취소하며 한 접근은 최대 4초만 추적합니다. 왼쪽은 최신 차량 카메라의 흰 차선 분류로 중앙선이 아님을 확인하며 노란 선·불명확하거나 오래된 분류는 차단합니다. 오른쪽은 넘으려는 차선부터 로드에지까지 현재·전방 모두 2.5m 이상 여유가 있어야 합니다. 바깥쪽 차선 인식 확률·옆 차로 폭·로드에지 표준편차는 조건으로 사용하지 않습니다. 넓은 갓길도 거리 조건을 만족할 수 있습니다.
+ 
+ 이 기능이 켠 깜박이는 자동 차선변경·턴 요청으로 해석하지 않습니다. 차로 변경 조향은 운전자가 직접 해야 합니다. ATC 준비 중에도 감지하지만 이미 실행 중인 자동 차선변경이나 다른 깜박이 요청과 중복 실행하지 않습니다. 접근 시작 시 최근 1초 내 대상 차선 신뢰도 10% 이상을 확인하고, 연속적인 경계·의도 추적은 최대 4초 유지합니다. 일관되지 않은 경계 급변·입력 오류는 새 요청을 막습니다. 요청 후 최대 12초 동안 완료·복귀를 추적합니다. 추가 요청은 이전 유지 종료 후 최소 3초가 지나고 깜박이가 1초 이상 연속으로 꺼진 뒤, 새로운 조향·경계 접근 조건이 확인될 때 가능합니다. 3초마다 자동으로 반복하지 않습니다. 이 기능이 만든 깜박이 피드백과 레버 입력은 마지막 유지 후 최소 12초 및 소등 확인까지 자동 조향 요청에서 제외합니다. 빠르게 반대 방향을 요청해도 이전 방향의 보호를 유지합니다.
+ 
+@@ -33,13 +33,15 @@ ATC 세부 설정의 `AutoTurnControlRightLaneChange`는 거리 설정입니다.
+ 
+ 차로 폭이 잠깐 유효 범위를 벗어나면 새 접근 판단을 멈추고, 이미 추적 중인 접근은 마지막 유효 관측부터 0.15초 안에 정상 관측이 돌아올 때 이어갑니다. 수동 차로변경 요청의 차선 판단은 감지 단계에서 확정하고, 송신 단계는 요청의 유효기간·차량 상태·운전자 취소를 검사합니다.
+ 
++점등 직후의 경계 흔들림은 기존 요청 안에서만 제한적으로 확인합니다. 경계 가까이에서 양쪽 차선이 다시 배정되는 짧은 변화는 0.15초 기다립니다. 신뢰도가 낮은 대상 경계가 멀어져도 반대편 경계와 운전자 조향이 접근을 뒷받침하면 최대 3초 안에 안정된 차로를 확인하며, 반대 조향·입력 오류는 유지하지 않습니다.
++
+ ## 수동 턴 자동깜박이(시험)
+ 
+-`ManualTurnIndicator`는 설정의 차로 변경 (자동 턴) 메뉴에서 켜는 별도 옵션이며 기본은 꺼짐입니다. 아이오닉5 PE의 지원 깜박이 장치와 `AutoBlinkerControl=1·2`에서 동작합니다. ATC·내비 경로·횡제어 활성 여부와 독립적으로 운전자 조작을 확인하며, 이 신호의 피드백에는 자동조향 요청 차단을 적용합니다.
++`ManualTurnIndicator`는 설정의 차량·하드웨어 > 깜박이 제어 > 자동 점등 메뉴에서 켜는 별도 옵션이며 기본은 꺼짐입니다. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 장치와 `AutoBlinkerControl=1·2`에서 동작합니다. ATC·내비 경로·횡제어 활성 여부와 독립적으로 운전자 조작을 확인하며, 이 신호의 피드백에는 자동조향 요청 차단을 적용합니다.
+ 
+ 시작 속도는 5~60km/h입니다. 같은 방향의 운전자 조향력을 0.15초 확인하고, 최근 의도를 최대 0.8초 기억합니다. 조향각 42도 이상, 의도 시작 이후 22도 이상 증가, 같은 방향의 차체 회전속도 3도/초 이상과 누적 회전 1.5도 이상을 확인한 뒤 0.10초 동안 조건이 이어지면 점등을 요청합니다. 한 의도는 최대 4초 추적합니다. 차선이 잘 인식되는 도로 곡선과 실제 회전이 일치하면 시작을 억제합니다.
+ 
+-점등 요청 후 핸들이 ±15도 안으로 돌아오고 차체 회전속도가 3도/초 이하인 상태가 이동 중 0.3초 유지되면 종료합니다. 운전자가 반대 방향으로 힘을 주며 핸들이 0도를 넘으면 취소합니다. 정차 중에는 유지하며, 유지 한도는 30초입니다. 설정 끄기·입력 지연·물리 레버 개입·반대 램프·다른 실행 중인 차선변경도 요청을 종료합니다. 다음 수동 턴은 직전 자동 표시의 마지막 유지 시점에서 2초가 지나고 좌우 램프가 연속 1초 꺼진 뒤 새로 감지합니다. 두 시간은 동시에 흐르며, 대기 중 끝난 조작은 다시 실행하지 않습니다.
++점등 요청 후 핸들이 ±15도 안으로 돌아오고 차체 회전속도가 3도/초 이하인 상태가 이동 중 0.3초 유지되면 종료합니다. 운전자가 반대 방향으로 힘을 주며 핸들이 0도를 넘으면 취소합니다. 정차 중에는 유지하며, 유지 한도는 30초입니다. 설정 끄기·입력 지연·물리 레버 개입·반대 램프·다른 실행 중인 차선변경도 요청을 종료합니다. 다음 수동 턴은 직전 자동 표시의 마지막 유지 시점에서 2초가 지나고 좌우 램프가 연속 1초 꺼진 뒤 새로 감지합니다. 두 시간은 동시에 흐릅니다. 이전 수동 턴이 반대 조향으로 끝나면 10km/h 이상에서 다음 반대 턴의 최근 조향을 제한적으로 이어받습니다. 재점등 직전 0.25초의 각도 변화만 이어받고, 기존 2초 대기·연속 1초 소등 및 현재 같은 방향 조향 조건을 확인합니다. 3초 안에 이어지지 않으면 버리며 기존 새 조향 감지는 별도로 유지합니다.
+ 
+ 콤마 화면에는 ‘운전자 수동 턴’이 표시됩니다. 기존 USB HUD에는 호환되는 운전자 차선접근 분류와 턴 진행 사유를 보냅니다. 주차장 통로·경사로·주차 진입도 감지될 수 있고, 차선이 불명확한 굽은 길과 회피 동작에서는 오점등 가능성이 있습니다. 로그 재생 검증과 실차 점등·소등 검증은 각각 필요합니다. 적용은 Git Pull 후 콤마 재시작이며 실제 차량 검증은 남아 있습니다.
+ 
+@@ -49,7 +51,7 @@ ATC 세부 설정의 `AutoTurnControlRightLaneChange`는 거리 설정입니다.
+ 
+ ## 모델 판단 자동깜박이(시험)
+ 
+-`ModelDesireIndicator`와 `ModelPathIndicator`는 각각 기본 꺼짐인 별도 옵션입니다. 아이오닉5 PE·Jetson USB2CAN 및 `AutoBlinkerControl=1·2`에서 지원하며, 횡제어가 활성 상태일 때 시작합니다. 이 기능이 켠 신호는 자동 조향 요청으로 재사용하지 않습니다. 30km/h 이상에서는 모델의 가까운 두 미래 예측이 모두 같은 방향 차로변경을 65% 이상으로 가리키고, 실제 좌우 차선 위치도 그 방향으로 접근할 때 깜빡이를 요청할 수 있습니다. 차선에 접근하지 않는 예측만으로는 켜지지 않으며, 이 기능은 조향을 요청하지 않습니다. 예측으로 점등한 뒤 분기에서 차로 폭이 넓어져도 같은 방향 모델 의도와 진행이 확인되면 같은 요청을 유지합니다. 의도가 약해지거나 반대로 바뀌면 분기 유지가 끝나며, CANCEL은 즉시 유지 요청을 해제합니다.
++`ModelDesireIndicator`와 `ModelPathIndicator`는 각각 기본 꺼짐인 별도 옵션입니다. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 출력 및 `AutoBlinkerControl=1·2`에서 지원하며, 횡제어가 활성 상태일 때 시작합니다. 이 기능이 켠 신호는 자동 조향 요청으로 재사용하지 않습니다. 30km/h 이상에서는 모델의 가까운 두 미래 예측이 모두 같은 방향 차로변경을 65% 이상으로 가리키고, 실제 좌우 차선 위치도 그 방향으로 접근할 때 깜빡이를 요청할 수 있습니다. 차선에 접근하지 않는 예측만으로는 켜지지 않으며, 이 기능은 조향을 요청하지 않습니다. 예측으로 점등한 뒤 분기에서 차로 폭이 넓어져도 같은 방향 모델 의도와 진행이 확인되면 같은 요청을 유지합니다. 의도가 약해지거나 반대로 바뀌면 분기 유지가 끝나며, CANCEL은 즉시 유지 요청을 해제합니다.
+ 
+ - 모델 desire: 턴·차선변경 확률이 50% 이상이며 직진·반대 방향보다 우세한 판단을 반복 확인합니다. 턴은 10km/h, 차선변경은 30km/h 이상입니다.
+ - 모델 경로: 30km/h 이상에서 1~3초 예측 경로와 곡선 차선을 같은 전방 위치에서 비교합니다. 신뢰도 10% 이상인 대상 경계를 넘어서 계속 이어지고 제어 곡률도 같은 방향이어야 합니다. 0.4초 이내 최소 네 번, 최소 0.2초에 걸친 관측을 확인합니다. 경계 급변·중앙선·가까운 우측 로드에지는 새 요청을 막습니다.
+diff --git a/docs/user/ko/settings.md b/docs/user/ko/settings.md
+index 93f8f858..ccc243c8 100644
+--- a/docs/user/ko/settings.md
++++ b/docs/user/ko/settings.md
+@@ -263,7 +263,7 @@ VW MEB(ID.4 포함)에도 수동 조향비와 학습 비율이 적용됩니다.
+ 
+ | 세부 구역 | 파라미터 | 용도 |
+ |---|---|---|
+-| [과속카메라](speed-deceleration.md#speed-camera) | `AutoNaviSpeedCtrlMode`, `AutoNaviSpeedCtrlEnd`, `AutoNaviRearCameraHoldDistance`, `AutoNaviSpeedDecelRate`, `AutoNaviSpeedSafetyFactor`, `AutoNaviCountDownMode`, `VehicleNaviCanControl`, `VehicleNaviSchoolZoneControl`, `VehicleNaviDecelCancel`(`VehicleNaviDecelCancelBox`, `VehicleNaviDecelCancelMobileZone`, `VehicleNaviDecelCancelBump`, `VehicleNaviDecelCancelUnknown`, `VehicleNaviDecelCancelEarlyWarning`), `VehicleNaviSectionAvgControl`, `VehicleSpeedCameraControlMode`, `VehicleSpeedCameraDistanceTime` | 안전운전 이벤트의 대상, 후면단속 통과 후 유지, 순정 카메라 거리 연결·가상거리, PV5 단속 상태에 따른 카메라 유지·해제와 구간단속 제한속도 유지, 감속 시점과 목표 속도 |
++| [과속카메라](speed-deceleration.md#speed-camera) | `AutoNaviSpeedCtrlMode`, `AutoNaviSpeedCtrlEnd`, `AutoNaviRearCameraHoldDistance`, `AutoNaviSpeedDecelRate`, `AutoNaviSpeedSafetyFactor`, `AutoNaviCountDownMode`, `VehicleNaviCanControl`, `VehicleNaviSchoolZoneControl`, `VehicleNaviDecelCancel`(`VehicleNaviDecelCancelBox`, `VehicleNaviDecelCancelMobileZone`, `VehicleNaviDecelCancelBump`, `VehicleNaviDecelCancelUnknown`, `VehicleNaviDecelCancelEarlyWarning`), `VehicleNaviSectionAvgControl`, `VehicleSpeedCameraControlMode`, `VehicleSpeedCameraDistanceTime` | 안전운전 이벤트의 대상, 후면단속 통과 후 유지, 순정 카메라 거리 연결·가상거리, EV4 카메라·방지턱 지원과 평균속도 검증 상태, PV5 단속 상태에 따른 카메라 유지·해제와 구간단속 제한속도 유지, 감속 시점과 목표 속도 |
+ | [도로 제한속도](speed-deceleration.md#road-speed-limit) | `AutoRoadSpeedLimitOffset`, `AutoRoadSpeedAdjust`, `AutoSpeedUptoRoadSpeedLimit` | 도로 제한속도에 맞춘 목표 속도 조절 |
+ | [과속방지턱](speed-deceleration.md#speed-bump) | `AutoNaviSpeedBumpTime`, `AutoNaviSpeedBumpSpeed`, `AutoNaviSpeedBumpEndDistance` | 방지턱 감속 완료 시점, 통과 속도와 조기 종료 거리 |
+ | [커브·턴](speed-deceleration.md#curve-turn) | `AutoCurveSpeedFactor`, `AutoCurveSpeedLowerLimit`, `TurnSpeedControlMode`, `OsmCurveSpeedEnabled`, `MapTurnSpeedFactor`, `ApplyModelSpeed` | 비전·경로 일치 확인, 기기 GPS를 사용한 OSM 커브 확인, 제한된 속도 회복 |
+@@ -305,7 +305,6 @@ VW MEB(ID.4 포함)에도 수동 조향비와 학습 비율이 적용됩니다.
+ 
+ `SpeedTFFactor`는 선택한 기본 TF에 속도별 선형 배율을 적용합니다. 10은 변화 없음, 20은 100km/h에서 2배입니다. 단계별 `LeadAccelResponseTF1`~`TF4`는 -1이면 공통값, 0~5이면 해당 반응을 사용합니다. 반응 4~5도 속도 배율을 유지합니다. 주행 화면의 거리 바는 동적 보정이 반영된 추종 목표거리를 m로 표시합니다.
+ 
+-
+ 감속 미리보기는 반응 단계와 별도로 동작합니다. 상대 가속도가 줄거나 앞차가 레이더·비전 사이에서 전환되거나 사라져도, 제어 중에는 남은 보정을 점진적으로 해제합니다. 가속·브레이크 페달 개입이나 종방향 제어 종료 시에는 초기화합니다.
+ 
+ `LongTuning*`, `LongActuatorDelay`는 openpilot이 가감속을 제어하는 차량에서 직접적인 영향을 줄 수 있는 고급 항목입니다. 차량 식별로 확인된 레이 EV 콤마페달에서는 세 게인을 표시하고 저장값을 속도 PID에 적용합니다. 그 외 현대·기아·제네시스에서는 `LongTuningKpV`, `LongTuningKiV`, `LongTuningKf`가 안전값 `100/0/100`으로 고정되어 설정 화면에 나오지 않으며, 토요타·렉서스는 전용 보정기 앞의 중복 보정을 막기 위해 공통 게인을 `0/0/100`으로 고정·숨깁니다. 순정 ACC 차량에서는 관련 없는 항목도 있습니다.
+@@ -343,7 +342,7 @@ VW MEB(ID.4 포함)에도 수동 조향비와 학습 비율이 적용됩니다.
+ 
+ 설정 > 차량·하드웨어 > 깜박이 제어에 자동 점등, 출력 장치, 레버 동작을 모았습니다. 자동 점등에는 `AutoBlinkerControl`, `ManualLaneChangeIndicator`, `ManualTurnIndicator`, `ModelDesireIndicator`, `ModelPathIndicator`가 있습니다. 출력 장치에는 `CanfdBlinkerKick`, `CanfdBlinkerKickMode`, `CanfdBlinkerControl`, `CanfdBlinkerTest`가 있으며 레버 동작에는 `BlinkerLatchedTurn`, `LaneChangeLeverWait`가 있습니다.
+ 
+-**Panda/SPAS 깜박이 출력** (`CanfdBlinkerKick`)은 공통 판단이 만든 깜박이 요청을 Panda로 송신합니다. 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 지원합니다. 수동 차로변경·수동 회전·모델 관찰·내비 회전·음성 차로변경의 시작과 유지, 종료는 기존 공통 설정을 따릅니다. 실제 레버 조작과 오래된 입력은 출력을 중단하며, 종료된 요청은 새 요청 없이 재개하지 않습니다.
++**Panda/SPAS 깜박이 출력** (`CanfdBlinkerKick`)은 공통 판단이 만든 깜박이 요청을 Panda로 송신합니다. 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 지원합니다. 수동 차로변경·수동 회전·모델 관찰·내비 회전·음성 차로변경의 시작과 유지, 종료는 기존 공통 설정을 따릅니다. 실제 레버 조작과 오래된 입력은 출력을 중단하며, 종료된 요청은 새 요청 없이 재개하지 않습니다.
+ 
+ `CanfdBlinkerKickMode`는 ECU 응답 후 송신하는 0과 응답이 없을 때 순정 프레임 뒤에 송신하는 1을 선택합니다. 켜기는 다음 OnRoad 시작부터 적용되며 갱신된 Panda 펌웨어가 필요합니다. 끄기는 즉시 적용됩니다. Kick을 켜면 USB2CAN·BT2CAN 출력이 중단되고 잔여 명령 만료와 독점 소유권을 확인합니다. 다음 OnRoad 시작 때 `CanfdBlinkerControl`이 꺼집니다.
+ 
+@@ -384,7 +383,6 @@ Bosch MRRevo14F 수신을 지원하는 버전에서 Bosch MRRevo14F 후보 차
+ ESP32-S3 Wi-Fi 디스플레이 지원은 제거되었습니다. USB 디스플레이를 Jetson에 연결하세요. 지원 수신기는 추론 중 제한된 USB 전송으로 HUD·지도·신호등 정보를 받으며, 구형 수신기는 업데이트 전까지 Wi-Fi를 사용합니다. Git Pull로 업데이트하고 Jetson 런타임이 바뀌면 양쪽 장치를 재부팅합니다.
+ 
+ 
+-
+ Jetson HUD에는 `jetSON` 아래에 Jetson 내부 센서의 최고 온도가 표시됩니다. 전체 내비게이션·그래프 화면에서는 우측 상단에 표시하며, 온도 정보가 3초 이상 갱신되지 않으면 `--°C`로 바뀝니다. 각 센서의 장치 설정 온도 한계보다 5°C 낮은 지점부터 상단에 온도 높음 경고, 한계 도달 시 과열 경고를 표시합니다. 예를 들어 성능 제한 온도가 99°C인 장치는 94°C부터 사전 경고합니다. 경고가 나타나면 팬과 통풍 상태를 확인하세요. 차량 운전 경고가 우선 표시되며, 이 온도 표시는 본체 온도·메모리 통계와 구분됩니다. 이 기능은 업데이트된 Jetson HUD 소프트웨어가 필요합니다.
+ 
+ `CarrotVisionEnabled`를 켜면 외부 HUD와 웹 카메라뷰를 함께 사용할 수 있습니다. 동시 영상 사용 시 기기 부하가 증가할 수 있습니다. 사용 방법은 [웹당근 안내](carrot-web.md)를 참고하세요.
+@@ -622,12 +620,16 @@ ATC 세부 설정의 `AutoTurnControlRightLaneChange`는 1·2번 모드에서 10
+ 
+ `ManualTurnIndicator`는 운전자가 같은 방향으로 조향하고 차체가 회전할 때 깜빡이를 요청합니다. 핸들이 42도 이상이고 조작 시작 때보다 22도 이상 돌아가야 합니다. 다음 턴은 직전 표시의 마지막 유지 시점에서 2초가 지나고 양쪽 램프가 연속 1초 꺼진 뒤 감지합니다. 기본은 꺼짐이며 주차장 회전도 감지될 수 있습니다. [수동 턴 조건](lane-change.md)
+ 
++이전 수동 턴이 반대 조향으로 끝나면 10km/h 이상에서 다음 반대 턴의 최근 조향을 제한적으로 이어받습니다. 재점등 직전 0.25초의 각도 변화만 이어받고, 기존 2초 대기·연속 1초 소등 및 현재 같은 방향 조향 조건을 확인합니다. 3초 안에 이어지지 않으면 버리며 기존 새 조향 감지는 별도로 유지합니다.
++
+ 교차로 차선 위치 변화가 수동 턴 감지를 막지 않도록 처리하며, 정차 확인 중 미세한 음수 차속도 유지합니다. 현재 모델 차선변경 확률은 실제 양쪽 경계의 접근을 함께 확인합니다.
+ 
+ 수동 차선 접근은 짧은 경계 흔들림을 0.15초 확인하며, 수동 턴 조건까지 충족되면 같은 점등 요청으로 턴 완료를 추적합니다. 모델 턴 표시는 같은 방향 조향각 15도 이상과 실제 회전 3도/초 이상을 함께 확인합니다.
+ 
+ `ManualLaneChangeIndicator`는 시속 5km 이상에서 수동 차로변경을 감지해 깜빡이를 요청합니다. 최근 조향 의도를 최대 1.5초 기억합니다. 왼쪽은 최신 흰 차선 분류로 중앙선을 제외하고, 오른쪽은 목표 차선부터 로드에지까지 2.5m 이상 여유를 확인합니다. 바깥 차선 인식 확률은 사용하지 않으며 자동 조향은 요청하지 않습니다. 자세한 조건은 [차로 변경](lane-change.md)을 참고하세요.
+ 
++점등 직후의 경계 흔들림은 기존 요청 안에서만 제한적으로 확인합니다. 경계 가까이에서 양쪽 차선이 다시 배정되는 짧은 변화는 0.15초 기다립니다. 신뢰도가 낮은 대상 경계가 멀어져도 반대편 경계와 운전자 조향이 접근을 뒷받침하면 최대 3초 안에 안정된 차로를 확인하며, 반대 조향·입력 오류는 유지하지 않습니다.
++
+ 수동 차선변경 깜박이는 이전 요청 후 최소 3초·연속 1초 소등과 새로운 조향/접근 조건을 확인한 뒤 재요청합니다. 자동 조향 피드백 보호는 최소 12초 유지합니다.
+ 
+ ATC 재요청이 실행되면 새 요청부터 점등 확인 제한 4초를 다시 적용합니다. 최초 요청부터 전체 유지 상한 5분은 연장하지 않습니다.
+@@ -638,7 +640,6 @@ ATC 재요청이 실행되면 새 요청부터 점등 확인 제한 4초를 다
+ 
+ TBT 턴은 실제 회전 진입을 확인한 뒤 주행 중 핸들이 ±15도 안으로 돌아오면 30m 이동을 기다리지 않고 유지 요청을 끝냅니다. 턴 진입 전 신호 대기에서는 유지하며, 자세한 조건은 [차로 변경](lane-change.md)을 참고하세요.
+ 
+-
+ ATC 세부 설정의 우회전 자동 차선변경 거리는 0m에서 꺼지며 50m 단위로 최대 500m까지 선택합니다. 기존 켜짐 설정은 재시작 시 250m로 전환합니다.
+ 
+ ## 화면 언어
+diff --git a/docs/user/ko/speed-deceleration.md b/docs/user/ko/speed-deceleration.md
+index 938aab9c..9278df64 100644
+--- a/docs/user/ko/speed-deceleration.md
++++ b/docs/user/ko/speed-deceleration.md
+@@ -72,6 +72,8 @@ Carrot Web 기본값 복원에 쓰이는 `carrot_settings.json`과 Params 최초
+ 
+ `VehicleNaviCanControl`은 지원되는 Hyundai/Kia CAN-FD 차량에서 순정 내비가 제공하는 카메라·방지턱의 실제 거리를 감속에 사용할 범위를 정합니다. 아래 모드는 외부 내비가 연결되지 않았을 때만 적용하며, `1`의 항상 적용은 순정 내비 경로 안내 여부와 관계없이 적용한다는 뜻입니다.
+ 
++Kia EV4는 순정 내비의 카메라·방지턱 거리와 경로 정보를 연동합니다. 구간 평균속도 연동은 검증 중입니다. 경로 조건이 필요한 모드에서는 유효한 현재 경로 정보가 있어야 하며, EV4의 빈 경로 메시지는 경로 유효 시간을 연장하지 않습니다.
++
+ 현재 카메라 경고에는 제한속도가 같고 가까운 거리 후보만 연결합니다. 같은 속도의 먼 카메라만 있으면 현재 경고의 가상거리를 사용하며, 먼 카메라는 이후 접근을 위한 후보로 남겨 둡니다.
+ 
+ | 값 | vNAVI 미래 이벤트 적용 범위 |
+diff --git a/opendbc_repo/opendbc/car/hyundai/carcontroller.py b/opendbc_repo/opendbc/car/hyundai/carcontroller.py
+index f07b49c7..2e8e539c 100644
+--- a/opendbc_repo/opendbc/car/hyundai/carcontroller.py
++++ b/opendbc_repo/opendbc/car/hyundai/carcontroller.py
+@@ -49,7 +49,7 @@ MID_SPEED_ANGLE_RATE_LIMIT_SPEED = 40.0 * CV.KPH_TO_MS
+ LARGE_ANGLE_UNWIND_RATE = 1.5  # deg/tick: allow a quicker return from the EPS fault-angle region
+ CANFD_JERK_UPPER_MIN = 1.0
+ CANFD_JERK_LIMIT_MAX = 5.0
+-# CanfdBlinkerKick (KICK_CARS on the camera-SCC harness, CAN-FD): in D at any speed the parking ECU (APRK, 0x7B1) is
++# CanfdBlinkerKick (verified SPAS/stalk protocol on the camera-SCC harness, CAN-FD): in D at any speed the parking ECU (APRK, 0x7B1) is
+ # asked to go quiet around a kick and SPAS2 BLINKER_CONTROL is sent in its place; its default session is restored right
+ # after the kick
+ APRK_ADDR = 0x7B1
+@@ -389,7 +389,7 @@ class CarController(CarControllerBase):
+         self.steerDeltaDownLC = self.steerDeltaDown
+ 
+       self.soft_hold_mode = 1 if params.get_int("AutoCruiseControl") > 1 else 2
+-      # CANFD_BLINKER_KICK: set at fingerprint time only for KICK_CARS on the camera-SCC harness, and panda admits the Kick
++      # CANFD_BLINKER_KICK: set at fingerprint time only for verified SPAS/stalk protocol on the camera-SCC harness, and panda admits the Kick
+       # ids only with it. The setting can still switch the Kick off mid-drive; switching it on waits for the next start.
+       self.blinker_control = (any(cfg.safetyParam & HyundaiSafetyFlags.CANFD_BLINKER_KICK for cfg in self.CP.safetyConfigs)
+                               and params.get_bool("CanfdBlinkerKick"))
+diff --git a/opendbc_repo/opendbc/car/hyundai/carstate.py b/opendbc_repo/opendbc/car/hyundai/carstate.py
+index bb0ae437..430a3d91 100644
+--- a/opendbc_repo/opendbc/car/hyundai/carstate.py
++++ b/opendbc_repo/opendbc/car/hyundai/carstate.py
+@@ -48,6 +48,7 @@ SPEEDCAM_GAS_TOK_FRAMES = 40   # matches cruise.py _gas_tok_timer (0.4 s at 100
+ VEHICLE_NAVI_ROUTE_TIMEOUT_NS = 2_000_000_000
+ CANFD_HDA_INFO_MSG = "CANFD_HDA_INFO_364"
+ CANFD_NAVI_PROFILE_MSG = "CANFD_NAVI_PROFILE_093"
++CANFD_NAVI_SEGMENT_MSG = "CANFD_NAVI_SEGMENT_099"
+ CANFD_NAVI_STATUS_MSG = "CANFD_NAVI_STATUS_380"
+ CANFD_NAVI_CAMERA_ACTIVE_BIT = 0x40
+ CANFD_NAVI_STATUS_TIMEOUT_NS = 1_000_000_000
+@@ -206,7 +207,10 @@ class CarState(CarStateBase):
+     self.adrv_0x160 = None
+     self.ccnc_0x162 = None
+     self.canfd_wrapped_navi = CP.carFingerprint == CAR.KIA_PV5
+-    self.navi_profile_msg = CANFD_NAVI_PROFILE_MSG if self.canfd_wrapped_navi else "NEW_MSG_4BE"
++    self.canfd_ev4_navi = CP.carFingerprint == CAR.KIA_EV4
++    self.hda_info_msg = CANFD_HDA_INFO_MSG if (self.canfd_wrapped_navi or self.canfd_ev4_navi) else "HDA_INFO_4A3"
++    self.navi_segment_msg = CANFD_NAVI_SEGMENT_MSG if self.canfd_ev4_navi else "NEW_MSG_4B9"
++    self.navi_profile_msg = CANFD_NAVI_PROFILE_MSG if (self.canfd_wrapped_navi or self.canfd_ev4_navi) else "NEW_MSG_4BE"
+     self.vehicleNaviZoneControlSupported = not self.canfd_wrapped_navi  # Legacy kind-7 profile zones only
+     self.hda_info_4a3 = None
+     self.navi_position_4b4 = None
+@@ -526,10 +530,10 @@ class CarState(CarStateBase):
+             if self.cp_alt is not None:
+               add_and_cache(self.cp_alt, CANFD_NAVI_STATUS_MSG, "navi_status_380")
+           else:
+-            add_and_cache(self.cp, "HDA_INFO_4A3", "hda_info_4a3")
++            add_and_cache(self.cp, self.hda_info_msg, "hda_info_4a3")
+             add_and_cache(self.cp, "NEW_MSG_4B4", "navi_position_4b4")
+-            add_and_cache(self.cp, "NEW_MSG_4B9", "navi_segment_4b9")
+-            add_and_cache(self.cp, "NEW_MSG_4BE", "navi_profile_4be")
++            add_and_cache(self.cp, self.navi_segment_msg, "navi_segment_4b9")
++            add_and_cache(self.cp, self.navi_profile_msg, "navi_profile_4be")
+           add_and_cache(self.cp, "STEER_TOUCH_2AF", "steer_touch_2af")
+         elif self.controls_ready_count == 124:
+           add_and_cache(self.cp, self.cruise_btns_msg_canfd, "cruise_buttons_msg")
+@@ -1186,7 +1190,8 @@ class CarState(CarStateBase):
+     if self.canfd_wrapped_navi:
+       self._update_pv5_navi_section(cp, cp_alt)
+     profile_timestamp = self._vehicle_navi_message_timestamp(cp, self.navi_profile_msg)
+-    self.vehicleNaviAvailable = self.vehicleNaviAvailable or profile_timestamp > 0 or self.vehicleNaviSpeedZoneActive
++    hda_timestamp = self._vehicle_navi_message_timestamp(cp, self.hda_info_msg) if self.canfd_ev4_navi else 0
++    self.vehicleNaviAvailable = self.vehicleNaviAvailable or profile_timestamp > 0 or hda_timestamp > 0 or self.vehicleNaviSpeedZoneActive
+     ret.vehicleNaviAvailable = self.vehicleNaviAvailable
+     self.vehicleNaviCameraTarget = None
+ 
+@@ -1211,8 +1216,12 @@ class CarState(CarStateBase):
+     range_section_active = 0 < range_avg_speed < 511
+ 
+     if self.navi_segment_4b9 is not None:
+-      timestamp = self._vehicle_navi_message_timestamp(cp, "NEW_MSG_4B9")
+-      if timestamp > self.vehicleNaviSegmentTimestamp:
++      timestamp = self._vehicle_navi_message_timestamp(cp, self.navi_segment_msg)
++      # EV4 wraps padding after sparse route updates. Padding supplies no new
++      # route evidence and must not renew the existing route timeout.
++      empty_wrapped_segment = self.canfd_ev4_navi and all(
++        int(self.navi_segment_4b9.get(f"BYTE_{i + 1}", 0)) == 0xff for i in range(8))
++      if timestamp > self.vehicleNaviSegmentTimestamp and not empty_wrapped_segment:
+         self.vehicleNaviSegmentTimestamp = timestamp
+         segment = self._decode_vehicle_navi_segment(self.navi_segment_4b9)
+         previous_route_state = self.vehicleNaviRouteState
+@@ -1744,9 +1753,16 @@ class CarState(CarStateBase):
+     # Register stock-navigation position/route/profile messages as optional
+     # from startup so dynamic fingerprint timing cannot miss sparse profiles.
+     wrapped_navi = CP.carFingerprint == CAR.KIA_PV5
+-    msgs = ([(CANFD_HDA_INFO_MSG, math.nan), (CANFD_NAVI_PROFILE_MSG, math.nan)] if wrapped_navi else
+-            [("NEW_MSG_4B4", math.nan), ("NEW_MSG_4B9", math.nan), ("NEW_MSG_4BE", math.nan)])
+-    alt_msgs = [(CANFD_NAVI_STATUS_MSG, math.nan)] if wrapped_navi else []
++    ev4_navi = CP.carFingerprint == CAR.KIA_EV4
++    if wrapped_navi:
++      msgs = [(CANFD_HDA_INFO_MSG, math.nan), (CANFD_NAVI_PROFILE_MSG, math.nan)]
++      alt_msgs = [(CANFD_NAVI_STATUS_MSG, math.nan)]
++    elif ev4_navi:
++      msgs = [(CANFD_HDA_INFO_MSG, math.nan), (CANFD_NAVI_SEGMENT_MSG, math.nan), (CANFD_NAVI_PROFILE_MSG, math.nan)]
++      alt_msgs = []
++    else:
++      msgs = [("NEW_MSG_4B4", math.nan), ("NEW_MSG_4B9", math.nan), ("NEW_MSG_4BE", math.nan)]
++      alt_msgs = []
+     if not (CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS):
+       # TODO: this can be removed once we add dynamic support to vl_all
+       msgs += [
+diff --git a/opendbc_repo/opendbc/car/hyundai/interface.py b/opendbc_repo/opendbc/car/hyundai/interface.py
+index f6337afc..6d4e1ba9 100644
+--- a/opendbc_repo/opendbc/car/hyundai/interface.py
++++ b/opendbc_repo/opendbc/car/hyundai/interface.py
+@@ -1,6 +1,6 @@
+ from opendbc.car import Bus, get_safety_config, structs
+ from opendbc.car.hyundai.hyundaicanfd import CanBus
+-from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, CANFD_RADAR_SCC_CAR, KICK_CARS, \
++from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, CANFD_RADAR_SCC_CAR, \
+                                                    CANFD_UNSUPPORTED_LONGITUDINAL_CAR, \
+                                                    UNSUPPORTED_LONGITUDINAL_CAR, HyundaiSafetyFlags, HyundaiExtFlags, \
+                                                    CANFD_HYBRID_STATUS_ADDR, CANFD_HYBRID_STATUS_DLC, \
+@@ -150,11 +150,12 @@ class CarInterface(CarInterfaceBase):
+         ret.safetyConfigs[-1].safetyParam |= HyundaiSafetyFlags.CANFD_ALWAYS_LATERAL.value
+       if ret.flags & HyundaiFlags.ANGLE_CONTROL:
+         ret.safetyConfigs[-1].safetyParam |= HyundaiSafetyFlags.CANFD_ANGLE_CONTROL.value
+-      from opendbc.car.hyundai.spas import compatible
+-      # CanfdBlinkerKick (carcontroller.aprk_blinkers): KICK_CARS on the camera-SCC harness only, the one whose Kick buses
+-      # are known. It and this path both pause APRK and send 0x16A; Kick wins and switches this one off at boot so the
+-      # menu shows what is actually running
+-      kick = candidate in KICK_CARS and bool(ret.flags & HyundaiFlags.CAMERA_SCC) and params.get_bool("CanfdBlinkerKick")
++      from opendbc.car.hyundai.spas import compatible, kick_compatible
++      # Select by the observed protocol and harness, never the model name.
++      # Runtime CRC/counter/driver checks still precede each new Kick request.
++      kick = kick_compatible(fingerprint, CAN.ECAN, ret.flags & HyundaiFlags.CAMERA_SCC) and params.get_bool("CanfdBlinkerKick")
++      if ret.flags & HyundaiFlags.CAMERA_SCC and fingerprint[CAN.CAM].get(0x1EA) == 32:
++        ret.extFlags |= HyundaiExtFlags.CANFD_INDICATOR_HOLD.value
+       if not docs and kick and params.get_bool("CanfdBlinkerControl"):
+         params.put_bool("CanfdBlinkerControl", False)
+       if params.get_bool("CanfdBlinkerControl") and compatible(fingerprint, CAN.ECAN) and not ret.flags & HyundaiFlags.ENABLE_BLINKERS:
+diff --git a/opendbc_repo/opendbc/car/hyundai/spas.py b/opendbc_repo/opendbc/car/hyundai/spas.py
+index f8f22b3e..c9b4360c 100644
+--- a/opendbc_repo/opendbc/car/hyundai/spas.py
++++ b/opendbc_repo/opendbc/car/hyundai/spas.py
+@@ -30,6 +30,13 @@ def compatible(fingerprint, bus):
+   return all(fingerprint.get(bus, {}).get(a) == size for a, size in SPAS.items())
+ 
+ 
++def kick_compatible(fingerprint, bus, camera_scc):
++  # Panda's Kick output uses ECAN0/ACAN1 on the camera-SCC harness.
++  # The independent classic stalk is required for driver priority.
++  return bool(camera_scc and bus % 4 == 0 and compatible(fingerprint, bus) and
++              fingerprint.get(bus, {}).get(0x3C1) == 8)
++
++
+ def frame(address, counter, direction, bus):
+   data = bytearray(SPAS[address])
+   data[2] = counter
+diff --git a/opendbc_repo/opendbc/car/hyundai/tests/test_aprk_blinkers.py b/opendbc_repo/opendbc/car/hyundai/tests/test_aprk_blinkers.py
+index 94037d1f..8f74d557 100644
+--- a/opendbc_repo/opendbc/car/hyundai/tests/test_aprk_blinkers.py
++++ b/opendbc_repo/opendbc/car/hyundai/tests/test_aprk_blinkers.py
+@@ -6,7 +6,7 @@ from opendbc.can.parser import get_raw_value
+ from opendbc.car import structs
+ from opendbc.car.hyundai import carcontroller
+ from opendbc.car.hyundai.carcontroller import CarController
+-from opendbc.car.hyundai.values import CAR, KICK_CARS, HyundaiSafetyFlags
++from opendbc.car.hyundai.values import CAR, HyundaiSafetyFlags
+ 
+ D, P = structs.CarState.GearShifter.drive, structs.CarState.GearShifter.park
+ EXT, QUIET, DEFAULT = carcontroller.APRK_EXT_SESSION, carcontroller.APRK_COM_DISABLE, carcontroller.APRK_DEFAULT_SESSION
+@@ -148,8 +148,9 @@ def test_direction_change_releases_previous_session_first():
+ 
+ @pytest.mark.parametrize("camera_scc", [0, 2])
+ @pytest.mark.parametrize("car", [CAR.HYUNDAI_IONIQ_5_PE, CAR.KIA_EV6])
+-def test_kick_is_limited_to_kick_cars(monkeypatch, car, camera_scc):
+-  # values.KICK_CARS on the camera-SCC harness only: anything else ignores CanfdBlinkerKick, at fingerprint (panda
++@pytest.mark.parametrize("contract", [False, True])
++def test_kick_requires_protocol_not_model(monkeypatch, car, camera_scc, contract):
++  # values.verified SPAS/stalk protocol on the camera-SCC harness only: anything else ignores CanfdBlinkerKick, at fingerprint (panda
+   # flag CANFD_BLINKER_KICK) and in carcontroller, which follows that flag
+   from unittest.mock import patch
+   from opendbc.car import gen_empty_fingerprint
+@@ -167,8 +168,11 @@ def test_kick_is_limited_to_kick_cars(monkeypatch, car, camera_scc):
+       return {"HyundaiCameraSCC": camera_scc, "MaxAngleFrames": 89}.get(key, 0)
+ 
+   with patch("opendbc.car.hyundai.interface.Params", Settings):
+-    CP = CarInterface.get_params(car, gen_empty_fingerprint(), [], False, False, False)
+-  active = car in KICK_CARS and camera_scc > 0
++    fingerprint = gen_empty_fingerprint()
++    if contract:
++      fingerprint[0].update({0x165: 24, 0x16A: 32, 0x3C1: 8})
++    CP = CarInterface.get_params(car, fingerprint, [], False, False, False)
++  active = contract and camera_scc > 0
+   assert bool(CP.safetyConfigs[-1].safetyParam & HyundaiSafetyFlags.CANFD_BLINKER_KICK) == active
+ 
+   controller, cs, cc, _ = setup_controller(monkeypatch)
+diff --git a/opendbc_repo/opendbc/car/hyundai/tests/test_ev4_navi.py b/opendbc_repo/opendbc/car/hyundai/tests/test_ev4_navi.py
+new file mode 100644
+index 00000000..8f8a419b
+--- /dev/null
++++ b/opendbc_repo/opendbc/car/hyundai/tests/test_ev4_navi.py
+@@ -0,0 +1,135 @@
++from types import SimpleNamespace
++from unittest.mock import Mock
++
++import pytest
++
++from opendbc.can import CANPacker
++from opendbc.car import Bus, structs
++from opendbc.car.hyundai import carstate, hyundaicanfd
++from opendbc.car.hyundai.values import CAR, HyundaiFlags
++
++
++@pytest.fixture(params=[False, True], ids=['hda1', 'hda2'])
++def ev4(request, monkeypatch):
++  params = Mock()
++  params.get_int.return_value = 0
++  params.get_bool.side_effect = lambda key: key == 'ControlsReady'
++  params.get.return_value = '{0: {}, 1: {}, 2: {}}'
++  monkeypatch.setattr(carstate, 'Params', lambda: params)
++  monkeypatch.setattr(hyundaicanfd, 'Params', lambda: params)
++  flags = HyundaiFlags.CANFD | HyundaiFlags.EV | HyundaiFlags.CANFD_CAMERA_SCC
++  if request.param:
++    flags |= HyundaiFlags.CANFD_HDA2
++  cp = structs.CarParams(carFingerprint=CAR.KIA_EV4, flags=int(flags), safetyConfigs=[{}])
++  state = carstate.CarState(cp)
++  state.is_metric = True
++  state.vehicleNaviCanControl = 1
++  parsers = state.get_can_parsers(cp)
++  for parser in parsers.values():
++    parser.controls_ready = True
++  return state, parsers, CANPacker('hyundai_canfd_generated')
++
++
++def receive(state, parsers, time_s, frames=()):
++  for parser in parsers.values():
++    parser.update([int(time_s * 1e9), list(frames)])
++  state.monitor_fingerprint(parsers, True)
++
++
++def output(state, parser, speed=0.):
++  ret = SimpleNamespace(speedLimit=speed, vEgo=0.)
++  state._update_vehicle_navi_events(parser, ret, False)
++  return ret
++
++
++def test_ev4_logged_camera_is_cached_before_fingerprint_registration(ev4):
++  state, parsers, _ = ev4
++  parser = parsers[Bus.pt]
++  # EV4 0000030c/8, camera preview 60 km/h at 2000 m.
++  receive(state, parsers, 1., [(0x93, bytes.fromhex('89090cffffffffffd1000000d0e70814ffffffffffffffff'), parser.bus)])
++  state.controls_ready_count = 122
++  receive(state, parsers, 1.2)
++  assert state.navi_profile_4be is parser.vl[carstate.CANFD_NAVI_PROFILE_MSG]
++  ret = output(state, parser)
++  assert ret.vehicleNaviAvailable and ret.vehicleNaviActive
++  assert ret.speedLimit == 60.
++  assert state.vehicleNaviCameraTarget == 2000.
++
++
++@pytest.mark.parametrize('mode,route,expected', [(0, 1, False), (1, 0, True), (2, 0, False), (2, 1, True), (3, 1, True)])
++def test_ev4_bump_uses_existing_mode_and_route_admission(ev4, mode, route, expected):
++  state, parsers, packer = ev4
++  parser = parsers[Bus.pt]
++  state.vehicleNaviCanControl = mode
++  state.controls_ready_count = 122
++  raw = (8 << 13) | (route << 22) | (3 << 24)
++  frames = [
++    packer.make_can_msg(carstate.CANFD_NAVI_SEGMENT_MSG, parser.bus,
++                       {f'BYTE_{i+1}': (raw >> (8*i)) & 255 for i in range(8)}),
++    packer.make_can_msg(carstate.CANFD_NAVI_PROFILE_MSG, parser.bus,
++                       {'PROLONG_VALUE': 6, 'PROLONG_OFFSET': 150, 'PROLONG_PATH_INDEX': 8, 'PROLONG_PROFILE_TYPE': 16}),
++  ]
++  receive(state, parsers, 1., frames)
++  ret = output(state, parser)
++  assert ret.vehicleNaviActive == expected
++  assert ret.speedBumpDistance == (150 if expected else 0)
++
++
++def test_ev4_padding_does_not_refresh_route_or_keep_bump_after_timeout(ev4):
++  state, parsers, packer = ev4
++  parser = parsers[Bus.pt]
++  state.vehicleNaviCanControl = 2
++  state.controls_ready_count = 122
++  raw = (8 << 13) | (1 << 22) | (3 << 24)
++  receive(state, parsers, 1., [packer.make_can_msg(carstate.CANFD_NAVI_SEGMENT_MSG, parser.bus,
++                             {f'BYTE_{i+1}': (raw >> (8*i)) & 255 for i in range(8)})])
++  output(state, parser)
++  state._add_vehicle_navi_event('bump', 0, 6, 100.)
++  padding = (0x99, bytes.fromhex('502627ffffffffffffffffffffffffffffffffffffffffff'), parser.bus)
++  receive(state, parsers, 1.1, [padding])
++  assert output(state, parser).speedBumpDistance == 100.
++  assert state.vehicleNaviSegmentTimestamp == 1_000_000_000
++  receive(state, parsers, 3.1, [padding])
++  assert output(state, parser).speedBumpDistance == 0.
++  assert state.vehicleNaviRouteState == 0
++
++
++def test_ev4_unvalidated_position_cannot_activate_section(ev4):
++  state, parsers, _ = ev4
++  parser = parsers[Bus.pt]
++  state.controls_ready_count = 122
++  # Real EV4 0x092 payload. The proposed legacy-position mapping decodes an
++  # impossible 384 km/h average and would incorrectly establish a section cap.
++  receive(state, parsers, 1., [(0x92, bytes.fromhex('24da2affffffffffd40c0070113dffff'), parser.bus)])
++  assert not output(state, parser, 100.).vehicleNaviSectionActive
++
++
++def test_ev4_logged_hda_marks_availability_without_profile(ev4):
++  state, parsers, _ = ev4
++  parser = parsers[Bus.pt]
++  state.controls_ready_count = 122
++  receive(state, parsers, 1., [(0x364, bytes.fromhex('a4517e0000000000416e9a0900000100'), parser.bus)])
++  ret = output(state, parser)
++  assert ret.vehicleNaviAvailable
++  assert not ret.vehicleNaviActive
++  assert state.hda_info_4a3['SPEED_LIMIT'] == 110
++  assert state.hda_info_4a3['CountryCode'] == 410
++
++
++def test_ev4_logged_bump_uses_profile_distance(ev4):
++  state, parsers, _ = ev4
++  parser = parsers[Bus.pt]
++  state.controls_ready_count = 122
++  receive(state, parsers, 1., [(0x93, bytes.fromhex('7b04ecffffffffff060000005de40804ffffffffffffffff'), parser.bus)])
++  ret = output(state, parser)
++  assert ret.vehicleNaviActive
++  assert ret.speedBumpDistance == 1117.
++
++
++def test_ev4_missing_optional_navigation_does_not_add_timeouts(ev4):
++  state, parsers, packer = ev4
++  parser = parsers[Bus.pt]
++  for frame in range(1, 301):
++    receive(state, parsers, frame * .02, [packer.make_can_msg('CRUISE_BUTTONS', parser.bus, {'COUNTER': frame % 16})])
++  assert parser.can_valid
++  assert not output(state, parser).vehicleNaviAvailable
+diff --git a/opendbc_repo/opendbc/car/hyundai/tests/test_speed_camera.py b/opendbc_repo/opendbc/car/hyundai/tests/test_speed_camera.py
+index cb8a08b3..fea988f9 100644
+--- a/opendbc_repo/opendbc/car/hyundai/tests/test_speed_camera.py
++++ b/opendbc_repo/opendbc/car/hyundai/tests/test_speed_camera.py
+@@ -82,10 +82,13 @@ def _car_state(distance_time_tenths=60):
+   state.vehicleNaviSchoolZoneUsesCameraStatus = False
+   state.vehicleNaviZoneControlSupported = True
+   state.canfd_wrapped_navi = False
++  state.canfd_ev4_navi = False
+   state.pv5_section_start_prev = False
+   state.pv5_completed_camera_speed = 0
+   state.is_metric = True
+   state.navi_profile_msg = "NEW_MSG_4BE"
++  state.hda_info_msg = "HDA_INFO_4A3"
++  state.navi_segment_msg = "NEW_MSG_4B9"
+   state.navi_segment_4b9 = None
+   state.navi_position_4b4 = None
+   state.navi_profile_4be = None
+diff --git a/opendbc_repo/opendbc/car/hyundai/values.py b/opendbc_repo/opendbc/car/hyundai/values.py
+index 4720b1f0..00f4bb24 100644
+--- a/opendbc_repo/opendbc/car/hyundai/values.py
++++ b/opendbc_repo/opendbc/car/hyundai/values.py
+@@ -90,7 +90,7 @@ class HyundaiSafetyFlags(IntFlag):
+   CANFD_SPAS_BLINKERS = 4096
+   PEDAL_INTERCEPTOR = 8192
+   PEDAL_INTERCEPTOR_RAY = 16384
+-  CANFD_BLINKER_KICK = 32768  # CAN-FD only: CanfdBlinkerKick on a KICK_CARS model with the camera-SCC harness
++  CANFD_BLINKER_KICK = 32768  # Observed SPAS + stalk contract on the camera-SCC harness
+   CANFD_ANGLE_CONTROL = 512  # CAN-FD only; classic CAN uses this bit for ALT_LIMITS_2.
+ 
+ 
+@@ -168,6 +168,7 @@ class HyundaiExtFlags(IntFlag):
+   EV_MODE_STATUS_230 = 2 ** 16  # ECAN 0x230/DLC32 exposes the hybrid power-flow mode used for the EV indicator
+   BOSCH_RADAR = 2 ** 17  # passive Bosch MRRevo14F 0x601-0x612 receive provider (see BOSCH_MRREVO14F_CAR)
+   BOSCH_RADAR_BUS1 = 2 ** 18  # Observed receive src=1; otherwise use LKAS camera CAN (src=2)
++  CANFD_INDICATOR_HOLD = 2 ** 19  # Observed camera ADRV_0x1EA/DLC32 for an external indicator hold
+ 
+ class Footnote(Enum):
+   CANFD = CarFootnote(
+@@ -1051,12 +1052,6 @@ CAN_GEARS = {
+ }
+ 
+ CANFD_CAR = CAR.with_flags(HyundaiFlags.CANFD)
+-# CanfdBlinkerKick (carcontroller.aprk_blinkers): the turn signal is lit through the parking ECU's SPAS2 BLINKER_CONTROL.
+-# Only models whose lamp was seen lighting from a driving kick in user logs (Ioniq 5 PE, Ioniq 9, Azera GN7), and only on
+-# the camera-SCC harness (APRK on ECAN bus 0 and ACAN bus 1, SPAS on ECAN bus 0). Only then does interface.py set
+-# HyundaiSafetyFlags.CANFD_BLINKER_KICK. Without that flag the host sends no Kick frames and panda's CAN-FD TX allowlist
+-# and checks for 0x7B1/0x165/0x16A are carrot-wip's (CANFD_SPAS_BLINKERS lease only); its SPAS piggyback never sends.
+-KICK_CARS = {CAR.HYUNDAI_IONIQ_5_PE, CAR.HYUNDAI_IONIQ_9, CAR.HYUNDAI_AZERA_7TH_GEN}
+ CANFD_RADAR_SCC_CAR = CAR.with_flags(HyundaiFlags.RADAR_SCC)  # TODO: merge with UNSUPPORTED_LONGITUDINAL_CAR
+ 
+ CANFD_HYBRID_STATUS_ADDR = 0xFA
+diff --git a/opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd.dbc b/opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd.dbc
+index 857fc328..67e59ec4 100644
+--- a/opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd.dbc
++++ b/opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd.dbc
+@@ -114,6 +114,16 @@ BO_ 147 CANFD_NAVI_PROFILE_093: 24 XXX
+  SG_ PROLONG_PATH_INDEX : 112|6@1+ (1,0) [0|63] "" XXX
+  SG_ PROLONG_PROFILE_TYPE : 118|5@1+ (1,0) [0|31] "" XXX
+ 
++BO_ 153 CANFD_NAVI_SEGMENT_099: 24 XXX
++ SG_ BYTE_1 : 71|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_2 : 79|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_3 : 87|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_4 : 95|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_5 : 103|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_6 : 111|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_7 : 119|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_8 : 127|8@0+ (1,0) [0|255] "" XXX
++
+ BO_ 160 WHEEL_SPEEDS: 24 XXX
+  SG_ CHECKSUM : 0|16@1+ (1,0) [0|65535] "" XXX
+  SG_ COUNTER : 16|8@1+ (1,0) [0|255] "" XXX
+diff --git a/opendbc_repo/opendbc/dbc/hyundai_canfd_generated.dbc b/opendbc_repo/opendbc/dbc/hyundai_canfd_generated.dbc
+index dda27756..31694a62 100644
+--- a/opendbc_repo/opendbc/dbc/hyundai_canfd_generated.dbc
++++ b/opendbc_repo/opendbc/dbc/hyundai_canfd_generated.dbc
+@@ -117,6 +117,16 @@ BO_ 147 CANFD_NAVI_PROFILE_093: 24 XXX
+  SG_ PROLONG_PATH_INDEX : 112|6@1+ (1,0) [0|63] "" XXX
+  SG_ PROLONG_PROFILE_TYPE : 118|5@1+ (1,0) [0|31] "" XXX
+ 
++BO_ 153 CANFD_NAVI_SEGMENT_099: 24 XXX
++ SG_ BYTE_1 : 71|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_2 : 79|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_3 : 87|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_4 : 95|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_5 : 103|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_6 : 111|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_7 : 119|8@0+ (1,0) [0|255] "" XXX
++ SG_ BYTE_8 : 127|8@0+ (1,0) [0|255] "" XXX
++
+ BO_ 160 WHEEL_SPEEDS: 24 XXX
+  SG_ CHECKSUM : 0|16@1+ (1,0) [0|65535] "" XXX
+  SG_ COUNTER : 16|8@1+ (1,0) [0|255] "" XXX
+diff --git a/openpilot/selfdrive/car/hyundai_kick.py b/openpilot/selfdrive/car/hyundai_kick.py
+index 21781a7f..9b7aab4f 100644
+--- a/openpilot/selfdrive/car/hyundai_kick.py
++++ b/openpilot/selfdrive/car/hyundai_kick.py
+@@ -4,6 +4,7 @@ from collections import deque
+ from opendbc.car.hyundai.values import HyundaiSafetyFlags
+ from opendbc.car.hyundai.hyundaicanfd import CanBus
+ from opendbc.car.hyundai.stalk_trial import crc
++from opendbc.car.hyundai.spas import Session, SPAS
+ from openpilot.selfdrive.carrot.bluetooth.model import atomic_json, read_json, RUNTIME
+ from tools.jetlink.blink_owner import Owner  # noqa: TID251 -- shared physical output lease
+ from tools.jetlink.blink_protocol import Process, fresh  # noqa: TID251 -- common indicator policy worker
+@@ -17,6 +18,8 @@ class KickOutput:
+     self.event = event
+     self.owner = Owner('CANFD Kick')
+     self.bus = CanBus(cp).ECAN if self.configured else None
++    self.contract = Session(self.bus)
++    self.contract_admitted = False
+     self.next_update = self.last_journal = 0.
+     self.direction = 0
+     self.driver_stamp = self.driver_pressed_at = -1.
+@@ -57,6 +60,15 @@ class KickOutput:
+     if exclusive:
+       for stamp, packets in frames:
+         for address, data, bus in packets:
++          if address in SPAS and bus == self.bus:
++            if 0 <= now - stamp / 1e9 < .1:
++              self.contract.observe(address, bus, data, stamp / 1e9)
++              if self.contract.stock[address].consecutive == 0 or (
++                  self.request_id is not None and self.contract.stock[address].consecutive < 2):
++                self.contract_admitted = False
++            else:
++              self.contract.stock[address].consecutive = 0
++              self.contract_admitted = False
+           if address != 0x3C1 or bus != self.bus:
+             continue
+           if len(data) != 8 or data[0] != crc(data[1:]) or not 0 <= now - stamp / 1e9 < .35:
+@@ -83,8 +95,18 @@ class KickOutput:
+     if not enabled or now >= self.next_update:
+       self.owner.acquire(enabled)
+       self.next_update = now + .05
++    if not enabled or not self.owner.held:
++      self.contract = Session(self.bus)
++      self.contract_admitted = False
++    # Require ten advancing CRC-valid stock frames before a new request.
++    # During an admitted session the ECU may deliberately go quiet; the
++    # independent driver message must remain fresh throughout that session.
++    stock_ready = self.contract.stock_ready(now)
++    if self.request_id is None:
++      self.contract_admitted = stock_ready
+     driver_active = self.driver_direction not in (None, 0) or 0 <= now - self.driver_pressed_at < .2
+-    return enabled and self.owner.held and not driver_active
++    driver_valid = self.driver_direction is not None and 0 <= now - self.driver_stamp < .35
++    return enabled and self.owner.held and self.contract_admitted and driver_valid and not driver_active
+ 
+   def request(self, cs, now, initialized, ready, *, clock=None):
+     """Translate the existing source's fresh hold/tap into a leased SPAS direction."""
+diff --git a/openpilot/selfdrive/car/tests/test_hyundai_kick.py b/openpilot/selfdrive/car/tests/test_hyundai_kick.py
+index 90425c46..e629ae24 100644
+--- a/openpilot/selfdrive/car/tests/test_hyundai_kick.py
++++ b/openpilot/selfdrive/car/tests/test_hyundai_kick.py
+@@ -4,6 +4,7 @@ from types import SimpleNamespace as NS
+ import pytest
+ 
+ from openpilot.selfdrive.car import hyundai_kick as kick
++from opendbc.car.hyundai.spas import SPAS
+ from tools.jetlink.blink_owner import Owner, GRACE, external_output_allowed  # noqa: TID251
+ 
+ 
+@@ -194,11 +195,14 @@ def test_kick_uses_advertised_common_voice_route():
+ 
+ def test_toggle_and_stale_input_release_ownership(output):
+   gate, values = output
++  prime_contract(gate)
+   assert gate.update(True, 10.)
+   values['CanfdBlinkerKick'] = False
+   assert not gate.update(True, 10.01)
+   assert not gate.owner.held
+   values['CanfdBlinkerKick'] = True
++  assert not gate.update(True, 10.1)  # Reacquisition needs fresh stock again.
++  prime_contract(gate, 10.1)
+   assert gate.update(True, 10.1)
+   assert not gate.update(False, 10.11)
+   assert not gate.owner.held
+@@ -210,6 +214,7 @@ def test_toggle_and_stale_input_release_ownership(output):
+ def test_waits_for_model_lamp_isolation(output, monkeypatch, tmp_path, direction):
+   gate, _ = output
+   monkeypatch.setattr(kick, 'RUNTIME', tmp_path)
++  prime_contract(gate)
+   assert gate.update(True, 10.)
+   data = bytearray(32)
+   data[16] = (direction + 2) << 5
+@@ -410,6 +415,10 @@ def test_native_waits_for_external_release_and_receiver_expiry(output, tmp_path,
+   clock[0] += .1
+   assert not gate.update(True, clock[0])
+   clock[0] += GRACE
++  assert not gate.update(True, clock[0])  # Ownership alone cannot admit CAN output.
++  assert gate.owner.held
++  clock[0] += .18
++  prime_contract(gate, clock[0])
+   assert gate.update(True, clock[0])
+   assert not external.acquire(True)
+   values['CanfdBlinkerKick'] = False
+@@ -467,6 +476,7 @@ def test_production_card_send_boundary(output, monkeypatch, tmp_path, blocked):
+             card_diag_stage_current=dict.fromkeys(stages, 0), card_diag_stage_sum_us=dict.fromkeys(stages, 0),
+             card_diag_stage_max_us=dict.fromkeys(stages, 0), card_diag_process_max_us=0,
+             card_diag_slow_process=0, card_diag_frames=0)
++  prime_contract(gate)
+   cs = car.CarState.new_message(canValid=blocked != 'invalid_can', gearShifter='drive')
+   if blocked == 'driver':
+     gate.update(True, 10.)
+@@ -475,3 +485,61 @@ def test_production_card_send_boundary(output, monkeypatch, tmp_path, blocked):
+   assert diagnostics[0][0] == ('hyundai_spas_diagnostic',)
+   with log.Event.from_bytes(sent[-1][1]) as event:
+     assert len(event.sendcan) == int(blocked is None)
++
++
++def prime_contract(gate, now=10., fault=None):
++  from opendbc.car.hyundai.spas import frame
++  gate.owner.held = True
++  cs = NS(canValid=True)
++  for counter in range(10):
++    stamp = now - (9-counter)*.02
++    gate.owner.renewed = stamp
++    packets = [frame(addr, counter if fault != 'counter' else 0, None, gate.bus) for addr in SPAS]
++    if fault == 'missing':
++      packets = packets[:1]
++    if fault == 'crc':
++      packets = [(addr, bytes(len(data)), bus) for addr, data, bus in packets]
++    if fault == 'bus':
++      packets = [(addr, data, bus+1) for addr, data, bus in packets]
++    if fault == 'length':
++      packets = [(addr, data[:8], bus) for addr, data, bus in packets]
++    gate.observe_driver([(int(stamp*1e9)-100, packets), lever_frame(0, stamp-1e-7)], cs, stamp)
++
++
++@pytest.mark.parametrize('fault', ['missing', 'crc', 'counter', 'bus', 'length', 'stale', 'driver_stale', None])
++def test_kick_requires_live_protocol_before_any_request(output, fault):
++  gate, _ = output
++  assert not gate.update(True, 10.)
++  prime_contract(gate, fault=fault)
++  if fault == 'driver_stale':
++    gate.driver_stamp = 9.
++  assert bool(gate.update(True, 10.2 if fault == 'stale' else 10.)) == (fault is None)
++
++
++def test_admitted_kick_allows_ecu_silence_but_requires_fresh_driver(output):
++  gate, _ = output
++  prime_contract(gate)
++  assert gate.update(True, 10.)
++  gate.request_id = 'active'
++  gate.owner.renewed = 10.2
++  gate.observe_driver([lever_frame(0, 10.2)], NS(canValid=True), 10.2)
++  assert gate.update(True, 10.2)
++  assert not gate.update(True, 10.6)
++  gate.request_id = None
++  gate.driver_stamp = 10.6
++  assert not gate.update(True, 10.6)  # A new request cannot reuse the old stock admission.
++
++
++@pytest.mark.parametrize('counter,corrupt', [(9, False), (11, False), (10, True)])
++def test_active_kick_stops_on_invalid_stock_contract(output, counter, corrupt):
++  from opendbc.car.hyundai.spas import frame
++  gate, _ = output
++  prime_contract(gate)
++  assert gate.update(True, 10.)
++  gate.request_id = 'active'
++  packet = frame(0x16A, counter, None, gate.bus)
++  if corrupt:
++    packet = (packet[0], bytes(32), packet[2])
++  gate.owner.renewed = 10.02
++  gate.observe_driver([(10_020_000_000, [packet]), lever_frame(0, 10.02)], NS(canValid=True), 10.02)
++  assert not gate.update(True, 10.02)
+diff --git a/openpilot/selfdrive/car/tests/test_spas_interface.py b/openpilot/selfdrive/car/tests/test_spas_interface.py
+index f4f0058e..586e51ab 100644
+--- a/openpilot/selfdrive/car/tests/test_spas_interface.py
++++ b/openpilot/selfdrive/car/tests/test_spas_interface.py
+@@ -1,10 +1,10 @@
+-﻿import ast
++import ast
+ from pathlib import Path
+ from types import SimpleNamespace as NS
+ 
+ import pytest
+ from openpilot.cereal import car
+-from opendbc.car.hyundai.spas import compatible, SPAS
++from opendbc.car.hyundai.spas import compatible, kick_compatible, SPAS
+ from opendbc.car.hyundai.values import HyundaiFlags, HyundaiSafetyFlags
+ 
+ 
+@@ -28,11 +28,12 @@ def test_actual_enabled_interface_assigns_serializable_flags(bus, enabled, valid
+ 
+ 
+ @pytest.mark.parametrize('camera', [False, True])
+-@pytest.mark.parametrize('kick_car', [False, True])
++@pytest.mark.parametrize('contract', [False, True])
++@pytest.mark.parametrize('bus', [0, 1, 4])
+ @pytest.mark.parametrize('kick', [False, True])
+ @pytest.mark.parametrize('control', [False, True])
+-def test_blinker_kick_needs_kick_car_and_camera_scc(camera, kick_car, kick, control):
+-  # CanfdBlinkerKick and CanfdBlinkerControl both pause APRK and send 0x16A. Kick runs only on a KICK_CARS model with the
++def test_blinker_kick_needs_protocol_and_camera_scc(camera, contract, bus, kick, control):
++  # CanfdBlinkerKick and CanfdBlinkerControl both pause APRK and send 0x16A. Kick runs only with the observed SPAS/stalk contract and
+   # camera-SCC harness: there it clears CanfdBlinkerControl at boot and sets CANFD_BLINKER_KICK, panda's Kick allowlist.
+   # Anywhere else Kick is inert: CanfdBlinkerControl is left alone and the flag stays clear.
+   source = Path('opendbc_repo/opendbc/car/hyundai/interface.py')
+@@ -46,10 +47,49 @@ def test_blinker_kick_needs_kick_car_and_camera_scc(camera, kick_car, kick, cont
+   ret.safetyConfigs[0].safetyModel = 'hyundaiCanfd'
+   store = {'CanfdBlinkerKick': kick, 'CanfdBlinkerControl': control}
+   params = NS(get_bool=store.get, put_bool=store.__setitem__)
+-  scope = {'params': params, 'docs': False, 'candidate': 'KICK' if kick_car else 'OTHER', 'KICK_CARS': {'KICK'}, 'ret': ret,
++  scope = {'params': params, 'docs': False, 'candidate': 'ANY_MODEL',
++           'fingerprint': {bus: {**SPAS, 0x3C1: 8 if contract else 16}}, 'CAN': NS(ECAN=bus), 'kick_compatible': kick_compatible, 'ret': ret,
+            'HyundaiFlags': HyundaiFlags, 'HyundaiSafetyFlags': HyundaiSafetyFlags}
+   exec(compile(ast.Module(body=[assign, clear, flag], type_ignores=[]), str(source), 'exec'), scope)
+-  active = kick and kick_car and camera
++  active = kick and contract and camera and bus % 4 == 0
+   assert store['CanfdBlinkerControl'] == (control and not active)
+   with car.CarParams.from_bytes(ret.to_bytes()) as cp:
+     assert bool(cp.safetyConfigs[0].safetyParam & HyundaiSafetyFlags.CANFD_BLINKER_KICK) == active
++
++
++@pytest.mark.parametrize('missing', [0x165, 0x16A, 0x3C1])
++@pytest.mark.parametrize('wrong_length', [None, 8, 16, 24, 32])
++def test_kick_rejects_missing_or_wrong_contract(missing, wrong_length):
++  contract = {**SPAS, 0x3C1: 8}
++  expected = contract[missing]
++  if wrong_length is None:
++    del contract[missing]
++  else:
++    contract[missing] = wrong_length
++  assert kick_compatible({0: contract}, 0, True) == (wrong_length == expected)
++
++
++@pytest.mark.parametrize('fingerprint', ['HYUNDAI_IONIQ_5_PE', 'KIA_EV4', 'OTHER_MODEL'])
++@pytest.mark.parametrize('passive', [False, True])
++def test_model_observers_and_kick_do_not_gate_on_model_name(fingerprint, passive):
++  source = Path('openpilot/selfdrive/modeld/modeld.py')
++  tree = ast.parse(source.read_text(encoding='utf-8'))
++  call = next(n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'DesireHelper')
++  cp = NS(brand='hyundai', passive=passive, carFingerprint=fingerprint,
++          safetyConfigs=[NS(safetyParam=HyundaiSafetyFlags.CANFD_BLINKER_KICK)])
++  for name in ('boundary_indicator_supported', 'kick_supported'):
++    expr = next(k.value for k in call.keywords if k.arg == name)
++    assert eval(compile(ast.Expression(expr), str(source), 'eval'), {'CP':cp, 'HyundaiSafetyFlags':HyundaiSafetyFlags}) == (not passive)
++
++
++@pytest.mark.parametrize('camera', [False, True])
++@pytest.mark.parametrize('length', [None, 8, 16, 32])
++def test_hold_capability_follows_camera_message(camera, length):
++  from opendbc.car.hyundai.values import HyundaiExtFlags
++  source = Path('opendbc_repo/opendbc/car/hyundai/interface.py')
++  tree = ast.parse(source.read_text(encoding='utf-8'))
++  node = next(n for n in ast.walk(tree) if isinstance(n, ast.If) and 'CANFD_INDICATOR_HOLD' in ast.unparse(n) and len(n.body) == 1)
++  ret = NS(flags=HyundaiFlags.CAMERA_SCC if camera else 0, extFlags=0)
++  exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),
++       {'ret':ret, 'fingerprint':{2:{0x1EA:length}}, 'CAN':NS(CAM=2), 'HyundaiFlags':HyundaiFlags, 'HyundaiExtFlags':HyundaiExtFlags})
++  assert bool(ret.extFlags & HyundaiExtFlags.CANFD_INDICATOR_HOLD) == (camera and length == 32)
+diff --git a/openpilot/selfdrive/carrot/bluetooth/physical.py b/openpilot/selfdrive/carrot/bluetooth/physical.py
+index 9d817b6b..ed62a9ed 100644
+--- a/openpilot/selfdrive/carrot/bluetooth/physical.py
++++ b/openpilot/selfdrive/carrot/bluetooth/physical.py
+@@ -5,22 +5,28 @@ import time
+ from pathlib import Path
+ 
+ HOLD_PATH = Path('/dev/shm/carrot-bluetooth/physical-hold.json')
+-FINGERPRINT = 'HYUNDAI_IONIQ_5_PE'
+ 
+ 
+-def lease_value(value, now):
++def native_hold_supported(cp):
++  from opendbc.car.hyundai.values import HyundaiExtFlags
++  return (getattr(cp, 'brand', '') == 'hyundai' and not getattr(cp, 'passive', True) and getattr(cp, 'openpilotLongitudinalControl', False) and
++          bool(getattr(cp, 'extFlags', 0) & HyundaiExtFlags.CANFD_INDICATOR_HOLD))
++
++
++def lease_value(value, now, fingerprint):
+   stamp = value.get('stamp')
+   if (type(stamp) not in (int, float) or not math.isfinite(stamp) or not 0 <= now-stamp < .35 or
+-      value.get('fingerprint') != FINGERPRINT or value.get('mode') not in (1, 2)):
+-    return 1 if value.get('override') is True and type(stamp) in (int,float) and 0 <= now-stamp < 1.35 else 0
++      value.get('fingerprint') != fingerprint or value.get('mode') not in (1, 2)):
++    return 1 if value.get('fingerprint') == fingerprint and value.get('override') is True and type(stamp) in (int,float) and 0 <= now-stamp < 1.35 else 0
+   if value.get('override') is not True:
+     return 0
+   return {'left':2, 'right':3}.get(value.get('direction'), 1)
+ 
+ 
+ class HoldReader:
+-  def __init__(self, fingerprint, params, path=HOLD_PATH):
+-    self.supported = fingerprint == FINGERPRINT
++  def __init__(self, cp, params, path=HOLD_PATH):
++    self.supported = native_hold_supported(cp)
++    self.fingerprint = cp.carFingerprint
+     self.params, self.path = params, path
+     self.next_mode = self.next_read = 0.
+     self.mode, self.value = 0, {}
+@@ -44,4 +50,4 @@ class HoldReader:
+       except (OSError, ValueError):
+         self.value = {}
+       self.next_read = now+.05
+-    return lease_value(self.value, now)  # Recheck age even between reads.
++    return lease_value(self.value, now, self.fingerprint)  # Recheck age even between reads.
+diff --git a/openpilot/selfdrive/carrot_settings.json b/openpilot/selfdrive/carrot_settings.json
+index 75de17d9..3628554d 100644
+--- a/openpilot/selfdrive/carrot_settings.json
++++ b/openpilot/selfdrive/carrot_settings.json
+@@ -1790,13 +1790,13 @@
+       "group": "조향일반",
+       "name": "ManualLaneChangeIndicator",
+       "title": "수동 차선변경 깜박이(시험)",
+-      "descr": "5km/h 이상에서 같은 방향의 조향을 0.15초 확인한 뒤, 힘을 풀거나 잠깐 반대 토크가 나와도 차선 접근이 계속되면 최근 의도를 최대 1.5초 기억합니다. 접근이 0.3초 넘게 멈추거나 0.15m 넘게 복귀한 상태가 0.15초 지속되면 취소하며 한 접근은 최대 4초만 추적합니다. 왼쪽은 최신 차량 카메라의 흰 차선 분류로 중앙선이 아님을 확인하며 노란 선·불명확하거나 오래된 분류는 차단합니다. 오른쪽은 넘으려는 차선부터 로드에지까지 현재·전방 모두 2.5m 이상 여유가 있어야 합니다. 바깥쪽 차선 인식 확률·옆 차로 폭·로드에지 표준편차는 조건으로 사용하지 않습니다. 넓은 갓길도 거리 조건을 만족할 수 있습니다. ATC·우회전 거리 옵션과 독립적이며 자동 조향은 요청하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN, 자동 깜박이 1·2번에서 지원합니다. 재요청은 최소 3초와 연속 1초 소등 후 새로운 조건에서 가능하고 자동 조향 피드백 보호는 최소 12초 유지합니다. 실제 차로 존재나 안전한 간격을 보장하지 않으며 변경 후 실차 검증은 별도로 필요합니다. 대상 차선 신뢰도 10% 이상을 확인한 접근만 시작하며, 이후 연속적인 접근은 최대 4초 추적합니다. 요청 후에는 완료·복귀·입력 오류 또는 최대 12초까지 유지 상태를 추적합니다. 순정 원터치 점멸의 즉시 소등은 보장하지 않습니다. 측정한 차선 접근 속도로 0.3초 뒤를 예측하여 점등 시점을 앞당깁니다. 차체 중심과 대상 경계의 거리 기준은 기존 0.9m에서 최대 1.2m까지만 앞당기며, 실제 0.15m 접근·운전자 의도·양쪽 경계의 일관된 이동 조건은 유지합니다. 차선 위치의 짧은 흔들림은 0.15초 확인하며, 복귀 중에는 새 점등을 보류합니다. 최근 조향 의도가 있고 양쪽 경계가 같은 방향으로 이동하며 차로 폭이 유지되면 제한된 위치 변화에서도 접근을 이어갑니다. 대상 차선이 연속적으로 보이고 최근 조향 의도가 있을 때, 반대편 차선만 순간적으로 튀면 최대 0.15초 동안 정상 관측 복귀를 기다립니다. 그동안 새 점등은 보류하며 양쪽 경계의 이동이 다시 일치해야 요청합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.\n수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.\n차로 폭이 잠깐 유효 범위를 벗어나면 새 접근 판단을 멈추고, 이미 추적 중인 접근은 마지막 유효 관측부터 0.15초 안에 정상 관측이 돌아올 때 이어갑니다. 수동 차로변경 요청의 차선 판단은 감지 단계에서 확정하고, 송신 단계는 요청의 유효기간·차량 상태·운전자 취소를 검사합니다.",
++      "descr": "5km/h 이상에서 같은 방향의 조향을 0.15초 확인한 뒤, 힘을 풀거나 잠깐 반대 토크가 나와도 차선 접근이 계속되면 최근 의도를 최대 1.5초 기억합니다. 접근이 0.3초 넘게 멈추거나 0.15m 넘게 복귀한 상태가 0.15초 지속되면 취소하며 한 접근은 최대 4초만 추적합니다. 왼쪽은 최신 차량 카메라의 흰 차선 분류로 중앙선이 아님을 확인하며 노란 선·불명확하거나 오래된 분류는 차단합니다. 오른쪽은 넘으려는 차선부터 로드에지까지 현재·전방 모두 2.5m 이상 여유가 있어야 합니다. 바깥쪽 차선 인식 확률·옆 차로 폭·로드에지 표준편차는 조건으로 사용하지 않습니다. 넓은 갓길도 거리 조건을 만족할 수 있습니다. ATC·우회전 거리 옵션과 독립적이며 자동 조향은 요청하지 않습니다. 기본 꺼짐. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 출력, 자동 깜박이 1·2번에서 지원합니다. 재요청은 최소 3초와 연속 1초 소등 후 새로운 조건에서 가능하고 자동 조향 피드백 보호는 최소 12초 유지합니다. 실제 차로 존재나 안전한 간격을 보장하지 않으며 변경 후 실차 검증은 별도로 필요합니다. 대상 차선 신뢰도 10% 이상을 확인한 접근만 시작하며, 이후 연속적인 접근은 최대 4초 추적합니다. 요청 후에는 완료·복귀·입력 오류 또는 최대 12초까지 유지 상태를 추적합니다. 순정 원터치 점멸의 즉시 소등은 보장하지 않습니다. 측정한 차선 접근 속도로 0.3초 뒤를 예측하여 점등 시점을 앞당깁니다. 차체 중심과 대상 경계의 거리 기준은 기존 0.9m에서 최대 1.2m까지만 앞당기며, 실제 0.15m 접근·운전자 의도·양쪽 경계의 일관된 이동 조건은 유지합니다. 차선 위치의 짧은 흔들림은 0.15초 확인하며, 복귀 중에는 새 점등을 보류합니다. 최근 조향 의도가 있고 양쪽 경계가 같은 방향으로 이동하며 차로 폭이 유지되면 제한된 위치 변화에서도 접근을 이어갑니다. 대상 차선이 연속적으로 보이고 최근 조향 의도가 있을 때, 반대편 차선만 순간적으로 튀면 최대 0.15초 동안 정상 관측 복귀를 기다립니다. 그동안 새 점등은 보류하며 양쪽 경계의 이동이 다시 일치해야 요청합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.\n수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.\n차로 폭이 잠깐 유효 범위를 벗어나면 새 접근 판단을 멈추고, 이미 추적 중인 접근은 마지막 유효 관측부터 0.15초 안에 정상 관측이 돌아올 때 이어갑니다. 수동 차로변경 요청의 차선 판단은 감지 단계에서 확정하고, 송신 단계는 요청의 유효기간·차량 상태·운전자 취소를 검사합니다.\n점등 직후의 경계 흔들림은 기존 요청 안에서만 제한적으로 확인합니다. 경계 가까이에서 양쪽 차선이 다시 배정되는 짧은 변화는 0.15초 기다립니다. 신뢰도가 낮은 대상 경계가 멀어져도 반대편 경계와 운전자 조향이 접근을 뒷받침하면 최대 3초 안에 안정된 차로를 확인하며, 반대 조향·입력 오류는 유지하지 않습니다.",
+       "egroup": "LATSET",
+       "etitle": "Manual lane-change indicator (trial)",
+-      "edescr": "At 5km/h or above, same-direction steering is confirmed for 0.15s. Release or brief countersteer does not erase continued boundary approach: recent intent is retained for up to 1.5s. Approach stopping for over 0.3s, retreat exceeding 0.15m for 0.15s or a four-second episode limit cancels tracking. On the left, fresh OEM white-line classification excludes centre lines; yellow, unknown or stale classifications block requests. On the right, road-edge clearance beyond the approached boundary must be at least 2.5m both nearby and ahead. Outer-line probability, adjacent lane width and road-edge standard deviation are not admission conditions. A wide shoulder can also pass the distance condition. Independent of ATC and the right-turn distance option; never requests automatic steering. Default OFF; Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2 only. New requests need three seconds and one second of lamp extinction; steering-feedback isolation remains at least 12 seconds. Detection does not guarantee a real lane or safe gap. Revised behavior needs physical validation. Entry anchors target-line confidence of at least 10%; continuous approach may then be tracked for up to four seconds. After requesting, tracks completion, return or invalid inputs for at most 12 seconds. Immediate extinction of OEM one-touch flashing is not guaranteed. Measured boundary approach projects 0.3 seconds ahead to request indication earlier. The centre-to-boundary distance threshold advances from 0.9m to at most 1.2m; at least 0.15m of actual approach, driver intent and consistent movement of both boundaries remain required. Boundary retreat must persist for 0.15s to cancel tracking, and new indications pause during retreat. Recent steering intent and paired boundary movement with consistent lane width permit bounded position changes during approach. With a continuous target boundary and recent driver intent, a brief jump of the opposite boundary can wait up to 0.15s for valid samples. New indication pauses during the gap and requires consistent movement of both boundaries afterward.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.\nFor manual lane changes and turns, normal completion waits for a minimum of two seconds from the first Panda/SPAS transmission request. Physical lever input, cancellation and input or lane errors end the request immediately. Actual flash count depends on the vehicle.\nAn invalid lane width pauses new approach admission. An established approach can continue when valid geometry returns within 0.15s of its last valid sample. Lane admission for a manual crossing is decided by the detector. The output stage checks request freshness, vehicle state and driver cancellation.",
++      "edescr": "At 5km/h or above, same-direction steering is confirmed for 0.15s. Release or brief countersteer does not erase continued boundary approach: recent intent is retained for up to 1.5s. Approach stopping for over 0.3s, retreat exceeding 0.15m for 0.15s or a four-second episode limit cancels tracking. On the left, fresh OEM white-line classification excludes centre lines; yellow, unknown or stale classifications block requests. On the right, road-edge clearance beyond the approached boundary must be at least 2.5m both nearby and ahead. Outer-line probability, adjacent lane width and road-edge standard deviation are not admission conditions. A wide shoulder can also pass the distance condition. Independent of ATC and the right-turn distance option; never requests automatic steering. Default OFF; protocol-matched USB2CAN, BLE or Panda/SPAS outputs and AutoBlinkerControl 1 or 2 only. New requests need three seconds and one second of lamp extinction; steering-feedback isolation remains at least 12 seconds. Detection does not guarantee a real lane or safe gap. Revised behavior needs physical validation. Entry anchors target-line confidence of at least 10%; continuous approach may then be tracked for up to four seconds. After requesting, tracks completion, return or invalid inputs for at most 12 seconds. Immediate extinction of OEM one-touch flashing is not guaranteed. Measured boundary approach projects 0.3 seconds ahead to request indication earlier. The centre-to-boundary distance threshold advances from 0.9m to at most 1.2m; at least 0.15m of actual approach, driver intent and consistent movement of both boundaries remain required. Boundary retreat must persist for 0.15s to cancel tracking, and new indications pause during retreat. Recent steering intent and paired boundary movement with consistent lane width permit bounded position changes during approach. With a continuous target boundary and recent driver intent, a brief jump of the opposite boundary can wait up to 0.15s for valid samples. New indication pauses during the gap and requires consistent movement of both boundaries afterward.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.\nFor manual lane changes and turns, normal completion waits for a minimum of two seconds from the first Panda/SPAS transmission request. Physical lever input, cancellation and input or lane errors end the request immediately. Actual flash count depends on the vehicle.\nAn invalid lane width pauses new approach admission. An established approach can continue when valid geometry returns within 0.15s of its last valid sample. Lane admission for a manual crossing is decided by the detector. The output stage checks request freshness, vehicle state and driver cancellation.\nAn early boundary fluctuation is checked only within an existing request. Near-edge paired lane reassignment can wait 0.15s. When an uncertain target boundary retreats but the opposite boundary and driver steering support continued approach, stable lane geometry must return within three seconds. Opposite driver steering and invalid inputs still cancel.",
+       "cgroup": "转向设置",
+       "ctitle": "手动变道转向灯（试验）",
+-      "cdescr": "车速至少5km/h，确认同方向转向0.15秒后，松手或短暂反向施力但仍接近边界时最多保留意图1.5秒；停止接近超过0.3秒、回退超过0.15米且持续0.15秒或单次跟踪超过4秒则取消。左侧通过新鲜的原车白线分类排除中央线，黄色、未知或过期分类阻止触发。右侧仅要求当前及前方的目标车道线至道路边缘距离至少2.5米；不使用外侧车道线概率、相邻车道宽度或道路边缘标准差。宽路肩也可能满足距离条件。 独立于ATC及右转距离选项，不请求自动转向。默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2。再次请求须间隔3秒且连续熄灯1秒，自动转向反馈隔离至少12秒。不能保证真实车道或安全间距，修改后仍需实车验证。 开始接近时确认目标线置信度至少10%，连续接近最多跟踪4秒。请求后跟踪完成、返回或输入失效，最长12秒；不能保证原车轻触闪灯立即熄灭。 根据测得的车道边界接近速度预测0.3秒后的位置，提前请求转向灯。车体中心至边界的距离阈值从0.9米最多提前至1.2米，仍要求至少0.15米实际接近、驾驶员意图及两侧边界一致移动。 边界回退持续0.15秒才取消跟踪，回退期间暂停新请求。近期转向意图及两侧边界同向移动、车道宽度一致时，允许有限的位置变化并继续跟踪。 目标边界连续且近期有驾驶员转向意图时，对侧边界短暂跳变可等待最多0.15秒恢复有效观测。等待期间暂停新指示，恢复后仍须两侧边界移动一致。\n支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。\n手动变道和转弯正常提前完成时，Panda/SPAS从首次发送请求起至少保持2秒。实际拨杆操作、取消、输入或车道错误会立即结束请求。实际闪烁次数取决于车辆。\n车道宽度暂时无效时暂停新的接近判断。已建立的接近过程可在最后一次有效观测后的0.15秒内恢复有效几何时继续。手动变道请求的车道判断由检测器完成，输出阶段检查请求时效、车辆状态和驾驶员取消。",
++      "cdescr": "车速至少5km/h，确认同方向转向0.15秒后，松手或短暂反向施力但仍接近边界时最多保留意图1.5秒；停止接近超过0.3秒、回退超过0.15米且持续0.15秒或单次跟踪超过4秒则取消。左侧通过新鲜的原车白线分类排除中央线，黄色、未知或过期分类阻止触发。右侧仅要求当前及前方的目标车道线至道路边缘距离至少2.5米；不使用外侧车道线概率、相邻车道宽度或道路边缘标准差。宽路肩也可能满足距离条件。 独立于ATC及右转距离选项，不请求自动转向。默认关闭，仅支持协议匹配的USB2CAN、BLE或Panda/SPAS输出及自动转向灯模式1或2。再次请求须间隔3秒且连续熄灯1秒，自动转向反馈隔离至少12秒。不能保证真实车道或安全间距，修改后仍需实车验证。 开始接近时确认目标线置信度至少10%，连续接近最多跟踪4秒。请求后跟踪完成、返回或输入失效，最长12秒；不能保证原车轻触闪灯立即熄灭。 根据测得的车道边界接近速度预测0.3秒后的位置，提前请求转向灯。车体中心至边界的距离阈值从0.9米最多提前至1.2米，仍要求至少0.15米实际接近、驾驶员意图及两侧边界一致移动。 边界回退持续0.15秒才取消跟踪，回退期间暂停新请求。近期转向意图及两侧边界同向移动、车道宽度一致时，允许有限的位置变化并继续跟踪。 目标边界连续且近期有驾驶员转向意图时，对侧边界短暂跳变可等待最多0.15秒恢复有效观测。等待期间暂停新指示，恢复后仍须两侧边界移动一致。\n支持的Panda/SPAS输出使用相同设置和判断，适用于ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。\n手动变道和转弯正常提前完成时，Panda/SPAS从首次发送请求起至少保持2秒。实际拨杆操作、取消、输入或车道错误会立即结束请求。实际闪烁次数取决于车辆。\n车道宽度暂时无效时暂停新的接近判断。已建立的接近过程可在最后一次有效观测后的0.15秒内恢复有效几何时继续。手动变道请求的车道判断由检测器完成，输出阶段检查请求时效、车辆状态和驾驶员取消。\n点灯后的短暂边界波动仅在已有请求内确认。靠近边界时，双侧车道线重新分配可等待0.15秒。目标边界可信度低且后退，但另一侧边界与驾驶员转向仍支持接近时，最多等待3秒恢复稳定车道。反向转向及输入异常仍取消。",
+       "min": 0,
+       "max": 1,
+       "default": 0,
+@@ -1811,13 +1811,13 @@
+       "group": "조향일반",
+       "name": "ManualTurnIndicator",
+       "title": "수동 턴 자동깜박이(시험)",
+-      "descr": "운전자의 조향력과 핸들 회전, 실제 차체 회전을 함께 확인해 좌·우 턴의 깜박이를 켭니다. ATC 설정과 독립적으로 동작하며 차선이 흐린 교차로에서도 감지합니다. 시작 속도 5~60km/h, 같은 방향 조향력 0.15초, 조향각 42도 이상 및 22도 이상 증가, 같은 방향 차체 회전 조건을 확인합니다. 핸들 ±15도 복귀와 회전 안정화 또는 운전자 반대 조향으로 종료하며 최대 30초 유지합니다. 기본 꺼짐. 아이오닉5 PE의 지원 깜박이 장치와 자동 깜박이 제어 1·2번에서 동작합니다. 주차장 코너에서도 켜질 수 있으며 도로 곡선·회피 동작의 오점등 가능성과 실차 점등 검증이 남아 있습니다. 수동 차선변경 표시 중 같은 방향의 수동 턴 조건이 충족되면 기존 요청을 이어받아 턴 종료까지 추적합니다. 교차로의 차선 위치 급변은 조향력·조향각 증가·실제 회전으로 확인하는 수동 턴 감지를 초기화하지 않습니다. 이미 켜진 신호는 D단 정차 확인 중 차속 추정값이 0 부근에서 미세하게 음수로 흔들려도 유지합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.\n수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.",
++      "descr": "운전자의 조향력과 핸들 회전, 실제 차체 회전을 함께 확인해 좌·우 턴의 깜박이를 켭니다. ATC 설정과 독립적으로 동작하며 차선이 흐린 교차로에서도 감지합니다. 시작 속도 5~60km/h, 같은 방향 조향력 0.15초, 조향각 42도 이상 및 22도 이상 증가, 같은 방향 차체 회전 조건을 확인합니다. 핸들 ±15도 복귀와 회전 안정화 또는 운전자 반대 조향으로 종료하며 최대 30초 유지합니다. 기본 꺼짐. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 장치와 자동 깜박이 제어 1·2번에서 동작합니다. 주차장 코너에서도 켜질 수 있으며 도로 곡선·회피 동작의 오점등 가능성과 실차 점등 검증이 남아 있습니다. 수동 차선변경 표시 중 같은 방향의 수동 턴 조건이 충족되면 기존 요청을 이어받아 턴 종료까지 추적합니다. 교차로의 차선 위치 급변은 조향력·조향각 증가·실제 회전으로 확인하는 수동 턴 감지를 초기화하지 않습니다. 이미 켜진 신호는 D단 정차 확인 중 차속 추정값이 0 부근에서 미세하게 음수로 흔들려도 유지합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.\n수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.\n이전 수동 턴이 반대 조향으로 끝나면 10km/h 이상에서 다음 반대 턴의 최근 조향을 제한적으로 이어받습니다. 재점등 직전 0.25초의 각도 변화만 이어받고, 기존 2초 대기·연속 1초 소등 및 현재 같은 방향 조향 조건을 확인합니다. 3초 안에 이어지지 않으면 버리며 기존 새 조향 감지는 별도로 유지합니다.",
+       "egroup": "LATSET",
+       "etitle": "Manual turn indicator (trial)",
+-      "edescr": "Detects driver turns using steering torque, wheel movement and measured vehicle rotation. Operates independently of ATC, including intersections with faint lane markings. Starts at 5–60km/h after 0.15s same-direction driver torque, at least 42 degrees steering with a 22-degree increase and consistent vehicle rotation. Ends after wheel return within ±15 degrees and settled rotation, opposite driver steering, or 30 seconds. Default OFF. Requires Ioniq 5 PE, a supported indicator adapter and AutoBlinkerControl 1 or 2. Parking-aisle turns can also trigger. Curves and evasive maneuvers can cause false indications. Physical lamp validation remains pending. When same-direction manual-turn conditions are met during a manual lane indication, the existing request continues under turn completion tracking. Lane-position jumps at junctions do not reset manual turns established through driver torque, increasing steering angle and measured rotation. An owned indication survives small negative speed-estimator noise around zero while standstill is confirmed in Drive.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.\nFor manual lane changes and turns, normal completion waits for a minimum of two seconds from the first Panda/SPAS transmission request. Physical lever input, cancellation and input or lane errors end the request immediately. Actual flash count depends on the vehicle.",
++      "edescr": "Detects driver turns using steering torque, wheel movement and measured vehicle rotation. Operates independently of ATC, including intersections with faint lane markings. Starts at 5–60km/h after 0.15s same-direction driver torque, at least 42 degrees steering with a 22-degree increase and consistent vehicle rotation. Ends after wheel return within ±15 degrees and settled rotation, opposite driver steering, or 30 seconds. Default OFF. Requires a protocol-matched USB2CAN, BLE or Panda/SPAS adapter and AutoBlinkerControl 1 or 2. Parking-aisle turns can also trigger. Curves and evasive maneuvers can cause false indications. Physical lamp validation remains pending. When same-direction manual-turn conditions are met during a manual lane indication, the existing request continues under turn completion tracking. Lane-position jumps at junctions do not reset manual turns established through driver torque, increasing steering angle and measured rotation. An owned indication survives small negative speed-estimator noise around zero while standstill is confirmed in Drive.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.\nFor manual lane changes and turns, normal completion waits for a minimum of two seconds from the first Panda/SPAS transmission request. Physical lever input, cancellation and input or lane errors end the request immediately. Actual flash count depends on the vehicle.\nAfter opposite steering ends a manual turn, the next opposite turn can retain recent steering evidence at 10km/h or above. Only the last 0.25s before rearm bridges the angle reference; the existing two-second wait, one continuous dark second and current same-direction steering remain required. Retained intent expires after three seconds without resetting ordinary fresh-steering detection.",
+       "cgroup": "转向设置",
+       "ctitle": "手动转弯转向灯（试验）",
+-      "cdescr": "结合驾驶员转向力、方向盘转动及车辆实际旋转识别左右转弯，独立于ATC，支持车道线不清晰的路口。起始速度5–60km/h，同向转向力持续0.15秒，转角至少42度且增加22度，并确认同向车身旋转。方向盘回到±15度且旋转稳定、驾驶员反向转向或持续30秒后结束。默认关闭，适用于Ioniq 5 PE、支持的转向灯设备及自动转向灯模式1或2。停车场转弯也可能触发，弯道及避让动作可能误触发，实车灯光验证待完成。 手动变道指示期间满足同向手动转弯条件时，延续原请求并按转弯完成条件跟踪。 路口边界位置跳变不会重置通过驾驶员转向力、转角增加和实际旋转确认的手动转弯。D挡确认静止时，零附近的微小负速度估计不会终止已建立的指示。\n支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。\n手动变道和转弯正常提前完成时，Panda/SPAS从首次发送请求起至少保持2秒。实际拨杆操作、取消、输入或车道错误会立即结束请求。实际闪烁次数取决于车辆。",
++      "cdescr": "结合驾驶员转向力、方向盘转动及车辆实际旋转识别左右转弯，独立于ATC，支持车道线不清晰的路口。起始速度5–60km/h，同向转向力持续0.15秒，转角至少42度且增加22度，并确认同向车身旋转。方向盘回到±15度且旋转稳定、驾驶员反向转向或持续30秒后结束。默认关闭，适用于协议匹配的USB2CAN、BLE或Panda/SPAS设备及自动转向灯模式1或2。停车场转弯也可能触发，弯道及避让动作可能误触发，实车灯光验证待完成。 手动变道指示期间满足同向手动转弯条件时，延续原请求并按转弯完成条件跟踪。 路口边界位置跳变不会重置通过驾驶员转向力、转角增加和实际旋转确认的手动转弯。D挡确认静止时，零附近的微小负速度估计不会终止已建立的指示。\n支持的Panda/SPAS输出使用相同设置和判断，适用于ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。\n手动变道和转弯正常提前完成时，Panda/SPAS从首次发送请求起至少保持2秒。实际拨杆操作、取消、输入或车道错误会立即结束请求。实际闪烁次数取决于车辆。\n手动转弯因反向转向结束后，速度不低于10km/h时可保留下一次反向转弯的近期转向证据。仅衔接重新允许点灯前0.25秒的角度变化，仍需等待2秒、双灯连续熄灭1秒及当前同向转向。保留意图3秒后失效，不重置普通的新转向检测。",
+       "min": 0,
+       "max": 1,
+       "default": 0,
+@@ -1832,13 +1832,13 @@
+       "group": "조향일반",
+       "name": "ModelDesireIndicator",
+       "title": "모델 desire 자동깜박이(시험)",
+-      "descr": "모델 출력의 턴·차선변경 확률이 50% 이상이고 직진·반대 방향보다 우세한 상태를 반복 확인하면 깜박이를 표시합니다. 턴은 10km/h, 차선변경은 30km/h 이상이며 횡제어 활성 상태에서만 시작합니다. 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 30km/h 이상에서는 모델의 가까운 두 미래 예측이 모두 같은 방향 차로변경을 65% 이상으로 가리키고, 실제 좌우 차선 위치도 그 방향으로 접근할 때 깜빡이를 요청할 수 있습니다. 차선에 접근하지 않는 예측만으로는 켜지지 않으며, 이 기능은 조향을 요청하지 않습니다. 예측으로 점등한 뒤 분기에서 차로 폭이 넓어져도 같은 방향 모델 의도와 진행이 확인되면 같은 요청을 유지합니다. 의도가 약해지거나 반대로 바뀌면 분기 유지가 끝나며, CANCEL은 즉시 유지 요청을 해제합니다. 모델 턴 점등은 같은 방향 조향각 15도 이상과 실제 차체 회전 3도/초 이상도 확인합니다. 턴 확률이 30% 미만으로 내려가고 조향각이 ±10도 안에서 0.4초 안정되면 주행 중 유지 요청을 종료합니다. 현재 차선변경 확률로 시작할 때도 실제 양쪽 경계가 0.30~0.55초 동안 같은 방향으로 각각 0.15m 이상 이동해야 합니다. 대상 경계까지 거리는 1.5m 이내여야 하며, 작은 차선 흔들림과 남아 있는 모델 확률만으로 켜지는 현상을 억제합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.",
++      "descr": "모델 출력의 턴·차선변경 확률이 50% 이상이고 직진·반대 방향보다 우세한 상태를 반복 확인하면 깜박이를 표시합니다. 턴은 10km/h, 차선변경은 30km/h 이상이며 횡제어 활성 상태에서만 시작합니다. 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 출력 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 30km/h 이상에서는 모델의 가까운 두 미래 예측이 모두 같은 방향 차로변경을 65% 이상으로 가리키고, 실제 좌우 차선 위치도 그 방향으로 접근할 때 깜빡이를 요청할 수 있습니다. 차선에 접근하지 않는 예측만으로는 켜지지 않으며, 이 기능은 조향을 요청하지 않습니다. 예측으로 점등한 뒤 분기에서 차로 폭이 넓어져도 같은 방향 모델 의도와 진행이 확인되면 같은 요청을 유지합니다. 의도가 약해지거나 반대로 바뀌면 분기 유지가 끝나며, CANCEL은 즉시 유지 요청을 해제합니다. 모델 턴 점등은 같은 방향 조향각 15도 이상과 실제 차체 회전 3도/초 이상도 확인합니다. 턴 확률이 30% 미만으로 내려가고 조향각이 ±10도 안에서 0.4초 안정되면 주행 중 유지 요청을 종료합니다. 현재 차선변경 확률로 시작할 때도 실제 양쪽 경계가 0.30~0.55초 동안 같은 방향으로 각각 0.15m 이상 이동해야 합니다. 대상 경계까지 거리는 1.5m 이내여야 하며, 작은 차선 흔들림과 남아 있는 모델 확률만으로 켜지는 현상을 억제합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.",
+       "egroup": "LATSET",
+       "etitle": "Model desire indicator (trial)",
+-      "edescr": "Indicates repeated dominant model turn/lane-change predictions of at least 50%. Starts with lateral control active, at 10km/h for turns or 30km/h for lane changes. Does not add an automatic steering request. Default OFF; Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate. At 30 km/h or above, the two nearest model forecasts can also trigger an indication when both predict the same lane change with at least 65% probability and both measured lane boundaries show the vehicle approaching that side. A forecast alone does not light the indicator or request steering. After forecast-based initiation, widening lane lines at a fork do not end the hold while the model and measured motion still indicate the same direction. Fading or opposite intent ends the fork hold; cruise CANCEL releases it immediately. Model-turn indication also requires at least 15 degrees of same-direction steering and 3 degrees/s of measured rotation. While moving, a turn probability below 30% and wheel return within ±10 degrees for 0.4s end the hold. Initiation from current lane-change probability also requires both measured boundaries to move at least 0.15m toward that crossing over 0.30–0.55s, with the target boundary within 1.5m. This suppresses indications from small line fluctuations and lingering model probability.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.",
++      "edescr": "Indicates repeated dominant model turn/lane-change predictions of at least 50%. Starts with lateral control active, at 10km/h for turns or 30km/h for lane changes. Does not add an automatic steering request. Default OFF; protocol-matched USB2CAN, BLE or Panda/SPAS outputs and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate. At 30 km/h or above, the two nearest model forecasts can also trigger an indication when both predict the same lane change with at least 65% probability and both measured lane boundaries show the vehicle approaching that side. A forecast alone does not light the indicator or request steering. After forecast-based initiation, widening lane lines at a fork do not end the hold while the model and measured motion still indicate the same direction. Fading or opposite intent ends the fork hold; cruise CANCEL releases it immediately. Model-turn indication also requires at least 15 degrees of same-direction steering and 3 degrees/s of measured rotation. While moving, a turn probability below 30% and wheel return within ±10 degrees for 0.4s end the hold. Initiation from current lane-change probability also requires both measured boundaries to move at least 0.15m toward that crossing over 0.30–0.55s, with the target boundary within 1.5m. This suppresses indications from small line fluctuations and lingering model probability.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.",
+       "cgroup": "转向设置",
+       "ctitle": "模型意图转向灯（试验）",
+-      "cdescr": "重复确认模型转弯或变道概率至少50%，且优于直行和反方向时显示转向灯。转弯至少10km/h，变道至少30km/h，并要求横向控制激活；不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。 在30 km/h及以上，若模型最近两个预测时点对同一方向变道的概率均不低于65%，且测得的两侧车道线位置都显示车辆正在向该侧靠近，也可请求转向灯。仅有预测不会触发，也不请求转向。 预测触发后，若分叉处车道变宽，但模型意图与实际移动仍一致，则保持同一请求。意图减弱或反向时结束分叉保持；巡航 CANCEL 会立即解除保持请求。 模型转弯指示还要求同向转角至少15度及实际车身旋转至少3度/秒。行驶中转弯概率低于30%且方向盘在±10度内稳定0.4秒后结束保持。 当前变道概率触发也要求两侧实测边界在0.30至0.55秒内各向目标方向移动至少0.15米，且目标边界距离不超过1.5米，以抑制细小边界抖动和残留模型概率导致的指示。\n支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。",
++      "cdescr": "重复确认模型转弯或变道概率至少50%，且优于直行和反方向时显示转向灯。转弯至少10km/h，变道至少30km/h，并要求横向控制激活；不新增自动转向请求。 默认关闭，仅支持协议匹配的USB2CAN、BLE或Panda/SPAS输出及自动转向灯模式1或2；实车验证另行进行。 在30 km/h及以上，若模型最近两个预测时点对同一方向变道的概率均不低于65%，且测得的两侧车道线位置都显示车辆正在向该侧靠近，也可请求转向灯。仅有预测不会触发，也不请求转向。 预测触发后，若分叉处车道变宽，但模型意图与实际移动仍一致，则保持同一请求。意图减弱或反向时结束分叉保持；巡航 CANCEL 会立即解除保持请求。 模型转弯指示还要求同向转角至少15度及实际车身旋转至少3度/秒。行驶中转弯概率低于30%且方向盘在±10度内稳定0.4秒后结束保持。 当前变道概率触发也要求两侧实测边界在0.30至0.55秒内各向目标方向移动至少0.15米，且目标边界距离不超过1.5米，以抑制细小边界抖动和残留模型概率导致的指示。\n支持的Panda/SPAS输出使用相同设置和判断，适用于ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。",
+       "min": 0,
+       "max": 1,
+       "default": 0,
+@@ -1853,13 +1853,13 @@
+       "group": "조향일반",
+       "name": "ModelPathIndicator",
+       "title": "모델 경로 자동깜박이(시험)",
+-      "descr": "30km/h 이상에서 모델의 1~3초 경로가 차선 곡선을 넘어 이어지고 실제 제어 곡률도 같은 방향이면 깜박이를 표시합니다. 대상 차선 신뢰도 10% 이상, 연속적인 경계와 반복 관측이 필요합니다. 좌측 중앙선·우측 로드에지 제외 조건을 적용하며 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.",
++      "descr": "30km/h 이상에서 모델의 1~3초 경로가 차선 곡선을 넘어 이어지고 실제 제어 곡률도 같은 방향이면 깜박이를 표시합니다. 대상 차선 신뢰도 10% 이상, 연속적인 경계와 반복 관측이 필요합니다. 좌측 중앙선·우측 로드에지 제외 조건을 적용하며 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 출력 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.",
+       "egroup": "LATSET",
+       "etitle": "Model path indicator (trial)",
+-      "edescr": "At 30km/h or above, indicates a model path crossing the curved boundary within 1–3 seconds while commanded curvature agrees. Requires target-line confidence of at least 10%, continuous geometry and repeated observations. Applies left centre-line and right road-edge exclusions; adds no steering request. Default OFF; Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.",
++      "edescr": "At 30km/h or above, indicates a model path crossing the curved boundary within 1–3 seconds while commanded curvature agrees. Requires target-line confidence of at least 10%, continuous geometry and repeated observations. Applies left centre-line and right road-edge exclusions; adds no steering request. Default OFF; protocol-matched USB2CAN, BLE or Panda/SPAS outputs and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.",
+       "cgroup": "转向设置",
+       "ctitle": "模型路径转向灯（试验）",
+-      "cdescr": "车速至少30km/h，模型未来1至3秒路径持续越过弯曲车道边界，且控制曲率方向一致时显示转向灯。要求目标线置信度至少10%、连续边界及重复观测。排除左侧中央线及右侧道路边缘，不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。\n支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。",
++      "cdescr": "车速至少30km/h，模型未来1至3秒路径持续越过弯曲车道边界，且控制曲率方向一致时显示转向灯。要求目标线置信度至少10%、连续边界及重复观测。排除左侧中央线及右侧道路边缘，不新增自动转向请求。 默认关闭，仅支持协议匹配的USB2CAN、BLE或Panda/SPAS输出及自动转向灯模式1或2；实车验证另行进行。\n支持的Panda/SPAS输出使用相同设置和判断，适用于ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。",
+       "min": 0,
+       "max": 1,
+       "default": 0,
+@@ -1874,13 +1874,13 @@
+       "group": "조향일반",
+       "name": "AutoTurnControlRightLaneChange",
+       "title": "우회전 전 자동 차선변경 거리(m)",
+-      "descr": "0m는 끄기이며 설정한 거리 안에서 조건을 확인합니다. 250m는 기존 동작과 같고 300~400m도 선택할 수 있습니다. 기존 켜짐 설정은 최초 재시작 시 250m로 전환합니다. 기존 ATC에 추가되는 기능입니다. ATC 1·2번에서 10km/h 이상이며 TBT 우회전·우측 분기까지 설정 거리 이내일 때 실제 턴 시작 전까지 우측 깜박이를 요청합니다. Ioniq 5 PE USB2CAN 구성, AutoBlinkerControl=2, LaneChangeNeedTorque=0이 필요합니다. 후방은 유효한 차량 BSD 경고만 확인하며 코너 거리는 사용하지 않습니다. 우측 차선 전방 차량은 현재 거리와 상대속도로 예측한 3초 뒤 거리가 모두 5m 이상이어야 합니다. 전방 레이더 오류·수신 지연 시 시작하지 않습니다. 요청 전 조향은 조건 확인을 다시 시작하며, 요청 후 운전자 조향·수동 개입은 취소합니다. 10~30km/h에서 시작한 신호는 끝날 때까지 표시 전용으로 유지합니다. 30km/h 이상에서 시작한 신호만 기존 차선변경 흐름으로 연결합니다. 우측 차선부터 로드에지까지 2.5m 이상 여유가 필요합니다.",
++      "descr": "0m는 끄기이며 설정한 거리 안에서 조건을 확인합니다. 250m는 기존 동작과 같고 300~400m도 선택할 수 있습니다. 기존 켜짐 설정은 최초 재시작 시 250m로 전환합니다. 기존 ATC에 추가되는 기능입니다. ATC 1·2번에서 10km/h 이상이며 TBT 우회전·우측 분기까지 설정 거리 이내일 때 실제 턴 시작 전까지 우측 깜박이를 요청합니다. protocol-matched USB2CAN, BLE or Panda/SPAS 구성, AutoBlinkerControl=2, LaneChangeNeedTorque=0이 필요합니다. 후방은 유효한 차량 BSD 경고만 확인하며 코너 거리는 사용하지 않습니다. 우측 차선 전방 차량은 현재 거리와 상대속도로 예측한 3초 뒤 거리가 모두 5m 이상이어야 합니다. 전방 레이더 오류·수신 지연 시 시작하지 않습니다. 요청 전 조향은 조건 확인을 다시 시작하며, 요청 후 운전자 조향·수동 개입은 취소합니다. 10~30km/h에서 시작한 신호는 끝날 때까지 표시 전용으로 유지합니다. 30km/h 이상에서 시작한 신호만 기존 차선변경 흐름으로 연결합니다. 우측 차선부터 로드에지까지 2.5m 이상 여유가 필요합니다.",
+       "egroup": "LATSET",
+       "etitle": "Right lane-change distance before a turn (m)",
+-      "edescr": "Zero metres disables the add-on. Set the distance to begin checking conditions. A value of 250m retains the former range, and 300–400m can also be selected. The former ON setting migrates to 250m at startup. Adds to existing ATC modes 1 and 2. At 10km/h or above and within the configured distance of a TBT right turn or right fork, requests the right indicator until the turn starts. Requires the Ioniq 5 PE USB2CAN setup, AutoBlinkerControl=2 and LaneChangeNeedTorque=0. Rear admission uses fresh OEM BSD warnings only, without corner distances. Every detected right-lane front target must be at least 5m away now and after a three-second constant-relative-speed projection. Radar errors or stale input block initiation. Steering before a request resets confirmation; driver intervention after a request cancels it. Signals started below 30km/h remain indication-only until they end; only starts at or above 30km/h enter ordinary lane-change handling. Requires at least 2.5m beyond the right boundary to the road edge.",
++      "edescr": "Zero metres disables the add-on. Set the distance to begin checking conditions. A value of 250m retains the former range, and 300–400m can also be selected. The former ON setting migrates to 250m at startup. Adds to existing ATC modes 1 and 2. At 10km/h or above and within the configured distance of a TBT right turn or right fork, requests the right indicator until the turn starts. Requires the protocol-matched USB2CAN, BLE or Panda/SPAS setup, AutoBlinkerControl=2 and LaneChangeNeedTorque=0. Rear admission uses fresh OEM BSD warnings only, without corner distances. Every detected right-lane front target must be at least 5m away now and after a three-second constant-relative-speed projection. Radar errors or stale input block initiation. Steering before a request resets confirmation; driver intervention after a request cancels it. Signals started below 30km/h remain indication-only until they end; only starts at or above 30km/h enter ordinary lane-change handling. Requires at least 2.5m beyond the right boundary to the road edge.",
+       "cgroup": "转向设置",
+       "ctitle": "右转前自动变道距离(米)",
+-      "cdescr": "0米关闭，在设定距离内检查条件。250米对应原有范围，也可选择300–400米。原开启设置在启动时转换为250米。附加于ATC模式1或2。车速至少10km/h时，距TBT右转或右侧分岔设定距离以内且尚未开始转弯时请求右转向灯。需要Ioniq 5 PE USB2CAN、AutoBlinkerControl=2及LaneChangeNeedTorque=0。后方仅检查有效原车BSD警告，不使用角雷达距离。右侧目标车道的前方车辆当前距离及按相对速度预测3秒后的距离均须至少5米。前雷达故障或数据过期时不启动。请求前转向会重新确认条件，请求后驾驶员干预会取消。 低于30km/h开始的信号始终仅作显示；至少30km/h开始时才进入既有变道流程。右侧车道线到道路边缘须至少2.5米。",
++      "cdescr": "0米关闭，在设定距离内检查条件。250米对应原有范围，也可选择300–400米。原开启设置在启动时转换为250米。附加于ATC模式1或2。车速至少10km/h时，距TBT右转或右侧分岔设定距离以内且尚未开始转弯时请求右转向灯。需要protocol-matched USB2CAN, BLE or Panda/SPAS、AutoBlinkerControl=2及LaneChangeNeedTorque=0。后方仅检查有效原车BSD警告，不使用角雷达距离。右侧目标车道的前方车辆当前距离及按相对速度预测3秒后的距离均须至少5米。前雷达故障或数据过期时不启动。请求前转向会重新确认条件，请求后驾驶员干预会取消。 低于30km/h开始的信号始终仅作显示；至少30km/h开始时才进入既有变道流程。右侧车道线到道路边缘须至少2.5米。",
+       "min": 0,
+       "max": 500,
+       "default": 0,
+@@ -2543,13 +2543,13 @@
+       "group": "시작",
+       "name": "CanfdBlinkerKick",
+       "title": "Panda/SPAS 깜박이 출력",
+-      "descr": "Panda를 통해 차량 SPAS 메시지로 공통 깜박이 요청을 송신합니다. 기본 꺼짐. 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 지원합니다.\n자동 점등은 「깜박이 자동제어」와 「수동 차선변경 깜박이」·「수동 회전 깜박이」·모델 관찰 설정을 따릅니다. 점등 시작·유지·종료는 USB2CAN·BT2CAN과 같은 공통 판단을 사용합니다. 자동 깜박이 0에서는 자동 요청이 꺼지며 D단에서 명시적인 블루투스 깜박이 버튼은 단발 요청으로 처리합니다.\n켜기는 다음 OnRoad 시작부터, 끄기는 즉시 적용됩니다. 갱신된 Panda 펌웨어가 필요합니다. 켜면 USB2CAN·BT2CAN 출력이 중단되며 외부 명령 만료와 독점 소유권을 확인한 후 송신합니다. 다음 OnRoad 시작 때 기존 CanfdBlinkerControl을 끕니다.\n실제 레버 조작은 자동 출력을 중단합니다. 자동 램프 피드백은 조향 요청과 격리하며 검증된 실제 레버 입력은 우선 처리합니다. 공통 요청 종료 시 SPAS 송신을 종료하고 ECU 기본 세션을 복구합니다. 실제 램프의 잔여 점멸 시간은 차량에 따라 달라집니다.\n기존 저장값과 공통 자동 점등 설정은 그대로 사용합니다. 이전 모델 차로변경 전용 횟수 설정은 제거되었으며 점등 조건은 공통 설정에서 선택합니다.\n수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.",
++      "descr": "Panda를 통해 차량 SPAS 메시지로 공통 깜박이 요청을 송신합니다. 기본 꺼짐. 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 지원합니다.\n자동 점등은 「깜박이 자동제어」와 「수동 차선변경 깜박이」·「수동 회전 깜박이」·모델 관찰 설정을 따릅니다. 점등 시작·유지·종료는 USB2CAN·BT2CAN과 같은 공통 판단을 사용합니다. 자동 깜박이 0에서는 자동 요청이 꺼지며 D단에서 명시적인 블루투스 깜박이 버튼은 단발 요청으로 처리합니다.\n켜기는 다음 OnRoad 시작부터, 끄기는 즉시 적용됩니다. 갱신된 Panda 펌웨어가 필요합니다. 켜면 USB2CAN·BT2CAN 출력이 중단되며 외부 명령 만료와 독점 소유권을 확인한 후 송신합니다. 다음 OnRoad 시작 때 기존 CanfdBlinkerControl을 끕니다.\n실제 레버 조작은 자동 출력을 중단합니다. 자동 램프 피드백은 조향 요청과 격리하며 검증된 실제 레버 입력은 우선 처리합니다. 공통 요청 종료 시 SPAS 송신을 종료하고 ECU 기본 세션을 복구합니다. 실제 램프의 잔여 점멸 시간은 차량에 따라 달라집니다.\n기존 저장값과 공통 자동 점등 설정은 그대로 사용합니다. 이전 모델 차로변경 전용 횟수 설정은 제거되었으며 점등 조건은 공통 설정에서 선택합니다.\n수동 차로변경·회전의 정상 완료가 빨라도 Panda/SPAS 출력은 첫 송신 요청부터 최소 2초 유지합니다. 실제 레버 조작, 취소, 입력·차선 오류에는 즉시 종료합니다. 실제 점멸 횟수는 차량에 따라 달라집니다.\n새 요청 전 CRC와 연속 카운터가 유효한 순정 SPAS 프레임 10개 및 최신 중립 레버를 확인합니다. ECU 통신을 일시 중단한 동안에도 레버 수신은 계속 필요합니다. 같은 CAN 주소만으로 호환성을 보장하지 않습니다.",
+       "egroup": "START",
+       "etitle": "Panda/SPAS Indicator Output",
+-      "edescr": "Sends common indicator requests through Panda using vehicle SPAS messages. Default off. Supported on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.\nAutomatic indication follows Automatic turn signals, Manual Lane-change Indicator, Manual Turn Indicator and model observation settings. Start, hold and completion use the same policy as USB2CAN and BT2CAN. Auto Blinker 0 disables automatic requests and retains explicit Bluetooth indicator buttons as single taps in D.\nEnabling applies on the next onroad start; disabling applies immediately. Updated Panda firmware is required. Enabling suspends USB2CAN/BT2CAN output and waits for outstanding external commands and exclusive ownership. CanfdBlinkerControl is disabled on the next onroad start.\nPhysical lever operation ends automatic output. Automatic lamp feedback is isolated from steering requests, with verified physical lever input taking priority. Ending the common request stops SPAS output and restores the ECU default session. Residual lamp flashing depends on the vehicle.\nExisting saved output and common indication values are retained. The former model-only flash-count setting is retired. Select indication behavior through the common settings.\nFor manual lane changes and turns, normal completion waits for a minimum of two seconds from the first Panda/SPAS transmission request. Physical lever input, cancellation and input or lane errors end the request immediately. Actual flash count depends on the vehicle.",
++      "edescr": "Sends common indicator requests through Panda using vehicle SPAS messages. Default off. Supported on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.\nAutomatic indication follows Automatic turn signals, Manual Lane-change Indicator, Manual Turn Indicator and model observation settings. Start, hold and completion use the same policy as USB2CAN and BT2CAN. Auto Blinker 0 disables automatic requests and retains explicit Bluetooth indicator buttons as single taps in D.\nEnabling applies on the next onroad start; disabling applies immediately. Updated Panda firmware is required. Enabling suspends USB2CAN/BT2CAN output and waits for outstanding external commands and exclusive ownership. CanfdBlinkerControl is disabled on the next onroad start.\nPhysical lever operation ends automatic output. Automatic lamp feedback is isolated from steering requests, with verified physical lever input taking priority. Ending the common request stops SPAS output and restores the ECU default session. Residual lamp flashing depends on the vehicle.\nExisting saved output and common indication values are retained. The former model-only flash-count setting is retired. Select indication behavior through the common settings.\nFor manual lane changes and turns, normal completion waits for a minimum of two seconds from the first Panda/SPAS transmission request. Physical lever input, cancellation and input or lane errors end the request immediately. Actual flash count depends on the vehicle.\nBefore a new request, requires ten CRC-valid advancing stock SPAS frames and a fresh neutral stalk. Stalk reception remains required while the ECU is temporarily silenced. Matching CAN IDs alone does not establish compatibility.",
+       "cgroup": "启动设置",
+       "ctitle": "Panda/SPAS 转向灯输出",
+-      "cdescr": "通过Panda使用车辆SPAS报文发送共用转向灯请求。默认关闭。支持摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。\n自动点亮使用自动转向灯、手动变道转向灯、手动转弯转向灯及模型观察设置，与USB2CAN和BT2CAN共用启动、保持和结束判断。自动转向灯0关闭自动请求，保留蓝牙按钮的单次请求。\n开启在下次OnRoad启动生效，关闭立即生效，需要更新后的Panda固件。开启会停止USB2CAN和BT2CAN输出，等待旧请求到期及独占输出权，并在下次OnRoad关闭CanfdBlinkerControl。\n真实拨杆优先并终止自动输出。自动灯光反馈与转向请求隔离。共用请求结束后停止SPAS输出并恢复ECU默认会话，剩余闪烁时间取决于车辆。\n保留已有输出和共用设置值。旧模型变道闪烁次数设置已移除，请使用共用设置。\n手动变道和转弯正常提前完成时，Panda/SPAS从首次发送请求起至少保持2秒。实际拨杆操作、取消、输入或车道错误会立即结束请求。实际闪烁次数取决于车辆。",
++      "cdescr": "通过Panda使用车辆SPAS报文发送共用转向灯请求。默认关闭。支持ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。\n自动点亮使用自动转向灯、手动变道转向灯、手动转弯转向灯及模型观察设置，与USB2CAN和BT2CAN共用启动、保持和结束判断。自动转向灯0关闭自动请求，保留蓝牙按钮的单次请求。\n开启在下次OnRoad启动生效，关闭立即生效，需要更新后的Panda固件。开启会停止USB2CAN和BT2CAN输出，等待旧请求到期及独占输出权，并在下次OnRoad关闭CanfdBlinkerControl。\n真实拨杆优先并终止自动输出。自动灯光反馈与转向请求隔离。共用请求结束后停止SPAS输出并恢复ECU默认会话，剩余闪烁时间取决于车辆。\n保留已有输出和共用设置值。旧模型变道闪烁次数设置已移除，请使用共用设置。\n手动变道和转弯正常提前完成时，Panda/SPAS从首次发送请求起至少保持2秒。实际拨杆操作、取消、输入或车道错误会立即结束请求。实际闪烁次数取决于车辆。\n每次新请求前需确认10帧CRC正确且计数器连续的原车SPAS报文及新鲜中立拨杆；ECU暂停通信时仍需持续接收拨杆。仅CAN地址相同不代表兼容。",
+       "min": 0,
+       "max": 1,
+       "default": 0,
+@@ -3365,13 +3365,13 @@
+       "group": "조향일반",
+       "name": "AutoBlinkerControl",
+       "title": "깜박이 자동제어",
+-      "descr": "0: 끄기(블루투스 원터치 유지). 1: 5km/h 이하 블루투스 입력을 회전 완료까지 유지하고 ATC audioTurn 알림 시점부터 교차로 정차 중에도 유지하며 실제 회전 후 핸들이 중앙으로 돌아오면 자동 해제. 2: 1번 + ATC 차선변경이 실제 시작될 때부터 완료까지 점멸(대기 중 제외). 같은 방향 버튼으로 유지 취소, 반대 버튼으로 전환. 순정 레버 우선. 지원하는 젯슨 USB-CAN/B1 차량 전용. ATC는 전송 확인 후 미점등일 때 한 번만 재요청합니다. 유효한 TBT 좌표·차량 GPS로 직진 통과가 확인되면 자동 취소합니다. 위치가 불확실하면 위치 기반 취소는 사용하지 않습니다. TBT 턴은 audioTurn 당시 거리와 이동 거리로 턴 지점 이후 30m를 추적합니다. 단 해당 방향 조향 30도 초과 및 차체 회전 20도 이상을 확인한 뒤, 1km/h 이상에서 핸들이 ±15도 안으로 돌아오면 즉시 유지 요청을 종료합니다. 턴 진입 전 신호 대기에서는 유지합니다. 새 다음 턴 안내는 현재 턴 완료 후 이어받으며, 해당 방향으로 30도 이상 조향한 뒤 운전자가 반대 토크로 조향각을 반대쪽 0도 너머로 넘기면 취소합니다. 전송 승인과 점등을 확인한 TBT 신호는 수신부 driver_override만으로 해제하지 않습니다. 순정 램프의 즉시 소등은 보장하지 않습니다. 크루즈 CANCEL을 누르면 자동 깜빡이 요청과 유지가 중단됩니다. 주차 중 핸들을 돌려도 새로 켜지지 않으며, SET/RES 또는 +/−로 기존 크루즈 취소 상태를 해제하면 새 동작부터 재개합니다. 직접 쓰는 레버와 블루투스 깜빡이 버튼은 계속 사용할 수 있습니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.\nUSB2CAN·BT2CAN의 확인된 TBT 유지에는 기존 수신기 driver_override 처리를 적용합니다. Panda/SPAS에서 확인한 실제 레버 조작은 TBT 유지도 종료합니다.",
++      "descr": "0: 끄기(블루투스 원터치 유지). 1: 5km/h 이하 블루투스 입력을 회전 완료까지 유지하고 ATC audioTurn 알림 시점부터 교차로 정차 중에도 유지하며 실제 회전 후 핸들이 중앙으로 돌아오면 자동 해제. 2: 1번 + ATC 차선변경이 실제 시작될 때부터 완료까지 점멸(대기 중 제외). 같은 방향 버튼으로 유지 취소, 반대 버튼으로 전환. 순정 레버 우선. 지원하는 젯슨 USB-CAN/B1 차량 전용. ATC는 전송 확인 후 미점등일 때 한 번만 재요청합니다. 유효한 TBT 좌표·차량 GPS로 직진 통과가 확인되면 자동 취소합니다. 위치가 불확실하면 위치 기반 취소는 사용하지 않습니다. TBT 턴은 audioTurn 당시 거리와 이동 거리로 턴 지점 이후 30m를 추적합니다. 단 해당 방향 조향 30도 초과 및 차체 회전 20도 이상을 확인한 뒤, 1km/h 이상에서 핸들이 ±15도 안으로 돌아오면 즉시 유지 요청을 종료합니다. 턴 진입 전 신호 대기에서는 유지합니다. 새 다음 턴 안내는 현재 턴 완료 후 이어받으며, 해당 방향으로 30도 이상 조향한 뒤 운전자가 반대 토크로 조향각을 반대쪽 0도 너머로 넘기면 취소합니다. 전송 승인과 점등을 확인한 TBT 신호는 수신부 driver_override만으로 해제하지 않습니다. 순정 램프의 즉시 소등은 보장하지 않습니다. 크루즈 CANCEL을 누르면 자동 깜빡이 요청과 유지가 중단됩니다. 주차 중 핸들을 돌려도 새로 켜지지 않으며, SET/RES 또는 +/−로 기존 크루즈 취소 상태를 해제하면 새 동작부터 재개합니다. 직접 쓰는 레버와 블루투스 깜빡이 버튼은 계속 사용할 수 있습니다.\n지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.\nUSB2CAN·BT2CAN의 확인된 TBT 유지에는 기존 수신기 driver_override 처리를 적용합니다. Panda/SPAS에서 확인한 실제 레버 조작은 TBT 유지도 종료합니다.",
+       "egroup": "LAT",
+       "etitle": "Automatic turn signals",
+-      "edescr": "0: Off (Bluetooth one-touch remains). 1: Hold Bluetooth signals started at or below 5 km/h until the turn completes; indicate from the ATC audioTurn cue through intersection stops until the vehicle turns and the steering returns near center. 2: Also indicate during actual ATC lane changes, excluding waiting. Same direction cancels a hold; opposite direction switches. Stock lever has priority. Requires a supported Jetson USB-CAN/B1 vehicle. ATC permits one retry after confirmed transmission without illumination. A confirmed straight passage using a valid TBT point and raw vehicle GPS cancels the indication. Uncertain location disables this location-based cancellation. TBT turns track the audioTurn distance and wheel-speed travel through 30m past the turn. After selected-side steering exceeds 30 degrees and heading rotates at least 20 degrees, wheel return within ±15 degrees at 1km/h or above immediately ends the hold. Pre-turn traffic-light waits remain held. A fresh next-turn cue is handed over at completion; after steering at least 30 degrees toward the turn, driver torque carrying the wheel across zero into the opposite direction cancels it. A TBT hold with confirmed transmission and illumination continues through a receiver driver_override status. Immediate OEM lamp extinction is not guaranteed. Cruise CANCEL stops automatic indicator requests and releases an automatic hold. Parking maneuvers no longer trigger an indication until SET/RES or +/− clears the cruise cancel state. The stock lever and explicit Bluetooth indicator buttons remain available.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.\nConfirmed USB2CAN/BT2CAN TBT holds retain the existing receiver driver_override handling. A verified physical lever operation on Panda/SPAS ends the TBT hold.",
++      "edescr": "0: Off (Bluetooth one-touch remains). 1: Hold Bluetooth signals started at or below 5 km/h until the turn completes; indicate from the ATC audioTurn cue through intersection stops until the vehicle turns and the steering returns near center. 2: Also indicate during actual ATC lane changes, excluding waiting. Same direction cancels a hold; opposite direction switches. Stock lever has priority. Requires a supported Jetson USB-CAN/B1 vehicle. ATC permits one retry after confirmed transmission without illumination. A confirmed straight passage using a valid TBT point and raw vehicle GPS cancels the indication. Uncertain location disables this location-based cancellation. TBT turns track the audioTurn distance and wheel-speed travel through 30m past the turn. After selected-side steering exceeds 30 degrees and heading rotates at least 20 degrees, wheel return within ±15 degrees at 1km/h or above immediately ends the hold. Pre-turn traffic-light waits remain held. A fresh next-turn cue is handed over at completion; after steering at least 30 degrees toward the turn, driver torque carrying the wheel across zero into the opposite direction cancels it. A TBT hold with confirmed transmission and illumination continues through a receiver driver_override status. Immediate OEM lamp extinction is not guaranteed. Cruise CANCEL stops automatic indicator requests and releases an automatic hold. Parking maneuvers no longer trigger an indication until SET/RES or +/− clears the cruise cancel state. The stock lever and explicit Bluetooth indicator buttons remain available.\nThe supported Panda/SPAS output uses these same settings and decisions. It is available on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.\nConfirmed USB2CAN/BT2CAN TBT holds retain the existing receiver driver_override handling. A verified physical lever operation on Panda/SPAS ends the TBT hold.",
+       "cgroup": "转向",
+       "ctitle": "自动转向灯",
+-      "cdescr": "0：关闭（保留蓝牙轻触）。1：低于5km/h蓝牙保持至转弯结束，从ATC audioTurn提示开始保持，路口停车时不熄灭，实际转弯后方向盘回正时解除。2：另含实际开始的ATC变道，等待时不亮。同方向取消保持，反方向切换。原车拨杆优先。需要支持的Jetson USB-CAN/B1车辆。 ATC在确认发送完成但未亮灯时最多重试一次。有效TBT坐标与车辆GPS确认直行通过后自动取消；位置不可靠时不使用该位置取消判断。 TBT按audioTurn距离及行驶距离跟踪至转弯点后30米。确认对应方向转角超过30度且车身方向变化至少20度后，车速至少1km/h时方向盘回到±15度以内立即结束保持。进入转弯前的信号灯停车仍保持。新的下一转弯提示在当前转弯结束后接续；对应方向转角达到30度后，驾驶员反向施力使转角越过零点进入反方向时取消。已确认发送及亮灯的TBT保持不因接收端driver_override状态单独解除。不能保证原车灯立即熄灭。 按巡航 CANCEL 会停止自动转向灯请求并解除自动保持。泊车转动方向盘不会重新触发；用 SET/RES 或 +/− 解除巡航取消状态后，新动作才可触发。原车拨杆和蓝牙转向灯按钮仍可手动使用。\n支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。\nUSB2CAN/BT2CAN已确认的TBT保持沿用接收器driver_override处理。Panda/SPAS确认真实拨杆操作后结束TBT保持。",
++      "cdescr": "0：关闭（保留蓝牙轻触）。1：低于5km/h蓝牙保持至转弯结束，从ATC audioTurn提示开始保持，路口停车时不熄灭，实际转弯后方向盘回正时解除。2：另含实际开始的ATC变道，等待时不亮。同方向取消保持，反方向切换。原车拨杆优先。需要支持的Jetson USB-CAN/B1车辆。 ATC在确认发送完成但未亮灯时最多重试一次。有效TBT坐标与车辆GPS确认直行通过后自动取消；位置不可靠时不使用该位置取消判断。 TBT按audioTurn距离及行驶距离跟踪至转弯点后30米。确认对应方向转角超过30度且车身方向变化至少20度后，车速至少1km/h时方向盘回到±15度以内立即结束保持。进入转弯前的信号灯停车仍保持。新的下一转弯提示在当前转弯结束后接续；对应方向转角达到30度后，驾驶员反向施力使转角越过零点进入反方向时取消。已确认发送及亮灯的TBT保持不因接收端driver_override状态单独解除。不能保证原车灯立即熄灭。 按巡航 CANCEL 会停止自动转向灯请求并解除自动保持。泊车转动方向盘不会重新触发；用 SET/RES 或 +/− 解除巡航取消状态后，新动作才可触发。原车拨杆和蓝牙转向灯按钮仍可手动使用。\n支持的Panda/SPAS输出使用相同设置和判断，适用于ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。\nUSB2CAN/BT2CAN已确认的TBT保持沿用接收器driver_override处理。Panda/SPAS确认真实拨杆操作后结束TBT保持。",
+       "min": 0,
+       "max": 2,
+       "default": 0,
+@@ -4762,13 +4762,13 @@
+       "group": "감속제어",
+       "name": "VehicleNaviCanControl",
+       "title": "차량 내비 CAN 감속 적용 모드",
+-      "descr": "외부 내비가 연결되지 않았을 때만 적용합니다. 외부 내비 연결 중에는 안내 항목이 없어도 순정 내비를 사용하지 않습니다. 차량 순정 내비 CAN의 카메라·방지턱 실제 거리를 자동 감속에 사용하는 범위를 선택합니다. 경로 일치는 vNAVI의 현재 계산 경로와 미래 이벤트 경로가 같다는 뜻입니다.\n0: 사용 안 함\n1: 카메라·방지턱 항상 적용\n2: 카메라는 항상, 방지턱은 경로 일치 시 적용\n3: 카메라·방지턱 모두 경로 일치 시 적용\n경로 정보가 2초 넘게 갱신되지 않으면 경로 없음으로 처리합니다. 차량이 현재 카메라 상태를 직접 확인한 감속은 VehicleSpeedCameraControlMode가 별도로 제어합니다. PV5의 직접 확인된 구간단속 상태는 1~3에서 유지됩니다. 실험 기능이므로 검증된 차량에서만 사용하세요. 현재 카메라 경고에는 같은 제한속도의 가까운 거리 후보만 연결하며, 같은 속도의 먼 카메라만 있으면 현재 경고의 가상거리를 사용합니다.",
++      "descr": "외부 내비가 연결되지 않았을 때만 적용합니다. 외부 내비 연결 중에는 안내 항목이 없어도 순정 내비를 사용하지 않습니다. 차량 순정 내비 CAN의 카메라·방지턱 실제 거리를 자동 감속에 사용하는 범위를 선택합니다. 경로 일치는 vNAVI의 현재 계산 경로와 미래 이벤트 경로가 같다는 뜻입니다.\n0: 사용 안 함\n1: 카메라·방지턱 항상 적용\n2: 카메라는 항상, 방지턱은 경로 일치 시 적용\n3: 카메라·방지턱 모두 경로 일치 시 적용\n경로 정보가 2초 넘게 갱신되지 않으면 경로 없음으로 처리합니다. 차량이 현재 카메라 상태를 직접 확인한 감속은 VehicleSpeedCameraControlMode가 별도로 제어합니다. PV5의 직접 확인된 구간단속 상태는 1~3에서 유지됩니다. 실험 기능이므로 검증된 차량에서만 사용하세요. 현재 카메라 경고에는 같은 제한속도의 가까운 거리 후보만 연결하며, 같은 속도의 먼 카메라만 있으면 현재 경고의 가상거리를 사용합니다. Kia EV4의 카메라·방지턱 거리와 경로 정보를 지원합니다. 구간 평균속도 연동은 검증 중입니다. 경로 조건이 필요한 모드에서는 유효한 현재 경로 정보가 필요합니다.",
+       "egroup": "SPEED",
+       "etitle": "Vehicle Navigation CAN Deceleration Mode",
+-      "edescr": "Applies only when external navigation is disconnected. While external navigation is connected, stock navigation is excluded even without a current guidance item. Select when exact stock-navigation CAN camera and bump distances are used for deceleration. Route match means the vNAVI future event matches the currently calculated route and path.\n0: Disabled\n1: Always use cameras and bumps\n2: Always use cameras; use bumps only on the calculated route\n3: Use cameras and bumps only on the calculated route\nRoute data older than two seconds is treated as no route. Current camera states confirmed directly by the vehicle are controlled separately by VehicleSpeedCameraControlMode. A directly confirmed PV5 section remains active in modes 1–3. Experimental; use only on a validated vehicle. A current camera warning uses only a nearby distance candidate with the same limit; if only a distant same-speed camera exists, it uses the current warning's own virtual distance.",
++      "edescr": "Applies only when external navigation is disconnected. While external navigation is connected, stock navigation is excluded even without a current guidance item. Select when exact stock-navigation CAN camera and bump distances are used for deceleration. Route match means the vNAVI future event matches the currently calculated route and path.\n0: Disabled\n1: Always use cameras and bumps\n2: Always use cameras; use bumps only on the calculated route\n3: Use cameras and bumps only on the calculated route\nRoute data older than two seconds is treated as no route. Current camera states confirmed directly by the vehicle are controlled separately by VehicleSpeedCameraControlMode. A directly confirmed PV5 section remains active in modes 1–3. Experimental; use only on a validated vehicle. A current camera warning uses only a nearby distance candidate with the same limit; if only a distant same-speed camera exists, it uses the current warning's own virtual distance. Kia EV4 camera and speed-bump distances and route information are supported. Section average-speed integration is undergoing validation. Route-dependent modes require valid current-route information.",
+       "cgroup": "速度控制",
+       "ctitle": "车辆导航 CAN 减速应用模式",
+-      "cdescr": "仅在外部导航未连接时应用。外部导航连接期间，即使没有当前引导项目也不使用原车导航。 选择何时使用原车导航 CAN 的摄像头和减速带实际距离进行减速。路径匹配是指 vNAVI 的未来事件与当前计算路线及路径一致。\n0：禁用\n1：摄像头和减速带始终应用\n2：摄像头始终应用，减速带仅在路径匹配时应用\n3：摄像头和减速带仅在路径匹配时应用\n路径数据超过两秒未更新时按无路径处理。车辆直接确认的当前摄像头状态由 VehicleSpeedCameraControlMode 单独控制。PV5 直接确认的区间测速状态在模式 1～3 中保持有效。此为实验功能，请仅在已验证车辆上使用。 当前摄像头警告仅关联限速相同且距离较近的候选；若只有同限速的远处摄像头，则使用当前警告自身的虚拟距离。",
++      "cdescr": "仅在外部导航未连接时应用。外部导航连接期间，即使没有当前引导项目也不使用原车导航。 选择何时使用原车导航 CAN 的摄像头和减速带实际距离进行减速。路径匹配是指 vNAVI 的未来事件与当前计算路线及路径一致。\n0：禁用\n1：摄像头和减速带始终应用\n2：摄像头始终应用，减速带仅在路径匹配时应用\n3：摄像头和减速带仅在路径匹配时应用\n路径数据超过两秒未更新时按无路径处理。车辆直接确认的当前摄像头状态由 VehicleSpeedCameraControlMode 单独控制。PV5 直接确认的区间测速状态在模式 1～3 中保持有效。此为实验功能，请仅在已验证车辆上使用。 当前摄像头警告仅关联限速相同且距离较近的候选；若只有同限速的远处摄像头，则使用当前警告自身的虚拟距离。 支持 Kia EV4 的摄像头、减速带距离和路径信息。区间平均车速联动正在验证中。按路径应用的模式需要有效的当前路径信息。",
+       "min": 0,
+       "max": 3,
+       "default": 0,
+diff --git a/openpilot/selfdrive/controls/controlsd.py b/openpilot/selfdrive/controls/controlsd.py
+index 64e8a5db..c0a284e5 100644
+--- a/openpilot/selfdrive/controls/controlsd.py
++++ b/openpilot/selfdrive/controls/controlsd.py
+@@ -66,7 +66,7 @@ class Controls:
+     cloudlog.info("controlsd got CarParams")
+ 
+     self.CI = interfaces[self.CP.carFingerprint](self.CP)
+-    self.physical_blinker_hold = HoldReader(self.CP.carFingerprint, self.params)
++    self.physical_blinker_hold = HoldReader(self.CP, self.params)
+ 
+     self.sm = messaging.SubMaster(['liveDelay', 'liveParameters', 'liveTorqueParameters', 'modelV2', 'selfdriveState',
+                                    'liveCalibration', 'livePose', 'longitudinalPlan', 'carState', 'carOutput',
+diff --git a/openpilot/selfdrive/controls/lib/desire_lib/indicator_observer.py b/openpilot/selfdrive/controls/lib/desire_lib/indicator_observer.py
+index 78fc1bc8..fc7a5cfe 100644
+--- a/openpilot/selfdrive/controls/lib/desire_lib/indicator_observer.py
++++ b/openpilot/selfdrive/controls/lib/desire_lib/indicator_observer.py
+@@ -108,13 +108,17 @@ class Movement:
+     self.crossed = False
+     self.settled = None
+     self.peak_angle = 0.
++    self.return_since = None
++    self.return_anchor = None
++    self.geometry_recovery = None
+     self.reason = 'active'
+ 
+   def update(self, now, cs, md):
+     try:
+       left, right = md.laneLines[1].y[0], md.laneLines[2].y[0]
+       angle = cs.steeringAngleDeg
+-      if not all(math.isfinite(v) for v in (now, left, right, angle)) or (self.source != 'model_turn' and not 2.5 < right-left < 4.8):
++      if not all(math.isfinite(v) for v in (now, left, right, angle)) or (self.source != 'model_turn' and
++          not (2. < right-left < 6. if self.geometry_recovery is not None else 2.5 < right-left < 4.8)):
+         self.reason = 'geometry'
+         return False
+       stamp, old_left, old_right = self.last
+@@ -131,18 +135,58 @@ class Movement:
+       else:
+         selected = -left if self.direction == 1 else right
+         old_selected = -old_left if self.direction == 1 else old_right
++        far = right if self.direction == 1 else -left
++        old_far = old_right if self.direction == 1 else -old_left
++        sign = 1 if self.direction == 1 else -1
++        driver_return = cs.steeringPressed and cs.steeringTorque * sign < 0 and angle * sign < 0
++        # One uncertain crossed boundary moving away while the opposite line
++        # continues the approach is a widening/reassignment, not measured return.
++        if (self.geometry_recovery is None and self.source == 'manual' and not self.crossed and
++            now-self.started <= .35 and cs.steeringPressed and cs.steeringTorque * sign > 0 and
++            self.minimum < 1.2 and selected-self.minimum > .2 and far-old_far > .1 and
++            md.laneLineProbs[self.direction] < .5 and not driver_return):
++          self.geometry_recovery = (now, old_far, far)
++        if self.geometry_recovery is not None:
++          started, anchor_far, peak_far = self.geometry_recovery
++          peak_far = max(peak_far, far)
++          self.geometry_recovery = (started, anchor_far, peak_far)
++          if driver_return or now-started >= 3. or now-started >= .25 and peak_far-anchor_far < .15:
++            self.reason = 'returned' if driver_return else 'geometry'
++            return False
++          centered = (2.5 < right-left < 4.8 and left < -1. and right > 1. and
++                      md.laneLineProbs[1] >= .5 and md.laneLineProbs[2] >= .5 and
++                      max(abs(left-old_left), abs(right-old_right)) < .08)
++          self.settled = (now if self.settled is None else self.settled) if centered else None
++          if self.settled is not None and now-self.settled >= .4:
++            self.reason = 'completed'
++            return False
++          return True
+         # A pair shifting one lane after reaching its edge is a completed crossing,
+         # not a new request. An arbitrary relabel far from the boundary is invalid.
+-        jump = max(abs(left-old_left), abs(right-old_right)) > .5
+-        relabel = jump and self.minimum < .9 and selected-old_selected > 1.5 and abs((left-old_left)-(right-old_right)) < .5
+-        if jump and not relabel:
++        anchor_left, anchor_right = (self.return_anchor or (old_left, old_right))
++        anchor_selected = -anchor_left if self.direction == 1 else anchor_right
++        jump = max(abs(left-anchor_left), abs(right-anchor_right)) > .5
++        relabel = jump and self.minimum < .9 and selected-anchor_selected > 1.5 and abs((left-anchor_left)-(right-anchor_right)) < .5
++        if jump and not relabel and self.return_anchor is None:
+           self.reason = 'relabel'
+           return False
+         self.crossed |= selected <= 0 or relabel
+         self.minimum = min(self.minimum, selected)
+         if not self.crossed and selected-self.minimum > .2:
+-          self.reason = 'returned'
+-          return False
++          # A model boundary can retreat briefly before both lines are assigned
++          # to the next lane. Keep the pre-retreat pair for that bounded rebase.
++          if (self.source != 'manual' or driver_return or self.minimum >= .3 or
++              self.return_since is None and now-self.started > .35):
++            self.reason = 'returned'
++            return False
++          if self.return_since is None:
++            self.return_since, self.return_anchor = now, (old_left, old_right)
++          if now-self.return_since >= .15:
++            self.reason = 'returned'
++            return False
++          self.settled = None
++          return True
++        self.return_since, self.return_anchor = None, None
+         done = self.crossed and left < 0 < right and min(-left, right) > 1.0 and abs(selected-old_selected) < .08
+       self.settled = (now if self.settled is None else self.settled) if done else None
+       if self.settled is not None and now-self.settled >= .4:
+@@ -223,12 +267,16 @@ class ModelIndicator:
+     self.manual_seen = 0.
+     self.tap_echo = TapEcho()
+     self.manual_turn = ManualTurnIndicator()
++    self.follow_turn = None
++    self.follow_observer = ManualTurnIndicator()
+ 
+   def update(self, now, cs, md, *, valid, lateral_active, desire_enabled, path_enabled, busy, isolation, manual_edge=0, command_curvature=None,
+              feedback=None, manual_turn_enabled=False, yaw_rate=None, manual_minimum=0.):
+     self.reason = 'idle'
+     if self.active is None and not manual_edge and not (desire_enabled or path_enabled or manual_turn_enabled):
+       self.manual_turn.reset('disabled')
++      self.follow_turn = None
++      self.follow_observer.reset('disabled')
+       self.evidence.clear()
+       self.previous = None
+       self.reason = 'disabled'
+@@ -270,6 +318,11 @@ class ModelIndicator:
+         if (not common or busy or not allowed or opposite_lamp or
+             not moving and not minimum):
+           self.reason = a.reason if common and allowed and not busy and not opposite_lamp else 'cancelled'
++          # Only an independently recognized manual turn can seed its successor.
++          # A lane crossing/avoidance or an input/driver-lever cancellation cannot.
++          self.follow_turn = ((now, 3-a.direction)
++                              if a.source == 'manual_turn' and self.reason == 'driver_opposite' else None)
++          self.follow_observer.reset('previous_turn')
+           self.active = None
+         else:
+           # Keep ownership throughout the hold, including a stopped/long turn.
+@@ -288,14 +341,29 @@ class ModelIndicator:
+       # A new driver turn may be observed before other automatic sources rearm.
+       # Lamp masking and the uninterrupted dark interval still apply.
+       manual_turn_after = isolation.block_until - QUIET_SEC + MANUAL_TURN_QUIET_SEC
++      turn_ready = (not cs.leftBlinker and not cs.rightBlinker and now >= manual_turn_after and
++                    isolation.dark_since is not None and now-isolation.dark_since >= 1.)
++      if self.follow_turn is not None:
++        ended, required_side = self.follow_turn
++        direction = (1 if cs.steeringTorque > 0 else 2 if cs.steeringTorque < 0 else 0) if cs.steeringPressed else 0
++        if (not common or busy or not manual_turn_enabled or cs.vEgo < 10/3.6 or not 0 <= now-ended <= 3. or
++            required_side and direction and direction != required_side):
++          self.follow_turn = None
++          self.follow_observer.reset('admission')
+       # Junction lane relabels must not erase the steering onset. Manual turns
+       # have independent torque, angle-growth, yaw and road-curve checks.
+       turn = self.manual_turn.update(now, cs, md.frameId, yaw_rate,
+-        allowed=(manual_turn_enabled and common and not busy and not cs.leftBlinker and not cs.rightBlinker and
+-                 now >= manual_turn_after and
+-                 isolation.dark_since is not None and now - isolation.dark_since >= 1.),
++        allowed=manual_turn_enabled and common and not busy and turn_ready,
+         following_curve=manual_turn_enabled and following_road_curve(md, cs.vEgo, yaw_rate))
++      # Keep ordinary fresh-steering detection independent: expiry of retained
++      # intent must never erase a turn it would otherwise recognize.
++      follow = self.follow_observer.update(now, cs, md.frameId, yaw_rate,
++        allowed=self.follow_turn is not None,
++        following_curve=manual_turn_enabled and following_road_curve(md, cs.vEgo, yaw_rate),
++        emit_allowed=turn_ready, require_growth=True)
++      turn = turn or follow
+       if turn is not None:
++        self.follow_turn = None
+         self.active, self.request_time, self.reason = turn, now, turn.source
+         isolation.own(now, turn.direction)
+         self.candidate, self.previous = None, None
+diff --git a/openpilot/selfdrive/controls/lib/desire_lib/manual_turn_indicator.py b/openpilot/selfdrive/controls/lib/desire_lib/manual_turn_indicator.py
+index 9f8ddadc..fb3cb09c 100644
+--- a/openpilot/selfdrive/controls/lib/desire_lib/manual_turn_indicator.py
++++ b/openpilot/selfdrive/controls/lib/desire_lib/manual_turn_indicator.py
+@@ -1,5 +1,6 @@
+ """Driver turn observations used exclusively by the physical-indicator path."""
+ import math
++from collections import deque
+ from openpilot.selfdrive.controls.lib.desire_lib.boundary_lane import MANUAL_INDICATOR_MIN_SPEED
+ 
+ 
+@@ -46,6 +47,7 @@ class ManualTurnIndicator:
+     self.confirmed_since = None
+     self.candidate = None
+     self.reason = 'idle'
++    self.recent_angles = deque()
+ 
+   def reset(self, reason):
+     self.previous = None
+@@ -56,8 +58,9 @@ class ManualTurnIndicator:
+     self.confirmed_since = None
+     self.candidate = None
+     self.reason = reason
++    self.recent_angles.clear()
+ 
+-  def update(self, now, cs, frame, yaw_rate, *, allowed, following_curve=False):
++  def update(self, now, cs, frame, yaw_rate, *, allowed, following_curve=False, emit_allowed=True, require_growth=False):
+     self.candidate = None
+     if (not allowed or yaw_rate is None or not all(math.isfinite(v) for v in
+         (now, yaw_rate, cs.vEgo, cs.steeringAngleDeg, cs.steeringTorque)) or not MANUAL_INDICATOR_MIN_SPEED <= cs.vEgo <= 60 / 3.6):
+@@ -88,6 +91,14 @@ class ManualTurnIndicator:
+       self.reset('driver')
+       return None
+     sign = 1 if self.intent == 1 else -1
++    self.recent_angles.append((now, cs.steeringAngleDeg))
++    while self.recent_angles and now-self.recent_angles[0][0] > .25:
++      self.recent_angles.popleft()
++    if not emit_allowed:
++      # Bridge only the last quarter-second of the rearm boundary. Reusing a
++      # whole completed steering sweep can indicate a later alignment motion.
++      self.initial_angle = sign * max(self.initial_angle * sign,
++                                     min(angle * sign for _, angle in self.recent_angles))
+     # A driver may relax the wheel, then resume the same turn after takeover.
+     # Measure renewed growth from that admitted motion within this intent.
+     if direction == self.intent and cs.steeringAngleDeg * sign < self.initial_angle * sign:
+@@ -103,9 +114,10 @@ class ManualTurnIndicator:
+     self.reason = 'confirming'
+     turn = (self.intent_confirmed and cs.steeringAngleDeg * sign >= 42 and
+             (cs.steeringAngleDeg - self.initial_angle) * sign >= 22 and
+-            signed_yaw >= math.radians(3) and self.rotation >= math.radians(1.5))
++            signed_yaw >= math.radians(3) and self.rotation >= math.radians(1.5) and
++            (not require_growth or direction == self.intent and (cs.steeringAngleDeg-previous[2])*sign > 0))
+     self.confirmed_since = (now if self.confirmed_since is None else self.confirmed_since) if turn else None
+-    if self.confirmed_since is not None and now - self.confirmed_since >= .10:
++    if emit_allowed and self.confirmed_since is not None and now - self.confirmed_since >= .10:
+       movement = ManualTurnMovement(now, self.intent)
+       self.reset('manual_turn')
+       return movement
+diff --git a/openpilot/selfdrive/modeld/modeld.py b/openpilot/selfdrive/modeld/modeld.py
+index 52df63a4..da94320f 100755
+--- a/openpilot/selfdrive/modeld/modeld.py
++++ b/openpilot/selfdrive/modeld/modeld.py
+@@ -420,13 +420,13 @@ def main(demo=False):
+   prev_action = log.ModelDataV2.Action()
+ 
+   from opendbc.car.tesla.values import TeslaFlags
+-  from opendbc.car.hyundai.values import KICK_CARS, HyundaiSafetyFlags
++  from opendbc.car.hyundai.values import HyundaiSafetyFlags
+   from openpilot.selfdrive.car.voice_indicator import native_indicator
+   DH = DesireHelper(fingerprint=CP.carFingerprint, native_voice_signal=native_indicator(CP) is not None,
+                     tesla_auto_signals=CP.brand == "tesla" and bool(CP.flags & TeslaFlags.AUTO_TURN_SIGNALS),
+-                    boundary_indicator_supported=CP.carFingerprint == 'HYUNDAI_IONIQ_5_PE',
++                    boundary_indicator_supported=not CP.passive,
+                     # the same gate as carcontroller.blinker_control: the flag interface.py sets for a Kick-capable car
+-                    kick_supported=CP.carFingerprint in KICK_CARS and
++                    kick_supported=CP.brand == 'hyundai' and not CP.passive and
+                                    any(cfg.safetyParam & HyundaiSafetyFlags.CANFD_BLINKER_KICK for cfg in CP.safetyConfigs))
+   boundary_observer = BoundaryObserver(cloudlog.event) if DH.boundary_indicator_supported else None
+   nav_input = MapInput()
+diff --git a/tools/jetlink/blink_source.py b/tools/jetlink/blink_source.py
+index 3528f8c7..6901f895 100644
+--- a/tools/jetlink/blink_source.py
++++ b/tools/jetlink/blink_source.py
+@@ -8,7 +8,7 @@ import time
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+ from openpilot.common.atc_params import right_lane_change_distance
+-from blink_protocol import PACKAGE_CONFIG, LIMIT, encode, finite, fresh
++from blink_protocol import LIMIT, encode, finite, fresh
+ from blink_policy import Policy, AutomaticSignals
+ from blink_voice import VoiceLaneSignal
+ from openpilot.selfdrive.controls.lib.desire_lib.assistant_lane import ROOT as ASSISTANT_LANE_ROOT
+@@ -23,12 +23,12 @@ from openpilot.selfdrive.controls.lib.desire_lib.indicator_feedback import TapEc
+ from openpilot.selfdrive.controls.lib.desire_lib.boundary_lane import adjacent_lane
+ 
+ 
+-def vehicle_ready(sm, now, fingerprint, spas=False):
++def vehicle_ready(sm, now):
+   """Manual indicators work while driving/engaged; unknown or stale CAN never does."""
+   valid = all(sm.valid[k] and sm.alive[k] and
+               0 <= now-sm.recv_time[k] < (.75 if k == 'pandaStates' else .35) for k in ('carState', 'carControl', 'selfdriveState', 'pandaStates'))
+   c = sm['carState']
+-  return ((spas or fingerprint == 'HYUNDAI_IONIQ_5_PE') and valid and c.canValid and finite(c.vEgo) and str(c.gearShifter) != 'unknown' and
++  return (valid and c.canValid and finite(c.vEgo) and str(c.gearShifter) != 'unknown' and
+           len(sm['pandaStates']) > 0)
+ 
+ 
+@@ -85,13 +85,14 @@ def main(fd, spas=False, ble=False, kick=False):
+       pass
+   from openpilot.cereal import messaging
+   from openpilot.selfdrive.carrot.bluetooth.model import RUNTIME, config, read_json, atomic_json
+-  from openpilot.selfdrive.carrot.bluetooth.physical import HOLD_PATH
++  from openpilot.selfdrive.carrot.bluetooth.physical import HOLD_PATH, native_hold_supported
+   from openpilot.common.params import Params
+   from openpilot.cereal import car
+   with car.CarParams.from_bytes(Params().get('CarParams')) as cp:
+     fingerprint = cp.carFingerprint
+     front_radar_available = not getattr(cp, 'radarUnavailable', True)
+-    if ble and getattr(cp, 'passive', False):
++    native_hold = native_hold_supported(cp) and not (spas or kick)
++    if getattr(cp, 'passive', False):
+       return
+     if kick:
+       from opendbc.car.hyundai.values import HyundaiSafetyFlags
+@@ -102,8 +103,6 @@ def main(fd, spas=False, ble=False, kick=False):
+       from opendbc.car.hyundai.values import HyundaiFlags
+       if cp.brand != 'hyundai' or not cp.flags & HyundaiFlags.CANFD_SPAS_BLINKERS or cp.passive:
+         return
+-  if not spas and not ble and not kick and json.loads(PACKAGE_CONFIG.read_text()).get('fingerprint') != fingerprint:
+-    return
+   sock = socket.socket(fileno=fd)
+   sock.setblocking(False)
+   sm = messaging.SubMaster(['carState', 'carControl', 'selfdriveState', 'pandaStates', 'modelV2', 'carrotMan', 'livePose', 'radarState',
+@@ -146,7 +145,7 @@ def main(fd, spas=False, ble=False, kick=False):
+         feedback = {}
+     sm.update(0)
+     now = time.monotonic()  # SubMaster assigns receive timestamps during update.
+-    ok = vehicle_ready(sm, now, fingerprint, spas or ble or kick)
++    ok = vehicle_ready(sm, now)
+     status = read_json(RUNTIME/'status.json', {})
+     settings, learning, cancelled = config(), read_json(RUNTIME/'learn.json', {}), read_json(RUNTIME/'cancelled.json', {})
+     commands = events.read(read_json(RUNTIME/'blinker.json', {}), settings, status, learning, cancelled, now)
+@@ -244,7 +243,6 @@ def main(fd, spas=False, ble=False, kick=False):
+     voice_tap.prepare_tap(now, voice_hold, 0., cs)
+     observation_feedback.prepare(now, hold, meta, cs)
+     receiver_override = fresh(feedback.get('stamp'), now, .35) and feedback.get('state') == 'driver_override'
+-    native_hold = not ble or fingerprint == 'HYUNDAI_IONIQ_5_PE'
+     # Kick reports a verified physical lever override; external receiver echoes
+     # retain their existing confirmed-turn exception.
+     tbt_turn_hold = bool(not spas and not kick and native_hold and hold and hold['source'] == 'turn' and automatic.journey.active)
+@@ -314,7 +312,7 @@ def main(fd, spas=False, ble=False, kick=False):
+     try:
+       sock.send(encode({'stamp': now, 'ok': bool(ok), 'events': commands, 'hold': wire_hold(hold), 'devices':devices,
+                         'activated':activated_id is not None, 'relights':policy.relights,
+-                        'b1_hold':ble and fingerprint != 'HYUNDAI_IONIQ_5_PE',
++                        'b1_hold':ble and not native_hold,
+                         'turn_phase':automatic.reason, 'turn_position':bool(automatic.journey.active and automatic.journey.active['target'] is not None),
+                         'tbt_phase':tbt.reason, 'observation_phase':observed_source,
+                         'indicator_origin':hold['source'] if hold else None}))
+@@ -340,7 +338,7 @@ def main(fd, spas=False, ble=False, kick=False):
+                              'direction':hold['direction'] if hold and activated_id == hold['id'] else None,
+                              'tap':observation_feedback.sent(now, feedback, submitted and ok),
+                              **native_start,
+-                             'override':activated_id is not None or now < release_until or (policy.suppressed and release_until > 0)})
++                             'override':native_hold and (activated_id is not None or now < release_until or (policy.suppressed and release_until > 0))})
+     time.sleep(max(0, now+.05-time.monotonic()))
+ 
+ 
+diff --git a/tools/jetlink/blinker_profile.json b/tools/jetlink/blinker_profile.json
+index aabf89eb..7ae66e20 100644
+--- a/tools/jetlink/blinker_profile.json
++++ b/tools/jetlink/blinker_profile.json
+@@ -2,6 +2,5 @@
+   "enabled": true,
+   "profile": "hyundai-b1-3c1",
+   "interface": "auto",
+-  "fingerprint": "HYUNDAI_IONIQ_5_PE",
+   "driver_kernel": "5.15.148-tegra"
+ }
+diff --git a/tools/jetlink/test_blinker.py b/tools/jetlink/test_blinker.py
+index f3145bda..f682e7ac 100644
+--- a/tools/jetlink/test_blinker.py
++++ b/tools/jetlink/test_blinker.py
+@@ -4,6 +4,7 @@ from pathlib import Path
+ from types import SimpleNamespace
+ 
+ import pytest
++from opendbc.car.hyundai.values import HyundaiExtFlags  # Load before the source-loop cereal fixture.
+ 
+ sys.path.insert(0, str(Path(__file__).parent))
+ import blink_protocol as protocol
+@@ -230,13 +231,12 @@ class Vehicle(dict):
+ 
+ @pytest.mark.parametrize('gear,speed,engaged', [('park',0.,False),('drive',25.,False),('drive',25.,True),('reverse',-2.,False)])
+ def test_manual_indicator_allowed_while_driving_or_engaged(gear, speed, engaged):
+-  assert vehicle_ready(Vehicle(gear, speed, engaged), 10.1, 'HYUNDAI_IONIQ_5_PE')
++  assert vehicle_ready(Vehicle(gear, speed, engaged), 10.1)
+ 
+ 
+-@pytest.mark.parametrize('fault', ['stale','future','invalid','dead','can','speed','gear','panda','profile'])
++@pytest.mark.parametrize('fault', ['stale','future','invalid','dead','can','speed','gear','panda'])
+ def test_manual_indicator_still_rejects_unknown_vehicle_or_stale_state(fault):
+   sm = Vehicle()
+-  fingerprint = 'HYUNDAI_IONIQ_5_PE'
+   if fault == 'stale':
+     sm.recv_time['carState'] = 9.
+   if fault == 'future':
+@@ -253,9 +253,7 @@ def test_manual_indicator_still_rejects_unknown_vehicle_or_stale_state(fault):
+     sm['carState'].gearShifter = 'unknown'
+   if fault == 'panda':
+     sm['pandaStates'] = []
+-  if fault == 'profile':
+-    fingerprint = 'OTHER_VEHICLE'
+-  assert not vehicle_ready(sm, 10.1, fingerprint)
++  assert not vehicle_ready(sm, 10.1)
+ 
+ 
+ def test_disabled_local_profile_overrides_packaged_trial(tmp_path):
+@@ -282,7 +280,7 @@ def test_bundled_driver_sources_match_pinned_manifest():
+     assert entry['url'].startswith('https://raw.githubusercontent.com/gregkh/linux/v5.15.148/')
+ 
+ 
+-@pytest.mark.parametrize('ble,fingerprint', [(False, 'HYUNDAI_IONIQ_5_PE'), (True, 'ANOTHER_CAR')])
++@pytest.mark.parametrize('ble,fingerprint', [(False, 'ANOTHER_CAR'), (True, 'ANOTHER_CAR')])
+ def test_source_uses_time_after_receiving_vehicle_messages(monkeypatch, ble, fingerprint):
+   import blink_source as source
+   import types
+@@ -298,7 +296,8 @@ def test_source_uses_time_after_receiving_vehicle_messages(monkeypatch, ble, fin
+   fake_params.Params = lambda: SimpleNamespace(get=lambda _:b'car-params', get_int=lambda _:0)
+   fake_cereal = types.ModuleType('openpilot.cereal')
+   fake_cereal.messaging = SimpleNamespace(SubMaster=lambda _:sm)
+-  fake_cereal.car = SimpleNamespace(CarParams=SimpleNamespace(from_bytes=lambda _:nullcontext(SimpleNamespace(carFingerprint=fingerprint))))
++  fake_cereal.car = SimpleNamespace(CarParams=SimpleNamespace(from_bytes=lambda _:nullcontext(
++    SimpleNamespace(carFingerprint=fingerprint, extFlags=HyundaiExtFlags(0)))))
+   monkeypatch.setitem(sys.modules, 'openpilot.common.params', fake_params)
+   monkeypatch.setitem(sys.modules, 'openpilot.cereal', fake_cereal)
+   sock = SimpleNamespace(setblocking=lambda _:None, recv=lambda _:b'', send=lambda raw:sent.append(json.loads(raw)))
+diff --git a/tools/jetlink/test_blinker_auto.py b/tools/jetlink/test_blinker_auto.py
+index 41a69a59..100aca91 100644
+--- a/tools/jetlink/test_blinker_auto.py
++++ b/tools/jetlink/test_blinker_auto.py
+@@ -140,15 +140,18 @@ def test_only_one_touch_can_is_sent_for_a_continuing_hold(tmp_path):
+ def test_native_hold_reader_clears_stale_and_preserves_unrelated_vehicles(tmp_path):
+   import json
+   from types import SimpleNamespace
+-  from openpilot.selfdrive.carrot.bluetooth.physical import HoldReader,FINGERPRINT
++  from openpilot.selfdrive.carrot.bluetooth.physical import HoldReader
+   path=tmp_path/'lease.json'
+   params=SimpleNamespace(get_int=lambda _:1)
+-  reader=HoldReader(FINGERPRINT,params,path)
+-  path.write_text(json.dumps(dict(stamp=10.,mode=1,fingerprint=FINGERPRINT,direction='left',override=True)))
++  cp=SimpleNamespace(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19)
++  reader=HoldReader(cp,params,path)
++  path.write_text(json.dumps(dict(stamp=10.,mode=1,fingerprint=cp.carFingerprint,direction='left',override=True)))
+   assert reader.read(True,10.1)==2
+   assert reader.read(True,10.36)==1
+   assert reader.read(False,10.2)==1
+-  assert HoldReader('other',params,path).read(True,10.1)==0
++  cp.extFlags=0
++  assert HoldReader(cp,params,path).read(True,10.1)==0
+   params.get_int=lambda _:0
+   assert reader.read(True,10.7)==0
+ 
+@@ -156,7 +159,7 @@ def test_native_hold_reader_clears_stale_and_preserves_unrelated_vehicles(tmp_pa
+ @pytest.mark.parametrize('value',[{}, {'stamp':float('nan')}, {'stamp':12}, {'stamp':10,'fingerprint':'other','mode':1,'direction':'left'}])
+ def test_invalid_native_hold_lease_never_sets_hold(value):
+   from openpilot.selfdrive.carrot.bluetooth.physical import lease_value
+-  assert lease_value(value,10.1)==0
++  assert lease_value(value,10.1,'PROTOCOL_MATCHED_CAR')==0
+ 
+ 
+ def test_unaccepted_start_expires_without_becoming_invisible_toggle():
+@@ -314,7 +317,8 @@ def test_actual_source_loop_starts_from_audio_cue_before_model_turn(monkeypatch,
+   fake_params.Params=lambda:NS(get=lambda _:b'cp',get_int=lambda _:1,get_bool=lambda _:True)
+   fake_cereal=types.ModuleType('openpilot.cereal')
+   fake_cereal.messaging=NS(SubMaster=lambda _:sm)
+-  fake_cereal.car=NS(CarParams=NS(from_bytes=lambda _:nullcontext(NS(carFingerprint='HYUNDAI_IONIQ_5_PE', brand='hyundai', passive=False,
++  fake_cereal.car=NS(CarParams=NS(from_bytes=lambda _:nullcontext(NS(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19,
+       safetyConfigs=[NS(safetyParam=HyundaiSafetyFlags.CANFD_BLINKER_KICK)]))))
+   monkeypatch.setitem(sys.modules,'openpilot.common.params',fake_params)
+   monkeypatch.setitem(sys.modules,'openpilot.cereal',fake_cereal)
+@@ -538,7 +542,8 @@ def test_tbt_source_preserves_confirmed_hold_through_receiver_override(monkeypat
+     get=lambda _: b'cp', get_int=lambda key: 1 if key in ('AutoBlinkerControl','AutoTurnControl') else 0,
+     get_bool=lambda key: key == 'AlwaysLateral')))
+   monkeypatch.setitem(sys.modules, 'openpilot.cereal', NS(messaging=NS(SubMaster=lambda _: sm),
+-    car=NS(CarParams=NS(from_bytes=lambda _: nullcontext(NS(carFingerprint='HYUNDAI_IONIQ_5_PE', brand='hyundai', passive=False,
++    car=NS(CarParams=NS(from_bytes=lambda _: nullcontext(NS(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19,
+       safetyConfigs=[NS(safetyParam=HyundaiSafetyFlags.CANFD_BLINKER_KICK)]))))))
+   sock = NS(setblocking=lambda _: None, recv=receive, send=lambda raw: sent.append(json.loads(raw)))
+   monkeypatch.setattr(source.socket, 'socket', lambda **kw: sock)
+@@ -599,3 +604,16 @@ def test_b1_voice_uses_receiver_lamps_when_vehicle_port_has_none(direction, bit)
+   assert not source.confirmed(hold, None, {'accepted_id':None,'lamps':bit}, cs)
+   setattr(cs, ('right' if direction=='left' else 'left')+'Blinker', True)
+   assert not source.confirmed(hold, hold['id'], {'accepted_id':hold['id'],'lamps':bit}, cs)
++
++
++@pytest.mark.parametrize('fault', ['passive', 'longitudinal', 'contract', 'protocol', None])
++def test_hold_capability_is_protocol_based(fault):
++  from types import SimpleNamespace as NS
++  from openpilot.selfdrive.carrot.bluetooth.physical import native_hold_supported, lease_value
++  cp = NS(brand='other' if fault == 'protocol' else 'hyundai', passive=fault == 'passive',
++          openpilotLongitudinalControl=fault != 'longitudinal', extFlags=0 if fault == 'contract' else 1 << 19,
++          carFingerprint='ANY_MATCHING_CAR')
++  assert native_hold_supported(cp) == (fault is None)
++  record = dict(stamp=10., mode=1, fingerprint=cp.carFingerprint, direction='right', override=True)
++  assert lease_value(record, 10.1, cp.carFingerprint) == 3
++  assert lease_value(record, 10.1, 'PREVIOUS_CAR') == 0
+diff --git a/tools/jetlink/test_blinker_boundary.py b/tools/jetlink/test_blinker_boundary.py
+index d9d6c582..0a2b0a33 100644
+--- a/tools/jetlink/test_blinker_boundary.py
++++ b/tools/jetlink/test_blinker_boundary.py
+@@ -278,7 +278,8 @@ def test_actual_source_loop_journals_then_taps_legacy_or_holds_observation(monke
+   )
+   fake_cereal = types.ModuleType('openpilot.cereal')
+   fake_cereal.messaging = N(SubMaster=lambda _: sm)
+-  fake_cereal.car = N(CarParams=N(from_bytes=lambda _: nullcontext(N(carFingerprint='HYUNDAI_IONIQ_5_PE', brand='hyundai', passive=False,
++  fake_cereal.car = N(CarParams=N(from_bytes=lambda _: nullcontext(N(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19,
+       safetyConfigs=[N(safetyParam=32768)]))))
+   monkeypatch.setitem(sys.modules, 'openpilot.common.params', fake_params)
+   monkeypatch.setitem(sys.modules, 'openpilot.cereal', fake_cereal)
+diff --git a/tools/jetlink/test_blinker_tbt.py b/tools/jetlink/test_blinker_tbt.py
+index 46fdb4c7..90c6e425 100644
+--- a/tools/jetlink/test_blinker_tbt.py
++++ b/tools/jetlink/test_blinker_tbt.py
+@@ -235,7 +235,8 @@ def test_actual_source_loop_only_emits_physical_indicator(monkeypatch, atc, addo
+   monkeypatch.setitem(sys.modules, 'openpilot.common.params', NS(Params=lambda: NS(
+     get=lambda _: b'cp', get_int=lambda key: values.get(key, 0), get_bool=lambda key: bool(values.get(key, False)))))
+   monkeypatch.setitem(sys.modules, 'openpilot.cereal', NS(messaging=NS(SubMaster=lambda _: sm),
+-    car=NS(CarParams=NS(from_bytes=lambda _: nullcontext(NS(carFingerprint='HYUNDAI_IONIQ_5_PE', radarUnavailable=front == 'unavailable'))))))
++    car=NS(CarParams=NS(from_bytes=lambda _: nullcontext(NS(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19, radarUnavailable=front == 'unavailable'))))))
+   sock = NS(setblocking=lambda _: None, recv=lambda _: b'', send=lambda raw: sent.append(json.loads(raw)))
+   monkeypatch.setattr(source.socket, 'socket', lambda **kw: sock)
+   monkeypatch.setattr(source.select, 'select', lambda *args: ([sock] if len(sent) == 36 else [], [], []))
+diff --git a/tools/jetlink/test_indicator_continuity.py b/tools/jetlink/test_indicator_continuity.py
+new file mode 100644
+index 00000000..a1b17fef
+--- /dev/null
++++ b/tools/jetlink/test_indicator_continuity.py
+@@ -0,0 +1,166 @@
++"""Recorded failure shapes and cancellation counterexamples for manual lamps."""
++import math
++
++import pytest
++
++from test_indicator_reconstruction import scene
++from openpilot.selfdrive.controls.lib.desire_lib.boundary_indicator import BoundaryIndicator
++from openpilot.selfdrive.controls.lib.desire_lib.indicator_observer import ModelIndicator, Movement
++from openpilot.selfdrive.controls.lib.desire_lib.manual_turn_indicator import ManualTurnMovement
++
++
++def lines(md, left, right):
++  md.laneLines[1].y = [left] * 13
++  md.laneLines[2].y = [right] * 13
++
++
++def test_recorded_left_retreat_then_pair_rebase_keeps_original_request():
++  cs, md = scene()
++  cs.steeringAngleDeg = 2.
++  lines(md, -.160, 2.801)
++  movement = Movement(10., 1, 'manual', cs, md)
++  for i, pair in enumerate(((-.192, 2.82), (-.191, 2.773), (-.143, 2.812),
++                            (-.186, 2.566), (-.361, 2.457), (-1.089, 1.648), (-2.475, .407)), 1):
++    lines(md, *pair)
++    assert movement.update(10.+i*.05, cs, md)
++  assert movement.crossed
++  lines(md, -1.8, 1.8)
++  # Settle using ordinary small steps, not an arbitrary new line jump.
++  movement.last = (10.35, -1.8, 1.8)
++  for i in range(8):
++    assert movement.update(10.4+i*.05, cs, md)
++  assert not movement.update(10.85, cs, md)
++  assert movement.reason == 'completed'
++
++
++def recovery():
++  cs, md = scene()
++  cs.steeringAngleDeg = -3.
++  cs.steeringPressed, cs.steeringTorque = True, -400.
++  md.laneLineProbs = [0., .02, .04, 0.]
++  lines(md, -2.186, .962)
++  movement = Movement(10., 2, 'manual', cs, md)
++  lines(md, -2.432, 1.293)
++  assert movement.update(10.05, cs, md)
++  return cs, md, movement
++
++
++def test_uncertain_right_boundary_with_continuing_far_line_finishes_on_stable_geometry():
++  cs, md, movement = recovery()
++  for i in range(1, 12):
++    lines(md, -2.5-min(i*.05, .5), 1.9)
++    assert movement.update(10.05+i*.05, cs, md)
++  assert movement.geometry_recovery is not None
++  md.laneLineProbs = [.9] * 4
++  lines(md, -1.8, 1.8)
++  for i in range(1, 9):
++    assert movement.update(10.6+i*.05, cs, md)
++  assert not movement.update(11.1, cs, md)
++  assert movement.reason == 'completed'
++
++
++@pytest.mark.parametrize('fault', ['opposite_driver', 'nan', 'gap', 'too_wide', 'persistent_uncertainty'])
++def test_boundary_recovery_is_bounded_and_never_masks_driver_or_input_cancellation(fault):
++  cs, md, movement = recovery()
++  if fault == 'opposite_driver':
++    cs.steeringPressed, cs.steeringTorque, cs.steeringAngleDeg = True, 400., 1.
++  elif fault == 'nan':
++    md.laneLines[1].y[0] = math.nan
++  elif fault == 'too_wide':
++    lines(md, -4., 3.)
++  if fault == 'persistent_uncertainty':
++    lines(md, -2.7, 1.8)
++    for i in range(1, 61):
++      if not movement.update(10.05+i*.05, cs, md):
++        break
++    assert movement.reason == 'geometry' and i == 60
++  else:
++    assert not movement.update(10.3 if fault == 'gap' else 10.1, cs, md)
++
++
++def test_coherent_persistent_return_is_not_kept_by_geometry_recovery():
++  cs, md = scene()
++  lines(md, -3.4, .2)
++  movement = Movement(10., 2, 'manual', cs, md)
++  lines(md, -3.1, .5)
++  assert movement.update(10.05, cs, md)
++  assert movement.geometry_recovery is None
++  assert movement.update(10.15, cs, md)
++  assert not movement.update(10.21, cs, md) and movement.reason == 'returned'
++
++
++@pytest.mark.parametrize('source,started', [('model_path', 10.), ('model_desire', 10.), ('manual', 9.)])
++def test_ordinary_model_or_late_return_keeps_existing_cancellation(source, started):
++  cs, md = scene()
++  lines(md, -3.4, .2)
++  movement = Movement(started, 2, source, cs, md)
++  movement.last = (10., -3.4, .2)
++  lines(md, -3.1, .5)
++  assert not movement.update(10.05, cs, md)
++  assert movement.reason == 'returned'
++
++
++def test_uncertain_boundary_without_sufficient_far_progress_cancels():
++  cs, md = scene()
++  cs.steeringAngleDeg = -3.
++  cs.steeringPressed, cs.steeringTorque = True, -400.
++  md.laneLineProbs = [0.] * 4
++  lines(md, -2.2, 1.)
++  movement = Movement(10., 2, 'manual', cs, md)
++  lines(md, -2.31, 1.3)
++  for i in range(1, 6):
++    assert movement.update(10.+i*.05, cs, md)
++  assert not movement.update(10.31, cs, md)
++  assert movement.reason == 'geometry'
++
++
++def successive(fault=None):
++  cs, md = scene()
++  cs.vEgo = 5.
++  md.laneLineProbs = [0.] * 4
++  detector, isolation = ModelIndicator(), BoundaryIndicator()
++  detector.active, detector.request_time = ManualTurnMovement(10., 1), 10.
++  cs.steeringPressed, cs.steeringTorque, cs.steeringAngleDeg = True, -400., -1.
++  isolation.own(10., 1)
++  detector.update(10.05, cs, md, valid=True, lateral_active=False, desire_enabled=False,
++                  path_enabled=False, busy=False, isolation=isolation, manual_turn_enabled=True, yaw_rate=.2)
++  assert detector.active is None and detector.reason == 'driver_opposite'
++  starts=[]
++  for i in range(1, 75):
++    now=10.05+i*.05
++    md.frameId=i
++    cs.leftBlinker=now<10.5
++    cs.steeringAngleDeg=-min(300., i*6.)
++    if fault == 'late_growth':
++      cs.steeringAngleDeg = -(min(160., i*8.) + max(0, min(i-40, 20))*.5 + max(0, i-60)*6.)
++    if fault == 'low_speed':
++      cs.vEgo = 7/3.6
++    cs.blinkerLever=2 if fault=='lever' else 0
++    isolation.update(now, cs, md, enabled=False, valid=fault!='invalid', busy=fault=='busy')
++    detector.update(now, cs, md, valid=fault!='invalid', lateral_active=False, desire_enabled=False,
++      path_enabled=False, busy=fault=='busy', isolation=isolation, manual_turn_enabled=fault!='disabled',
++      yaw_rate=None if fault=='pose' else .2)
++    if detector.active:
++      starts.append((now, detector.active.direction, detector.active.source))
++  return starts
++
++
++def test_successive_opposite_turn_keeps_new_growth_without_bypassing_dark_or_rearm():
++  starts=successive()
++  assert starts and 12. <= starts[0][0] <=12.11
++  assert {s[1:] for s in starts} == {(2, 'manual_turn')}
++
++
++@pytest.mark.parametrize('fault', ['lever', 'invalid', 'busy', 'disabled', 'pose'])
++def test_successive_turn_does_not_survive_explicit_cancellation_or_missing_inputs(fault):
++  assert not successive(fault)
++
++
++def test_low_speed_uses_fresh_ordinary_detection_without_rearm_memory():
++  starts = successive('low_speed')
++  assert starts and starts[0][0] >= 12.3
++
++
++def test_retained_intent_expiry_never_erases_fresh_ordinary_turn_detection():
++  starts = successive('late_growth')
++  assert starts and 13.1 <= starts[0][0] <= 13.5
+diff --git a/tools/jetlink/test_indicator_feedback.py b/tools/jetlink/test_indicator_feedback.py
+index a329972f..e3c5b506 100644
+--- a/tools/jetlink/test_indicator_feedback.py
++++ b/tools/jetlink/test_indicator_feedback.py
+@@ -146,7 +146,8 @@ def test_actual_source_model_roundtrip_survives_echo_and_waits_for_ack(monkeypat
+   fake_params.Params=lambda:N(get=lambda _:b'cp',get_int=lambda k:1 if k=='AutoBlinkerControl' else 0,
+     get_bool=lambda k:k=='ManualLaneChangeIndicator')
+   fake_cereal=types.ModuleType('openpilot.cereal');fake_cereal.messaging=N(SubMaster=lambda _:sm)
+-  fake_cereal.car=N(CarParams=N(from_bytes=lambda _:nullcontext(N(carFingerprint='HYUNDAI_IONIQ_5_PE'))))
++  fake_cereal.car=N(CarParams=N(from_bytes=lambda _:nullcontext(N(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19))))
+   monkeypatch.setitem(sys.modules,'openpilot.common.params',fake_params);monkeypatch.setitem(sys.modules,'openpilot.cereal',fake_cereal)
+   fed=[-1]
+   def recv(_):
+diff --git a/tools/jetlink/test_manual_turn_indicator.py b/tools/jetlink/test_manual_turn_indicator.py
+index 827fe98a..11fbe786 100644
+--- a/tools/jetlink/test_manual_turn_indicator.py
++++ b/tools/jetlink/test_manual_turn_indicator.py
+@@ -289,7 +289,8 @@ def test_source_loop_uses_independent_option_with_lateral_control_off(monkeypatc
+     get=lambda _: b'cp', get_int=lambda key: 1 if key == 'AutoBlinkerControl' else atc if key == 'AutoTurnControl' else 0,
+     get_bool=lambda key: enabled and key == 'ManualTurnIndicator')))
+   monkeypatch.setitem(sys.modules, 'openpilot.cereal', N(messaging=N(SubMaster=lambda _: sm),
+-    car=N(CarParams=N(from_bytes=lambda _: nullcontext(N(carFingerprint='HYUNDAI_IONIQ_5_PE'))))))
++    car=N(CarParams=N(from_bytes=lambda _: nullcontext(N(carFingerprint='PROTOCOL_MATCHED_CAR',
++      brand='hyundai', passive=False, openpilotLongitudinalControl=True, extFlags=1 << 19))))))
+   sock = N(setblocking=lambda _: None, recv=receive, send=lambda raw: sent.append(json.loads(raw)))
+   monkeypatch.setattr(source.socket, 'socket', lambda **kw: sock)
+   monkeypatch.setattr(source.select, 'select', lambda *args: ([sock] if len(sent) not in received else [], [], []))

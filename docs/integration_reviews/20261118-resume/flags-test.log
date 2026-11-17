@@ -1,0 +1,106 @@
+/home/agent/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:306: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session". Set it to "fixture-scope" to keep the current behavior.
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+................FF                                                       [100%]
+=================================== FAILURES ===================================
+________ test_classic_can_retains_its_512_alt_limits_after_canfd[False] ________
+
+prior_angle = False
+
+    @pytest.mark.parametrize('prior_angle', [False, True])
+    def test_classic_can_retains_its_512_alt_limits_after_canfd(prior_angle):
+      from opendbc.car.structs import CarParams
+      from opendbc.safety.tests.common import CANPackerPanda
+      g = Guard(int(F.CANFD_ANGLE_CONTROL) if prior_angle else 0)
+      assert g.s.set_safety_hooks(CarParams.SafetyModel.hyundai, int(F.ALT_LIMITS_2)) == 0
+      g.s.init_tests()
+      g.s.set_controls_allowed(True)
+      packer = CANPackerPanda('hyundai_kia_generic')
+      for torque, allowed in [(170, True), (171, False), (-170, True), (-171, False)]:
+        g.seed(170 if torque > 0 else -170)
+        packet = packer.make_can_msg_panda('LKAS11', 0, dict(CR_Lkas_StrToqReq=torque, CF_Lkas_ActToi=1))
+>       assert bool(g.s.safety_tx_hook(packet)) is allowed
+E       AssertionError: assert True is False
+E        +  where True = bool(True)
+E        +    where True = <cdata '_Bool(*)(CANPacket_t *)' 0x7f50da6e4833>(<cdata 'CANPacket_t *' owning 70 bytes>)
+E        +      where <cdata '_Bool(*)(CANPacket_t *)' 0x7f50da6e4833> = <cffi.api._make_ffi_library.<locals>.FFILibrary object at 0x7f50da142060>.safety_tx_hook
+E        +        where <cffi.api._make_ffi_library.<locals>.FFILibrary object at 0x7f50da142060> = <opendbc.safety.tests.test_hyundai_canfd_steering_guard.Guard object at 0x7f50da1c40b0>.s
+
+opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py:43: AssertionError
+----------------------------- Captured stdout call -----------------------------
+DBC: hyundai_kia_generic
+________ test_classic_can_retains_its_512_alt_limits_after_canfd[True] _________
+
+prior_angle = True
+
+    @pytest.mark.parametrize('prior_angle', [False, True])
+    def test_classic_can_retains_its_512_alt_limits_after_canfd(prior_angle):
+      from opendbc.car.structs import CarParams
+      from opendbc.safety.tests.common import CANPackerPanda
+      g = Guard(int(F.CANFD_ANGLE_CONTROL) if prior_angle else 0)
+      assert g.s.set_safety_hooks(CarParams.SafetyModel.hyundai, int(F.ALT_LIMITS_2)) == 0
+      g.s.init_tests()
+      g.s.set_controls_allowed(True)
+      packer = CANPackerPanda('hyundai_kia_generic')
+      for torque, allowed in [(170, True), (171, False), (-170, True), (-171, False)]:
+        g.seed(170 if torque > 0 else -170)
+        packet = packer.make_can_msg_panda('LKAS11', 0, dict(CR_Lkas_StrToqReq=torque, CF_Lkas_ActToi=1))
+>       assert bool(g.s.safety_tx_hook(packet)) is allowed
+E       AssertionError: assert True is False
+E        +  where True = bool(True)
+E        +    where True = <cdata '_Bool(*)(CANPacket_t *)' 0x7f50da6e4833>(<cdata 'CANPacket_t *' owning 70 bytes>)
+E        +      where <cdata '_Bool(*)(CANPacket_t *)' 0x7f50da6e4833> = <cffi.api._make_ffi_library.<locals>.FFILibrary object at 0x7f50da142060>.safety_tx_hook
+E        +        where <cffi.api._make_ffi_library.<locals>.FFILibrary object at 0x7f50da142060> = <opendbc.safety.tests.test_hyundai_canfd_steering_guard.Guard object at 0x7f50c3c557f0>.s
+
+opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py:43: AssertionError
+=============================== warnings summary ===============================
+../../../../opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/anyio/pytest_plugin.py:14
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/anyio/pytest_plugin.py:14: PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+  The CallSpec2 alias will be removed in pytest 10.
+  Update imports to use CallSpec instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#callspec2-renamed
+    from _pytest.python import CallSpec2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py::test_classic_can_retains_its_512_alt_limits_after_canfd[False]
+FAILED opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py::test_classic_can_retains_its_512_alt_limits_after_canfd[True]
+2 failed, 16 passed, 1 warning in 0.79s
+hyundai safety canfd_hda2 stockno camera_scc 
+allowed addr = 267,298,416,463,463,480,352,2000,426,203,373,353,354,512,1187,1204,373,234,687,
+bus = 2,0,0,0,2,0,0,0,2,0,2,0,0,0,2,2,2,2,2,
+len = 16,16,32,8,8,16,16,8,16,24,24,32,32,8,8,8,24,24,8,
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockcamera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
+hyundai safety canfd_hda2 stockno camera_scc 
