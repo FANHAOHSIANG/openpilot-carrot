@@ -32,7 +32,7 @@
 
 **[⬇ 下載 CarrotAssist 繁體中文版 0.2.19（Android APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-assist-tw-v0.2.19/CarrotAssist-TW-0.2.19.apk)**
 
-**[下載 Carrot Cockpit 座艙版 0.3.0（獨立 APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.3.0/CarrotCockpit-TW-0.3.0.apk)**：依參考影片改造為全景道路、浮動地圖／車況卡片、左下分類控制、駕駛模式浮動卡及固定底列；新增日夜／字體面板、本車車型自動示意皮膚。可與原版並存，須更新並重啟 carrot-wip 車機。[操作與實際支援範圍](tools/carrot_android/COCKPIT.md)；尚未完成實體 Android 盒子與實車驗收。
+**[下載 Carrot Cockpit 座艙版 0.5.0（獨立 APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.5.0/CarrotCockpit-TW-0.5.0.apk)**：以車載操作重新編排，固定狀態列／底列、全寬設定、大型按鈕、分組應用程式與可收合分類。修正大字模式重複放大，支援超寬、16:9、4:3與Full HD，保留所有功能、繁中搜尋／詳細說明、物件辨識、連線恢復與原有設定。[操作與驗證範圍](tools/carrot_android/COCKPIT.md)。先更新並重啟 carrot-wip 車機再覆蓋安裝；可與原版並存。已完成瀏覽器版面驗證，尚未完成實體 Android 盒子與實車驗收；既有[真實影片動態分類驗證](tools/carrot_android/COCKPIT_VALIDATION.zh-TW.md)仍可參考。
 
 | 項目 | 說明 |
 |---|---|
@@ -80,6 +80,8 @@ APK 經建置、測試與簽章驗證；尚未在實體手機或實車驗證。i
 ## 導航地圖與我的最愛
 
 APK 與網頁的「導航地圖／Navigation」支援命名最愛、地址新增／編輯／刪除及點一下名稱導航。最愛儲存在車機，重新啟動與一般更新後保留；「清除 Mapbox 目的地」已改為 **結束當前導航**。更新車機並重新開啟導航頁即可使用，既有 0.2.16 APK 可沿用。[繁中操作指南與 Mapbox 地址儲存條件](docs/CARROT_MOBILE.zh-TW.md#導航地圖與目的地)。
+
+導航統一採用 **Mapbox 搜尋／路徑＋車機 Mapbox／OpenStreetMap·Protomaps 地圖**，與導航模型共用既有 mapsd 預覽；Google 圖層、Places 搜尋及金鑰入口已移除。舊 Google 最愛保留名稱，可明確重新搜尋並選定地址。[繁中設定與舊最愛轉換指南](docs/NAVIGATION_MAPBOX_OSM.zh-TW.md)。
 
 ## 繁體中文語音指令
 

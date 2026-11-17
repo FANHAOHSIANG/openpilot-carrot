@@ -1,5 +1,151 @@
 # Repository memory
 
+- 2026-11-18 HkgPhase1Assist default OFF scopes exact registered EV6/Ioniq5/
+  Carnival/Sorento platforms, preserving fingerprint/HDA/control protocol. The
+  lane-less model target reduces same-direction low-speed turn-in tau by up to
+  40%, taper30–40; custom lane-plan filter/delay stay unchanged. Small highway
+  curvature corrections add <=0.08s tau, larger changes less. Existing final
+  curvature, actuator, driver and Panda guards remain authoritative. Supported
+  CANFD torque uses the existing low-speed reserve when EITHER switch is ON;
+  disable both to restore stored manual limits. Angle/classic Sorento gain no
+  extra actuator authority. Fresh consecutive model frames qualify a near4s
+  model-geometry curve speed envelope in direct-long ACC + active lateral only;
+  real recv_time guards handle radar/model polling. Apply optional ceiling AFTER
+  Carrot's MPC cruise reassignment; lower stop/speed targets win. Block coasting
+  and lead acceleration preview from relaxing curve braking while constrained.
+  New curve code never requests a stop, no emergency/U-turn/full-lock addition.
+  hkg_phase1_curve diagnostics max1Hz, no location. 417 controller/planner,
+  47 native Panda,299 settings JS,34 Wiki pass; isolated IPC/Params and MPC-input
+  tests are NOT a full native-solver or vehicle closed-loop acceptance. No car
+  installed/enabled, no EPS capability or FSD-equivalence claim. See
+  docs/HKG_PHASE1_ASSIST.zh-TW.md. Preserve prior full-safety-suite limitations.
+  Full production state_control adds17 passing startup/feature/veto checks;
+  setting poll stays in update(), separate from state_control. Wider replay has
+  52 pre-existing fixture failures (44 missing VM.update_geometry,8 stale stop
+  block extraction), exact same failing test IDs on b77f4702 and current, zero
+  new failures. Preserve this limitation. DM guide cross-links clarify that
+  this feature does not alter monitoring/attention/warning/lockout policy.
+
+- 2026-11-17 Cockpit0.5.0/code7: car-oriented flat composition; one status
+  bar and fixed five-item dock, full-width settings, grouped app launcher,
+  <=820px category drawer, independent scrolling and per-section tab memory.
+  Keep original inputs/guards/readback/details and class-aware Vision lifecycle.
+  Async category switch tokens reject obsolete selection. Chrome scale is bounded;
+  body title scale must include --carrot-text-scale explicitly, not a pre-scaled
+  --control-font alone (shared scanner otherwise multiplies twice:200%=72px).
+  Navigation frame receives verified font updates and load/storage sync;100->200
+  ->100 gives18->36->18px without reload. Tools notifications use original
+  expanded/attention state as overlay, never a permanent blank desktop column.
+  All eight tested1280x480..390x844 geometries fit;43 cockpit and2 HTTP pass,
+  full997/999 same2 baseline failures. Synthetic browser only, not Android/device
+  validation. APK minimum layoutVersion6; package/signing/channel stay separate.
+  Published0.5.0 sourceedd8c005; CI44117337061 v2/v3 pass; independentZIP/DEX
+  +v2 cert match, anonymousAPK/feed verified. SHA256d5739ffae92087b8821f3d710b
+  fca6ed39f9884124f268892ffccf93ebdc4941. Published APKs remain immutable.
+
+- 2026-11-17 User explicitly authorized Panda torque protection repair before
+  low-speed dynamic slew, superseding the factory-slew-only mode in2de5aa07.
+  CAN-FD torque TX no longer ignores violations/shadows limits with10/10;
+  independent LFA/LKAS bus histories and RX-paced forwarding/reuse rechecks,
+  route/length/CRC checks and actual wheel/driver freshness guard extra slew.
+  Existing hard512 boundary is not increased; host feature still max409.
+  LowSpeedSteerReserve qualifies0.30s, uses fastest actual wheel as well as
+  ego/raw speed, valid coherent wheels; host2/3..4/4 by bounded command gap,
+  discrete taper30–40, factory>=40. Driver/reversal/fault/stale cancels extra.
+  Panda's down parameter stays3: it is required driver withdrawal, not host's
+  normal maximum decrement. Never raise it to4 (would conflict with override).
+  Explicit safety bits1024 AlwaysLateral and32768 angle protocol preserve existing
+  modes; off-at-start CAN-FD AOL needs parked reboot after enabling, off still
+  stops host immediately. Angle disabled-LFA -1024 sentinel must remain legal
+  ONLY for explicit angle mode/no request/no authority; fresh OEM emergency
+  angle passthrough matches physical CAM control fields, never invented by host.
+  Native regression124 +1978/362subtests +418 and34 Wiki/299 web settings pass
+  locally. Legacy full CANFD suite325->199 failures, no new failures; preserve
+  this limitation, do not claim entire suite passed. See public verification
+  guide. No physical CAN/flash/vehicle validation. Native APK inputs unchanged.
+
+- 2026-11-17 User chose bounded low-speed demand follow + passive response
+  records, not on-road EPS limit probing. LowSpeedSteerReserve keeps its ID,
+  default off and position below CustomSteerMax; title is now demand follow.
+  Hyundai/Kia CAN-FD torque only, original 0.30s qualification/health/freshness
+  guards, requested headroom capped409 <=30km/h, taper30–40, factory >=40.
+  Enabled mode uses factory normalization AND slew at all speeds, ignoring but
+  preserving stored CustomSteerMax/Delta values; off restores manual values.
+  Never change EPS/Panda protections or infer verified hardware capability.
+  Independent SteeringObservations records commands, measured wheel angle/rate,
+  reasons and signed-command peaks; no recorded data feeds control. Bounded
+  profile keyed by fingerprint/control/schema; asynchronous tmpfs status1Hz,
+  persistent aggregates60s/exit, both DONT_LOG. No positions or cloud uploader.
+  Existing machine Device and web/APK Tools steering-learning views display
+  records, current factory/cap/slew and freshness; stale after2s, cached distinct.
+  Four locales and reviewed detailed setting guides updated. 87 control/CAN/view
+  checks,89 schema/reader checks,299 settings JS and34 Wiki tests passed locally;
+  browser synthetic status/expiry verified, no physical vehicle acceptance.
+  Native APK inputs unchanged; update vehicle branch and reopen existing apps.
+
+- 2026-11-17 User replaced Google navigation work with Mapbox/OpenStreetMap.
+  Do not continue pending Google Cloud provisioning. Navigation HTML no longer
+  loads Google SDK/key controls; legacy helper is a no-network retirement stub.
+  navigation_map_provider normalizes old google to mapbox; deprecated browser
+  key absent from schema/config output. Native mapsd Mapbox-token / hosted
+  OSM-Protomaps path unchanged, not new public OSM/Nominatim services or search.
+  Search/routes remain Mapbox; both APKs reuse vehicle navigation page.
+  Preserve old Google favorites IDs/names; allow existing-ID rename only, reject
+  new Google refs, explicit permanent Mapbox selection replaces address sameID.
+  Browser real backend + fake upstream verified migration/navigation/end; no
+  device/key/route access.10 JS+23 Python pass;987/989 full,same2 baseline.
+  docs/NAVIGATION_MAPBOX_OSM.zh-TW.md is current; Google guide retired.
+
+- 2026-11-17 Cockpit actual-video/browser acceptance: pinned EfficientDet CPU,
+  public motorcycle/Intel clips; synthetic telemetry/calibration only, no Android
+  or RTC acceptance (user requested video/layout first). Real raw boxes change
+  and person/car/motorcycle reach class meshes;573 main-video inferences,4 page
+  returns plus4 settled fullscreen checks. Do not equate samples with accuracy,
+  unique objects, tracking IDs or true distance. Snapshot now exposes fresh
+  positioned class counts/revision/videoTime, localized in perception sheet.
+  Six16:9/4:3 viewports1920x1080..800x600 measured without horizontal overflow.
+  Full-HD parent >=1600x850 enlarges controls; child threshold710 excludes shell.
+  Old embedded body[data-cockpit-panel=setting] .setting .title specificity
+  overrode controls with16px: scope it to html:not(.cockpit-controls-mode).
+  Verified17px normal/23px large; native inputs unchanged from APK0.4.0 source.
+  31 focused JS,989/991 full(same2 baseline),3 HTTP pass. Report/JSON and original
+  browser screenshots in tools/carrot_android/COCKPIT_VALIDATION.zh-TW.md.
+
+- 2026-11-17 Cockpit0.4.0/code6 requires layoutVersion>=5. Full-width controls,
+  tools/logs, five-item dock, explicit vehicle/perception sheets, one instrument
+  group, no empty map/card clutter. Advanced original HUD layouts remain stored.
+  Camera-off scene now acquires exactly one child HUD+overlay lease for model,
+  radar/calibration; release on hidden/paused/replay/frame replacement/nonvision.
+  Never start camera or grant access from this lease. Strict browser fixtures
+  must filter requested services: old all-service fixtures masked this defect.
+  Perception report reads real preferences/video/worker snapshots; distinguishes
+  unknown/off/wait/loading/failure/zero/stale/calibration, no fabricated meshes.
+  Explicit local retry resets only enabled worker failures, rejects late results,
+  retains CPU/TTL/backpressure guards. Neutral native circles remain unclassified.
+  Road shortcuts/preview expansion must call panel('vision'), never parent-only
+  scene-full (that renderer has no camera classification and drops the meshes).
+  All entries share the original classified scene; preserve opt-in/BEV/camera.
+  Camera-result-to-mesh regression checks people/cars moving across frames beside
+  neutral native radar and expiry. 990 web:988 pass, same2 baseline;3 HTTP pass.
+  Synthetic1280x480
+  and390x844 checks only; actual Android/night-road acceptance remains pending.
+  Published0.4.0 native source9c179b55; CI44067294920 passed v2/v3 verification.
+  SHA256 a406e93ba24e7497bf09f40153147d3c40f1eb086bb26cfba68b6dffb6e9bf95.
+  APK signing-block v2 certificate independently matches90e20971...051a8;
+  anonymous download/update feed verified. Published binaries stay immutable.
+
+- 2026-11-17 Cockpit0.3.1/code5 requires layoutVersion>=4. Fixed compact
+  read-only ping/pong every5s,12s silence/8s CONNECTING watchdog; detach stale
+  callbacks before close and reconnect even if close never fires. Outer and
+  Vision channels back off1..15s, independent sample expiry/replay guards kept.
+  Native cockpit resume no longer abandons a verified device on one failed
+  fast probe; foreground page failures retry same private address1..30s, cancel
+  on pause/search/destroy, then GET only. Keep screen on only in foreground.
+  No process network binding, new Android permission, setting/control retry or
+  physical network guarantee. Six-hour fake-time test plus real local silent
+  TCP/recovery and idle heartbeat browser checks; physical Android acceptance
+  remains pending. Original standard APK and public0.3.0 stay immutable.
+
 - 2026-11-17 Cockpit0.3.0/code4 requests layoutVersion>=3. Full Vision scene
   defaults with preserved BEV, floating readonly map/tire/route cards and fixed
   dock; vehicle control button toggles category panel back to previous primary.
@@ -56,6 +202,23 @@
   297 JS and6 HTTP tests, synthetic browser no-dvh reproduction/resize checks.
   Actual Android box acceptance pending; preserve immutable0.1.0 and standard APK.
 
+- 2026-11-17: Carnival c4dcf95545dafe68 route299/14 on2b202df126 has
+  card state_tail71.409ms and per-frame threadCPUmax13.191ms in the same
+  aggregate, bounding at least58ms of that tail outside thread CPU execution.
+  Original state-publication timing reproduces radarcan inputTimeout within2ms.
+  Stock SCC retains mode1/StopReq1 through the fault, while host inactive output
+  reaches vehicle CAN at51.223s, TCS ACC_REQ clears38ms later, wheels move451ms
+  later. Production builder matches20 packets on mode/stop/acceleration/band.
+  Exact waiting operation remains unrecorded. Add bounded cruise phase wall/CPU
+  timings for Params, Bluetooth, assistant read/completion and button/total work.
+  Existing1Hz card diagnostics retain one correlated state-tail peak with frame,
+  refresh flag and receive timestamp. Eight delay-injection and three card-step
+  checks cover localization/reset/publication. Fixed recorded-input A/B matches
+  all82 scalar helper states on5974 frames, external command channels silent
+  assumed. Local331pass/2skip, six Linux-import cases await native CI. Same-device
+  stock reference12rlogs/34321SCC pairs agrees bus0/bus2 with no host longActive.
+  No historical per-call attribution, live install or physical cure proof.
+  Private evidence .analysis/archive/2026-11-17/carnival-299-14.
 
 - 2026-11-17: Evening11ee and morning11ef/f0 add23 full rlogs to retained
   indicator audit, now426segments/55routes/477798aligned inputs. Bound invalid

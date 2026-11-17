@@ -583,11 +583,13 @@ class Car:
     self.initialized_prev = initialized and not observe_only
     self.CS_prev = CS
     self.runtime_diagnostics.record(
-      context={'can_backend': CAN_BACKEND},
+      context={'can_backend': CAN_BACKEND, 'cruise_frame': self.v_cruise_helper.frame,
+               'cruise_params_refreshed': (self.v_cruise_helper.frame - 1) % 10 == 0,
+               'state_receive_mono_ns': self.card_diag_recv_ns},
       work_ms=(time.monotonic_ns() - self.card_diag_recv_ns) / 1e6,
       thread_cpu_ms=(time.thread_time() - cpu_start) * 1000,
       **{f'{name}_ms': value / 1000 for name, value in self.card_diag_stage_current.items()},
-      **self.v_cruise_helper.cruise_stage_ms,
+      **{**self.v_cruise_helper.cruise_stage_ms, **self.v_cruise_helper.runtime_timing},
     )
 
   def params_thread(self, evt):

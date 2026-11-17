@@ -16,6 +16,7 @@ async function page(responses, language = "en", handleApi = null) {
       replaceChildren(...children) { this.children = children; }, append(...children) { this.children.push(...children); }, focus() {},
       async trigger(name) { await this.handlers[name]?.({preventDefault() {}}); await settle(); },
       removeAttribute(name) { delete this[name]; },
+      setAttribute(name, value) { this[name] = value; },
     });
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, makeElement());
@@ -28,6 +29,7 @@ async function page(responses, language = "en", handleApi = null) {
     URL: { createObjectURL: () => `blob:${++blobs}`, revokeObjectURL: (url) => revoked.push(url) },
     setTimeout: (callback) => timers.push(callback),
     fetch: async (url, options) => {
+      if (url.endsWith('/config')) return {ok:true,json:async()=>({provider:'mapbox',google_key:''})};
       if (handleApi && !url.endsWith('map.png')) {
         const result = await handleApi(url, options || {});
         return {ok: !result.error, json: async () => result};
@@ -159,4 +161,26 @@ test("coordinate form rejects invalid inputs and posts confirmed valid coordinat
   assert.equal(posts.length, 1);
   assert.deepEqual(JSON.parse(posts[0].options.body), {latitude: 25.03, longitude: 121, place_name: "25.03, 121"});
   assert.ok(calls.every(c => !c.url.includes("search")));
+});
+
+test('legacy Google favorite opens explicit address migration and replaces it with explicit manual coordinates',async()=>{
+  const old={id:'c'.repeat(32),provider:'google',google_place_id:'legacy_id',name:'我的家'},requests=[];
+  const selected={latitude:25,longitude:121,place_name:'臺北測試地址',permanent:true};
+  const p=await page([{status:204,reason:'offroad'}],'zh-TW',async(url,options)=>{
+    requests.push({url,options});
+    if(url.includes('/search?'))return {results:[selected]};
+    if(url.endsWith('/destination'))return {destination:null};
+    return {favorites:[old]};
+  });
+  await p.element('favorites').children[0].children[0].trigger('click');
+  assert.equal(p.element('favoriteForm').hidden,false);assert.equal(p.element('favoriteName').value,'我的家');
+  assert.match(p.element('editorStatus').textContent,/輸入經緯度/);
+  assert.equal(requests.some(r=>r.options.method==='POST'),false);
+  p.element('favoriteQuery').value='25, 121';
+  await p.element('favoriteSearch').trigger('click');
+  await p.element('favoriteForm').trigger('submit');
+  const update=requests.find(r=>r.options.method==='PUT'),body=JSON.parse(update.options.body);
+  assert.equal(body.name,'我的家');assert.equal(body.latitude,25);assert.equal(body.coordinate_source,'manual');
+  assert.ok(requests.every(r=>!r.url.includes('/search?')));
+  assert.equal(body.provider,undefined);assert.equal(body.google_place_id,undefined);
 });

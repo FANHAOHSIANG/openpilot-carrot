@@ -14,7 +14,7 @@ class IsolatedParams:
   """Only the documented defaults used by vehicle fixtures; never device IO."""
   def get_bool(self, key):
     assert key in {'TeslaAutoTurnSignals', 'TeslaManualLaneSignals', 'TeslaModelDesireSignals', 'TeslaModelPathSignals',
-                   'TeslaCanTrafficStop', 'NNFF', 'NNFFLite', 'DisableMinSteerSpeed', 'LowSpeedSteerReserve'}, key
+                   'TeslaCanTrafficStop', 'NNFF', 'NNFFLite', 'DisableMinSteerSpeed', 'LowSpeedSteerReserve', 'CanfdBlinkerKick', 'CanfdBlinkerControl', 'HyundaiCanfdClusterDirectTx', 'CommaPedalEnabled'}, key
     return False
 
   def get(self, key):
@@ -22,7 +22,7 @@ class IsolatedParams:
     return "en-US"
 
   def get_int(self, key):
-    assert key in {"LateralTorqueCustom", "CustomSteerMax"}, key
+    assert key in {"LateralTorqueCustom", "CustomSteerMax", "HyundaiCameraSCC", "CanfdHDA2", "AlwaysLateral", "EnableRadarTracks"}, key
     return 0
 
   def put_int(self, key, value):
