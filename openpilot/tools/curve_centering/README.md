@@ -362,3 +362,48 @@ node openpilot/tools/curve_centering/spatial-diagnostics.mjs
 退出歸因與真實消費點的只讀接線，**不是宣稱舊越界已解決**。
 要接入致動，至少還需獨立道路／車身標籤與可信幾何符號、實際模型執行身分及延遲、
 含LaC/EPS及縱橫耦合的校準閉迴路、原生退出／重入及最壞時限證據。
+
+### Offline refinement R and the 33 regressions
+
+`refined_shadow.py` adds an explicit experimental R arm; it does not replace C,
+U, the live shadow tap, or any production controller. R uses U's existing 0.25
+gain and nearest-zero differential-error interval, and withdraws the proposal
+immediately when evidence, geometry, tracking, mode or saturation quality fails.
+It preserves the downstream production smoothing and rate limits; proposal
+withdrawal is not proof of safe physical handover. A fresh valid interval and
+warmup are required for reentry. No calibrated vehicle interval is supplied.
+
+32 of the 33 original feasible/covered C regressions have zero model bias and
++/-0.2 m differential geometry error. In this synthetic driver, the raw geometry
+algebraically reduces to `model_bias + differential_error`, independent of the
+vehicle pose. C therefore steers against error rather than a true bias. Changing
+only differential error to zero eliminates all 32 regressions. The remaining
+case has bias 0.3, delay 0.3, positive turn and stale fault: C improves RMS but
+increases peak by 0.058566 m. The same full-gain correction without that fault
+reduces peak by 0.032618 m, demonstrating a fault/history interaction. Either
+interval shrinkage or lower gain removes that case's regression; an immediate
+proposal reset alone is not established as a physical cure.
+
+R has 0/96 regressions on the same feasible/covered subset (C still has 33/96),
+but **24/96 still exceed the assumed lane margin**. Across all 320 original
+scenarios, R has 16 regressions among valid pairs and 28 invalid plant trajectories;
+200 cases exceed the assumed margin or leave the plant domain. These failures
+remain in the report, including deliberately violated interval assumptions and
+insufficient actuator authority. This is development-set evidence, not held-out
+road validation. The original 0.867 m spatial-ramp failure is unchanged; R is not
+implemented in that separate model. No hypothetical road preview or latency
+calibration is connected to vehicle control.
+
+Reproduce with the same dependencies as above (choose new output paths):
+
+```sh
+python -m openpilot.tools.curve_centering.simulation --output original.json
+python -m openpilot.tools.curve_centering.refinement_analysis original.json --output refinement.json
+python -m pytest -o addopts='' --confcutdir=openpilot/tools/curve_centering openpilot/tools/curve_centering/tests -q
+python -m ruff check openpilot/tools/curve_centering
+node openpilot/tools/curve_centering/spatial-diagnostics.mjs > spatial-diagnostics.json
+```
+
+CI publishes `refinement-analysis.json` alongside the unchanged original sweep,
+withdrawal analysis and spatial counterexample. A passing job means the tools
+executed and invariants passed; it does not mean every simulated trajectory passed.

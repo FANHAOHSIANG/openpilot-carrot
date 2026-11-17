@@ -44,6 +44,7 @@ jobs:
           node openpilot/tools/curve_centering/spatial-ramp.mjs > spatial-ramp.jsonl
           node openpilot/tools/curve_centering/spatial-diagnostics.mjs > spatial-diagnostics.json
           python -m openpilot.tools.curve_centering.failure_analysis curve-simulation.json --output failure-analysis.json
+          python -m openpilot.tools.curve_centering.refinement_analysis curve-simulation.json --output refinement-analysis.json
       - uses: actions/upload-artifact@v4
         with:
           name: curve-synthetic-falsification
@@ -52,5 +53,6 @@ jobs:
             spatial-ramp.jsonl
             spatial-diagnostics.json
             failure-analysis.json
+            refinement-analysis.json
             bridge-results/summary.json
             bridge-results/results.jsonl

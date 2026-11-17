@@ -17,6 +17,7 @@ from pathlib import Path
 from openpilot.tools.curve_centering.centering_shadow import CenteringShadow
 from openpilot.tools.curve_centering.model_baseline import model_step, SOURCE_COMMIT
 from openpilot.tools.curve_centering.uncertainty_shadow import GeometryBound, UncertaintyShadow
+from openpilot.tools.curve_centering.refined_shadow import RefinedShadow
 
 DT = 0.01
 DURATION = 30.0
@@ -59,9 +60,11 @@ def road_curvature(t, scenario):
 
 
 def run(scenario, arm='A', *, gain=0.5, retain_trace=False):
-  if arm not in ('A', 'C', 'U'):
+  if arm not in ('A', 'C', 'U', 'R'):
     raise ValueError('unsupported comparison arm')
   shadow = CenteringShadow() if arm == 'C' else UncertaintyShadow(gain=gain)
+  if arm == 'R':
+    shadow = RefinedShadow()
   bound = GeometryBound(scenario.assumed_error_bound, 20.0, 0.0, DURATION, 'synthetic-assumption-only')
   y = heading = actual = command = held = 0.0
   queue = deque([0.0] * round(scenario.delay/DT))

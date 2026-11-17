@@ -369,3 +369,29 @@ first negative tail; neither run includes worker contention or proves device
 100 Hz deadlines. Shadow remains disabled by default. Device timing, native
 controller/EPS handover, calibrated coupled dynamics and independent geometry
 remain concrete blockers to actuator connection, not a generic "research" label.
+
+## Follow-up: differential-error attribution and refinement R
+
+- Original C remains a retained negative control. 32/33 feasible/covered
+  regressions are zero-bias cases at differential error +/-0.2 m (16 each).
+  Controlled zero-error interventions, preserving faults and plant parameters,
+  remove all 32. This identifies false correction from uncertain model geometry,
+  not measured body offset. One stale/delay/bias case remains in original C.
+- New offline R combines the already-tested U gain/interval with strict quality
+  withdrawal. Regression tests require immediate proposal withdrawal for missing
+  or expired bounds, missing/duplicate geometry, tracking, saturation, mode and
+  stale eligibility, followed by full fresh warmup. A duplicate-geometry reentry
+  test initially failed and exposed premature warmup; invalid quality now also
+  marks the copied row ineligible before the underlying policy update.
+- R: feasible/covered 96 cases, 0 regressions, 24 exceedances. Covered/infeasible
+  96 cases, 4 regressions, 12 invalid, 96 exceedances/domain failures.
+  Uncovered/feasible 64 cases, 0 regressions, 16 exceedances.
+  Uncovered/infeasible 64 cases, 12 regressions, 16 invalid, 64 failures.
+  Invalid trajectories are not counted as valid comparisons or successes.
+- No runtime/actuator wiring changed in this follow-up. R is available only to
+  the offline simulator; the actual consumer tap remains C shadow, default off.
+- Focused suite: 185 passed, four environment/configuration warnings. Ruff passed.
+  The original sweep and spatial counterexamples are rerun, not replaced by R.
+- The 0.867 m exit failure and 212 historical filter-residual ticks are not fixed.
+  Independent geometry uncertainty, vehicle delay/plant calibration, native
+  control-path replay and physical handover evidence remain missing.
