@@ -69,7 +69,8 @@ def pipeline(tmp_path):
 
   env = {'np': np, 'math': math, 'collections': collections, 'Params': Params, 'CV': CV, 'log': log,
              'time': NS(monotonic=lambda: now[0], monotonic_ns=lambda: int(now[0] * 1e9)), 'GPSSources': GPSSources, 'MyMovingAverage': MyMovingAverage,
-             'pre_adjust_candidate': pre_adjust_candidate, 'shared_pre_adjust_candidate': shared_pre_adjust_candidate, 'CarrotNaviControl': CarrotNaviControl, 'parse_carrot_navi_control': parse_carrot_navi_control,
+             'pre_adjust_candidate': pre_adjust_candidate, 'shared_pre_adjust_candidate': shared_pre_adjust_candidate,
+             'CarrotNaviControl': CarrotNaviControl, 'parse_carrot_navi_control': parse_carrot_navi_control,
              'messaging': NS(new_message=new_message), 'RouteCurveSpeed': RouteCurveSpeed,
              'Any': Any, 'Dict': dict, 'List': list, 'Optional': Optional}
   serv_cls = load_class('carrot_serv.py', 'CarrotServ', env)
