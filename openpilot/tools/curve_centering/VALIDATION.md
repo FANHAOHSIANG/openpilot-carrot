@@ -218,3 +218,9 @@ speed as the cause or show that any speed change fixes the user's ramp.
 Added explicit assumed lane-boundary metrics and standalone braking-distance
 feasibility tests. These new changes require their own matching-head CI.
 No parameter was retuned against the failure grid, and no vehicle limit changed.
+
+## Paired ramp acceptance corpus
+
+Use both recorded passes in candidate reviews. The driver identified the successful pass as the onboard small model. Keep its recorded model action as the positive reference, alongside the earlier intervention. In the retained 40-second success window all 800 model rows have lateral control active and none have steeringPressed. Crossing clearance and independently measured vehicle center are unavailable. A candidate that increases exit bias, oscillation or saturation relative to this reference needs investigation before promotion. Leave unevaluated comparisons pending.
+
+Successful recording software: 5945301512e41a791b3cd8c61d7b7b4edae3b61c. Earlier recording software: 0e462225e4184df0ee4e8cfda7b4cc7f69fbbf38. Both source trees already contain the same driving_supercombo.onnx Git blob 1aac351ca371f1f68c565470e07a530c7a65f185. Runtime model identity needs separate evidence, particularly for external inference. Treat these as two observed driving outcomes with different speeds and poses. Do not use a recorded action as a steering command or training target at a different pose. Keep full logs and location data private.
