@@ -236,3 +236,60 @@ Full cereal decode of the earlier ramp segment and the two newer segments spanni
 | Successful exit | 1201 | 23.82 | 63.16 | 0 |
 
 Intervals use successive logMonoTime differences and statistics.quantiles (exclusive). Missing IDs sum positive forward gaps within each segment. All three segments have 1200 roadCameraState publications. Older logs contain explicit Jetlink timing and slow-frame messages. Model weight identity was not recovered from these measurements. Keep update cadence as a separate variable when comparing path prediction, entry speed and delayed unwind. These segment-level differences do not identify the cause of an individual intervention. The GPS pairing timestamps did not exactly match model publication times in the attempted join; no paired timing estimate is reported.
+
+## 2026-11-17 independent integration: guarded offline control bridge
+
+Parent integration: `51afc23e75f14044d4ac466752b6c1fda3b32fbd` on
+`test/carrot-pr52-integration-20261117`. Base remains
+`b95058a5be9ffcda58f15b1dc279e4bb99083f3a`; PR #52 head is
+`2be5ceb6baf80444c8ace7c976fc60dc432e5021`.
+
+The bridge executes pinned production **pre-LaC scalar** statements extracted
+from controlsd and drive_helpers after full Git blob verification. It does not
+instantiate Controls or import messaging/Params. Independent A/C state persists
+at 100 Hz. Actual model-mode selection is used; unsupported lane/VW paths stop
+the trial without fabricating a command. Default shadow selects A; explicitly
+selected isolated mode selects C in memory/local output only. No actuator sink,
+startup option, vehicle deployment or production-code import was added.
+
+Local Python 3.12 validation:
+
+- `python -m pytest -o addopts='' --confcutdir=openpilot/tools/curve_centering openpilot/tools/curve_centering/tests -q`:
+  161 passed. Four environment/config warnings (pytest plugin deprecation and
+  missing asyncio/cpp plugin config support); no skipped test reported.
+- `python -m ruff check openpilot/tools/curve_centering`: passed (0.17.5).
+- New tests compare 2,000 combinations of the actual source statements against
+  the preexisting scalar reference; source drift is rejected. Real Observer
+  records reach nonzero isolated output. Driver steering/gas/brake, maneuver,
+  inactive/low speed, stale/missing/future/invalid inputs, control clock failure,
+  consumed-ID mismatch, same-model mutation, geometry failure, tracking failure,
+  saturation/safety-limit, selected lane/VW mode and stable reentry are exercised.
+- `python -m openpilot.tools.curve_centering.bridge_demo --output <new-directory>`:
+  3,500 fixed-input ticks, 14 fault types. Both modes had 500 nonzero hypothetical
+  injection ticks and 212 ticks with injection withdrawn but smoothing difference
+  still above 1e-12 /m. Maximum A/C curvature difference 0.00173611111083532 /m.
+  These are software observations, not physical handover or trajectory results.
+- Both `control_bridge` CLI modes replayed the generated JSONL. All 3,500 output
+  rows per mode matched the direct demo outputs exactly.
+- Re-ran `python -m openpilot.tools.curve_centering.simulation --output <json>`:
+  all 320 scenarios x 3 gains retained. Entire JSON is byte-identical to the
+  pre-bridge run. Covered low-gain U: 12 regressions, 12 invalid pairs among
+  192 cases; covered nominally feasible subset: 24 lane exceedances among 96.
+- Re-ran `node openpilot/tools/curve_centering/spatial-ramp.mjs`: all eight rows
+  byte-identical. The delay=0.3, bias=0.3, preview=true case still has exit error
+  0.8670167948312135 m > assumed 0.85 m. Four no-preview trials do not complete.
+
+The bridge intentionally prevents *new* injection on failed guards; it does not
+silently reset production smoothing history to claim immediate physical handover.
+The 212 residual ticks are an explicit remaining integration limitation. Invalid
+control inputs/unsupported modes return null and stop the scalar trial; null
+must never be converted to a vehicle command. Existing original-C and U negative
+results are not replaced by the bridge fault-injection test counts.
+
+The focused push workflow now includes this independent branch and retains
+synthetic falsification, spatial-ramp and bridge artifacts. Local execution is
+reported separately from remote CI. Full native control build, real-log bridge
+replay, actuator/EPS/Panda integration, calibrated closed-loop and physical
+handover tests were not performed. No C4 connection, installation, deployment,
+vehicle action or raw private data publication occurred. Vehicle actuation
+remains blocked by these evidence gaps and reproduced counterexamples.

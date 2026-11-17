@@ -4,11 +4,15 @@ on:
     paths:
       - "openpilot/tools/curve_centering/**"
       - ".github/workflows/curve-centering-observer.yml"
+      - "openpilot/selfdrive/controls/controlsd.py"
+      - "openpilot/selfdrive/controls/lib/drive_helpers.py"
   push:
-    branches: ["research/curve-centering-observer-*"]
+    branches: ["research/curve-centering-observer-*", "test/carrot-pr52-integration-20261117"]
     paths:
       - "openpilot/tools/curve_centering/**"
       - ".github/workflows/curve-centering-observer.yml"
+      - "openpilot/selfdrive/controls/controlsd.py"
+      - "openpilot/selfdrive/controls/lib/drive_helpers.py"
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,7 +35,18 @@ jobs:
       - run: python -m ruff check openpilot/tools/curve_centering
       - name: Synthetic closed-loop falsification
         run: python -m openpilot.tools.curve_centering.simulation --output curve-simulation.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Isolated production scalar bridge and retained ramp counterexample
+        run: |
+          python -m openpilot.tools.curve_centering.bridge_demo --output bridge-results
+          node openpilot/tools/curve_centering/spatial-ramp.mjs > spatial-ramp.jsonl
       - uses: actions/upload-artifact@v4
         with:
           name: curve-synthetic-falsification
-          path: curve-simulation.json
+          path: |
+            curve-simulation.json
+            spatial-ramp.jsonl
+            bridge-results/summary.json
+            bridge-results/results.jsonl

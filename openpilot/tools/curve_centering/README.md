@@ -224,3 +224,70 @@ sqrt(2.4/0.01) = 15.49 m/s (55.77 km/h) at the curve. This is not a speed
 recommendation for the user's interchange. Integration of longitudinal dynamics
 and uncertain preview remains pending; this function alone does not establish
 that deceleration happened early enough in the real recordings.
+
+## 獨立分支：可執行的隔離控制接線（2026-11-17）
+
+本節描述 `test/carrot-pr52-integration-20261117` 的新增介面。已接通的是：
+**Observer 輸出 → 每個控制步的防護 → C 候選 → 此分支實際曲率選擇／平滑／限幅
+程式 → 記憶體中的比較輸出**。不是只列出候選修正量；可以看到限幅後的差異與退出殘留。
+沒有接到執行中的 controlsd、LaC 扭力／角度控制器、carControl 發布或 CAN。
+車上安裝這個分支不會啟用過彎修正；沒有新增 Params、車機選項或開機程序。
+
+`source_control.py` 校驗 `controlsd.py`、`drive_helpers.py` 的完整 Git blob 雜湊，
+只抽取經核對的純量程式敘述，在沒有 Params／messaging 的 namespace 執行。
+執行的是實際首次橫向啟用處理、模式選擇、模型曲率平滑及 `clip_curvature`，
+不是再複製一份公式作為「已接線」證據。來源變動會拒絕執行，需重新審查及驗證 pin。
+這仍不涵蓋完整 Controls 程序、原生車輛模型、扭力控制器或 Panda 安全檢查。
+
+Python 3.12，從儲存庫根目錄執行；先在桌面環境準備依賴：
+
+```bash
+python -m pip install pycapnp==2.1.0 zstandard pytest numpy ruff==0.17.5
+# 自造 35 秒、3500 步資料，經真正 Observer，注入 14 種故障；目錄必須尚未存在
+python -m openpilot.tools.curve_centering.bridge_demo --output /tmp/curve-bridge-demo
+# 預設 shadow：選出基準輸出，候選只作比較
+python -m openpilot.tools.curve_centering.control_bridge /tmp/curve-bridge-demo/inputs.jsonl \
+  --output /tmp/curve-shadow.jsonl
+# 明確選 isolated：候選送到本機結果檔／記憶體，仍無任何致動介面
+python -m openpilot.tools.curve_centering.control_bridge /tmp/curve-bridge-demo/inputs.jsonl \
+  --mode isolated --output /tmp/curve-isolated.jsonl
+```
+
+這些命令準備完依賴後可斷網執行，不需 C4 或私人 rlog。輸出檔也必須尚未存在。
+`summary.json` 顯示防護原因與殘留差異；`results.jsonl` 逐步保留兩種模式。
+`selected_curvature` 只是離線試驗選出的純量，`vehicle_output` 與
+`deployment_approved` 永遠為 false。示範是固定合成輸入，不是閉迴路車輛模擬。
+原來 `simulation` 與 `spatial-ramp.mjs` 是分開的否證工具，仍須執行並查看負面結果。
+
+自備桌面測試介面可使用 `ControlBridge.step(ControlTick(...), observation)`。
+JSONL 每行為 `{"tick": {...}, "observation": {...}}`，完整欄位見
+`ControlTick` 及示範的 `inputs.jsonl`。時間全部是同一單調時鐘的整數奈秒。
+observation envelope 含 `model_ns`（確切消費的模型 ID）、`available_ns`
+（Observer 輸出可取得時間）、完整 `row`；同一模型重複使用時內容不得改變。
+不能拿較晚才完成的 lateralPlan 結果回填更早的控制步。
+`lat_active` 須由測試端提供已完成原生許可／故障判定的結果，不能把模型或 observer
+eligible 當成啟用許可。此工具不從歷史日誌猜測這個結果；也不將 20 Hz 報告冒充
+完整 100 Hz 消費輸入。未知輸入必須標為未知，不要填 false 來通過防護。
+
+防護與啟用條件：
+
+- 預設 shadow；只有明確選 isolated 才在本機結果中選候選。兩者都沒有車輛輸出。
+- 每次呼叫重查駕駛方向盤／油門／煞車介入、變道／方向燈意圖、latActive、
+  飽和、既有安全限幅、低速。布林欄位必須明確，缺失／未知不當成通過。
+- 模型與 liveParameters 最長 200 ms、carState 最長 30 ms；控制間距須為
+  5–15 ms。模型 ID、action、Observer 時間須對上，未來資料不可用。
+- 使用生產模式選擇式；`useLaneLines` 單獨不代表實際使用車道模式。
+  真正車道模式或 VW MEB 會停止純量試驗，回傳 null，沒有假造這些模式的 fallback。
+- Observer 必須已通過自身幾何／時間／意圖防護，20 m 相對幾何有效、追蹤誤差
+  不超過既有候選門檻，且再次連續穩定一秒。同一模型重複控制步不累加穩定時間。
+- 任何防護失敗立即撤回新修正並重置候選穩定時間；重新進入須重新累積。
+  當前速度用於將候選加速度修正轉成曲率。既有生產平滑／限幅仍在其後執行。
+- 無法計算基準時 `selected_curvature=null`，表示試驗中斷，**不是零曲率的車控指令**。
+
+**尚未接入車輛致動的具體原因：** C 候選已有越界／退化案例，沒有獨立車身中心
+或道路真值；同模型幾何不等於實際置中。撤回修正後的平滑殘留被明確記為
+`residual_curvature`，不把立即撤回注入量稱為無擾交接。低 gain、誤差界限內且
+名義可行的 96 案仍有 24 案超過假設餘量；另一空間右彎仍有 0.867 m > 0.85 m。
+U 的假設誤差界限沒有冒充量測值，這個 bridge 只串接原始 C 候選。
+尚需獨立幾何校驗、經校準且耦合縱橫向的閉迴路測試、完整原生控制鏈與退出／重入
+驗證，才能重新評估是否適合接入致動。這份交付不提供上路測試流程。
