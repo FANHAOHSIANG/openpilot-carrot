@@ -6,7 +6,7 @@ import threading
 import time
 from typing import Any, TYPE_CHECKING
 
-from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_payload
+from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_payload, shared_pre_adjust_payload
 
 if TYPE_CHECKING:
   from openpilot.selfdrive.carrot.carrot_navi import CarrotNaviReceiver
@@ -202,6 +202,7 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
 
   status_record = _record(snapshot, "navigation_status")
   status = _dict(status_record.get("value")) if status_record.get("present") else {}
+  shared_source, shared_deadline = shared_pre_adjust_payload(status_record, _record(snapshot, "guidance_current"), publish_mono_ns)
 
   return {
     "schemaVersion": SCHEMA_VERSION,
@@ -305,6 +306,8 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
       "guidanceActive": bool(status.get("guidance_active", False)),
       "offRoute": bool(status.get("off_route", False)),
       "routePresent": bool(status.get("route_present", False)),
+      "sharedPreAdjustSource": shared_source,
+      "sharedPreAdjustDeadlineMonoTimeNanos": shared_deadline,
     },
   }
 

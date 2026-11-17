@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 from openpilot.common.constants import CV
 from openpilot.selfdrive.carrot.gps_sources import GPSSources
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
-from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate
+from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate, shared_pre_adjust_candidate
 
 
 def main():
@@ -50,7 +50,8 @@ def main():
                              messaging=types.SimpleNamespace(new_message=new_message),
                              CarrotNaviControl=CarrotNaviControl,
                              parse_carrot_navi_control=parse_carrot_navi_control,
-                             pre_adjust_candidate=pre_adjust_candidate))
+                             pre_adjust_candidate=pre_adjust_candidate,
+                             shared_pre_adjust_candidate=shared_pre_adjust_candidate))
   exec(compile(tree, str(path), 'exec'), module.__dict__)
   sys.modules[module.__name__] = module
   # The sandbox may prohibit NIC enumeration. Discovery tests still exercise
@@ -58,7 +59,7 @@ def main():
   psutil.net_if_addrs = lambda: {}
   tests = ROOT / 'openpilot/selfdrive/carrot/tests'
   return pytest.main(['-q', *(str(tests / name) for name in (
-    'test_carrot_pre_adjust.py', 'test_carrot_navi.py',
+    'test_carrot_pre_adjust.py', 'test_carrot_shared_pre_adjust.py', 'test_carrot_navi.py',
     'test_carrot_navi_control.py', 'test_carrot_navi_serv.py',
   ))])
 
