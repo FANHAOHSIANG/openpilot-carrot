@@ -51,6 +51,9 @@ python tools/signal_validation/run.py \
   openpilot/selfdrive/car/tests/test_canfd_steering_safety_config.py \
   openpilot/selfdrive/car/tests/test_cruise_settings.py \
   openpilot/selfdrive/car/tests/test_cruise_timing.py \
+  openpilot/selfdrive/controls/tests/test_desire_helper_stalk.py \
+  openpilot/selfdrive/controls/tests/test_lane_change_completion.py \
+  openpilot/selfdrive/controls/tests/test_lane_change_takeover.py \
   openpilot/selfdrive/controls/tests/test_hkg_phase1.py \
   openpilot/selfdrive/controls/tests/test_low_speed_steer_reserve.py \
   openpilot/selfdrive/controls/tests/test_lateral_startup_control.py \

@@ -98,3 +98,12 @@ def test_confirmed_completion_keeps_an_explicit_queued_driver_request(direction)
   assert helper.lane_change_state == log.LaneChangeState.preLaneChange
   assert not helper.next_lane_change
   assert helper.queued_lane_change == (BLINKER_LEFT if direction == 1 else BLINKER_RIGHT)
+
+
+@pytest.mark.parametrize('missing', ['canTimeout', 'frameId'])
+def test_missing_observation_cannot_confirm_lane_change(missing):
+  observer = LaneChangeCompletion()
+  for n, row in enumerate(crossing(1)):
+    car, model = cs(), md(n, *row)
+    delattr(car if missing == 'canTimeout' else model, missing)
+    assert not observer.update(10 + n * .05, model, car, 1, active=True, valid=True)

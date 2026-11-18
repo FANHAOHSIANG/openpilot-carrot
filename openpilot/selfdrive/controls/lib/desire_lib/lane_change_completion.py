@@ -17,15 +17,19 @@ class LaneChangeCompletion:
     self.delivered = False
 
   def update(self, now, md, cs, direction, *, active, valid):
-    if (not active or not valid or direction not in (1, 2) or not cs.canValid or cs.canTimeout or
-        cs.trailerConnected or str(cs.gearShifter) != 'drive' or
+    if (not active or not valid or direction not in (1, 2) or not getattr(cs, "canValid", False) or getattr(cs, "canTimeout", True) or
+        getattr(cs, "trailerConnected", True) or str(getattr(cs, "gearShifter", None)) != 'drive' or
         not all(math.isfinite(v) for v in (cs.vEgo, cs.steeringTorque)) or cs.vEgo < 30 / 3.6 or
         (cs.steeringPressed and cs.steeringTorque * (1 if direction == 1 else -1) < 0)):
       self.reset()
       return False
     if direction != self.direction or self.checked is not None and not 0 < now - self.checked <= .15:
       self.reset()
-    if self.frame == md.frameId:
+    frame = getattr(md, "frameId", None)
+    if frame is None:
+      self.reset()
+      return False
+    if self.frame == frame:
       return False
     try:
       left, right = float(md.laneLines[1].y[0]), float(md.laneLines[2].y[0])
@@ -38,7 +42,7 @@ class LaneChangeCompletion:
     except (AttributeError, IndexError, TypeError, ValueError):
       self.reset()
       return False
-    self.direction, self.frame, self.checked = direction, md.frameId, now
+    self.direction, self.frame, self.checked = direction, frame, now
     selected = abs(left if direction == 1 else right)
     if self.nearest is None or selected < self.nearest[0]:
       self.nearest = selected, left, right
