@@ -5,6 +5,7 @@ import pytest
 from opendbc.car import Bus, structs, get_safety_config
 from opendbc.car.hyundai import carcontroller
 from opendbc.car.hyundai.values import CAR, HyundaiSafetyFlags as F
+from opendbc.safety.tests.common import CANPackerPanda
 from opendbc.safety.tests.libsafety import libsafety_py
 
 
@@ -47,3 +48,25 @@ def test_classic_controller_stream(monkeypatch, model, flags, custom, period):
         sent.append(output.torqueOutputCan)
   assert len(sent) > 1300
   assert max(sent) >= 100 and min(sent) <= -100
+
+
+@pytest.mark.parametrize('flags,maximum,rate_up', [(0, 512, 10), (int(F.ALT_LIMITS), 512, 10),
+                                                  (int(F.ALT_LIMITS_2), 170, 2)])
+@pytest.mark.parametrize('sign', [-1, 1])
+def test_classic_rejects_steering_outside_limits(flags, maximum, rate_up, sign):
+  safety = libsafety_py.libsafety
+  packer = CANPackerPanda('hyundai_kia_generic')
+
+  # Each packet starts from the same valid history as its boundary counterpart.
+  for previous, requested, allowed in [(maximum, maximum, True), (maximum, maximum + 1, False),
+                                       (0, rate_up, True), (0, rate_up + 1, False)]:
+    assert safety.set_safety_hooks(structs.CarParams.SafetyModel.hyundai, flags) == 0
+    safety.init_tests()
+    safety.set_controls_allowed(True)
+    safety.set_torque_driver(0, 0)
+    safety.set_desired_torque_last(sign * previous)
+    safety.set_rt_torque_last(sign * previous)
+    packet = packer.make_can_msg_panda('LKAS11', 0, {
+      'CR_Lkas_StrToqReq': sign * requested, 'CF_Lkas_ActToi': 1,
+    })
+    assert bool(safety.safety_tx_hook(packet)) is allowed, (flags, sign, previous, requested)
