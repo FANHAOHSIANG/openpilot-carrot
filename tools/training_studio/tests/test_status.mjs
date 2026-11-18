@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {workerLabel,pipelineNotice,collectionMessage,teacherMessage,teacherLossHistory,teacherValidationSummary} from '../web/status.mjs';
+import {workerLabel,pipelineNotice,collectionMessage,teacherMessage,teacherLossHistory,teacherValidationSummary,reasoningSummary} from '../web/status.mjs';
 test('active download is not displayed as training or a disconnected worker',()=>{
   const value={enabled:true,worker:{fresh:true,state:'collecting'},pipeline:{blockers:['缺少 validation, test']},collection_progress:{filename:'rlog.zst',bytes:1048576,total:2097152}};
   assert.equal(workerLabel(value),'同步行車資料');
@@ -30,6 +30,8 @@ test('teacher validation failure and inference progress are explicit, without fa
   assert.match(teacherMessage(value).progress,/第 11 輪 · 安全優先候選 · Epoch 6 固定快照/);
   value.teacher.qualification.batch='/teacher-cycles/cycle-013/qualification-balanced-early-epoch004-policy-crossing-v1';
   assert.match(teacherMessage(value).progress,/第 13 輪 · 綜合損失候選 · Epoch 4 固定快照 · 行人全程停讓指令/);
+  value.teacher.qualification.batch='/teacher-cycles/cycle-019/qualification-balanced-early-epoch002-stage-visual-decision';
+  assert.match(teacherMessage(value).progress,/第 19 輪 · 綜合損失候選 · Epoch 2 固定快照 · 視覺決策微調/);
   value.teacher.qualification.failures=['insufficient_progress'];
   assert.match(teacherMessage(value).progress,/行駛進度不足/);
   value.time=200;
@@ -51,4 +53,13 @@ test('previous real losses stay clearly labeled while a new round has no optimiz
   assert.match(teacherLossHistory(value).label,/中斷前的實際 loss/);
   value.teacher_training.history=[{train_loss:1,validation_loss:2}];
   assert.match(teacherLossHistory(value).label,/第 4 輪實際/);
+});
+
+test('visual decision experiment remains distinct from actual driving qualification and stale jobs',()=>{
+  assert.equal(reasoningSummary({}),null);
+  const value={time:100,teacher_reasoning:{experiment_only:true,updated:99,phase:'training',epoch:4,epochs:6,batch:12,batches:188,history:[{epoch:3,ce:1.23456}]}};
+  assert.match(reasoningSummary(value),/隔離視覺決策實驗/);assert.match(reasoningSummary(value),/Epoch 4 \/ 6/);assert.match(reasoningSummary(value),/1.23456/);assert.match(reasoningSummary(value),/不是完整行車資格結果/);
+  value.teacher_reasoning.history[0]={ce:.5,decision_correct:98,decision_samples:100,decision_ce:.25};assert.match(reasoningSummary(value),/首決策 token 命中 98 \/ 100/);
+  value.time=500;assert.match(reasoningSummary(value),/回報已過期/);
+  value.teacher_reasoning.phase='completed';assert.doesNotMatch(reasoningSummary(value),/回報已過期/);
 });

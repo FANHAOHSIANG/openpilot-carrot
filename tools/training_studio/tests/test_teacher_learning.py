@@ -9,6 +9,51 @@ HAS_TORCH=importlib.util.find_spec('torch') is not None
 
 @unittest.skipUnless(HAS_TORCH,'GPU training environment supplies torch')
 class TeacherLearningTest(unittest.TestCase):
+  def test_moving_approach_commands_supervise_braking_without_forcing_brakes_on_distant_approaches(self):
+    import torch
+    from tools.training_studio.teacher_train import immediate_command_loss
+    for target_acceleration in (-2.4,1.2):
+      target=torch.full((1,64),target_acceleration)
+      prediction=torch.zeros_like(target,requires_grad=True)
+      loss=immediate_command_loss(prediction-target);loss.backward()
+      self.assertTrue(torch.isfinite(prediction.grad).all())
+      self.assertTrue(bool((prediction.grad[:,:10]*target_acceleration<0).all()))
+      self.assertEqual(float(prediction.grad[:,20:].abs().sum()),0.)
+    pulse=torch.zeros(1,64);pulse[:,0]=.2;pulse[:,1]=-.2;pulse.requires_grad_()
+    self.assertEqual(float(pulse.mean()),0.)
+    hold=immediate_command_loss(pulse);self.assertGreater(float(hold),0.);hold.backward()
+    self.assertGreater(float(pulse.grad[0,0]),0.);self.assertLess(float(pulse.grad[0,1]),0.)
+    early=torch.zeros(1,64);early[:,3:10]=2
+    late=torch.zeros_like(early);late[:,13:20]=2
+    self.assertGreater(float(immediate_command_loss(early)),float(immediate_command_loss(late)))
+
+  def test_first_decision_error_cannot_hide_behind_correct_template_completion(self):
+    import torch
+    from tools.training_studio.teacher_reasoning_train import decision_objective
+    target=torch.zeros(1,20,dtype=torch.long)
+    early=torch.zeros(1,20,2);early[...,0]=6;early[:,0,0]=0;early[:,0,1]=6
+    late=torch.zeros_like(early);late[...,0]=6;late[:,-1,0]=0;late[:,-1,1]=6
+    first,mean_first,_=decision_objective(early,target);last,mean_last,_=decision_objective(late,target)
+    torch.testing.assert_close(mean_first,mean_last)
+    self.assertGreater(float(first),10*float(last))
+    early.requires_grad_();loss,_,_=decision_objective(early,target);loss.backward()
+    self.assertTrue(torch.isfinite(early.grad).all())
+    self.assertLess(float(early.grad[0,0,0]),0.)
+    self.assertGreater(float(early.grad[0,0].abs().sum()),100*float(early.grad[0,1].abs().sum()))
+
+  def test_restart_supervision_prioritizes_executed_commands_over_equally_wrong_later_commands(self):
+    import torch
+    from tools.training_studio.teacher_train import restart_command_loss
+    early=torch.zeros(1,64);early[:,:3]=1.6
+    late=torch.zeros_like(early);late[:,17:20]=1.6
+    torch.testing.assert_close(early[:,:20].square().mean(),late[:,:20].square().mean())
+    self.assertGreater(float(restart_command_loss(early)),10*float(restart_command_loss(late)))
+    prediction=torch.zeros_like(early,requires_grad=True)
+    loss=restart_command_loss(prediction-early);loss.backward()
+    self.assertTrue(bool((prediction.grad[:,:3]<0).all()))
+    self.assertEqual(float(prediction.grad[:,20:].abs().sum()),0.)
+    self.assertEqual(float(restart_command_loss(torch.zeros_like(early))),0.)
+
   def test_permitted_motion_loss_has_a_restart_gradient_at_zero_velocity_and_preserves_turn_direction(self):
     import torch
     from tools.training_studio.teacher_train import proceed_velocity_loss
@@ -168,6 +213,48 @@ class TeacherLearningTest(unittest.TestCase):
       torch.manual_seed(3); restored=Model()
       load(restored,path)
       torch.testing.assert_close(model(x),restored(x))
+
+  def test_combined_checkpoint_keeps_frozen_visual_decisions_during_expert_continuation(self):
+    import torch
+    from torch import nn
+    from safetensors.torch import save_file
+    from tools.training_studio.teacher_lora import DeltaLinear,install,expand,load,adapter_parameters,reasoning_path
+    class Model(nn.Module):
+      def __init__(self):
+        super().__init__()
+        self.config=SimpleNamespace(vlm_config=SimpleNamespace(text_config=SimpleNamespace(num_hidden_layers=8)))
+        self.vlm=nn.Module();self.vlm.model=nn.Module();self.vlm.model.language_model=nn.Module()
+        self.vlm.model.language_model.layers=nn.ModuleList()
+        for index in range(8):
+          layer=nn.Module();layer.self_attn=nn.Module();layer.self_attn.q_proj=nn.Linear(4,4);layer.self_attn.v_proj=nn.Linear(4,4)
+          self.vlm.model.language_model.layers.append(layer)
+        self.expert=nn.Module();self.expert.expert=nn.Module();self.expert.expert.block=nn.Module();self.expert.expert.block.q_proj=nn.Linear(4,4);self.expert.action_out_proj=nn.Linear(4,2)
+      def forward(self,x):
+        features=sum(layer.self_attn.q_proj(x)+layer.self_attn.v_proj(x) for layer in self.vlm.model.language_model.layers)
+        return self.expert.action_out_proj(self.expert.expert.block.q_proj(features))
+    torch.manual_seed(17);model=Model();install(model);expand(model)
+    name='vlm.model.language_model.layers.7.self_attn.q_proj';parent=model.get_submodule(name.rpartition('.')[0]);parent.q_proj=DeltaLinear(parent.q_proj)
+    with torch.no_grad():parent.q_proj.b.normal_(std=.03)
+    model.vlm.requires_grad_(False);x=torch.randn(3,4)
+    frozen={key:p.detach().clone() for key,p in model.vlm.named_parameters()}
+    torch.optim.SGD((p for p in model.parameters() if p.requires_grad),lr=.00001).zero_grad()
+    model(x).square().mean().backward()
+    torch.optim.SGD((p for p in model.parameters() if p.requires_grad),lr=.00001).step()
+    for key,p in model.vlm.named_parameters():torch.testing.assert_close(p,frozen[key])
+    saved=adapter_parameters(model)
+    self.assertIn(name+'.a',saved);self.assertIn(name+'.b',saved)
+    self.assertFalse(any('.base.' in key for key in saved))
+    for invalid in ('vlm.model.language_model.layers.0.self_attn.q_proj','vlm.model.language_model.layers.8.self_attn.q_proj','vlm.model.language_model.layers.7.self_attn.k_proj','vlm.model.visual.q_proj'):
+      self.assertFalse(reasoning_path(model,invalid))
+      with tempfile.TemporaryDirectory() as directory:
+        path=Path(directory)/'invalid.safetensors';save_file({invalid+'.a':torch.zeros(8,4)},str(path))
+        with self.assertRaises(ValueError):load(Model(),path)
+    with tempfile.TemporaryDirectory() as directory:
+      path=Path(directory)/'combined.safetensors';save_file({k:p.detach().contiguous() for k,p in saved.items()},str(path))
+      torch.manual_seed(17);restored=Model();load(restored,path);restored.vlm.requires_grad_(False)
+      torch.testing.assert_close(model(x),restored(x))
+      self.assertEqual(set(saved),set(adapter_parameters(restored)))
+      self.assertTrue(all(not p.requires_grad for p in restored.vlm.parameters()))
 
   def test_inference_context_copy_is_independent_and_normal_for_backprop(self):
     import torch

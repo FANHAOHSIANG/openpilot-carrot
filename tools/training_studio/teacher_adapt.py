@@ -181,7 +181,7 @@ def main():
           import tarfile,io
           stream=io.BytesIO()
           with tarfile.open(fileobj=stream,mode='w:gz') as archive: archive.add(data,arcname='data')
-          remote.call('tar -xzf - -C '+shlex.quote(destination),input=stream.getvalue(),timeout=300)
+          remote.call('tar -xzf - -C '+shlex.quote(destination),input=stream.getvalue(),timeout=600)
           report('prefill',cycle=cycle,epoch=0,epochs=settings.get('epochs',12),history=[])
           container=f'studio-teacher-train-{cycle:03d}'
           active_container=container
@@ -204,6 +204,7 @@ def main():
             '--output',f'/studio/teacher/cycle-{cycle:03d}/output','--parent',state['parent']['path'],'--parent-sha256',state['parent']['sha256'],
             '--epochs',str(settings.get('epochs',12)),'--learning-rate',str(settings.get('learning_rate',1e-5)),
             '--lease',f'/studio/teacher/cycle-{cycle:03d}/lease','--expanded-expert']
+          if settings.get('optimizer')=='paired_pcgrad_sgd': args.append('--paired-stop-go')
           child=subprocess.Popen(remote.command(command(args)),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
           with (folder/'train.log').open('w') as log:
             for line in child.stdout:
@@ -228,7 +229,7 @@ def main():
             if checksum in seen: continue
             seen.add(checksum)
             pointer={'path':f'/studio/teacher/cycle-{cycle:03d}/output/'+filename,'sha256':checksum,
-              'cycle':cycle,'training_epoch':epoch,'selection':selection,'scope':'actual_Edge_expert_expanded_LoRA','driving_qualified':False}
+              'cycle':cycle,'training_epoch':epoch,'selection':selection,'scope':result.get('adapter_scope','actual_Edge_expert_expanded_LoRA'),'driving_qualified':False}
             report('qualification',cycle=cycle,selection=selection)
             health=publish_service(pointer)
             fingerprint=hashlib.sha256(json.dumps(health['provenance'],sort_keys=True).encode()).hexdigest()

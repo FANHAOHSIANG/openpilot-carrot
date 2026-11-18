@@ -12,6 +12,7 @@ import tempfile
 import time
 
 IMPLEMENTATION_SHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+OBJECTIVE_REVISION='ten_step_immediate_stop_and_restart_v2'
 
 
 def observed_inputs(sample):
@@ -94,6 +95,21 @@ def proceed_velocity_loss(velocity,reference_velocity):
   return 200*error.amax()+50*error.mean()
 
 
+def immediate_command_loss(accel_error):
+  """Match the next executed commands, including moving stop approaches.
+
+  Rollout position error alone can defer braking until a later replan. These
+  offline inverse-dynamics targets preserve acceleration on distant approaches
+  and teach braking where safe reference trajectories actually brake.
+  """
+  return 50*accel_error[:,:3].square().mean()+20*accel_error[:,:10].square().mean()+10*accel_error[:,:20].square().mean()
+
+
+def restart_command_loss(accel_error):
+  """Compatibility name for the same immediate permitted-restart supervision."""
+  return immediate_command_loss(accel_error)
+
+
 def rollout(model,item,*,grad,seed=42):
   import torch
   from torch.utils.checkpoint import checkpoint
@@ -126,10 +142,13 @@ def main():
   parser.add_argument('--parent',type=Path)
   parser.add_argument('--parent-sha256')
   parser.add_argument('--epochs',type=int,default=12)
-  parser.add_argument('--learning-rate',type=float,default=3e-5)
+  parser.add_argument('--learning-rate',type=float)
+  parser.add_argument('--paired-stop-go',action='store_true',help='Pair stop/proceed gradients with PCGrad and guarded SGD')
   parser.add_argument('--expanded-expert',action='store_true')
   parser.add_argument('--lease',type=Path)
   args=parser.parse_args()
+  if args.learning_rate is None: args.learning_rate=.01 if args.paired_stop_go else 3e-5
+  if not 0<args.learning_rate<=(.1 if args.paired_stop_go else .001): raise ValueError('invalid optimizer learning rate')
   if args.lease:
     def watchdog():
       changed,stamp=time.monotonic(),None
@@ -148,7 +167,7 @@ def main():
   from alpamayo2_edge.helper import get_processor,to_device
   from alpamayo2_edge.inference import predict
   from tools.training_studio.edge_inputs import MODEL_REVISION,prepare_front_inputs
-  from tools.training_studio.teacher_lora import install,load,expand
+  from tools.training_studio.teacher_lora import install,load,expand,adapter_parameters
   from tools.training_studio.store import write_json
   args.output.mkdir(parents=True,exist_ok=False)
   prefix_directory=tempfile.TemporaryDirectory(prefix='prefix-',dir=args.output)
@@ -164,10 +183,14 @@ def main():
     load(model,args.parent)
   else: install(model)
   if args.expanded_expert: expand(model)
+  # A saved visual-decision adapter is part of the parent, but this stage
+  # optimizes the expert against its newly generated, frozen contexts only.
+  model.vlm.requires_grad_(False)
   from tools.training_studio.teacher_motion import install as install_motion
   install_motion(model.expert.action_space)
   model.eval()
   parameters={name:p for name,p in model.named_parameters() if p.requires_grad}
+  adapter_scope='actual_Edge_expert_and_VLM_LoRA' if any(name.startswith('vlm.') for name in adapter_parameters(model)) else 'actual_Edge_expert_expanded_LoRA'
   processor=get_processor(model.tokenizer,model.config)
   settings={'seed':42,'num_traj_sets':1,'num_traj_samples':1,'top_p':.98,'top_k':None,'temperature':.6,'max_generation_length':256,'diffusion_kwargs':{'inference_step':10}}
   manifest=json.loads((args.data/'manifest.json').read_text())
@@ -184,7 +207,7 @@ def main():
   model._sample_actions=capture
   history=[]
   def emit(phase,**fields):
-    value={'phase':phase,'stage':None,'epochs':args.epochs,'history':history,'updated':time.time(),
+    value={'phase':phase,'optimization_profile':'paired_stop_go_pcgrad_sgd_v1' if args.paired_stop_go else 'single_sample_adamw_backtracking_v1','learning_rate':args.learning_rate,'adapter_scope':adapter_scope,'stage':None,'objective_revision':OBJECTIVE_REVISION,'epochs':args.epochs,'history':history,'updated':time.time(),
       'cuda_budget_gib':cuda_budget/1024**3,'cuda_allocated_gib':torch.cuda.memory_allocated()/1024**3,
       'cuda_reserved_gib':torch.cuda.memory_reserved()/1024**3,'cuda_peak_allocated_gib':torch.cuda.max_memory_allocated()/1024**3,**fields}
     write_json(args.output/'progress.json',value)
@@ -243,7 +266,7 @@ def main():
     if item['row'].get('restart_required'):
       accel_std=model.expert.action_space.accel_std.to(action.device)
       restart_error=(action[...,0]-item['target_action'].to(action.device)[...,0])*accel_std
-      loss=loss+10*restart_error[:,:20].square().mean()
+      loss=loss+restart_command_loss(restart_error)
     if item['row']['stop_required']:
       held=(torch.linalg.vector_norm(ref_velocity,dim=-1)<.15).float()
       loss=loss+stop_zone_loss(xyz,target,held,item['row']['front_distance_m'])
@@ -251,6 +274,10 @@ def main():
       loss=loss+200*(velocity.square().sum(-1)*held).amax()
       accel_std=model.expert.action_space.accel_std.to(action.device)
       accel_error=(action[...,0]-item['target_action'].to(action.device)[...,0])*accel_std
+      # Use the same acceleration scale as restart supervision, including
+      # parked holds: a speed-only hold penalty can underweight small
+      # positive command pulses compared with direct restart acceleration.
+      loss=loss+immediate_command_loss(accel_error)
       loss=loss+50*(accel_error[:,:20].square()*held[:,:20]).sum()/held[:,:20].sum().clamp_min(1)
       if item['row'].get('maintain_stop_reference'):
         loss=loss+held_command_loss(action,model.expert.action_space,item['ego_history_xyz'].to(action.device))
@@ -284,54 +311,63 @@ def main():
   best_metrics,best_epoch=baseline,0
   balanced_metrics,balanced_epoch=baseline,0
   best_score=(baseline['red_safe_count'],-baseline['red_hold_speed_mse'],-baseline['validation_loss'])
-  optimizer=torch.optim.AdamW(parameters.values(),lr=args.learning_rate,weight_decay=0)
+  from tools.training_studio.teacher_optim import paired_indices,paired_step
+  optimizer=(torch.optim.SGD if args.paired_stop_go else torch.optim.AdamW)(parameters.values(),lr=args.learning_rate,weight_decay=0)
   emit('training',epoch=0,baseline=baseline,trainable_parameters=sum(p.numel() for p in parameters.values()))
   for epoch in range(args.epochs):
     values=[]
-    for batch,index in enumerate(np.random.default_rng(epoch+42).permutation(len(train))):
-      optimizer.zero_grad()
-      loss,_,_=objective(train[index],True)
-      loss.backward()
-      gradients=[p.grad for p in parameters.values() if p.grad is not None]
-      if not gradients or not all(torch.isfinite(g).all() for g in gradients): raise ValueError('invalid real expert gradients')
-      torch.nn.utils.clip_grad_norm_(parameters.values(),1.)
-      before={name:p.detach().clone() for name,p in parameters.items()}
-      initial_loss=float(loss.detach())
-      optimizer.step()
-      delta={name:p.detach()-before[name] for name,p in parameters.items()}
-      scale=1.
-      with torch.no_grad():
-        observed=float(objective(train[index],False)[0])
-        for backtrack in range(5):
-          if observed<=initial_loss+max(.0001,initial_loss*.0001): break
-          scale*=.5
-          for name,p in parameters.items(): p.copy_(before[name]+scale*delta[name])
+    if args.paired_stop_go:
+      pairs=paired_indices(train,epoch)
+      for batch,(stop_index,go_index) in enumerate(pairs,1):
+        outcome=paired_step(parameters,optimizer,objective,train[stop_index],train[go_index])
+        values.append(outcome['loss'])
+        emit('training',epoch=epoch+1,batch=batch,batches=len(pairs),batch_examples=2,baseline=baseline,**outcome)
+    else:
+      for batch,index in enumerate(np.random.default_rng(epoch+42).permutation(len(train))):
+        optimizer.zero_grad()
+        loss,_,_=objective(train[index],True)
+        loss.backward()
+        gradients=[p.grad for p in parameters.values() if p.grad is not None]
+        if not gradients or not all(torch.isfinite(g).all() for g in gradients): raise ValueError('invalid real expert gradients')
+        torch.nn.utils.clip_grad_norm_(parameters.values(),1.)
+        before={name:p.detach().clone() for name,p in parameters.items()}
+        initial_loss=float(loss.detach())
+        optimizer.step()
+        delta={name:p.detach()-before[name] for name,p in parameters.items()}
+        scale=1.
+        with torch.no_grad():
           observed=float(objective(train[index],False)[0])
-        if observed>initial_loss+max(.0001,initial_loss*.0001):
-          for name,p in parameters.items(): p.copy_(before[name])
-          observed=initial_loss
-          optimizer.state.clear()
-          scale=0.
-      values.append(observed)
-      del loss,_
-      load_prefix.cache_clear()
-      release_prefix_pages(train[index]['prefix_path'])
-      torch.cuda.empty_cache()
-      emit('training',epoch=epoch+1,batch=batch+1,batches=len(train),loss=values[-1],loss_before_step=initial_loss,step_scale=scale,baseline=baseline)
+          for backtrack in range(5):
+            if observed<=initial_loss+max(.0001,initial_loss*.0001): break
+            scale*=.5
+            for name,p in parameters.items(): p.copy_(before[name]+scale*delta[name])
+            observed=float(objective(train[index],False)[0])
+          if observed>initial_loss+max(.0001,initial_loss*.0001):
+            for name,p in parameters.items(): p.copy_(before[name])
+            observed=initial_loss
+            optimizer.state.clear()
+            scale=0.
+        values.append(observed)
+        del loss,_
+        load_prefix.cache_clear()
+        release_prefix_pages(train[index]['prefix_path'])
+        torch.cuda.empty_cache()
+        emit('training',epoch=epoch+1,batch=batch+1,batches=len(train),loss=values[-1],loss_before_step=initial_loss,step_scale=scale,baseline=baseline)
     metrics=validate(epoch+1)
     history.append({'epoch':epoch+1,'train_loss':float(np.mean(values)),**metrics})
     score=(metrics['red_safe_count'],-metrics['red_hold_speed_mse'],-metrics['validation_loss'])
     if score>best_score:
       best_score=score
       best_metrics,best_epoch=metrics,epoch+1
-      save_file({name:p.detach().float().cpu().contiguous() for name,p in parameters.items()},str(args.output/'best.safetensors'))
+      save_file({name:p.detach().float().cpu().contiguous() for name,p in adapter_parameters(model).items()},str(args.output/'best.safetensors'))
     if metrics['validation_loss']<balanced_metrics['validation_loss']:
       balanced_metrics,balanced_epoch=metrics,epoch+1
-      save_file({name:p.detach().float().cpu().contiguous() for name,p in parameters.items()},str(args.output/'balanced.safetensors'))
+      save_file({name:p.detach().float().cpu().contiguous() for name,p in adapter_parameters(model).items()},str(args.output/'balanced.safetensors'))
     emit('training',epoch=epoch+1,baseline=baseline,**metrics)
   write_json(args.output/'result.json',{'revision':MODEL_REVISION,'baseline':baseline,'best':best_metrics,'best_epoch':best_epoch,
     'balanced_best':balanced_metrics,'balanced_epoch':balanced_epoch,'balanced_adapter_saved':(args.output/'balanced.safetensors').is_file(),
     'history':history,'adapter_saved':(args.output/'best.safetensors').is_file(),'qualified':False,'objective':'actual_ten_step_Euler_rollout',
+    'objective_revision':OBJECTIVE_REVISION,'adapter_scope':adapter_scope,'optimization_profile':'paired_stop_go_pcgrad_sgd_v1' if args.paired_stop_go else 'single_sample_adamw_backtracking_v1','learning_rate':args.learning_rate,
     'script_sha256':IMPLEMENTATION_SHA256,'dataset_sha256':hashlib.sha256((args.data/'manifest.json').read_bytes()).hexdigest(),
     'parent_sha256':hashlib.sha256(args.parent.read_bytes()).hexdigest() if args.parent else None,'official_sampling_max_error':sampling_error,
     'disk_sampling_max_error':disk_difference})

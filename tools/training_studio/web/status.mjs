@@ -23,8 +23,8 @@ export function teacherMessage(value){
   const fresh=Number.isFinite(t.updated)&&Math.abs(value.time-t.updated)<20;
   const connection=fresh&&t.connected?`教師接口已連線 · ${t.gpu||'GPU'} · ${t.qualified?'完整資格已通過':'尚未取得完整資格'}`:'教師接口尚未連通或心跳過期';
   const state={running:'資格驗證中',failed:'資格未通過',passed:'資格驗證通過',error:'驗證程序錯誤',interrupted:'驗證已中斷'}[q.state]||'等待資格驗證';
-  const batch=String(q.batch||'').replaceAll('\\','/').match(/cycle-(\d+)\/qualification-(safety|balanced)(?:-early-epoch(\d+))?(?:-policy-([a-z0-9-]+))?$/);
-  const candidate=batch?`第 ${Number(batch[1])} 輪 · ${batch[2]==='safety'?'安全優先候選':'綜合損失候選'}${batch[3]?` · Epoch ${Number(batch[3])} 固定快照`:''}${batch[4]==='crossing-v1'?' · 行人全程停讓指令':batch[4]?' · 輸入設定 '+batch[4]:''}`:null;
+  const batch=String(q.batch||'').replaceAll('\\','/').match(/cycle-(\d+)\/qualification-(safety|balanced)(?:-early-epoch(\d+))?(?:-policy-([a-z0-9-]+))?(?:-stage-(visual-decision))?$/);
+  const candidate=batch?`第 ${Number(batch[1])} 輪 · ${batch[2]==='safety'?'安全優先候選':'綜合損失候選'}${batch[3]?` · Epoch ${Number(batch[3])} 固定快照`:''}${batch[4]==='crossing-v1'?' · 行人全程停讓指令':batch[4]?' · 輸入設定 '+batch[4]:''}${batch[5]?' · 視覺決策微調':''}`:null;
   const reasons={lane_envelope:'超出車道邊界 (lane_envelope)',red_stop_not_sustained:'紅燈停等未持續達標 (red_stop_not_sustained)',red_hold_not_maintained:'紅燈期間未保持停車 (red_hold_not_maintained)',insufficient_progress:'行駛進度不足 (insufficient_progress)',crossed_before_permission:'允許通行前越線 (crossed_before_permission)',stop_not_observed:'未在有效區內形成停等 (stop_not_observed)',resume_not_observed:'未觀察到恢復行駛 (resume_not_observed)'};
   const fields=[candidate,state,q.scenario,Number.isFinite(q.done)?`${q.done} / ${q.total} 關卡`:null,
     Number.isFinite(q.plan)?`已完成 ${q.plan+1} 次模型推論`:null,
@@ -36,11 +36,20 @@ export function teacherMessage(value){
 }
 
 export function teacherValidationSummary(value){
-  const row=value.teacher_training?.history?.at(-1);
-  if(!row)return '';
+  const progress=value.teacher_training||{},row=progress.history?.at(-1);
   const parts=[];
-  if(row.stop_metric==='valid_stop_zone_v2'&&Number.isFinite(row.red_safe_count)&&Number.isFinite(row.red_samples))parts.push(`停止區樣本 ${row.red_safe_count} / ${row.red_samples}`);
-  if(Number.isFinite(row.go_velocity_mse))parts.push(`放行速度 MSE ${row.go_velocity_mse.toFixed(4)}`);
+  if(row?.stop_metric==='valid_stop_zone_v2'&&Number.isFinite(row.red_safe_count)&&Number.isFinite(row.red_samples))parts.push(`停止區樣本 ${row.red_safe_count} / ${row.red_samples}`);
+  if(Number.isFinite(row?.go_velocity_mse))parts.push(`放行速度 MSE ${row.go_velocity_mse.toFixed(4)}`);
+  if(progress.optimization_profile==='paired_stop_go_pcgrad_sgd_v1'){
+    parts.push('停止／通行成對最佳化');
+    if(progress.phase==='training'&&progress.stage!=='validation'&&Number.isFinite(progress.stop_loss_before_step)&&Number.isFinite(progress.go_loss_before_step)){
+      parts.push(`本對停止 loss ${progress.stop_loss_before_step.toFixed(3)} → ${progress.stop_loss.toFixed(3)}`);
+      parts.push(`本對通行 loss ${progress.go_loss_before_step.toFixed(3)} → ${progress.go_loss.toFixed(3)}`);
+      if(Number.isFinite(progress.step_scale))parts.push(progress.step_scale===0?'本次更新已撤回':`採用步幅 ${progress.step_scale}`);
+    }
+  }
+  const qualified=progress.qualified_candidate;
+  if(progress.phase==='qualified'&&qualified)parts.push(`採用第 ${qualified.cycle} 輪 Epoch ${qualified.training_epoch} 固定快照 · 最佳化實際完成 ${progress.optimizer_completed_epochs} 個 epoch`);
   return parts.join(' · ');
 }
 
@@ -48,5 +57,18 @@ export function teacherLossHistory(value){
   const current=value.teacher_training||{};
   if(current.history?.length)return {history:current.history,label:`第 ${current.cycle} 輪實際訓練／驗證 loss`};
   const saved=value.teacher_runs?.find(row=>row.history?.length);
-  return saved?{history:saved.history,label:`顯示第 ${saved.cycle} 輪${saved.completed===false?'中斷前的實際':'已完成的'} loss；目前第 ${current.cycle||'—'} 輪正在準備。`}:{history:[],label:'本輪尚無實際 loss'};
+  return saved?{history:saved.history,label:`顯示第 ${saved.cycle} 輪${saved.completed===false?'中斷前的實際':'已完成的'} loss；第 ${current.cycle||'—'} 輪尚無完成的 epoch。`}:{history:[],label:'本輪尚無實際 loss'};
+}
+
+
+export function reasoningSummary(value){
+  const p=value.teacher_reasoning;
+  if(!p?.experiment_only)return null;
+  const last=p.history?.at(-1),phase={training:'更新視覺決策權重',validation:'獨立樣本驗證',generation:'檢查實際生成',completed:'本次實驗完成',interrupted:'已封存未完成的實驗'}[p.phase]||'準備中';
+  const fresh=Number.isFinite(p.updated)&&Math.abs(value.time-p.updated)<120;
+  const counter=Number.isFinite(p.batch)&&p.phase==='training'?`batch ${p.batch} / ${p.batches}`:Number.isFinite(p.sample)?`樣本 ${p.sample} / ${p.samples}`:'';
+  const loss=Number.isFinite(last?.ce)?`獨立驗證 CE ${last.ce.toFixed(5)}`:'尚無完整獨立驗證結果';
+  const navigation=['balanced_Wait_Proceed_Left_Right_first_decision_CE_v2','balanced_scene_sampled_Wait_Proceed_Left_Right_CE_v3'].includes(p.objective);
+  const classes=navigation?Object.entries({wait:'停等',straight:'直行',left:'左轉',right:'右轉'}).map(([key,label])=>last?.maneuver_classes?.[key]?`${label}首字 ${last.maneuver_classes[key].correct}/${last.maneuver_classes[key].samples}`:null).filter(Boolean).join(' · '):'';
+  return `隔離視覺決策實驗${navigation?' · 四類均衡導航決策':''} · ${phase} · Epoch ${p.epoch||0} / ${p.epochs||'—'} · ${counter} · ${loss}${Number.isFinite(last?.decision_correct)?` · 首決策 token 命中 ${last.decision_correct} / ${last.decision_samples} · 決策 CE ${last.decision_ce.toFixed(5)}`:''}${classes?' · '+classes:''}${!fresh&&!['completed','interrupted'].includes(p.phase)?' · 回報已過期':''} · 此處不是完整行車資格結果`;
 }
