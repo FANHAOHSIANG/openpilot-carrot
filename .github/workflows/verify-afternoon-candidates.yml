@@ -28,7 +28,7 @@ jobs:
           cp openpilot/cereal/{log,deprecated,custom}.capnp opendbc_repo/opendbc/car/car.capnp "$schema/"
           cp -r openpilot/cereal/include "$schema/"
           (cd "$schema" && capnp compile -I. -oc++:. *.capnp)
-          g++ -std=c++17 -shared -fPIC -Iopenpilot -I"$RUNNER_TEMP/native" "$schema"/*.capnp.c++ openpilot/selfdrive/carrot/realtime/compact_state_native.cc -lcapnp -lkj -o "$RUNNER_TEMP/compact.so"
+          g++ -std=c++17 -shared -fPIC -Iopenpilot -I"$schema" -I"$RUNNER_TEMP/native" "$schema"/*.capnp.c++ openpilot/selfdrive/carrot/realtime/compact_state_native.cc -lcapnp -lkj -o "$RUNNER_TEMP/compact.so"
       - name: Build and run driving video metadata tests
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Iopenpilot openpilot/system/loggerd/tests/test_driving_sei.cc -o /tmp/driving-sei-test
