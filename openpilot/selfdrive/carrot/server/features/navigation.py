@@ -168,6 +168,8 @@ async def preview(request):
 
 
 def register(app):
+  from . import parking
+  parking.register(app)
   app[FAVORITES] = NavigationFavorites(CARROT_NAVIGATION_FAVORITES_PATH)
 
   from . import google_share

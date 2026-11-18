@@ -3,6 +3,7 @@ globalThis.CarrotNavigationZhTw = Object.freeze({
   "Enter destination coordinates below, or start external navigation guidance. Saving keys alone does not display a route map.": "請在下方輸入目的地座標，或啟動外部導航；只設定金鑰不會顯示路線。",
   "Latitude, longitude": "緯度, 經度", "Use coordinates": "確認座標",
 
+  "Mapped parking area / space · availability unknown": "圖資停車場／停車格・空位未確認",
   "Refresh navigation state": "重新讀取導航狀態",
   "A navigation request is already in progress.": "正在處理導航要求，請稍候。",
   "Read the navigation state again before ending navigation.": "導航狀態尚未確認，請先重新讀取。",

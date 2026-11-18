@@ -47,23 +47,31 @@ async function page(responses, language = "en", handleApi = null) {
   return { target, element, revoked, blobs: () => blobs, next: async () => { await timers.shift()(); } };
 }
 
-test('one high-confidence exact address starts the existing destination flow once after explicit search',async()=>{
-  const writes=[];
+test('coordinates navigate exactly once after confirmation even when an exact address would be available',async()=>{
+  const writes=[], searches=[];
   const p=await page([{status:204,reason:'offroad'}],'zh-TW',async(url,options)=>{
-    if(url.includes('/search?'))return {results:[{latitude:25,longitude:121,place_name:'唯一完整地址',feature_type:'address',match_confidence:'high',accuracy:'rooftop'}]};
+    if(url.includes('/search?')){searches.push(url);return {results:[{latitude:26,longitude:122,feature_type:'address',match_confidence:'high',accuracy:'rooftop'}]};}
     if(options.method==='POST'){writes.push(JSON.parse(options.body));return {destination:writes.at(-1)};}
-    if(url.endsWith('favorites'))return {favorites:[]};return {destination:null};
+    return url.endsWith('favorites')?{favorites:[]}:{destination:null};
   });
-  p.element('query').value='完整測試地址';await p.element('form').trigger('submit');assert.equal(writes.length,1);assert.equal(writes[0].place_name,'唯一完整地址');assert.equal(p.target.CarrotNavigationView.snapshot().active,true);
+  p.element('latitude').value='25';p.element('longitude').value='121';
+  p.target.window.confirm=()=>false;await p.element('form').trigger('submit');
+  assert.deepEqual(writes,[]);
+  p.target.window.confirm=()=>true;await p.element('form').trigger('submit');
+  assert.deepEqual(writes,[{latitude:25,longitude:121,place_name:'25, 121'}]);assert.deepEqual(searches,[]);
+  assert.equal(p.target.CarrotNavigationView.snapshot().active,true);
 });
-test('approximate single address and multiple addresses still require a location selection',async()=>{
-  for(const results of [[{feature_type:'address',match_confidence:'medium',accuracy:'interpolated'}],[{feature_type:'address',match_confidence:'high'},{feature_type:'address',match_confidence:'high'}]]){
-    let writes=0;
+test('address text with missing or ambiguous coordinates never queries or selects a destination',async()=>{
+  for(const [latitude,longitude] of [['完整測試地址',''],['25','121 或 122']]){
+    const requests=[];
     const p=await page([{status:204,reason:'offroad'}],'zh-TW',async(url,options)=>{
-      if(url.includes('/search?'))return {results:results.map(v=>({...v,latitude:25,longitude:121,place_name:'待確認地址'}))};
-      if(options.method==='POST')writes++;if(url.endsWith('favorites'))return {favorites:[]};return {destination:null};
+      requests.push([url,options.method]);return url.endsWith('favorites')?{favorites:[]}:{destination:null};
     });
-    p.element('query').value='待確認地址';await p.element('form').trigger('submit');assert.equal(writes,0);assert.equal(p.element('results').children.length,results.length);
+    requests.length=0;p.element('latitude').value=latitude;p.element('longitude').value=longitude;
+    await p.element('form').trigger('submit');
+    assert.deepEqual(requests,[]);assert.equal(p.element('results').children.length,0);
+    assert.equal(p.target.CarrotNavigationView.snapshot().active,false);
+    assert.match(p.element('status').textContent,/有效緯度與經度/);
   }
 });
 test("keys without a route show destination instructions instead of a black image", async () => {

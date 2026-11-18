@@ -301,6 +301,10 @@ struct CarState {
   paddleStopActive @118 :Bool; # joongyu01: card still owns a paddle stop (slowing or handed to a light); the + paddle clears it
   naviMotorway @119 :Bool; # joongyu01: fresh stock HDA 0x4A3 LinkClass 1 (motorway); road-class fallback when carrotNavi cannot say
 
+  lightingStateValid @120 :Bool; # fresh, decoded actual lamp state; false means unknown
+  lowBeamOn @121 :Bool;
+  highBeamOn @122 :Bool;
+
   struct TeslaTrafficControl {
     available @0 :Bool;
     valid @1 :Bool;

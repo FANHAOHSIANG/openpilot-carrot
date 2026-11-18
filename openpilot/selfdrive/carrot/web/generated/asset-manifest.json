@@ -2,11 +2,18 @@
   "schemaVersion": 1,
   "assets": [
     {
+      "id": "vision.parking-detector-worker",
+      "kind": "worker",
+      "source": "src/features/drive/contents/vision/parking_detector_worker.js",
+      "path": "js/generated/parking-detector-worker.js",
+      "hash": "668cb987faae570bd0df62d4c2a4672bba8af4a1ffee7506cbde83180f6ef5fd"
+    },
+    {
       "id": "app.cockpit",
       "kind": "bundle",
       "source": "src/entries/cockpit.js",
       "path": "js/generated/cockpit.js",
-      "hash": "4fa099f4fbc1ac34788934053daa2461053b2db2e325eb6e7b22c7bbfa44e103"
+      "hash": "cb7c92c27523229f414615fd705e9d618b254a023f7016fab949640e8355398c"
     },
     {
       "id": "tools.lane-mapping",
@@ -34,7 +41,7 @@
       "kind": "bundle",
       "source": "src/entries/drive.js",
       "path": "js/generated/drive.js",
-      "hash": "990e2faa19d91345c6fa600d905cd40f8b7ed0093ca6469c738a9137da197f18"
+      "hash": "bc253005f83506f8cd4da3763f88d35ab3458ff29389108d64328ea779c8afa1"
     },
     {
       "id": "replay.runtime",
@@ -55,7 +62,7 @@
       "kind": "bundle",
       "source": "src/entries/tools.js",
       "path": "js/generated/tools.js",
-      "hash": "1226fdc1b575bdf81ef486005fae7424cdb2811a444e0d84675948b2d7e2206c"
+      "hash": "3b970fcbb430e9b8ba82f5c9b37fe7b01285b649f6786a7a821e1809b0612b3b"
     },
     {
       "id": "logs.runtime",

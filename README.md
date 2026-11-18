@@ -26,7 +26,7 @@
 
 ## 道路辨識（網頁／APK）
 
-座艙依提供的示意圖改為[Formosa 分區與字體排版](tools/carrot_android/FORMOSA_REFERENCE_LAYOUT.zh-TW.md)，駕駛視覺下方已移除重複的聲音卡片。觀看地圖採 [OSM、搜尋／模型維持 Mapbox](docs/NAVIGATION_MAPBOX_OSM.zh-TW.md)；新錄製的攝影機 H.264／HEVC 影片加入[同步車況 SEI](tools/carrot_android/DRIVING_SEI.zh-TW.md)，既有 0.6.0 APK 可沿用。
+座艙依提供的示意圖改為[Formosa 分區與字體排版](tools/carrot_android/FORMOSA_REFERENCE_LAYOUT.zh-TW.md)，駕駛視覺下方已移除重複的聲音卡片。觀看地圖採 [OSM 顯示與座標導航](docs/NAVIGATION_MAPBOX_OSM.zh-TW.md)；新錄製的攝影機 H.264／HEVC 影片加入[同步車況 SEI](tools/carrot_android/DRIVING_SEI.zh-TW.md)，既有 0.6.0 APK 可沿用。
 
 Formosa 座艙已補強手機精簡版面，並完成[停車實車連線、100%／200% 大字、旋轉與全螢幕操作實測](tools/carrot_android/LIVE_DEVICE_ACCEPTANCE.zh-TW.md)。現有 0.6.0 APK 可沿用；更新車機後重新開啟 App 即可取得介面修正。
 
@@ -85,7 +85,7 @@ APK 經建置、測試與簽章驗證；尚未在實體手機或實車驗證。i
 
 APK 與網頁的「導航地圖／Navigation」支援命名最愛、地址新增／編輯／刪除及點一下名稱導航。最愛儲存在車機，重新啟動與一般更新後保留；「清除 Mapbox 目的地」已改為 **結束當前導航**。更新車機並重新開啟導航頁即可使用，既有 0.2.16 APK 可沿用。[繁中操作指南與 Mapbox 地址儲存條件](docs/CARROT_MOBILE.zh-TW.md#導航地圖與目的地)。
 
-導航統一採用 **Mapbox 搜尋／路徑＋車機 Mapbox／OpenStreetMap·Protomaps 地圖**，與導航模型共用既有 mapsd 預覽；Google 圖層、Places 搜尋及金鑰入口已移除。舊 Google 最愛保留名稱，可明確重新搜尋並選定地址。[繁中設定與舊最愛轉換指南](docs/NAVIGATION_MAPBOX_OSM.zh-TW.md)。
+融合分支以經緯度設定目的地，保留 Google Maps 分享入口。地址地理編碼已停用；OSM 提供觀看底圖，路徑與模型圖資沿用既有流程。[座標導航說明](docs/NAVIGATION_MAPBOX_OSM.zh-TW.md)
 
 ## 繁體中文語音指令
 
