@@ -1,0 +1,46 @@
+name: Verify reviewed Formosa mobile integration
+on:
+  push:
+    branches: ['review/formosa-phone-check-20261118']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: reviewed-mobile.bundle
+          sparse-checkout-cone-mode: false
+      - name: Verify reviewed commit and preserve isolated candidate
+        run: |
+          git fetch --filter=blob:none --no-tags https://github.com/TonyBinheWu/sunnypilot.git 56d1fed389f23af7db55d33e48165764f84c4904
+          git bundle verify reviewed-mobile.bundle
+          git fetch reviewed-mobile.bundle HEAD
+          test "$(git rev-parse FETCH_HEAD)" = "658b93122220121fccc12299c91bdb60293b1209"
+          test "$(git rev-parse FETCH_HEAD^1)" = "7d88a71eb9d1c3aecd30d0b84b8692e86c07f235"
+          test "$(git rev-parse FETCH_HEAD^2)" = "56d1fed389f23af7db55d33e48165764f84c4904"
+          git push origin 658b93122220121fccc12299c91bdb60293b1209:refs/heads/review/formosa-phone-candidate-20261118
+  android:
+    needs: prepare
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 658b93122220121fccc12299c91bdb60293b1209
+          sparse-checkout: tools/carrot_android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test and build cockpit with temporary debug signing
+        shell: pwsh
+        run: |
+          $sdk = $env:ANDROID_HOME
+          & "$sdk/cmdline-tools/latest/bin/sdkmanager.bat" 'platforms;android-36' 'build-tools;35.0.0'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/carrot_android/build.ps1 -Cockpit -Sdk $sdk -Jdk $env:JAVA_HOME -OutputApk "$env:RUNNER_TEMP/cockpit.apk" -DebugKeystore "$env:RUNNER_TEMP/debug.jks"
