@@ -5,27 +5,7 @@ on:
 permissions:
   contents: read
 jobs:
-  prepare:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Verify reviewed commit and preserve isolated candidate
-        run: |
-          git fetch --no-tags https://github.com/ajouatom/openpilot.git e676f501b2ba6d7b2046a32f779af3410471bae9
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 56d1fed389f23af7db55d33e48165764f84c4904
-          git bundle verify reviewed-mobile.bundle
-          git fetch reviewed-mobile.bundle HEAD
-          test "$(git rev-parse FETCH_HEAD)" = "0c99b78152db11d18c4b6adbc9ef6295675fbe8b"
-          test "$(git rev-parse FETCH_HEAD^1^1)" = "7d88a71eb9d1c3aecd30d0b84b8692e86c07f235"
-          test "$(git rev-parse FETCH_HEAD^2)" = "e676f501b2ba6d7b2046a32f779af3410471bae9"
-          test "$(git rev-parse FETCH_HEAD^1^2)" = "56d1fed389f23af7db55d33e48165764f84c4904"
-          git push origin 0c99b78152db11d18c4b6adbc9ef6295675fbe8b:refs/heads/review/formosa-phone-radar-candidate-20261118
   android:
-    needs: prepare
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -43,3 +23,21 @@ jobs:
           & "$sdk/cmdline-tools/latest/bin/sdkmanager.bat" 'platforms;android-36' 'build-tools;35.0.0'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/carrot_android/build.ps1 -Cockpit -Sdk $sdk -Jdk $env:JAVA_HOME -OutputApk "$env:RUNNER_TEMP/cockpit.apk" -DebugKeystore "$env:RUNNER_TEMP/debug.jks"
+  radar:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      PYTHONPATH: .:opendbc_repo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0c99b78152db11d18c4b6adbc9ef6295675fbe8b
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install Cython==3.2.9 setuptools scons pytest -r tools/carrot_route_vault/requirements.txt
+      - run: scons -f tools/native_cpu/SConstruct -j2
+      - run: python opendbc_repo/opendbc/dbc/generator/generator.py
+      - run: python -m pytest -q -c /dev/null --rootdir=. --confcutdir=openpilot/selfdrive/carrot/tests openpilot/selfdrive/carrot/tests/{test_trajectory_cutin,test_radar_compute_reuse,test_trajectory_cutout,test_radar_motion_predictor,test_radar_cutout_fast_path,test_scc_lead_policy,test_radar_forced_scc_gate,test_radard_dpath}.py
