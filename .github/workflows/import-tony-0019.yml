@@ -1,4 +1,4 @@
-name: Import reviewed Tony follow-up
+name: Import reviewed qualification update
 on:
   push:
     branches: ['review/import-tony-0019-20261119']
@@ -11,12 +11,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Verify reviewed training-only follow-up
+      - name: Verify reviewed merge and retain it for CI
         run: |
           set -euo pipefail
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 5b5fd52655787b2b106224a6b5abe5c623d15570
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 306d4f8958b4570da96ae0cff019da64577a0c4e
           git bundle verify reviewed.bundle
           git fetch reviewed.bundle HEAD
-          test "$(git rev-parse FETCH_HEAD)" = 8bb6ff672643ce5e76d0b24b23a593c5f728ad0d
-          test "$(git show -s --format=%P FETCH_HEAD)" = "f0e3595620d68e8feab61cce9e33ee08991d98d3 5b5fd52655787b2b106224a6b5abe5c623d15570"
-          git push origin 8bb6ff672643ce5e76d0b24b23a593c5f728ad0d:refs/heads/review/tony-0019-final-20261119
+          test "$(git rev-parse FETCH_HEAD)" = 76bb73092c03543b2f27e2fae0c80d0f438adf50
+          test "$(git show -s --format=%P FETCH_HEAD)" = "4cb140f14562c3715fc63eb5f4b1c323581746ae 306d4f8958b4570da96ae0cff019da64577a0c4e"
+          git push origin 76bb73092c03543b2f27e2fae0c80d0f438adf50:refs/heads/review/tony-0019-qualification-20261119
