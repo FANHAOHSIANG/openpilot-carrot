@@ -223,7 +223,7 @@ def child(output, seconds):
         events.append({'event': 'close_called', 'at': elapsed(), 'wall_ns': time.monotonic_ns() - before})
     if t >= 32 and 'recreated' not in flags:
       flags.add('recreated')
-      if os.getenv('CURVE_CENTERING_SHADOW') == '1':
+      if os.getenv('CURVE_CENTERING_SHADOW', '1') == '1':
         events.append({'event': 'recreate_called', 'at': elapsed()})
         self.curve_shadow = factory()
     if t >= seconds:
@@ -303,7 +303,11 @@ def parent(output, seconds, mode):
   params.put_int('LatSuspendAngleDeg', 90)
   pm = messaging.PubMaster(SERVICES)
   sock = messaging.sub_sock('carControl', conflate=False, timeout=0)
-  env = dict(os.environ, CURVE_CENTERING_SHADOW='1' if mode == 'on' else '0')
+  env = dict(os.environ)
+  if mode == 'default':
+    env.pop('CURVE_CENTERING_SHADOW', None)
+  else:
+    env['CURVE_CENTERING_SHADOW'] = '1' if mode == 'on' else '0'
   with (output / 'stderr.txt').open('w') as err:
     proc = subprocess.Popen([sys.executable, __file__, '--child', '--output', str(output), '--seconds', str(seconds)], env=env, stdout=err, stderr=err)
     start = time.monotonic()
@@ -382,11 +386,13 @@ if __name__ == '__main__':
   p = argparse.ArgumentParser()
   p.add_argument('--output', type=Path, required=True)
   p.add_argument('--seconds', type=float, default=40)
-  p.add_argument('--mode', choices=['off', 'on'], default='off')
+  p.add_argument('--mode', choices=['off', 'on', 'default'], default='off')
   p.add_argument('--backend', choices=['process', 'thread'], default='process')
   p.add_argument('--load-location', choices=['worker', 'control'], default='worker')
   p.add_argument('--stall-seconds', type=float, default=.06)
   p.add_argument('--child', action='store_true')
+  p.add_argument('--logger', action='store_true')
+  p.add_argument('--record-logs', action='store_true')
   a = p.parse_args()
   from openpilot.system.hardware import PC
 
@@ -402,7 +408,12 @@ if __name__ == '__main__':
     raise RuntimeError('private synthetic Params root under /tmp/pr52- required')
   if not a.output.resolve().is_relative_to('/tmp'):
     raise RuntimeError('benchmark outputs must remain under /tmp')
-  if a.child:
+  if a.logger:
+    from openpilot.system.hardware.hw import Paths
+    from openpilot.system.logmessaged import main
+    Paths.swaglog_root = staticmethod(lambda: str(a.output / 'swaglog'))
+    main()
+  elif a.child:
     child(a.output, a.seconds)
   else:
     if not 0 < a.stall_seconds <= 5:
@@ -415,7 +426,22 @@ if __name__ == '__main__':
     a.output.mkdir(parents=True, exist_ok=False)
     shared = Path('/dev/shm/msgq_' + prefix)
     shared.mkdir(exist_ok=False)
+    logger = None
     try:
+      if a.record_logs:
+        logger = subprocess.Popen([sys.executable, __file__, '--logger', '--output', str(a.output)])
+        ipc = Path('/tmp/logmessage' + prefix)
+        deadline = time.monotonic() + 5
+        while not ipc.exists():
+          if logger.poll() is not None or time.monotonic() > deadline:
+            raise RuntimeError('test logmessaged startup failed')
+          time.sleep(.01)
       parent(a.output, a.seconds, a.mode)
+      (a.output/'run-config.json').write_text(json.dumps({'mode':a.mode, 'backend':a.backend,
+        'record_logs':a.record_logs, 'seconds':a.seconds, 'stall_seconds':a.stall_seconds}))
     finally:
+      if logger is not None:
+        logger.terminate()
+        logger.wait(timeout=5)
+        Path('/tmp/logmessage' + prefix).unlink(missing_ok=True)
       shutil.rmtree(shared)

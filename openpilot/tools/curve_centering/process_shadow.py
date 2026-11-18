@@ -1,4 +1,4 @@
-"""Opt-in isolated observer. Control-side work is one fixed 128-byte datagram.
+"""Isolated observer with caller-controlled startup. Control-side work is one fixed 128-byte datagram.
 
 No geometry traversal, whole-message serialization, analysis thread, blocking send or join in
 observe(). Child subscribes to model/plan and requires exact consumed timestamps.

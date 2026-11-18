@@ -126,3 +126,35 @@ Carrot Web의 화면 녹화는 HUD, 경고와 화면 변화처럼 사용자가 �
 업데이트된 수신 서버에서는 크기와 SHA-256이 모두 일치하는 기존 파일만 건너뜁니다. 일일 할당량 초과 시 재시도와 대기 구간 전송을 중단합니다. 차량 소프트웨어만으로 NAS 할당량을 높일 수 없으며 수신 서버와 명시적 환경 설정도 업데이트해야 합니다. 이전 서버는 기존 전송 방식을 사용합니다.
 
 해시 조회가 없는 이전 공개 서버에서는 보관된 원본을 내려받아 해시를 비교합니다. 다운로드 트래픽은 사용하지만 업로드 할당량은 소모하지 않습니다. 없거나 다른 파일을 보내려면 남은 업로드 할당량이 필요합니다.
+
+
+## 커브 그림자 진단
+
+독립 PR52 시험 브랜치는 별도 관찰 프로세스를 기본 실행합니다.
+`curve_centering_shadow` 이벤트는 초당 최대 한 번 logmessaged를 통해 기기의
+`/data/log/swaglog.*`에 기록되며, 정상 logger 실행 시 rlog의 `logMessage`에도
+포함됩니다. 별도 대시보드나 자동 업로드는 추가하지 않습니다. 로그 서비스가
+없으면 기록이 유실될 수 있으며, 이벤트가 없다는 사실은 정상 동작의 증거가 아닙니다.
+`vehicle_output=false`, `mode=process_shadow_only`는 관찰을 뜻하며 후보 제어의
+실행을 뜻하지 않습니다. `reasons`는 제외된 표본의 이유입니다.
+
+관련 파일을 복사한 데스크톱에서 그림자 필드만 추출합니다.
+
+```sh
+python -m openpilot.tools.curve_centering.export_shadow /path/to/swaglog.* --output /tmp/curve-shadow.jsonl
+# 이미 다운로드한 rlog를 사용할 경우:
+python -m openpilot.tools.curve_centering.export_shadow --format rlog /path/to/rlog.zst --output /tmp/curve-shadow-rlog.jsonl
+```
+
+기존 출력 파일은 덮어쓰지 않습니다. 추출기는 외부 기기·호스트 정보와 무관한
+이벤트를 제외합니다. 전체 원본 로그 대신 추출한 진단을 공유하세요. 기록 추출은
+도로 형상이나 차량 동작의 검증이 아닙니다.
+
+끄려면 다음 정상 시작 전에 controlsd를 실행하는 환경에
+`CURVE_CENTERING_SHADOW=0`을 지정합니다. 실행 중 토글은 없으며 다른 터미널의
+환경 변경은 기존 프로세스에 적용되지 않습니다. 연결 단절, 예외 또는 지속적인
+전송 버퍼 포화(시작 2초 유예 뒤 200 ms) 시 관찰기가 종료되며 같은 controlsd
+인스턴스에서 자동 재시작하지 않습니다. 기록 가능 시
+`curve_centering_shadow_stopped`에 전송 종료 이유가 남습니다. 일시적인 유실은
+관찰 안정화 시간을 초기화합니다. C4 시간 특성은 미검증이며 이전 데스크톱
+정지 주입 시험의 33.5 ms 발행 간격 결과를 유지합니다.

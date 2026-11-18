@@ -564,3 +564,15 @@ After confirmed turn entry, the TBT indicator ends its hold as the wheel returns
 The ATC right lane-change distance uses 0m for off and 50m steps up to 500m. The former ON setting migrates to 250m at restart.
 
 This test branch caps automatic road/model increases at the selected cruise speed; manual speed commands remain available.
+
+
+## Curve shadow observer on the independent test branch
+
+Only `test/carrot-pr52-integration-20261117` defaults the isolated curve observer
+on. It records hypothetical comparisons and never selects steering or speed
+commands. There is no Carrot Web/Params toggle: `CURVE_CENTERING_SHADOW=0` in the
+control process launch environment disables it at the next process start. An
+unset value or `1` enables it; other values disable it. Changing a terminal's
+environment does not change an already-running manager or control process.
+See [record retrieval and failure behavior](dashcam-log-sharing.md#curve-shadow-diagnostics).
+C4 timing remains unverified; this branch change does not install or restart a device.

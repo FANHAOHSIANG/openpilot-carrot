@@ -1,5 +1,9 @@
 # Isolated controlsd shadow observer, 2026-11-18
 
+Historical isolation qualification report at a7c66231. Its measurements and
+limitations remain. The later owner-requested default-on behavior and logging
+verification supersede the default-off decision below: see [DEFAULT_SHADOW.md](DEFAULT_SHADOW.md).
+
 The actual opt-in `Controls` constructor now starts a separate spawned process,
 replacing the analysis thread. The existing post-control observation point is
 unchanged. No candidate result returns to controlsd and no actuator calculation,

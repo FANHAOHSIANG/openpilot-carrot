@@ -1,0 +1,985 @@
+{
+  "baseline_commit": "a7c66231c076f1f6d9f983f704a244ef05a2eb06",
+  "default_enabled": true,
+  "c4_timing_qualified": false,
+  "control_output_modified": false,
+  "scope": "desktop synthetic MOCK controlsd and actual logmessaged; logger destination redirected to private scratch",
+  "logging": {
+    "observation_records": 24,
+    "stop_records": 2,
+    "nonzero_policy_records": 11,
+    "stop_reasons": [
+      "transport_TimeoutError",
+      "transport_ConnectionRefusedError"
+    ],
+    "swaglog_and_synthetic_zst_export_identical": true,
+    "raw_real_log_replay": false,
+    "record_logs": true
+  },
+  "default_run": {
+    "trial": "pr52-defaulton",
+    "backend": "process",
+    "load_location": "worker",
+    "partial_worker_reports": 0,
+    "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+    "deployment_approved": false,
+    "receiver_poll_s": 0.01,
+    "worker_stopped": [
+      true,
+      true
+    ],
+    "worker_failures": [
+      "transport_TimeoutError",
+      "transport_ConnectionRefusedError"
+    ],
+    "events": [
+      {
+        "event": "recreate_called",
+        "at": 32.005509065002116
+      },
+      {
+        "event": "injected_worker_exception",
+        "at": 36.005156304
+      }
+    ],
+    "input_send_intervals": {
+      "count": 4114,
+      "median_ms": 9.99995,
+      "p95_ms": 10.039279,
+      "p99_ms": 10.195627,
+      "max_ms": 40.687943,
+      "over_10ms": 2050,
+      "over_15ms": 4
+    },
+    "phases": [
+      {
+        "phase": "warmup",
+        "publications": 601,
+        "lat_active": 593,
+        "publication_interval": {
+          "count": 600,
+          "median_ms": 9.985486,
+          "p95_ms": 10.774794,
+          "p99_ms": 12.369483,
+          "max_ms": 14.321681,
+          "over_10ms": 288,
+          "over_15ms": 0
+        },
+        "state_wall": {
+          "count": 601,
+          "median_ms": 0.381524,
+          "p95_ms": 0.554805,
+          "p99_ms": 0.821987,
+          "max_ms": 1.279696,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 601,
+          "median_ms": 0.051938,
+          "p95_ms": 0.068283,
+          "p99_ms": 0.118939,
+          "max_ms": 1.004541,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 601,
+          "median_ms": 0.051386,
+          "p95_ms": 0.068061,
+          "p99_ms": 0.118095,
+          "max_ms": 1.00461,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": {
+          "count": 570,
+          "median_ms": 0.189065,
+          "p95_ms": 0.690189,
+          "p99_ms": 0.992083,
+          "max_ms": 12.042421,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "worker_cpu": {
+          "count": 570,
+          "median_ms": 0.188579,
+          "p95_ms": 0.690113,
+          "p99_ms": 0.989988,
+          "max_ms": 12.043066,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "observation_age": {
+          "count": 570,
+          "median_ms": 0.304919,
+          "p95_ms": 0.960271,
+          "p99_ms": 1.689968,
+          "max_ms": 12.135742,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "input_to_publish": {
+          "count": 601,
+          "median_ms": 0.89765,
+          "p95_ms": 1.584163,
+          "p99_ms": 2.915603,
+          "max_ms": 6.49169,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "input_to_receiver": {
+          "count": 601,
+          "median_ms": 10.16778,
+          "p95_ms": 10.497266,
+          "p99_ms": 10.85263,
+          "max_ms": 12.896526,
+          "over_10ms": 595,
+          "over_15ms": 0
+        },
+        "unreceived": 0,
+        "max_dropped": 25,
+        "monitor_failed": 0,
+        "thread_alive": 601,
+        "monitor_present": 601,
+        "nonzero_policy_steps": 349,
+        "worker_reasons": {
+          "missing_exact_source": 5,
+          "unmatched_stale_or_future_observation": 5,
+          "observer_gate": 110,
+          "invalid_geometry": 5,
+          "candidate_warmup": 106
+        }
+      },
+      {
+        "phase": "nominal",
+        "publications": 600,
+        "lat_active": 600,
+        "publication_interval": {
+          "count": 600,
+          "median_ms": 9.996027,
+          "p95_ms": 10.754107,
+          "p99_ms": 11.932445,
+          "max_ms": 21.667172,
+          "over_10ms": 296,
+          "over_15ms": 1
+        },
+        "state_wall": {
+          "count": 600,
+          "median_ms": 0.409406,
+          "p95_ms": 0.627684,
+          "p99_ms": 1.146746,
+          "max_ms": 1.556397,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 600,
+          "median_ms": 0.054693,
+          "p95_ms": 0.103296,
+          "p99_ms": 0.177297,
+          "max_ms": 1.205059,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 600,
+          "median_ms": 0.05418,
+          "p95_ms": 0.097144,
+          "p99_ms": 0.165886,
+          "max_ms": 1.205854,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": {
+          "count": 600,
+          "median_ms": 0.20599,
+          "p95_ms": 0.746913,
+          "p99_ms": 0.926323,
+          "max_ms": 1.559045,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_cpu": {
+          "count": 600,
+          "median_ms": 0.206005,
+          "p95_ms": 0.747258,
+          "p99_ms": 0.926073,
+          "max_ms": 1.559242,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "observation_age": {
+          "count": 600,
+          "median_ms": 0.336416,
+          "p95_ms": 1.006024,
+          "p99_ms": 1.267487,
+          "max_ms": 1.682106,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "input_to_publish": {
+          "count": 600,
+          "median_ms": 0.97713,
+          "p95_ms": 1.722647,
+          "p99_ms": 2.903051,
+          "max_ms": 13.2366,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "input_to_receiver": {
+          "count": 600,
+          "median_ms": 10.181556,
+          "p95_ms": 10.512364,
+          "p99_ms": 10.805565,
+          "max_ms": 20.234387,
+          "over_10ms": 591,
+          "over_15ms": 1
+        },
+        "unreceived": 0,
+        "max_dropped": 25,
+        "monitor_failed": 0,
+        "thread_alive": 600,
+        "monitor_present": 600,
+        "nonzero_policy_steps": 501,
+        "worker_reasons": {
+          "control_clock_gap_or_reversal": 2,
+          "candidate_warmup": 97
+        }
+      },
+      {
+        "phase": "gil_load",
+        "publications": 400,
+        "lat_active": 400,
+        "publication_interval": {
+          "count": 400,
+          "median_ms": 10.007465,
+          "p95_ms": 10.86111,
+          "p99_ms": 11.660208,
+          "max_ms": 14.096338,
+          "over_10ms": 203,
+          "over_15ms": 0
+        },
+        "state_wall": {
+          "count": 400,
+          "median_ms": 0.417318,
+          "p95_ms": 0.578401,
+          "p99_ms": 0.760665,
+          "max_ms": 1.251924,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 400,
+          "median_ms": 0.045017,
+          "p95_ms": 0.06694,
+          "p99_ms": 0.138759,
+          "max_ms": 0.830309,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 400,
+          "median_ms": 0.044426,
+          "p95_ms": 0.066479,
+          "p99_ms": 0.123083,
+          "max_ms": 0.830281,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": {
+          "count": 109,
+          "median_ms": 36.167529,
+          "p95_ms": 38.94507,
+          "p99_ms": 46.679408,
+          "max_ms": 48.143361,
+          "over_10ms": 109,
+          "over_15ms": 109
+        },
+        "worker_cpu": {
+          "count": 109,
+          "median_ms": 36.166644,
+          "p95_ms": 38.946075,
+          "p99_ms": 46.595647,
+          "max_ms": 48.076132,
+          "over_10ms": 109,
+          "over_15ms": 109
+        },
+        "observation_age": {
+          "count": 109,
+          "median_ms": 41.772299,
+          "p95_ms": 46.494406,
+          "p99_ms": 48.462457,
+          "max_ms": 49.425641,
+          "over_10ms": 109,
+          "over_15ms": 109
+        },
+        "input_to_publish": {
+          "count": 400,
+          "median_ms": 1.00289,
+          "p95_ms": 1.827921,
+          "p99_ms": 2.580669,
+          "max_ms": 4.9036,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "input_to_receiver": {
+          "count": 400,
+          "median_ms": 10.195943,
+          "p95_ms": 10.579927,
+          "p99_ms": 11.070766,
+          "max_ms": 13.717689,
+          "over_10ms": 398,
+          "over_15ms": 0
+        },
+        "unreceived": 0,
+        "max_dropped": 25,
+        "monitor_failed": 0,
+        "thread_alive": 400,
+        "monitor_present": 400,
+        "nonzero_policy_steps": 1,
+        "worker_reasons": {
+          "unmatched_stale_or_future_observation": 108,
+          "observer_gate": 108,
+          "invalid_geometry": 108
+        }
+      },
+      {
+        "phase": "after_gil",
+        "publications": 400,
+        "lat_active": 400,
+        "publication_interval": {
+          "count": 400,
+          "median_ms": 10.010556,
+          "p95_ms": 11.034301,
+          "p99_ms": 12.839741,
+          "max_ms": 15.336161,
+          "over_10ms": 207,
+          "over_15ms": 1
+        },
+        "state_wall": {
+          "count": 400,
+          "median_ms": 0.454453,
+          "p95_ms": 0.905603,
+          "p99_ms": 2.278016,
+          "max_ms": 5.317418,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 400,
+          "median_ms": 0.058417,
+          "p95_ms": 0.124588,
+          "p99_ms": 0.210196,
+          "max_ms": 0.390257,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 400,
+          "median_ms": 0.057996,
+          "p95_ms": 0.124244,
+          "p99_ms": 0.210021,
+          "max_ms": 0.390018,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": {
+          "count": 399,
+          "median_ms": 0.245039,
+          "p95_ms": 0.798972,
+          "p99_ms": 1.224933,
+          "max_ms": 4.589847,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_cpu": {
+          "count": 399,
+          "median_ms": 0.244993,
+          "p95_ms": 0.799105,
+          "p99_ms": 1.225587,
+          "max_ms": 4.590256,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "observation_age": {
+          "count": 399,
+          "median_ms": 0.390653,
+          "p95_ms": 1.052663,
+          "p99_ms": 1.429011,
+          "max_ms": 8.446982,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "input_to_publish": {
+          "count": 400,
+          "median_ms": 1.149309,
+          "p95_ms": 2.268603,
+          "p99_ms": 3.89285,
+          "max_ms": 6.819683,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "input_to_receiver": {
+          "count": 400,
+          "median_ms": 10.207162,
+          "p95_ms": 10.587312,
+          "p99_ms": 10.958812,
+          "max_ms": 11.706267,
+          "over_10ms": 397,
+          "over_15ms": 0
+        },
+        "unreceived": 0,
+        "max_dropped": 25,
+        "monitor_failed": 0,
+        "thread_alive": 400,
+        "monitor_present": 400,
+        "nonzero_policy_steps": 97,
+        "worker_reasons": {
+          "unmatched_stale_or_future_observation": 3,
+          "observer_gate": 105,
+          "invalid_geometry": 3,
+          "candidate_warmup": 195,
+          "control_clock_gap_or_reversal": 2
+        }
+      },
+      {
+        "phase": "slow_worker",
+        "publications": 400,
+        "lat_active": 400,
+        "publication_interval": {
+          "count": 400,
+          "median_ms": 9.989993,
+          "p95_ms": 10.985462,
+          "p99_ms": 12.189233,
+          "max_ms": 26.426828,
+          "over_10ms": 195,
+          "over_15ms": 3
+        },
+        "state_wall": {
+          "count": 400,
+          "median_ms": 0.369936,
+          "p95_ms": 0.740054,
+          "p99_ms": 1.108368,
+          "max_ms": 5.912367,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 29,
+          "median_ms": 0.055644,
+          "p95_ms": 0.140782,
+          "p99_ms": 0.146551,
+          "max_ms": 0.146551,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 29,
+          "median_ms": 0.054831,
+          "p95_ms": 0.140479,
+          "p99_ms": 0.145936,
+          "max_ms": 0.145936,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 400,
+          "median_ms": 0.99289,
+          "p95_ms": 2.137877,
+          "p99_ms": 3.838967,
+          "max_ms": 27.843589,
+          "over_10ms": 2,
+          "over_15ms": 2
+        },
+        "input_to_receiver": {
+          "count": 400,
+          "median_ms": 10.19098,
+          "p95_ms": 10.603842,
+          "p99_ms": 12.654809,
+          "max_ms": 42.468021,
+          "over_10ms": 390,
+          "over_15ms": 4
+        },
+        "unreceived": 0,
+        "max_dropped": 46,
+        "monitor_failed": 0,
+        "thread_alive": 28,
+        "monitor_present": 28,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      },
+      {
+        "phase": "after_overflow",
+        "publications": 400,
+        "lat_active": 400,
+        "publication_interval": {
+          "count": 400,
+          "median_ms": 9.995644,
+          "p95_ms": 10.802217,
+          "p99_ms": 11.720748,
+          "max_ms": 20.113071,
+          "over_10ms": 196,
+          "over_15ms": 2
+        },
+        "state_wall": {
+          "count": 400,
+          "median_ms": 0.354543,
+          "p95_ms": 0.561605,
+          "p99_ms": 1.257081,
+          "max_ms": 2.206969,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": null,
+        "capture_cpu": null,
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 400,
+          "median_ms": 0.924065,
+          "p95_ms": 1.739291,
+          "p99_ms": 2.621323,
+          "max_ms": 20.925053,
+          "over_10ms": 1,
+          "over_15ms": 1
+        },
+        "input_to_receiver": {
+          "count": 400,
+          "median_ms": 10.183958,
+          "p95_ms": 10.558491,
+          "p99_ms": 10.792072,
+          "max_ms": 30.13788,
+          "over_10ms": 397,
+          "over_15ms": 3
+        },
+        "unreceived": 0,
+        "max_dropped": 0,
+        "monitor_failed": 0,
+        "thread_alive": 0,
+        "monitor_present": 0,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      },
+      {
+        "phase": "closed",
+        "publications": 399,
+        "lat_active": 399,
+        "publication_interval": {
+          "count": 399,
+          "median_ms": 9.99514,
+          "p95_ms": 10.910016,
+          "p99_ms": 12.110673,
+          "max_ms": 29.438658,
+          "over_10ms": 197,
+          "over_15ms": 2
+        },
+        "state_wall": {
+          "count": 399,
+          "median_ms": 0.37256,
+          "p95_ms": 0.602627,
+          "p99_ms": 1.167977,
+          "max_ms": 3.781461,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": null,
+        "capture_cpu": null,
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 399,
+          "median_ms": 0.994246,
+          "p95_ms": 1.943394,
+          "p99_ms": 3.222805,
+          "max_ms": 21.487183,
+          "over_10ms": 2,
+          "over_15ms": 2
+        },
+        "input_to_receiver": {
+          "count": 399,
+          "median_ms": 10.199758,
+          "p95_ms": 10.547862,
+          "p99_ms": 12.336059,
+          "max_ms": 30.255888,
+          "over_10ms": 396,
+          "over_15ms": 4
+        },
+        "unreceived": 0,
+        "max_dropped": 0,
+        "monitor_failed": 0,
+        "thread_alive": 0,
+        "monitor_present": 0,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      },
+      {
+        "phase": "recreated",
+        "publications": 401,
+        "lat_active": 401,
+        "publication_interval": {
+          "count": 401,
+          "median_ms": 9.998555,
+          "p95_ms": 10.747831,
+          "p99_ms": 12.332774,
+          "max_ms": 16.883978,
+          "over_10ms": 200,
+          "over_15ms": 1
+        },
+        "state_wall": {
+          "count": 401,
+          "median_ms": 0.416576,
+          "p95_ms": 0.609025,
+          "p99_ms": 0.90468,
+          "max_ms": 2.445888,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 400,
+          "median_ms": 0.054431,
+          "p95_ms": 0.103706,
+          "p99_ms": 0.17233,
+          "max_ms": 1.254807,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 400,
+          "median_ms": 0.053769,
+          "p95_ms": 0.102972,
+          "p99_ms": 0.171895,
+          "max_ms": 1.25434,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": {
+          "count": 372,
+          "median_ms": 0.203195,
+          "p95_ms": 0.670328,
+          "p99_ms": 1.075419,
+          "max_ms": 11.812403,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "worker_cpu": {
+          "count": 372,
+          "median_ms": 0.203051,
+          "p95_ms": 0.669693,
+          "p99_ms": 1.182183,
+          "max_ms": 11.812844,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "observation_age": {
+          "count": 372,
+          "median_ms": 0.327787,
+          "p95_ms": 0.935055,
+          "p99_ms": 2.104169,
+          "max_ms": 11.89035,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "input_to_publish": {
+          "count": 401,
+          "median_ms": 1.002573,
+          "p95_ms": 1.81518,
+          "p99_ms": 3.1523,
+          "max_ms": 18.430118,
+          "over_10ms": 1,
+          "over_15ms": 1
+        },
+        "input_to_receiver": {
+          "count": 401,
+          "median_ms": 10.177113,
+          "p95_ms": 10.502712,
+          "p99_ms": 10.801422,
+          "max_ms": 20.09809,
+          "over_10ms": 396,
+          "over_15ms": 2
+        },
+        "unreceived": 0,
+        "max_dropped": 22,
+        "monitor_failed": 0,
+        "thread_alive": 400,
+        "monitor_present": 400,
+        "nonzero_policy_steps": 156,
+        "worker_reasons": {
+          "missing_exact_source": 4,
+          "unmatched_stale_or_future_observation": 6,
+          "observer_gate": 110,
+          "invalid_geometry": 6,
+          "candidate_warmup": 102
+        }
+      },
+      {
+        "phase": "worker_exception",
+        "publications": 401,
+        "lat_active": 401,
+        "publication_interval": {
+          "count": 401,
+          "median_ms": 10.005895,
+          "p95_ms": 10.606959,
+          "p99_ms": 11.148284,
+          "max_ms": 22.848448,
+          "over_10ms": 204,
+          "over_15ms": 1
+        },
+        "state_wall": {
+          "count": 401,
+          "median_ms": 0.332891,
+          "p95_ms": 0.499491,
+          "p99_ms": 0.701045,
+          "max_ms": 2.227051,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": {
+          "count": 2,
+          "median_ms": 0.057256,
+          "p95_ms": 0.127983,
+          "p99_ms": 0.127983,
+          "max_ms": 0.127983,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_cpu": {
+          "count": 2,
+          "median_ms": 0.057095,
+          "p95_ms": 0.115672,
+          "p99_ms": 0.115672,
+          "max_ms": 0.115672,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 401,
+          "median_ms": 0.87738,
+          "p95_ms": 1.557413,
+          "p99_ms": 2.307337,
+          "max_ms": 23.655298,
+          "over_10ms": 1,
+          "over_15ms": 1
+        },
+        "input_to_receiver": {
+          "count": 401,
+          "median_ms": 10.163813,
+          "p95_ms": 10.453849,
+          "p99_ms": 11.275946,
+          "max_ms": 30.2598,
+          "over_10ms": 398,
+          "over_15ms": 2
+        },
+        "unreceived": 0,
+        "max_dropped": 22,
+        "monitor_failed": 0,
+        "thread_alive": 1,
+        "monitor_present": 1,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      }
+    ],
+    "mode": "default (environment override absent)"
+  },
+  "explicit_off_run": {
+    "trial": "pr52-defaultoff",
+    "backend": "process",
+    "load_location": "worker",
+    "partial_worker_reports": 0,
+    "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+    "deployment_approved": false,
+    "receiver_poll_s": 0.01,
+    "worker_stopped": [],
+    "worker_failures": [],
+    "events": [],
+    "input_send_intervals": {
+      "count": 1325,
+      "median_ms": 9.99981,
+      "p95_ms": 10.053688,
+      "p99_ms": 11.444096,
+      "max_ms": 17.56678,
+      "over_10ms": 653,
+      "over_15ms": 3
+    },
+    "phases": [
+      {
+        "phase": "warmup",
+        "publications": 599,
+        "lat_active": 512,
+        "publication_interval": {
+          "count": 598,
+          "median_ms": 9.991642,
+          "p95_ms": 11.048258,
+          "p99_ms": 12.550532,
+          "max_ms": 31.605321,
+          "over_10ms": 295,
+          "over_15ms": 1
+        },
+        "state_wall": {
+          "count": 599,
+          "median_ms": 0.362696,
+          "p95_ms": 0.658482,
+          "p99_ms": 1.067117,
+          "max_ms": 3.310385,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": null,
+        "capture_cpu": null,
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 599,
+          "median_ms": 0.971859,
+          "p95_ms": 2.164379,
+          "p99_ms": 4.037821,
+          "max_ms": 36.167141,
+          "over_10ms": 1,
+          "over_15ms": 1
+        },
+        "input_to_receiver": {
+          "count": 598,
+          "median_ms": 10.198408,
+          "p95_ms": 10.575262,
+          "p99_ms": 12.578883,
+          "max_ms": 40.192658,
+          "over_10ms": 589,
+          "over_15ms": 2
+        },
+        "unreceived": 1,
+        "max_dropped": 0,
+        "monitor_failed": 0,
+        "thread_alive": 0,
+        "monitor_present": 0,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      },
+      {
+        "phase": "nominal",
+        "publications": 600,
+        "lat_active": 600,
+        "publication_interval": {
+          "count": 600,
+          "median_ms": 10.007093,
+          "p95_ms": 10.728799,
+          "p99_ms": 11.263803,
+          "max_ms": 26.293736,
+          "over_10ms": 302,
+          "over_15ms": 3
+        },
+        "state_wall": {
+          "count": 600,
+          "median_ms": 0.360956,
+          "p95_ms": 0.546856,
+          "p99_ms": 0.77418,
+          "max_ms": 4.671346,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": null,
+        "capture_cpu": null,
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 600,
+          "median_ms": 0.952372,
+          "p95_ms": 1.759628,
+          "p99_ms": 2.576775,
+          "max_ms": 27.233936,
+          "over_10ms": 1,
+          "over_15ms": 1
+        },
+        "input_to_receiver": {
+          "count": 600,
+          "median_ms": 10.195936,
+          "p95_ms": 10.525573,
+          "p99_ms": 10.704162,
+          "max_ms": 30.143316,
+          "over_10ms": 594,
+          "over_15ms": 2
+        },
+        "unreceived": 0,
+        "max_dropped": 0,
+        "monitor_failed": 0,
+        "thread_alive": 0,
+        "monitor_present": 0,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      },
+      {
+        "phase": "gil_load",
+        "publications": 1,
+        "lat_active": 1,
+        "publication_interval": {
+          "count": 1,
+          "median_ms": 10.194144,
+          "p95_ms": 10.194144,
+          "p99_ms": 10.194144,
+          "max_ms": 10.194144,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "state_wall": {
+          "count": 1,
+          "median_ms": 0.387003,
+          "p95_ms": 0.387003,
+          "p99_ms": 0.387003,
+          "max_ms": 0.387003,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "capture_wall": null,
+        "capture_cpu": null,
+        "worker_wall": null,
+        "worker_cpu": null,
+        "observation_age": null,
+        "input_to_publish": {
+          "count": 1,
+          "median_ms": 0.908892,
+          "p95_ms": 0.908892,
+          "p99_ms": 0.908892,
+          "max_ms": 0.908892,
+          "over_10ms": 0,
+          "over_15ms": 0
+        },
+        "input_to_receiver": {
+          "count": 1,
+          "median_ms": 10.600384,
+          "p95_ms": 10.600384,
+          "p99_ms": 10.600384,
+          "max_ms": 10.600384,
+          "over_10ms": 1,
+          "over_15ms": 0
+        },
+        "unreceived": 0,
+        "max_dropped": 0,
+        "monitor_failed": 0,
+        "thread_alive": 0,
+        "monitor_present": 0,
+        "nonzero_policy_steps": 0,
+        "worker_reasons": {}
+      }
+    ],
+    "mode": "off (environment 0)",
+    "shadow_records": 0
+  },
+  "initial_export_failure": "Synthetic fixture with .rlog suffix rejected by existing LogReader; equivalent .rlog.zst fixture passed; initial empty output retained locally.",
+  "prior_negative_results_retained": [
+    "33.519 ms desktop stall publication interval",
+    "13.255 ms historical capture spike",
+    "C 33/96 regressions",
+    "24/96 assumed-margin failures",
+    "0.8670168 m spatial exit against assumed 0.85 m",
+    "212 filter history residual ticks"
+  ]
+}

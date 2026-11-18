@@ -12,7 +12,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 PINNED_BLOBS = {
-  'selfdrive/controls/controlsd.py': '8c351af6d1d1d29b1da6226584b3aab481e447af',
+  'selfdrive/controls/controlsd.py': '49bc2329df2ef9536725ebd73e6b77ce454ab274',
   'selfdrive/controls/lib/drive_helpers.py': 'be7247ad61664ffa011bc4ad14a1c30b2172a036',
 }
 

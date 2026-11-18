@@ -457,3 +457,29 @@ one-second worker-stall trial and final 12-second payload confirmation.
   interval. Default remains off; C4 timing and candidate actuation are unqualified.
 - Private log access remained denied after the earlier explicit authorization;
   no download was retried in this follow-up and no new real-log replay is claimed.
+
+
+### Owner-requested default-on shadow follow-up
+
+Only the independent integration branch changes its constructor environment
+default to 1. Explicit 0 remains disabled; unset/1/0/empty/invalid values are
+covered. No actuator expression, state_control logic, CAN protection or limit
+changes. English/Korean settings and log-retrieval guides updated. No Params or
+settings-catalog entry exists for this process environment option, so generated
+per-setting Wiki pages are not applicable.
+
+- Focused suite: 206 passed, three configuration warnings. Ruff passed.
+- Native lateral startup: 13 passed, three configuration warnings.
+- Full desktop controlsd, default environment absent: 40 seconds, actual
+  logmessaged with only its file destination redirected to private scratch.
+  Saved 24 observation events (11 nonzero comparisons) and two stop events.
+  One-second stall and worker exception yielded transport_TimeoutError and
+  transport_ConnectionRefusedError; both workers stopped.
+- Explicit environment 0: 12 seconds, no worker, no capture and no shadow records.
+- Swaglog export and synthetic zstd rlog export matched all 26 records. The first
+  fixture used an unsupported .rlog suffix and failed before export; compressed
+  .rlog.zst passed. No private log was downloaded or replayed.
+- New run max publication interval 29.439 ms; older 33.519 ms failure and all
+  policy/geometric negatives remain. Default-on is the owner's requested test
+  branch behavior, not evidence of C4 timing qualification. Full aggregate in
+  DEFAULT_SHADOW_VALIDATION.json; usage and disable semantics in DEFAULT_SHADOW.md.

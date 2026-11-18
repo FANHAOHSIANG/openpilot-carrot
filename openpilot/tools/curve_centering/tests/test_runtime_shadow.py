@@ -236,10 +236,12 @@ def test_complete_control_method_outputs_unchanged(tap):
     assert new.curve_shadow is None
 
 
-def test_runtime_only_explicit_shadow_opt_in():
+@pytest.mark.parametrize('value,expected', [(None, True), ('1', True), ('0', False), ('', False), ('invalid', False)])
+def test_runtime_default_shadow_and_explicit_disable(value, expected):
   tree = ast.parse((ROOT/'selfdrive/controls/controlsd.py').read_text())
   cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Controls')
   init = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == '__init__')
   condition = next(n for n in init.body if isinstance(n, ast.If) and 'CURVE_CENTERING_SHADOW' in ast.unparse(n.test))
-  assert ast.unparse(condition.test) == "os.getenv('CURVE_CENTERING_SHADOW') == '1'"
+  env = {} if value is None else {'CURVE_CENTERING_SHADOW': value}
+  assert eval(compile(ast.Expression(condition.test), '<startup-condition>', 'eval'), {'os': NS(getenv=env.get)}) is expected
   assert not condition.orelse

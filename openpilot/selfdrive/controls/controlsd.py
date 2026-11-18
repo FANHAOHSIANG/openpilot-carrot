@@ -78,10 +78,11 @@ class Controls:
     self.desired_curvature = 0.0
     self.lateral_startup = LateralStartupGate()
     self.lateral_started = False
-    # Explicit process-local diagnostic opt-in; never changes control outputs.
-    # No Params, startup registration or actuator mode. Device timing unqualified.
+    # Process-local shadow diagnostics; never changes control outputs.
+    # Independent test branch: shadow defaults on; environment 0 disables at startup.
+    # No actuator mode. Device timing remains unqualified.
     self.curve_shadow = None
-    if os.getenv("CURVE_CENTERING_SHADOW") == "1":
+    if os.getenv("CURVE_CENTERING_SHADOW", "1") == "1":
       try:
         from openpilot.tools.curve_centering.process_shadow import ProcessShadow
         self.curve_shadow = ProcessShadow()

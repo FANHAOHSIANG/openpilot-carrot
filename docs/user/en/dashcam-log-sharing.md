@@ -124,3 +124,35 @@ Uploaded data may include road video, location and vehicle-state logs, device id
 With the updated receiver, existing files are skipped only after both size and SHA-256 match. Daily-quota rejection stops retries and pending segments in the batch. Vehicle software alone cannot raise a NAS quota: the receiver and any explicit quota environment setting must also be updated. Older receivers keep the original upload protocol.
 
 For an older public receiver without the hash endpoint, the client can download the retained original for hash comparison. This uses download traffic but does not spend upload quota. Missing or different files still require available upload quota.
+
+
+## Curve shadow diagnostics
+
+The independent PR52 test branch defaults to a separate observation process.
+`curve_centering_shadow` events are emitted at most once per second through
+logmessaged into `/data/log/swaglog.*` on the device and `logMessage` in rlogs
+when the normal logger is running. No separate dashboard or automatic upload is
+added. Missing log services can lose records; no event is not proof of success.
+An event with `vehicle_output=false` and `mode=process_shadow_only` confirms
+observation, not candidate actuation. `reasons` explains excluded samples.
+
+On a desktop with copies of the relevant files, extract only shadow fields:
+
+```sh
+python -m openpilot.tools.curve_centering.export_shadow /path/to/swaglog.* --output /tmp/curve-shadow.jsonl
+# Alternatively, for an already downloaded rlog:
+python -m openpilot.tools.curve_centering.export_shadow --format rlog /path/to/rlog.zst --output /tmp/curve-shadow-rlog.jsonl
+```
+
+Existing output files are not overwritten. The exporter omits outer device/host
+context and unrelated events; share the extracted diagnostics rather than entire
+raw logs. Retrieval alone does not validate geometry or vehicle behavior.
+
+To disable, set `CURVE_CENTERING_SHADOW=0` in the environment that launches
+controlsd before its next normal start. No hot toggle is provided; simply exporting
+a variable in another terminal does not affect running processes. The observer
+stops on a broken peer, exception or sustained full transport (200 ms after a
+two-second startup grace), and does not automatically restart in that controlsd
+instance. `curve_centering_shadow_stopped` records the transport reason when logging
+is available. Transient drops reset observation stability. C4 timing is unverified;
+previous desktop stall testing retained a 33.5 ms publication interval.
