@@ -20,10 +20,13 @@
   $('mapSourceNote').textContent=tr('Mapbox 검색과 경로를 사용하고 차량의 Mapbox / OpenStreetMap·Protomaps 지도를 표시합니다. 내비게이션 모델과 동일한 지도 미리보기를 공유합니다. 설정 → 네트워크에서 Mapbox Public key를 등록하세요.','Address search is disabled. Routes use Mapbox. The map shares the vehicle’s Mapbox / OpenStreetMap–Protomaps preview with the navigation model. Set your Mapbox Public key in Settings → Network.');
   async function api(path, options) {
     let response, value;
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    const deadline=controller?setTimeout(()=>controller.abort(),10000):null;
     try {
-      response = await fetch(`/api/navigation/${path}`, {...options, cache:"no-store"});
+      response = await fetch(`/api/navigation/${path}`, {...options, cache:"no-store",...(controller?{signal:controller.signal}:{})});
       value = await response.json();
     } catch (_) { throw new Error(tr("서버에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.", "Unable to reach the server. Check your connection and try again.")); }
+    finally {if(deadline!==null)clearTimeout(deadline);}
     if (!response.ok) {
       const error = value.error?.startsWith("Mapbox search failed") ? "Mapbox search is unavailable." : value.error;
       throw new Error(tr(error, error) || `HTTP ${response.status}`);
@@ -32,6 +35,7 @@
   }
   let currentPlace = null, savedPlaces = [], editingId = null, editorPlace = null, deletePending = null;
   let searchingEditor = false, savingEditor = false, editorVersion = 0;
+  let destinationBusy=false,destinationReadBusy=false,destinationRevision=0,destinationKnown=false,destinationError='',lastDestinationRead=-Infinity;
   const labels = {
     favoritesTitle: ["즐겨찾기", "Favorites"], addFavorite: ["즐겨찾기 추가", "Add favorite"],
     saveCurrent: ["현재 목적지 저장", "Save current destination"], nameLabel: ["이름", "Name"],
@@ -41,11 +45,45 @@
   for (const [id, words] of Object.entries(labels)) $(id).textContent = tr(...words);
   $("favoritesNote").textContent = tr("즐겨찾기는 차량에 저장되어 앱과 웹에서 함께 사용합니다. 이름을 누르면 바로 목적지로 설정합니다.", "Favorites are saved on this vehicle and shared by the app and web. Tap a name to navigate.");
   $("storageNote").textContent = "輸入緯度, 經度即可儲存，不會呼叫付費地址搜尋。";
+  const endLabel=$('clear').textContent;
+  function destinationAction(){
+    $('clear').textContent=destinationKnown?endLabel:tr('목적지 다시 확인','Refresh navigation state');
+    $('clear').disabled=destinationBusy||destinationReadBusy||(destinationKnown&&!currentPlace);
+  }
   function current(value) {
     currentPlace = value.destination ? {...value.destination, coordinate_source:"manual"} : null;
-    $("current").textContent = currentPlace?.place_name || tr("현재 목적지 없음", "No current destination");
-    $("saveCurrent").disabled = !currentPlace;
+    destinationKnown=true;destinationError='';
+    $('current').textContent = currentPlace?.place_name || tr('현재 목적지 없음', 'No current destination');
+    $('saveCurrent').disabled = !currentPlace;
+    destinationAction();
   }
+  async function readDestination(){
+    if(destinationReadBusy||destinationBusy)return;
+    destinationReadBusy=true;destinationAction();lastDestinationRead=Date.now();const revision=destinationRevision;
+    try{const value=await api('destination');if(revision===destinationRevision&&!destinationBusy)current(value);}
+    catch(error){if(revision===destinationRevision){destinationKnown=false;destinationError=error.message;$('current').textContent=destinationError;}}
+    finally{destinationReadBusy=false;destinationAction();}
+  }
+  async function changeDestination(method,place,path='destination'){
+    if(destinationBusy)throw Error(tr('내비게이션 요청 처리 중입니다. 잠시 기다리세요.','A navigation request is already in progress.'));
+    destinationBusy=true;destinationRevision++;destinationError='';$('clear').disabled=true;
+    try{const value=await api(path,{method,...(place?{headers:{'Content-Type':'application/json'},body:JSON.stringify(place)}:{})});current(value);}
+    catch(error){destinationKnown=false;destinationError=error.message;throw error;}
+    finally{destinationBusy=false;destinationAction();}
+  }
+  async function endNavigation(){
+    if(destinationBusy||destinationReadBusy)throw Error(tr('내비게이션 요청 처리 중입니다. 잠시 기다리세요.','A navigation request is already in progress.'));
+    if(!destinationKnown)throw Error(tr('목적지를 다시 확인하세요.','Read the navigation state again before ending navigation.'));
+    if(!currentPlace)return {ended:false};
+    await changeDestination('DELETE');
+    $('status').textContent=tr('이 페이지의 내비게이션을 종료했습니다. 외부 내비게이션은 해당 앱에서 종료하세요.','Navigation from this page has ended. End external navigation in its source app.');
+    return {ended:true};
+  }
+  globalThis.CarrotNavigationView=Object.freeze({
+    snapshot:()=>({known:destinationKnown,busy:destinationBusy||destinationReadBusy,active:destinationKnown&&!!currentPlace,label:currentPlace?.place_name||'',error:destinationError}),
+    refresh:readDestination,end:endNavigation,
+  });
+  $('clear').disabled=true;readDestination();
   function button(text, action) {
     const element = document.createElement("button"); element.type = "button"; element.textContent = text;
     element.addEventListener("click", async () => {
@@ -56,7 +94,7 @@
     return element;
   }
   async function navigate(path, place) {
-    current(await api(path, { method: "POST", headers: {"Content-Type":"application/json"}, ...(place ? {body:JSON.stringify(place)} : {}) }));
+    await changeDestination('POST',place,path);
     $("status").textContent = tr("현재 주행 목적지로 설정했습니다. GPS와 지도 수신을 기다립니다.", "Destination set for this drive. Waiting for GPS and map data.");
   }
   function renderResults(places, target, choose) {
@@ -77,18 +115,15 @@
     if (!window.confirm(`確認目的地座標：緯度 ${latitude}，經度 ${longitude}？`)) return;
     $("search").disabled = true;
     try {
-      current(await api("destination", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({latitude, longitude, place_name:`${latitude}, ${longitude}`})}));
+      await changeDestination('POST',{latitude, longitude, place_name:`${latitude}, ${longitude}`});
       $("status").textContent = "已傳送座標，等待目前定位與路線。未呼叫地址搜尋；地圖和路線仍依用量計費。";
     } catch (error) { $("status").textContent = error.message; }
     finally { $("search").disabled = false; }
   });
-  $("clear").addEventListener("click", async () => {
-    $("clear").disabled = true;
-    try { current(await api("destination", {method:"DELETE"})); $("status").textContent = tr("이 페이지의 내비게이션을 종료했습니다. 외부 내비게이션은 해당 앱에서 종료하세요.", "Navigation from this page has ended. End external navigation in its source app."); }
-    catch (error) { $("status").textContent = error.message; }
-    finally { $("clear").disabled = false; }
+  $('clear').addEventListener('click', async () => {
+    try { if(!destinationKnown){await readDestination();return;}await endNavigation(); }
+    catch (error) { $('status').textContent = error.message; }
   });
-  api("destination").then(current).catch((error) => { $("status").textContent = error.message; });
   function renderFavorites(value) {
     savedPlaces = value.favorites; $("favorites").replaceChildren(); $("retryFavorites").hidden = true;
     $("favoritesStatus").textContent = savedPlaces.length ? "" : tr("즐겨찾기가 없습니다. 좌표를 입력하여 추가하세요.", "No favorites yet. Enter coordinates to add one.");
@@ -178,6 +213,7 @@
   waiting(tr("현재 위치와 목적지를 확인하고 있습니다.", "Checking position and destination."));
   async function refresh() {
     if (!document.hidden && viewVisible) {
+      if(Date.now()-lastDestinationRead>=5000)void readDestination();
       try {
         const response = await fetch("/api/navigation/map.png", {cache:"no-store"});
         if (response.status !== 200 && response.status !== 204) throw new Error("waiting");
