@@ -43,8 +43,15 @@ jobs:
           python-version: '3.12'
       - name: Install ARM compiler
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+          # Fetch the toolchain through Ubuntu's signed HTTPS archive. Regional
+          # runner mirrors have stalled while downloading the large newlib package.
+          sources="$RUNNER_TEMP/panda-toolchain.list"
+          echo 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble main universe' > "$sources"
+          echo 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble-updates main universe' >> "$sources"
+          echo 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://security.ubuntu.com/ubuntu noble-security main universe' >> "$sources"
+          apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=- -o Acquire::https::Timeout=30 -o Acquire::Retries=2)
+          sudo apt-get "${apt_options[@]}" update -qq
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
           pip install scons pycryptodome
       - name: Compile production firmware
         working-directory: panda
