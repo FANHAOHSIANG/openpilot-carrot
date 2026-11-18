@@ -9,18 +9,8 @@ export function sceneTargets(scene){
   return [...surroundingTargets(scene?.radar),...(scene?.vision?.objects||[]),...(scene?.road?.objects||[])]
     .filter(o=>o&&(o.kind==='unknown'||ROAD_CLASSES.includes(o.kind)||o.kind==='traffic cone')&&finite(o.x)&&finite(o.y)&&o.x>0&&o.x<=75&&Math.abs(o.y)<=20).slice(0,80);
 }
-// Explicit scene-camera geometry, independent of sensor calibration and control.
-export function sceneCamera(width,height,camera={}){
-  const yaw=finite(camera?.yaw)?camera.yaw*Math.PI/180:0,pitch=finite(camera?.pitch)?clamp(camera.pitch,18,60):25;
-  const distance=finite(camera?.distance)?clamp(camera.distance,9,16):9,elevation=finite(camera?.height)?clamp(camera.height,6,12):6;
-  const d=distance*.72,h=2.1+(elevation-6)*.18,aspect=width/Math.max(1,height);
-  // Maintain a useful horizontal field on portrait phones instead of cropping
-  // the car to the narrow viewport. Wide/4:3 camera geometry stays unchanged.
-  const fov=Math.max(50,Math.min(100,2*Math.atan(Math.tan(Math.PI/8)/Math.max(.25,aspect))*180/Math.PI));
-  const anchor=finite(camera?.anchorY)?clamp(camera.anchorY-.20,.56,.67):.59;
-  const theta=Math.max(4*Math.PI/180,Math.atan2(h,d)-Math.atan((anchor*2-1)*Math.tan(fov*Math.PI/360)))+(pitch-25)*Math.PI/180;
-  return {position:[-d*Math.cos(yaw),d*Math.sin(yaw),h],target:[(-d+20*Math.cos(theta))*Math.cos(yaw),(d-20*Math.cos(theta))*Math.sin(yaw),h-20*Math.sin(theta)],aspect,fov};
-}
+export {sceneCamera} from '../../../../cockpit/scene_camera.js';
+import {sceneCamera} from '../../../../cockpit/scene_camera.js';
 export function roadRibbon(path,left,right,{behind=false}={}){
   const points=[];
   for(let i=0;i<Math.min(path?.x?.length||0,path?.y?.length||0,256);i++){
@@ -40,7 +30,7 @@ export function roadRibbon(path,left,right,{behind=false}={}){
 
 export function createDrivingScene3D(doc,target,{onChange=()=>{},rendererFactory=options=>new T.WebGLRenderer(options)}={}){
   const canvas=doc.createElement('canvas');canvas.className='tesla-scene tesla-scene-3d';canvas.hidden=true;canvas.setAttribute('aria-label','即時 3D 駕駛視覺');
-  let renderer=null,failed=false,lost=false,closed=false,scene,world,camera,models,ego,egoKey='',active=false,hud,hudCamera;
+  let renderer=null,failed=false,lost=false,closed=false,scene,world,camera,models,ego,egoKey='',active=false,hud,hudCamera,ground;
   const hudNodes=new Map();
   const objectNodes=new Map(),ribbons=[];let renderWidth=0,renderHeight=0,lastStats={backend:'not-started',objects:0,classified:0,unknown:0};
   const dispose=()=>{for(const m of ribbons){m.geometry.dispose();m.material.dispose();}ribbons.length=0;models?.dispose();models=null;scene?.traverse(o=>{if(o.userData?.owned){o.geometry?.dispose();o.material?.dispose();}});renderer?.dispose();renderer=null;objectNodes.clear();hudNodes.clear();ego=null;renderWidth=renderHeight=0;};
@@ -57,7 +47,7 @@ export function createDrivingScene3D(doc,target,{onChange=()=>{},rendererFactory
       world=new T.Group();world.scale.y=-1;scene.add(world);
       scene.add(new T.HemisphereLight('#d6e9ff','#27313f',1.2));const light=new T.DirectionalLight('#ffffff',1.6);light.position.set(-8,-12,22);scene.add(light);
       hud=new T.Scene();hud.add(new T.HemisphereLight('#eff8ff','#556c88',2));hudCamera=new T.OrthographicCamera(0,1,1,0,1,1000);hudCamera.position.z=500;
-      const ground=new T.Mesh(new T.PlaneGeometry(600,600),new T.MeshPhongMaterial({color:'#191e27',shininess:18}));ground.position.set(70,0,-.04);ground.userData.owned=true;scene.add(ground);
+      ground=new T.Mesh(new T.PlaneGeometry(600,600),new T.MeshBasicMaterial({color:'#e8edf5'}));ground.position.set(70,0,-.04);ground.userData.owned=true;scene.add(ground);
       // Fixed reusable geometry; no per-frame GPU allocations or shadow maps.
       for(let i=0;i<12;i++){
         const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(256*18),3).setUsage(T.DynamicDrawUsage));geometry.setDrawRange(0,0);
@@ -75,8 +65,8 @@ export function createDrivingScene3D(doc,target,{onChange=()=>{},rendererFactory
     if(!start()){canvas.hidden=true;return false;}
     try{
       if(renderWidth!==width||renderHeight!==height){renderer.setSize(width,height,false);renderWidth=width;renderHeight=height;}
-      const spec=sceneCamera(width,height,view);camera.fov=spec.fov;camera.aspect=spec.aspect;camera.position.set(...spec.position);camera.lookAt(...spec.target);camera.updateProjectionMatrix();
-      const bg=night?'#0c1018':'#c8d0d9';scene.background=new T.Color(bg);scene.fog=new T.Fog(bg,45,125);
+      const spec=sceneCamera(width,height,{...view,skinScale:skin?.scale});camera.fov=spec.fov;camera.aspect=spec.aspect;camera.position.set(...spec.position);camera.lookAt(...spec.target);camera.updateProjectionMatrix();
+      const bg=night?'#0c1018':'#edf1f8';scene.background=new T.Color(bg);scene.fog=new T.Fog(bg,45,125);ground.material.color.set(night?'#191e27':'#e8edf5');
       for(const m of ribbons)m.visible=false;
       const model=data.model;
       if(model){
@@ -91,7 +81,7 @@ export function createDrivingScene3D(doc,target,{onChange=()=>{},rendererFactory
         if(!node){node=models.get(o.kind);world.add(node);objectNodes.set(key,node);}node.position.set(o.x,o.y,0);
       }
       for(const [key,node] of objectNodes)if(!visible.has(key)){world.remove(node);objectNodes.delete(key);}
-      const nextKey=`${skin?.id}:${lamps.brake}:${lamps.left}:${lamps.right}`;
+      const nextKey=`${skin?.id}:${skin?.paint}:${lamps.brake}:${lamps.left}:${lamps.right}`;
       if(nextKey!==egoKey||!ego){if(ego)world.remove(ego);ego=models.get('ego',{skin,lamps});world.add(ego);egoKey=nextKey;}
       renderer.autoClear=true;renderer.render(scene,camera);const drawCalls=renderer.info.render.calls,triangles=renderer.info.render.triangles;
       const imageKeys=new Set();hudCamera.right=width;hudCamera.top=height;hudCamera.updateProjectionMatrix();

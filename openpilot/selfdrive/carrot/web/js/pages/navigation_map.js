@@ -17,7 +17,8 @@
   $("clear").textContent = tr("현재 내비게이션 종료", "End current navigation");
   $("note").textContent = "已停用付費地址搜尋。請輸入緯度、經度並核對位置；地圖與路線仍依用量計費。";
   $('mapConfigTitle').textContent=tr('지도와 검색 소스','Map sources and search');
-  $('mapSourceNote').textContent=tr('Mapbox 검색과 경로를 사용하고 차량의 Mapbox / OpenStreetMap·Protomaps 지도를 표시합니다. 내비게이션 모델과 동일한 지도 미리보기를 공유합니다. 설정 → 네트워크에서 Mapbox Public key를 등록하세요.','Address search is disabled. Routes use Mapbox. The map shares the vehicle’s Mapbox / OpenStreetMap–Protomaps preview with the navigation model. Set your Mapbox Public key in Settings → Network.');
+  $('mapSourceNote').textContent=navText('顯示地圖使用 OpenStreetMap。地址搜尋已停用，路徑與模型地圖沿用原有流程。','The display uses OpenStreetMap. Address search is disabled. Routing and model maps use the existing pipeline.');
+  const osm=globalThis.CarrotNavigationOsm?.start({tr,isVisible:()=>viewVisible});
   async function api(path, options) {
     let response, value;
     const controller=typeof AbortController==='function'?new AbortController():null;
@@ -49,9 +50,11 @@
   function destinationAction(){
     $('clear').textContent=destinationKnown?endLabel:tr('목적지 다시 확인','Refresh navigation state');
     $('clear').disabled=destinationBusy||destinationReadBusy||(destinationKnown&&!currentPlace);
+    $('endOnMap').hidden=!destinationKnown||!currentPlace;$('endOnMap').disabled=$('clear').disabled;$('endOnMap').textContent=endLabel;
   }
   function current(value) {
     currentPlace = value.destination ? {...value.destination, coordinate_source:"manual"} : null;
+    osm?.setDestination(currentPlace);
     destinationKnown=true;destinationError='';
     $('current').textContent = currentPlace?.place_name || tr('현재 목적지 없음', 'No current destination');
     $('saveCurrent').disabled = !currentPlace;
@@ -67,7 +70,7 @@
   async function changeDestination(method,place,path='destination'){
     if(destinationBusy)throw Error(tr('내비게이션 요청 처리 중입니다. 잠시 기다리세요.','A navigation request is already in progress.'));
     destinationBusy=true;destinationRevision++;destinationError='';$('clear').disabled=true;
-    try{const value=await api(path,{method,...(place?{headers:{'Content-Type':'application/json'},body:JSON.stringify(place)}:{})});current(value);}
+    try{const value=await api(path,{method,...(place?{headers:{'Content-Type':'application/json'},body:JSON.stringify(place)}:{})});current(value);if(method==='POST')globalThis.dispatchEvent?.(new Event('carrot-navigation-started'));}
     catch(error){destinationKnown=false;destinationError=error.message;throw error;}
     finally{destinationBusy=false;destinationAction();}
   }
@@ -120,6 +123,7 @@
     } catch (error) { $("status").textContent = error.message; }
     finally { $("search").disabled = false; }
   });
+  $('endOnMap').addEventListener('click',async()=>{try{await endNavigation();}catch(error){$('status').textContent=error.message;}});
   $('clear').addEventListener('click', async () => {
     try { if(!destinationKnown){await readDestination();return;}await endNavigation(); }
     catch (error) { $('status').textContent = error.message; }
@@ -240,5 +244,5 @@
     }
     setTimeout(refresh, 500);
   }
-  refresh();
+  if(!osm)refresh();
 })();
