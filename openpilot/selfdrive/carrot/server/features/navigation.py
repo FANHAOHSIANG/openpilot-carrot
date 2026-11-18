@@ -8,7 +8,7 @@ from aiohttp import web
 
 from openpilot.common.params import Params
 from ..config import WEB_DIR, CARROT_NAVIGATION_FAVORITES_PATH
-from ..services.navigation_favorites import FavoritesFull, NavigationFavorites, google_reference
+from ..services.navigation_favorites import FavoritesFull, NavigationFavorites, google_reference, query_reference
 from ..services.static_assets import fingerprint_static_asset
 from ..services.params import get_param_value, set_param_value
 from openpilot.selfdrive.navigation.preview import PREVIEW_PATH, VIEW_PATH, WEB_DEMAND_PATH, preview_fresh, preview_reason
@@ -93,7 +93,10 @@ async def favorites(request):
   if request.method in ('POST', 'PUT') and not request.path.endswith('/destination'):
     try:
       body = await request.json()
-      value = google_reference(body) if isinstance(body, dict) and body.get('provider') == 'google' else destination(body)
+      if isinstance(body, dict) and body.get('provider') == 'query':
+        value = query_reference(body)
+      else:
+        value = google_reference(body) if isinstance(body, dict) and body.get('provider') == 'google' else destination(body)
       if value.get('provider') == 'google':
         # Keep old names editable, but accept no new Google references. Replacing
         # an address requires an explicit Mapbox permanent search in the UI.
@@ -106,18 +109,18 @@ async def favorites(request):
       name = body.get('name')
       if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
         raise ValueError('invalid name')
-      if value.get('provider') != 'google' and (not isinstance(body.get('place_name'), str) or not 1 <= len(body['place_name'].strip()) <= 256):
+      if value.get('provider') not in ('google', 'query') and (not isinstance(body.get('place_name'), str) or not 1 <= len(body['place_name'].strip()) <= 256):
         raise ValueError('invalid address')
-      if value.get('provider') != 'google' and any(type(body.get(key)) not in (int, float) for key in ('latitude', 'longitude')):
+      if value.get('provider') not in ('google', 'query') and any(type(body.get(key)) not in (int, float) for key in ('latitude', 'longitude')):
         raise ValueError('invalid coordinates')
       value.update(name=name.strip())
-      if value.get('provider') != 'google':
+      if value.get('provider') not in ('google', 'query'):
         value['place_name'] = body['place_name'].strip()
     except (ValueError, KeyError, TypeError, OverflowError):
       return web.json_response({'error': 'Invalid favorite.'}, status=400)
   try:
     # Existing saved coordinates may be renamed without another geocode.
-    if value is not None and value.get('provider') != 'google' and body.get('permanent') is not True and body.get('coordinate_source') != 'manual':
+    if value is not None and value.get('provider') not in ('google', 'query') and body.get('permanent') is not True and body.get('coordinate_source') != 'manual':
       previous = next((item for item in store.read() if item['id'] == identifier), None) if identifier else None
       if previous is None or any(value[key] != previous[key] for key in ('latitude', 'longitude', 'place_name')):
         return web.json_response({'error': 'Invalid favorite.'}, status=400)
@@ -125,8 +128,8 @@ async def favorites(request):
       saved = next((item for item in store.read() if item['id'] == identifier), None)
       if saved is None:
         raise KeyError(identifier)
-      if saved.get('provider') == 'google':
-        return web.json_response({'error': 'Reselect this legacy favorite with Mapbox before navigating.'}, status=409)
+      if saved.get('provider') in ('google', 'query'):
+        return web.json_response({'error': 'Enter coordinates for this favorite before navigating.'}, status=409)
       target = destination(saved)
       activate_destination(target)
       result = {'destination': target}

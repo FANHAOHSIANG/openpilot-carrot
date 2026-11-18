@@ -95,10 +95,10 @@
     for (const place of savedPlaces) {
       const row = document.createElement("li"); row.className = "favorite-row";
       const go = button(place.name, () => {
-        if(place.provider==='google'){openEditor(place.id,place);$('status').textContent=legacyNote;return;}
+        if(['google', 'query'].includes(place.provider)){openEditor(place.id,place);$('status').textContent=legacyNote;return;}
         return navigate(`favorites/${encodeURIComponent(place.id)}/destination`);
       }); go.className = "go";
-      const address = document.createElement("small"); address.textContent = place.provider==='google'?navText('舊版最愛 · 需重新選定地址','Legacy favorite · Reselect its address'):place.place_name;
+      const address = document.createElement("small"); address.textContent = place.provider==='google'?navText('舊版最愛 · 需重新選定地址','Legacy favorite · Reselect its address'):place.query || place.place_name;
       const actions = document.createElement("div"); actions.className = "actions";
       actions.append(button(tr("편집", "Edit"), () => openEditor(place.id, place)));
       actions.append(button(deletePending === place.id ? tr("삭제 확인", "Confirm delete") : tr("삭제", "Delete"), async () => {
@@ -119,7 +119,7 @@
     editorVersion++; editingId = id; editorPlace = place && (id || place.permanent || place.coordinate_source === "manual") ? {...place} : null;
     $("favoriteForm").hidden = false; $("editorTitle").textContent = id ? tr("즐겨찾기 편집", "Edit favorite") : tr("즐겨찾기 추가", "Add favorite");
     $("favoriteName").value = place?.name || place?.place_name?.slice(0,80) || "";
-    $("favoriteQuery").value = place?.place_name || place?.name || "";$("favoriteQuery").required=place?.provider!=='google'; $("favoriteResults").replaceChildren();
+    $("favoriteQuery").value = place?.query || place?.place_name || place?.name || "";$("favoriteQuery").required=place?.provider!=='google'; $("favoriteResults").replaceChildren();
     $("editorStatus").textContent = place?.provider==='google'?legacyNote:editorPlace ? "" : tr("주소를 검색하고 저장할 위치를 선택하세요.", "Enter latitude, longitude and confirm the coordinates.");
     syncEditor(); $("favoriteName").focus();
   }
@@ -127,6 +127,13 @@
   $("saveCurrent").addEventListener("click", () => { if (currentPlace) openEditor(null, currentPlace); });
   $("cancelFavorite").addEventListener("click", () => { if (!savingEditor) { editorVersion++; $("favoriteForm").hidden = true; } });
   $("favoriteQuery").addEventListener("input", () => { editorVersion++; editorPlace = null; syncEditor(); });
+  $("useFavoriteText").addEventListener("click", () => {
+    const query = $("favoriteQuery").value.trim();
+    if (query.length < 2 || query.length > 200) return;
+    editorPlace = {provider:"query", query};
+    $("editorStatus").textContent = navText("文字收藏需補上座標才能導航", "Add coordinates before navigating to a text favorite.");
+    syncEditor();
+  });
   $("favoriteSearch").addEventListener("click", async () => {
     const query = $("favoriteQuery").value.trim(), version = editorVersion;
     if (query.length < 2 || query.length > 200 || searchingEditor) { $("editorStatus").textContent = tr("2–200자를 입력하세요.", "Enter 2–200 characters."); return; }
