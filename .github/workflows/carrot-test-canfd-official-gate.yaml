@@ -63,7 +63,27 @@ jobs:
           assert kw("xiaoge_data", "spawn") == "True"
           print("Validated official C3/comma Connect + Test LED/OSM/process admission boundaries")
           PY
-          check openpilot/cereal/custom.capnp ab580c4a794a4e5e4690490b3dc2cac8d7ccc0db
+          # Preserve the pinned legacy cereal schema byte-for-byte, allowing
+          # only five regression-tested navigation pre-adjust fields and an
+          # additional final blank line introduced by the earlier Test change.
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          schema = Path("openpilot/cereal/custom.capnp").read_bytes()
+          additions = (b'\t\tpreAdjustValid @30 :Bool;\n',
+                       b'\t\tpreAdjustKph @31 :Int16;\n',
+                       b'\t\tpreAdjustDeadlineMonoTimeNanos @32 :UInt64;\n',
+                       b'\t\tsharedPreAdjustSource @5 :Text;\n',
+                       b'\t\tsharedPreAdjustDeadlineMonoTimeNanos @6 :UInt64;\n')
+          for field in additions:
+            assert schema.count(field) == 1, f"Missing or duplicate field: {field!r}"
+            schema = schema.replace(field, b'', 1)
+          assert schema.endswith(b'\n\n'), "Expected final blank line from prior Test version"
+          schema = schema[:-1]
+          pinned = subprocess.check_output(['git', 'hash-object', '--stdin'], input=schema).decode().strip()
+          assert pinned == 'ab580c4a794a4e5e4690490b3dc2cac8d7ccc0db', f"Unexpected schema changes: {pinned}"
+          print("Pinned original schema and all five tested pre-adjust fields intact")
+          PY
           check openpilot/tools/clearance_shadow 6bcb1b1a99f42ca1223a6c0517fef63b3d323464
   canfd-safety:
     name: Native CAN FD/Panda safety and stop-state regressions
