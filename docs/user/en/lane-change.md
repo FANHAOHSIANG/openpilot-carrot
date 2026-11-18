@@ -218,3 +218,9 @@ A TBT hold with confirmed transmission and illumination continues through a rece
 ### ATC curvature-based turn speed
 
 `AutoTurnControlAdaptiveSpeed` is off by default. In ATC speed modes 2 and 3, it can gradually raise the fixed left/right turn target when the matched navigation path covers the turn and its exit. Ordinary turns use a 35 km/h cap on this adjustment. In turn-speed modes with route control enabled, a broad bend can use a higher curve-derived target when the camera path also agrees through the bend and its exit. Missing geometry uses the fixed target. Following, stopping, and lower speed constraints retain priority.
+
+## Observed completion and advance notices
+
+Vehicle and connected Web/APK Vision show read-only forecasts, preparation, execution, completion, cancellation and unconfirmed end states. Nearby exit guidance does not prove that the current lane needs changing. These notices do not operate indicators or initiate a maneuver and are independent of automatic lamp permissions.
+
+During an active change at 30 km/h or above, valid inner boundaries must approach then relabel coherently in the maneuver direction; stable target centering within ±0.35 m for at least 0.6 seconds confirms completion and clears the current desire for subsequent model inputs. Weak, stale or repeated observations cannot prove completion, and opposing driver takeover cancels through the existing gate. Lamp extinction and time alone are insufficient. Explicit queued driver requests remain; holding the same lamp does not automatically authorize another change. End results display for two seconds and yield to existing alerts. This is FSM feedback, not model retraining or a guaranteed lane-position measurement. See the [full conditions and verification limits](../../LANE_CHANGE_NOTICES.zh-TW.md#english).

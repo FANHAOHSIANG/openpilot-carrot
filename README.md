@@ -26,7 +26,15 @@
 
 ## 道路辨識（網頁／APK）
 
+修正 C4 標準前鏡頭串流比例造成的「3D 定位資料不足／影像規格不符」，並分開提示辨識運算過慢、校正缺失與資料過期。定位不足時保留真實影像分類，不虛構物件距離。既有 APK 可沿用，須停車更新並重啟車機的原生編碼器。[修正原因與繁中檢查方式](tools/carrot_android/OBJECT_DISPLAY_RECOVERY.zh-TW.md)。此修正不代表 N16 導航偏移已通過實車驗證。
+
+導航模型底圖失效時，現在立即撤銷底圖與路線有效標記，並拒收舊版的全黑失效影像。另修正單觸方向燈熄滅後，反向施力可能無法取消進行中變道的缺陷。[修正與驗證範圍](docs/NAVIGATION_MAP_VALIDITY.zh-TW.md)。CAN 錯誤退出與個別導航偏移仍須依當次紀錄分別判斷。
+
+車機與網頁／APK 駕駛視覺新增變道預告、進度及完成狀態。觀察跨線並在目標車道穩定置中後，結束此次模型變道意圖；資料不足則標示「完成未確認」。預告不代打方向燈或啟動轉向。[繁中詳細說明與確認條件](docs/LANE_CHANGE_NOTICES.zh-TW.md)。
+
 座艙依提供的示意圖改為[Formosa 分區與字體排版](tools/carrot_android/FORMOSA_REFERENCE_LAYOUT.zh-TW.md)，駕駛視覺下方已移除重複的聲音卡片。觀看地圖採 [OSM 顯示與座標導航](docs/NAVIGATION_MAPBOX_OSM.zh-TW.md)；新錄製的攝影機 H.264／HEVC 影片加入[同步車況 SEI](tools/carrot_android/DRIVING_SEI.zh-TW.md)，既有 0.6.0 APK 可沿用。
+
+網頁與 APK 的行車記錄回放可直接顯示 SEI 車況，跟隨影片時間同步；播放控制列閒置時自動收起，輕觸即可叫出。啟用 [`HotspotOnBoot`（SIM 行動網路分享）](docs/HOTSPOT_ON_BOOT.zh-TW.md)後，SIM 數據連線就緒時自動啟動既有熱點，供已連線裝置上網。
 
 Formosa 座艙已補強手機精簡版面，並完成[停車實車連線、100%／200% 大字、旋轉與全螢幕操作實測](tools/carrot_android/LIVE_DEVICE_ACCEPTANCE.zh-TW.md)。現有 0.6.0 APK 可沿用；更新車機後重新開啟 App 即可取得介面修正。
 
@@ -34,17 +42,21 @@ Formosa 座艙已補強手機精簡版面，並完成[停車實車連線、100%�
 
 ## 下載與安裝
 
-**[⬇ 下載 CarrotAssist 繁體中文版 0.2.19（Android APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-assist-tw-v0.2.19/CarrotAssist-TW-0.2.19.apk)**
+**[⬇ 下載 CarrotAssist 繁體中文版 0.2.20（Android APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-assist-tw-v0.2.20/CarrotAssist-TW-0.2.20.apk)**
 
-**[下載 Formosa 座艙 繁中 0.6.0（獨立 APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.6.0/CarrotCockpit-TW-0.6.0.apk)**：座艙版更名並採獨立藍色圖示；滿版 3D 道路、分類物件立體模型、浮動儀表與固定底列，控制頁採分區操作。修正 4:3 與大字版面、左右座標及橫縱向獨立狀態，顯示台灣日期與即時秒數；本版移除語音／麥克風權限，原 CarrotAssist 保留。既有繁中搜尋、詳細指南、設定確認與回讀、導航最愛、依車速縮放、拖曳視角、車型外觀、燈號及連線恢復延續。[操作說明](tools/carrot_android/COCKPIT.md)／[Android 實測與限制](tools/carrot_android/FORMOSA_COCKPIT_0.6.0_ACCEPTANCE.zh-TW.md)。先更新並重啟 carrot-wip 車機，再覆蓋安裝 APK；可與原版並存。 已補強[安卓手機直向／橫向主畫面](tools/carrot_android/PHONE_DISPLAY.zh-TW.md)：小尺寸、大字、導航鍵盤與設定操作；現有 0.6.0 APK 可沿用。已在 Samsung Android 手機以模擬 1920×720／4:3 驗證，尚未完成實體車用盒子或實車驗收。 另完成[介面與操作缺失修正](tools/carrot_android/INTERFACE_AUDIT.zh-TW.md)：大字頂列、車況卡片、彈窗與返回、載入重試及導航狀態同步；0.6.0 APK 可沿用。
+**[下載 Formosa 座艙 繁中 0.6.2（獨立 APK）](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.6.2/CarrotCockpit-TW-0.6.2.apk)**：座艙版更名並採獨立藍色圖示；滿版 3D 道路、分類物件立體模型、浮動儀表與固定底列，控制頁採分區操作。修正 4:3 與大字版面、左右座標及橫縱向獨立狀態，顯示台灣日期與即時秒數；本版移除語音／麥克風權限，原 CarrotAssist 保留。既有繁中搜尋、詳細指南、設定確認與回讀、導航最愛、依車速縮放、拖曳視角、車型外觀、燈號及連線恢復延續。[操作說明](tools/carrot_android/COCKPIT.md)／[Android 實測與限制](tools/carrot_android/FORMOSA_COCKPIT_0.6.0_ACCEPTANCE.zh-TW.md)。先更新並重啟 carrot-wip 車機，再覆蓋安裝 APK；可與原版並存。 已補強[安卓手機直向／橫向主畫面](tools/carrot_android/PHONE_DISPLAY.zh-TW.md)：小尺寸、大字、導航鍵盤與設定操作；現有 0.6.0 APK 可沿用。已在 Samsung Android 手機以模擬 1920×720／4:3 驗證，尚未完成實體車用盒子或實車驗收。 另完成[介面與操作缺失修正](tools/carrot_android/INTERFACE_AUDIT.zh-TW.md)：大字頂列、車況卡片、彈窗與返回、載入重試及導航狀態同步；0.6.0 APK 可沿用。
+
+座艙 0.6.2 的寬螢幕會依導航狀態展開地圖，未導航時給駕駛視覺完整寬度。在「應用」開啟子選單，關閉後可繼續從原位置操作。首次連線輸錯 IP 可以直接修正。[操作驗證與螢幕尺寸](tools/carrot_android/INTERFACE_AUDIT.zh-TW.md)
+
+0.2.20／0.6.1 已同步發布至 GitHub，App 內更新來源也已更新。搭配更新後的車機提供回放控制列自動收合、同步 SEI 與返回清理；新座艙 APK 已完成覆蓋安裝及實車舊影片回放檢查。[發行、簽章與下載驗證](tools/carrot_android/APK_RELEASE_20261118.zh-TW.md)。既有 0.6.0 仍可載入新版車機介面；安裝新 APK 也必須先更新車機。
 
 | 項目 | 說明 |
 |---|---|
-| 版本 | **0.2.19**（版本代碼 26） |
+| 版本 | **0.2.20**（版本代碼 27） |
 | 安裝需求 | Android 8.0 以上 |
 | 手機直接語音 | Android 12 以上、可用的裝置端語音辨識服務與國語語音模型 |
 | 套件名稱 | `me.shind0.carrotweb.tw`，手機顯示為 **CarrotAssist 繁中** |
-| 發行與驗證 | [發行頁面](https://github.com/TonyBinheWu/sunnypilot/releases/tag/carrot-assist-tw-v0.2.19) · [SHA-256 校驗檔](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-assist-tw-v0.2.19/SHA256SUMS.txt) |
+| 發行與驗證 | [發行頁面](https://github.com/TonyBinheWu/sunnypilot/releases/tag/carrot-assist-tw-v0.2.20) · [SHA-256 校驗檔](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-assist-tw-v0.2.20/SHA256SUMS.txt) |
 | 更新來源 | 本倉庫 `TonyBinheWu/sunnypilot` 的繁中發行頻道 |
 
 ### 安裝步驟
@@ -181,6 +193,8 @@ C3X／C4 共用的文字排版已加入快取，滑動只改變位置時不再�
 網頁、設定及維護操作請先安全停車；語音操作保留既有權限、車輛條件與駕駛優先權限制。
 
 ## FormosaLink 雲端操作與 LIVE
+
+已配對車主可以在「道路環境研究」分享前方車道、道路邊緣、物件與定位，查看台灣 OSM 道路疊圖，並下載自己的場景。支援的車型可記錄原廠雙黃線分類。[繁中操作指南與佔用模型實測](docs/ROAD_SCENE_RESEARCH.zh-TW.md)
 
 本分支支援 [FormosaLink](https://formosapilot.dinglu-t.com)：配對裝置後，可選「遠端 Carrot 網頁」進入原生網頁操作設定，或選「雙鏡頭 LIVE」觀看前廣角／車內鏡頭。
 

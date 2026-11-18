@@ -1,5 +1,105 @@
 # Repository memory
 
+- 2026-11-18 Road scene research uses independent per-owner/device opt-in and signed sparse scene uploads. Preserve source frame/EOF, calibration, GNSS quality, and OEM paint time. Never turn image-only boxes or OSM into observed geometry, moving tracks into static landmarks, or research data into a control input. Taiwan PBF/index, raw captures, and research weights stay outside git. See docs/ROAD_SCENE_RESEARCH.zh-TW.md for collection and the held-out KITTI results.
+
+- 2026-11-18 Lane-change notices: display-only forecasts use existing meta
+  indicatorPrepare fields independently of lamp permissions; never assign desire,
+  indicator or CAN commands from a forecast. Near exits are guidance, not proof
+  of current-lane need. Completion needs selected-boundary approach, coherent
+  inner-line relabeling and stable target center for0.6s; invalid/duplicate frames
+  or takeover cannot confirm. End current FSM desire only, preserve explicit
+  queued requests; no neural retraining/hidden-state reset. End results expire2s.
+  Held lamp waiting must not become another preparation warning; keep BSD alerts.
+  Native/Web notices require fresh4-service state, CANvalid, D, lateral active,
+  >=30km/h and no existing alert. Compact appends meta AND CAN health/takeover
+  fields in Python/native/JS matching order. Browser alertSize is numeric0.
+  Visible notices own an existing HUD+overlay data lease: standard camera/HUD
+  mode otherwise lacks model metadata. Guard synchronous lease reentrancy, late
+  publisher installation and release on deactivate/destroy. No camera request.
+  Verification:1088 web,184 related Python pass; native SCons build and codec
+  parity pass in44313014178. Signal44316247535:2060+362subtests/40skips, plus
+  pedal132, steering165, fault418 and Panda F4/H7 pass. Do not call the entire
+  native workflow green: later pre-existing RAV4 fixtures may still fail.
+  Browser simulation covers1920x720/1280x720/1024x768/390x844, large text,
+  switching/fullscreen, stale/alert hiding and standard HUD-only subscription.
+  Cockpit publishes measured instrument bottom so notices leave12px clearance.
+  Guide: docs/LANE_CHANGE_NOTICES.zh-TW.md. Simulated UI and recorded fixed-input
+  replay are not actual model/road acceptance. No native APK change.
+
+- 2026-11-18 Lane-change takeover: active starting/finishing FSM direction
+  outlives a one-touch lamp. Cancellation used neutral current blinker_state
+  and missed opposite driver torque; use retained maneuver direction, preserve
+  steeringPressed and torque sign gates. Clear queued requests via existing off
+  path. No authority/Panda/CAN relaxation.24 symmetric phase/lamp/torque cases
+  reproduce4 pre-fix failures. Private recorded replay matches baseline except
+  normal receiver timing differences and cancels two missed takeovers earlier;
+  fixed-input replay is not a closed-loop road/model/map acceptance. Guide:
+  docs/NAVIGATION_MAP_VALIDITY.zh-TW.md. Do not publish incident telemetry.
+
+- 2026-11-18 Navigation map validity: mapsd invalid black frames used to retain
+  a nonzero route ID. Publish ID0 for failed/slow/unpositioned frames; MapInput
+  also rejects the legacy all-black sentinel during rolling updates and clears
+  the previous image/provenance. Keep TBT and route/freshness policies intact.
+  Production-loop isolated IPC tests cover valid/failure/recovery, not a road
+  acceptance or proof of any reported navigation bias. No CAN/Panda suppression.
+  Guide: docs/NAVIGATION_MAP_VALIDITY.zh-TW.md. Incident rlogs and derived
+  telemetry remain private under .analysis; do not commit raw vehicle evidence.
+
+- 2026-11-18 Object-display investigation: C4 OS04C10 is1344x760; the old
+  standard964x604 live encoder stretched its aspect and cameraGeometry correctly
+  rejected it. Standard on-demand ROAD encoding now explicitly selects half
+  source dimensions (C4 672x380; AR/OX964x604 unchanged), including the V4L
+  fallback. Keep aspect admission strict. Missing ground geometry retains real
+  image-only road classifications, never fabricated depth. Report geometry
+  failure reasons and slow inference separately. Cold first inference may finish
+  within20s; subsequent timeout4s and capture TTL1.2s remain independent. Keep
+  the pinned CPU detector: an experimental GPU delegate returned empty output
+  on a car frame that CPU recognized and was removed, not shipped. Guide:
+  tools/carrot_android/OBJECT_DISPLAY_RECOVERY.zh-TW.md. Actual public-video CPU
+  classes and page-return recovery were observed with synthetic calibration;
+  this is not a vehicle/Android-box acceptance or N16 navigation fix. Support
+  logs and consented training uploads are separate. Check recorded clocks,
+  not received_at, before attributing uploaded data to a reported incident.
+
+- 2026-11-18 User explicitly requested GitHub APK delivery after shared UI work.
+  Published Formosa cockpit0.6.1/code9 and standard CarrotAssist0.2.20/code27,
+  source ae7beb7cd32a171e9cf8b250ee5e04e73135bf17. Native CI44283979374 and
+  44284050202 pass. Both retain package/signer/permissions; independently checked
+  v2 RSA signed-data AND APK chunk content digest, cert90e20971...051a8, CRC,
+  metadata and SHA256. Anonymous APK/SHA/update.json downloads and separate
+  canonical update feeds verified. Cockpit APK59ac0908...4f85d1, standard
+  ccfa47e4...750161. New cockpit installed-r on Samsung Android14 preserves data;
+  actual parked vehicle old replay/no-SEI notice and two-step Back pass. Standard
+  not installed on phone. Vehicle8ea7577b provides shared UI; APK does not bundle
+  it. Both versions and older published binaries are immutable; bump names/codes
+  for future builds. README links and proof: APK_RELEASE_20261118.zh-TW.md under
+  tools/carrot_android. Source push builds cockpit; dispatch standard separately.
+
+- 2026-11-18 Replay reads embedded SEI through normally built loggerd/sei_reader
+  (libavformat, no ffprobe/ffmpeg CLI needed on AGNOS), bounded8MiB/6000samples,
+  single admitted task, LRU2, real container PTS, causal250ms values and100ms
+  display hold. Never substitute live carState for recorded data. MP4 remux keeps
+  original packets. Plyr.source replaces media/custom children: rebind input,
+  SEI, transport and idle handlers on every segment; abort and reject late replies.
+  Controls/SEI use separate flex rows; absolute contain video needs a definite
+  flex container height. Use iframe100dvh for replay bounds, not stale parent
+  viewport vars. Short landscape initially collapses SEI. HotspotOnBoot defaults
+  OFF; runtime WiFiManagers opt into fresh SIM/PPP readiness background policy,
+  saved WPA2/shared profile, forwarding repair, retry/manual pause/disable race
+  guards. Preserve SSID/PSK/APN and standalone setup/updater behavior. Real SIM
+  sharing remains untested with the user's flag kept0. Guides: DRIVING_SEI and
+  SEI_REPLAY_ACCEPTANCE under tools/carrot_android, docs/HOTSPOT_ON_BOOT.zh-TW.md.
+  Release FFmpeg is STATIC: sei_reader must reuse loggerd's complete libs and
+  platform frameworks. A system dynamic-FFmpeg g++ check alone misses transitive
+  x264/swresample/VAAPI dependencies; the default native CI build catches them.
+  CI PATH also has a reduced FFmpeg executable without lavfi/x265. Codec tests
+  explicitly select distro /usr/bin/ffmpeg and ffprobe; require both and fail
+  rather than skip in release CI. Do not change playback's no-CLI contract.
+  APK Back must close an embedded .dashcam-player-overlay via its original close
+  button before leaving Logs. Also dispose replay on carrot:pagechange away from
+  logs; otherwise its body-level overlay survives when the shared iframe changes
+  to Vision, despite the parent appearing to navigate successfully.
+
 - 2026-11-18 Parking worker belongs in build.mjs workerDefinitions, never
   bundleDefinitions. A worker with bundle-only source metadata makes the strict
   production manifest loader reject the entire catalog; repeated update retries

@@ -9,6 +9,45 @@ HAS_TORCH=importlib.util.find_spec('torch') is not None
 
 @unittest.skipUnless(HAS_TORCH,'GPU training environment supplies torch')
 class TeacherLearningTest(unittest.TestCase):
+  def test_permitted_motion_loss_has_a_restart_gradient_at_zero_velocity_and_preserves_turn_direction(self):
+    import torch
+    from tools.training_studio.teacher_train import proceed_velocity_loss
+    target=torch.zeros(1,64,3);target[:,:20,0]=1.5;target[:,:20,1]=.3
+    prediction=torch.zeros_like(target,requires_grad=True)
+    loss=proceed_velocity_loss(prediction,target)
+    self.assertGreater(float(loss.detach()),0.)
+    loss.backward()
+    self.assertTrue(bool((prediction.grad[:,:20,0]<0).all()))
+    self.assertTrue(bool((prediction.grad[:,:20,1]<0).all()))
+    self.assertEqual(float(proceed_velocity_loss(target,target)),0.)
+    self.assertEqual(float(prediction.grad[:,20:].abs().sum()),0.)
+
+  def test_stop_selection_and_loss_reject_stopping_just_outside_original_zone(self):
+    import torch
+    from tools.training_studio.teacher_train import valid_stopped_trajectory,stop_zone_loss
+    xyz=torch.zeros(1,64,3);velocity=torch.zeros_like(xyz)
+    self.assertFalse(bool(valid_stopped_trajectory(xyz,velocity,5.1)))
+    self.assertFalse(bool(valid_stopped_trajectory(xyz,velocity,5.)))
+    self.assertTrue(bool(valid_stopped_trajectory(xyz,velocity,4.9)))
+    advanced=xyz.clone();advanced[...,0]=.2
+    self.assertTrue(bool(valid_stopped_trajectory(advanced,velocity,5.1)))
+    overshot=xyz.clone();overshot[...,0]=5.2
+    self.assertFalse(bool(valid_stopped_trajectory(overshot,velocity,5.1)))
+    moving=velocity.clone();moving[:,-1,0]=.2
+    self.assertFalse(bool(valid_stopped_trajectory(advanced,moving,5.1)))
+    late_entry=xyz.clone();late_entry[...,0]=.095
+    late_entry[:,-10:,0]=torch.linspace(.095,.105,10)
+    late_velocity=torch.diff(torch.cat((torch.zeros_like(late_entry[:,:1]),late_entry),dim=1),dim=1)/.1
+    self.assertFalse(bool(valid_stopped_trajectory(late_entry,late_velocity,5.1)))
+    held=torch.ones(1,64)
+    prediction=xyz.clone().requires_grad_()
+    loss=stop_zone_loss(prediction,advanced,held,5.1)
+    self.assertGreater(float(loss.detach()),0.)
+    loss.backward()
+    self.assertTrue(bool((prediction.grad[...,0]<0).all()))
+    self.assertEqual(float(stop_zone_loss(advanced,advanced,held,5.1)),0.)
+    self.assertEqual(float(stop_zone_loss(xyz,xyz,held,9.)),0.)
+
   def test_stop_command_loss_catches_positive_pulses_even_when_signed_speed_later_cancels(self):
     import torch
     from tools.training_studio.teacher_train import held_command_loss
@@ -67,6 +106,31 @@ class TeacherLearningTest(unittest.TestCase):
     torch.testing.assert_close(a,b)
     torch.testing.assert_close(expected,model.expert.expert.linear.weight.grad)
     self.assertGreater(float(expected.abs().max()),0)
+    from tools.training_studio.teacher_train import spill_prefix,load_prefix
+    with tempfile.TemporaryDirectory() as directory:
+      spilled=spill_prefix(item,Path(directory)/'prefix.pt')
+      model.expert.expert.zero_grad()
+      c,xyz,_=rollout(model,spilled,grad=True)
+      xyz.square().mean().backward()
+      torch.testing.assert_close(a,c,rtol=0,atol=0)
+      torch.testing.assert_close(expected,model.expert.expert.linear.weight.grad,rtol=0,atol=0)
+      load_prefix.cache_clear()
+
+  def test_disk_prefix_cache_keeps_only_one_context_and_preserves_kv(self):
+    import torch
+    from tools.training_studio.teacher_train import spill_prefix,load_prefix
+    with tempfile.TemporaryDirectory() as directory:
+      for index in range(20):
+        keys=torch.full((1,2,3),float(index))
+        item={'cache':SimpleNamespace(layers=[SimpleNamespace(keys=keys,values=keys+1)]),
+          'positions':torch.tensor([index]),'mask':torch.ones(1),'row':{'index':index}}
+        spilled=spill_prefix(item,Path(directory)/f'{index}.pt')
+        self.assertNotIn('cache',spilled)
+        restored=load_prefix(spilled['prefix_path'])
+        torch.testing.assert_close(restored['cache'].layers[0].keys,keys,rtol=0,atol=0)
+        torch.testing.assert_close(restored['cache'].layers[0].values,keys+1,rtol=0,atol=0)
+        self.assertEqual(load_prefix.cache_info().currsize,1)
+      load_prefix.cache_clear()
 
   def test_expansion_is_initially_identity_and_preserves_frozen_base_on_reload(self):
     import torch

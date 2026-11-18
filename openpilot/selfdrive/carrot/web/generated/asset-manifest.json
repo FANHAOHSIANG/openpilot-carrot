@@ -6,7 +6,7 @@
       "kind": "bundle",
       "source": "src/entries/cockpit.js",
       "path": "js/generated/cockpit.js",
-      "hash": "e4e53aa38039a67bf4eb6c9a2a84c70dcc6ddfff591dd1fb334c94f3dc53e26e"
+      "hash": "a3c7b284359147ab472928e783fb13260074b7c00c5d4e8c1fbf5f688765f78d"
     },
     {
       "id": "tools.lane-mapping",
@@ -34,7 +34,7 @@
       "kind": "bundle",
       "source": "src/entries/drive.js",
       "path": "js/generated/drive.js",
-      "hash": "aecc70eab9f7f88b8e086ba4553075703e20c057f404dd0474600301c6bbeda4"
+      "hash": "9eabc4f6df16268ce4af62a08fbc9f4d0fe667b66f6221c750607c256057ce45"
     },
     {
       "id": "replay.runtime",
@@ -62,7 +62,7 @@
       "kind": "bundle",
       "source": "src/entries/logs.js",
       "path": "js/generated/logs.js",
-      "hash": "aa3f48bc3d5957a6959157f870fa6758d135fa94346a76109a2087057fd5cecc"
+      "hash": "da0e99df78b8f8c465a7940d3646b1c676a0a6e10a4c9479c82b594dad9f7f85"
     },
     {
       "id": "terminal.runtime",
@@ -146,7 +146,7 @@
       "kind": "bundle",
       "source": "src/entries/logs.css",
       "path": "css/generated/logs.css",
-      "hash": "e2403fbad519badab15a06e827f442fb40e4a7ffe2f05970fcf0de4b05e848a3"
+      "hash": "987647bb449f130074271e8fecbd141dac2c60acd2f091b91a22a21863739573"
     },
     {
       "id": "terminal.styles",
@@ -173,7 +173,7 @@
       "id": "vision.parking-detector-worker",
       "kind": "worker",
       "path": "js/generated/parking-detector-worker.js",
-      "hash": "668cb987faae570bd0df62d4c2a4672bba8af4a1ffee7506cbde83180f6ef5fd"
+      "hash": "3edbd29e7acf371913a6e616371f052451d477f98cc426ce25f7eede562ff9df"
     },
     {
       "id": "vision.road-detector-worker",
@@ -185,7 +185,7 @@
       "id": "vision.object-detector-worker",
       "kind": "worker",
       "path": "js/generated/bev-detector-worker.js",
-      "hash": "cf3d69fb354c30e8c8ff960637adda7ae44bb5b957810e6c25546f8b5e2feafe"
+      "hash": "c94a7b1ee519cf3f400237c1c699182e3edfbc625a2a4bc23456ca01ddf13b84"
     },
     {
       "id": "vision.webgl2.worker",

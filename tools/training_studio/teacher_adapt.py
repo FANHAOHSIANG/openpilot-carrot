@@ -18,15 +18,27 @@ from tools.training_studio.store import Store,exclusive_worker,read_json,write_j
 
 def closed_loop_score(batch):
   rows=[read_json(path) for path in Path(batch).glob('*/result.json')]
-  if not rows: return (-1,)*8
+  if not rows: return (-1,)*11
   failures={failure for row in rows for failure in row.get('failures',[])}
   red=[row.get('red_wait_audit',{}).get('longest_contiguous_red_stop_s',0.) for row in rows if row.get('scenario')=='red_light']
+  paths=sorted(Path(batch).glob('*/provenance.json'))
+  adapter=(read_json(paths[0]).get('provenance',{}).get('action_expert_adapter') or {}) if paths else {}
+  # Once tested capability and safety failures tie, retain later learning.
+  # Extra already-passing hold time must not reset each round to old weights.
+  generation=(int(adapter.get('cycle') or 0),int(adapter.get('training_epoch') or 0))
   # Qualification fails fast. An untested later case is not evidence that an
   # earlier-failing parent is safer. Preserve actual passed-prefix progress.
   return (sum(row.get('status')=='pass' and not row.get('failures') for row in rows),
     int('collision' not in failures),int('crossed_before_permission' not in failures),int('out_of_road' not in failures),
-    int('lane_envelope' not in failures),int(not failures.intersection({'red_hold_not_maintained','red_stop_not_sustained'})),min(red,default=0.),
+    int('lane_envelope' not in failures),int(not failures.intersection({'red_hold_not_maintained','red_stop_not_sustained'})),
+    -len(failures),*generation,min(red,default=0.),
     -max((row.get('max_center_error_m',0.) for row in rows),default=0.))
+
+
+def remember_tested_scenarios(state,rows):
+  """Rehearse scene types with new seeds, never held-out observations or labels."""
+  names={row['scenario'] for row in rows}
+  state['rehearsal']=sorted(set(state.get('rehearsal',[]))|names)
 
 
 def restore_parent_ranking(store,state):
@@ -34,8 +46,8 @@ def restore_parent_ranking(store,state):
 
   This does not issue qualification: only the original complete suite may do so.
   """
-  if state.get('ranking_version')==3: return
-  best=(-1,)*8
+  if state.get('ranking_version')==5 and state.get('rehearsal_version')==1: return
+  best=(-1,)*11
   for batch in sorted((store.root/'teacher-cycles').glob('cycle-*/qualification-*')):
     if not batch.is_dir(): continue
     report=read_json(batch/'qualification.json',{})
@@ -47,11 +59,12 @@ def restore_parent_ranking(store,state):
     adapter=provenance.get('action_expert_adapter') or {}
     if not adapter.get('path','').startswith('/studio/teacher/cycle-') or not adapter.get('sha256'): continue
     if any(row.get('model_provenance_sha256')!=fingerprint for row in rows): continue
+    remember_tested_scenarios(state,rows)
     score=closed_loop_score(batch)
     if score>best:
       best=score
       state.update(parent=adapter,scenario=rows[-1]['scenario'])
-  state.update(best_closed_loop=best,ranking_version=3)
+  state.update(best_closed_loop=best,ranking_version=5,rehearsal_version=1)
 
 
 def main():
@@ -223,6 +236,7 @@ def main():
             write_json(store.root/'teacher-attempt.json',{'fingerprint':fingerprint,'batch':str(batch),'started':time.time()})
             run_local('tools.training_studio.qualification',['--root',store.root,'--batch',batch],folder/('qualification-'+selection+'.log'),allowed=(0,2))
             outcome=read_json(store.root/'teacher-qualification-progress.json',{})
+            remember_tested_scenarios(state,read_json(batch/'qualification.json',{}).get('results',[]))
             if outcome.get('state')=='passed':
               state.update(parent=pointer,cycle=cycle+1,qualified_sha256=pointer['sha256'])
               write_json(loop_root/'state.json',state)
@@ -234,7 +248,6 @@ def main():
               state['parent']=pointer
               state['best_closed_loop']=score
               state['scenario']=outcome.get('scenario','red_light')
-            state['rehearsal']=sorted(set(state.get('rehearsal',[]))|{outcome.get('scenario','red_light')})
           state['cycle']=cycle+1
           write_json(loop_root/'state.json',state)
         except InterruptedError: raise

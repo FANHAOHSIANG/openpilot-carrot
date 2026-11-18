@@ -1,12 +1,14 @@
 """Train the actual Edge expert through the same ten Euler steps used at inference."""
 import argparse
 import copy
+from functools import lru_cache
 import hashlib
 import json
 import os
 from pathlib import Path
 import signal
 import threading
+import tempfile
 import time
 
 IMPLEMENTATION_SHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
@@ -24,6 +26,30 @@ def cache_copy(source,device):
       value=getattr(layer,name,None)
       if value is not None: setattr(layer,name,value.detach().to(device=device,copy=True))
   return result
+
+
+def spill_prefix(item,path):
+  """Keep generated frozen VLM contexts on disk, not one CPU copy per sample."""
+  import torch
+  torch.save({key:item[key] for key in ('cache','positions','mask')},path)
+  release_prefix_pages(path)
+  return {**{key:value for key,value in item.items() if key not in ('cache','positions','mask')},'prefix_path':str(path)}
+
+
+def release_prefix_pages(path):
+  """Evict only this generated file's clean pages from shared CPU/GPU RAM."""
+  if not hasattr(os,'posix_fadvise'): return
+  with open(path,'r+b') as stream:
+    os.fsync(stream.fileno())
+    os.posix_fadvise(stream.fileno(),0,0,os.POSIX_FADV_DONTNEED)
+
+
+@lru_cache(maxsize=1)
+def load_prefix(path):
+  import torch
+  # These are private artifacts created by spill_prefix in this invocation,
+  # never uploaded model/data files. Preserve the pinned HF cache class exactly.
+  return torch.load(path,map_location='cpu',mmap=True,weights_only=False)
 
 
 def held_command_loss(action,space,history_xyz):
@@ -45,11 +71,35 @@ def held_command_loss(action,space,history_xyz):
   return 200*executed.square().amax()+50*executed.square().mean()
 
 
+def stop_zone_loss(xyz,target,held,front_distance):
+  """Penalize stopping short only where the reference has reached the valid zone."""
+  import torch
+  reference_front=front_distance-target[...,0]
+  valid_reference=held*((reference_front>=0)&(reference_front<5)).to(held.dtype)
+  shortfall=torch.relu(front_distance-xyz[...,0]-5)
+  return 30*(shortfall.square()*valid_reference).sum()/valid_reference.sum().clamp_min(1)
+
+
+def valid_stopped_trajectory(xyz,velocity,front_distance):
+  """Offline selection must honor the existing zero-to-five-metre stop zone."""
+  import torch
+  final_front=front_distance-xyz[...,-10:,0]
+  speed=torch.linalg.vector_norm(velocity,dim=-1)
+  return ((xyz[...,0].amax(dim=-1)<=front_distance)&((final_front>=0)&(final_front<5)).all(dim=-1)&(speed[...,-10:].amax(dim=-1)<.15)).all()
+
+
+def proceed_velocity_loss(velocity,reference_velocity):
+  """Match immediate permitted motion rather than postponing a restart at every replan."""
+  error=(velocity[:,:20]-reference_velocity[:,:20]).square().sum(-1)
+  return 200*error.amax()+50*error.mean()
+
+
 def rollout(model,item,*,grad,seed=42):
   import torch
   from torch.utils.checkpoint import checkpoint
   device=item.get('device','cuda')
-  cache,positions,mask=item['cache'],item['positions'],item['mask']
+  context=load_prefix(item['prefix_path']) if 'prefix_path' in item else item
+  cache,positions,mask=context['cache'],context['positions'],context['mask']
   positions,mask=positions.to(device),mask.to(device)
   noise=torch.randn((1,64,2),device=device,generator=torch.Generator(device=device).manual_seed(seed))
   times=torch.linspace(0,1,11,device=device)
@@ -101,7 +151,11 @@ def main():
   from tools.training_studio.teacher_lora import install,load,expand
   from tools.training_studio.store import write_json
   args.output.mkdir(parents=True,exist_ok=False)
-  torch.cuda.set_per_process_memory_fraction(.35)
+  prefix_directory=tempfile.TemporaryDirectory(prefix='prefix-',dir=args.output)
+  prefix_root=Path(prefix_directory.name)
+  cuda_total=torch.cuda.get_device_properties(0).total_memory
+  cuda_budget=min(24*1024**3,int(.9*cuda_total))
+  torch.cuda.set_per_process_memory_fraction(cuda_budget/cuda_total)
   torch.manual_seed(42)
   model,_=load_model('/teacher/model',device='cuda',dtype='bfloat16',attn_implementation='sdpa')
   if args.parent:
@@ -130,7 +184,9 @@ def main():
   model._sample_actions=capture
   history=[]
   def emit(phase,**fields):
-    value={'phase':phase,'epochs':args.epochs,'history':history,'updated':time.time(),**fields}
+    value={'phase':phase,'stage':None,'epochs':args.epochs,'history':history,'updated':time.time(),
+      'cuda_budget_gib':cuda_budget/1024**3,'cuda_allocated_gib':torch.cuda.memory_allocated()/1024**3,
+      'cuda_reserved_gib':torch.cuda.memory_reserved()/1024**3,'cuda_peak_allocated_gib':torch.cuda.max_memory_allocated()/1024**3,**fields}
     write_json(args.output/'progress.json',value)
     print(json.dumps(value),flush=True)
   prepared=[]
@@ -158,9 +214,18 @@ def main():
       if difference>.02: raise RuntimeError(f'differentiable sampling disagrees with official inference: {difference}')
       emit('prefill',sample=index+1,samples=len(rows),official_sampling_max_error=difference)
     else: emit('prefill',sample=index+1,samples=len(rows))
+    spilled=spill_prefix(item,prefix_root/f'{index:06d}.pt')
+    if index==0:
+      with torch.no_grad(): disk_action,_,_=rollout(model,spilled,grad=False)
+      disk_difference=float((disk_action.cpu()-captured['action']).abs().max())
+      if disk_difference>.02: raise RuntimeError(f'disk context sampling disagrees with official inference: {disk_difference}')
+      emit('prefill',sample=index+1,samples=len(rows),official_sampling_max_error=difference,disk_sampling_max_error=disk_difference)
     captured.pop('action',None)
-    prepared.append(item)
-    del inputs,cache
+    prepared.append(spilled)
+    del inputs,cache,item
+    load_prefix.cache_clear()
+    release_prefix_pages(spilled['prefix_path'])
+    torch.cuda.empty_cache()
   train=[r for r in prepared if r['row']['split']=='train']
   validation=[r for r in prepared if r['row']['split']=='validation']
   if not train or not validation: raise ValueError('training and validation samples required')
@@ -173,8 +238,15 @@ def main():
     # Match near-term execution and body orientation, rather than a one-step flow proxy.
     loss=F.smooth_l1_loss(xyz[...,0],target[...,0])+20*error[...,1].square().mean()+10*error[:,:20].square().mean()
     loss=loss+4*(velocity[:,:20]-ref_velocity[:,:20]).square().mean()+50*(rot-item['target_rot'].cuda()).square().mean()
+    if not item['row']['stop_required'] or not item['row'].get('maintain_stop_reference',False):
+      loss=loss+proceed_velocity_loss(velocity,ref_velocity)
+    if item['row'].get('restart_required'):
+      accel_std=model.expert.action_space.accel_std.to(action.device)
+      restart_error=(action[...,0]-item['target_action'].to(action.device)[...,0])*accel_std
+      loss=loss+10*restart_error[:,:20].square().mean()
     if item['row']['stop_required']:
       held=(torch.linalg.vector_norm(ref_velocity,dim=-1)<.15).float()
+      loss=loss+stop_zone_loss(xyz,target,held,item['row']['front_distance_m'])
       loss=loss+50*(velocity.square().sum(-1)*held).sum()/held.sum().clamp_min(1)
       loss=loss+200*(velocity.square().sum(-1)*held).amax()
       accel_std=model.expert.action_space.accel_std.to(action.device)
@@ -185,8 +257,8 @@ def main():
       loss=loss+30*torch.relu(xyz[...,0]-item['row']['front_distance_m']+.2).square().mean()
     if not torch.isfinite(loss): raise ValueError('nonfinite actual rollout loss')
     return loss,xyz,velocity
-  def validate():
-    values=[]; red=0; lateral=[]; hold=[]
+  def validate(epoch=None):
+    values=[]; red=0; lateral=[]; hold=[]; proceed=[]
     with torch.no_grad():
       for item in validation:
         loss,xyz,velocity=objective(item,False)
@@ -194,9 +266,20 @@ def main():
         lateral.append(float((xyz-item['target'].cuda())[...,1].square().mean()))
         if item['row']['stop_required']:
           speed=torch.linalg.vector_norm(velocity,dim=-1)
-          red+=int(bool((xyz[...,0].max()<=item['row']['front_distance_m']) & (speed[:,-10:].max()<.15)))
+          red+=int(bool(valid_stopped_trajectory(xyz,velocity,item['row']['front_distance_m'])))
           hold.append(float(speed[:,-10:].square().mean()))
-    return {'validation_loss':float(np.mean(values)),'red_safe_count':red,'red_samples':len(hold),'red_hold_speed_mse':float(np.mean(hold)) if hold else 0.,'lateral_trajectory_mse':float(np.mean(lateral))}
+        else:
+          target=item['target'].cuda()
+          reference_velocity=torch.diff(torch.cat((torch.zeros_like(target[:,:1]),target),dim=1),dim=1)/.1
+          proceed.append(float((velocity[:,:20]-reference_velocity[:,:20]).square().sum(-1).mean()))
+        del loss,xyz,velocity
+        load_prefix.cache_clear()
+        release_prefix_pages(item['prefix_path'])
+        torch.cuda.empty_cache()
+        emit('prefill' if epoch is None else 'training',epoch=epoch or 0,
+          stage='validation',validation_sample=len(values),validation_samples=len(validation),
+          **({'baseline':baseline} if epoch is not None else {}))
+    return {'validation_loss':float(np.mean(values)),'red_safe_count':red,'red_samples':len(hold),'red_hold_speed_mse':float(np.mean(hold)) if hold else 0.,'lateral_trajectory_mse':float(np.mean(lateral)),'stop_metric':'valid_stop_zone_v2','go_velocity_mse':float(np.mean(proceed)) if proceed else None,'go_samples':len(proceed)}
   baseline=validate()
   best_metrics,best_epoch=baseline,0
   balanced_metrics,balanced_epoch=baseline,0
@@ -230,8 +313,12 @@ def main():
           optimizer.state.clear()
           scale=0.
       values.append(observed)
+      del loss,_
+      load_prefix.cache_clear()
+      release_prefix_pages(train[index]['prefix_path'])
+      torch.cuda.empty_cache()
       emit('training',epoch=epoch+1,batch=batch+1,batches=len(train),loss=values[-1],loss_before_step=initial_loss,step_scale=scale,baseline=baseline)
-    metrics=validate()
+    metrics=validate(epoch+1)
     history.append({'epoch':epoch+1,'train_loss':float(np.mean(values)),**metrics})
     score=(metrics['red_safe_count'],-metrics['red_hold_speed_mse'],-metrics['validation_loss'])
     if score>best_score:
@@ -246,8 +333,11 @@ def main():
     'balanced_best':balanced_metrics,'balanced_epoch':balanced_epoch,'balanced_adapter_saved':(args.output/'balanced.safetensors').is_file(),
     'history':history,'adapter_saved':(args.output/'best.safetensors').is_file(),'qualified':False,'objective':'actual_ten_step_Euler_rollout',
     'script_sha256':IMPLEMENTATION_SHA256,'dataset_sha256':hashlib.sha256((args.data/'manifest.json').read_bytes()).hexdigest(),
-    'parent_sha256':hashlib.sha256(args.parent.read_bytes()).hexdigest() if args.parent else None,'official_sampling_max_error':sampling_error})
+    'parent_sha256':hashlib.sha256(args.parent.read_bytes()).hexdigest() if args.parent else None,'official_sampling_max_error':sampling_error,
+    'disk_sampling_max_error':disk_difference})
   emit('completed',epoch=args.epochs,baseline=baseline)
+  load_prefix.cache_clear()
+  prefix_directory.cleanup()
 
 
 if __name__=='__main__': main()

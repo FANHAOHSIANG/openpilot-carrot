@@ -2,6 +2,20 @@
 
 [한국어](../ko/settings.md)
 
+## Road scene research
+
+In FormosaLink, choose your paired Carrot device, open **Road scene research**, and select **Start sharing**. The portal shows recent road geometry and nearby OpenStreetMap roads. Stop sharing, erase the data, or download your observations from the same panel. Camera classifications require a connected viewer with detection enabled. [Data fields and evaluation](../../ROAD_SCENE_RESEARCH.zh-TW.md)
+
+## Carrot Vision object display
+
+The object detector needs a connected front-camera image and fresh calibration. The standard live stream now preserves the full source aspect: C4 uses 672×380; C3/C3X retain 964×604. Update and rebuild the vehicle, reboot while parked, then reconnect the existing APK.
+
+Image-only classifications remain visible when ground projection is unavailable, without assigning a distance. The viewer distinguishes missing calibration or camera height, stale telemetry, incompatible stream aspect and slow inference. First inference has a separate warm-up budget; capture expiry remains 1.2 seconds and old detections never become current merely because inference completed. See the [display recovery guide](../../../tools/carrot_android/OBJECT_DISPLAY_RECOVERY.zh-TW.md) for diagnostics and limits. These display changes do not validate navigation steering.
+
+## Opposite steering takeover during a lane change
+
+During a lane change, opposite steering takeover now uses the active maneuver direction even after a one-touch indicator ends. The existing steeringPressed threshold remains required; cancellation clears the queued next change. This does not change torque-confirmation entry preferences or increase steering limits. [Details and verification limits](../../NAVIGATION_MAP_VALIDITY.zh-TW.md#變道中的反向接管取消).
+
 ## Revisit initial vehicle and control choices
 
 For error messages, use **Tools → Error diagnosis and repair** first. It distinguishes observed faults from missing data; any supported repair requires confirmation and a fresh parked-state check. [Diagnosis scope and recovery](carrot-web.md#error-diagnosis-and-repair).
@@ -475,6 +489,8 @@ The Replay event timeline also identifies Carrot Navi connection and route-sessi
 <a id="system"></a>
 ## System
 
+`HotspotOnBoot` starts the saved WPA2 hotspot once the SIM is ready and cellular data is connected. It checks in the background, retries failed activation with backoff, and uses NetworkManager shared IPv4 (DHCP, DNS and NAT) so connected devices can use the cellular connection. The existing hotspot name/password, APN, roaming and metered-upload settings are retained. One Wi-Fi radio switches from joining Wi-Fi to hosting the hotspot; reconnect viewers to the device hotspot. Turning tethering off manually pauses automatic startup until this option is disabled/re-enabled or the device restarts. Turning the option off closes a hotspot managed by this option. A temporary cellular outage keeps the local hotspot available. Cellular plans/APNs must permit tethering; SIM presence alone is insufficient. Runtime checks apply in about five seconds; an older installed program needs an update and restart first.
+
 The 12 system settings cover recording, power, network, maps, sound, and software menus.
 
 | Group | Parameters | Purpose |
@@ -616,6 +632,10 @@ Manual indication projects 0.3s of measured boundary approach, advancing the cen
 After confirmed turn entry, the TBT indicator ends its hold as the wheel returns within ±15 degrees while moving, without waiting for the remaining 30m. Pre-turn traffic-light waits remain held; see [lane changes](lane-change.md) for the entry conditions.
 
 The ATC right lane-change distance uses 0m for off and 50m steps up to 500m. The former ON setting migrates to 250m at restart.
+
+## Lane-change notices and observed completion
+
+Vehicle and connected Web/APK Vision now show lane-change forecasts, preparation, execution and end results independently of automatic indicator settings. An observed boundary crossing followed by stable target-lane centering ends the current lane-change desire; weak observations produce an unconfirmed result. These notices neither operate indicators nor initiate steering. Existing queued driver requests, takeover and blind-spot warnings remain. Fresh CAN/state, Drive, active lateral control and at least 30 km/h are required; existing alerts have priority. Update and restart vehicle source. See the [conditions, limits and verification guide](../../LANE_CHANGE_NOTICES.zh-TW.md#english).
 
 ## Interface language
 

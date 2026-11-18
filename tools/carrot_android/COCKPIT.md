@@ -1,10 +1,24 @@
-# Formosa 座艙 繁中 0.6.0
+# Formosa 座艙 繁中 0.6.2
 
 獨立的 Android 座艙版，套件 `me.shind0.carrotweb.tw.cockpit`，可與 CarrotAssist 繁中並存。Android 8.0 以上；本版依使用者要求移除語音功能與麥克風權限，原 CarrotAssist 保留語音。介面參考中央觸控螢幕的車況／導航分割、底部快捷列與模式卡片，沿用 Carrot 現有功能，車輛及圖示使用本專案原創繪圖，沒有 Tesla 程式、標誌或車輛模型。
 
-[下載 APK](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.6.0/CarrotCockpit-TW-0.6.0.apk)
+[下載 APK](https://github.com/TonyBinheWu/sunnypilot/releases/download/carrot-cockpit-tw-v0.6.2/CarrotCockpit-TW-0.6.2.apk)
 
 先更新並重新啟動 TonyBinheWu/sunnypilot 的 carrot-wip 車機，再讓 Android 裝置與車機連上同一 Wi-Fi／熱點。首次開啟重新選擇裝置；獨立套件的連線資料與授權分開保存，原版資料不會被匯入或覆寫。尚未支援遠端 FormosaLink 在這個 LAN 版本中直接啟動座艙。
+
+## 0.6.2 操作調整
+
+首次連線時，搜尋結果可連同說明一起捲動。手動輸入 IP 若有誤，可在原欄位修正，再按確認或鍵盤的完成鍵。車機同步更新後，未導航的寬螢幕放大駕駛視覺；從應用選單查看顯示、辨識或胎壓，關閉後會回到原選項。
+
+## 0.6.1：回放控制列與同步 SEI
+
+本版為 2026-11-18 介面修正同步發行的 APK，版本代碼 9，沿用原本套件、簽章及更新頻道，可覆蓋安裝並保留資料。原有繁中功能完整保留，座艙版繼續不提供語音或麥克風權限。
+
+搭配已更新的 carrot-wip 車機，行車記錄控制列放在影片下方，播放約兩秒未操作後收起；輕觸可叫出，暫停、拖曳與操作選單時保留。短橫向預設收合 SEI 車況，保留完整比例的影片；返回會先關閉播放器，再離開記錄頁，切換頁面也會釋放播放資源。
+
+新錄影的 SEI 可同步顯示車速、方向盤角度、油門、煞車、橫向／縱向輔助與 ACC；舊影片沒有 SEI 時明確提示。另支援車機的 SIM 就緒後自動熱點分享。這些介面與網路功能由車機提供，**只更新 APK 不會更新車機程式**。[SEI 使用與驗證](DRIVING_SEI.zh-TW.md)／[SIM 分享指南](../../docs/HOTSPOT_ON_BOOT.zh-TW.md)。
+
+車機版本 `8ea7577b` 已完成停車更新、舊影片 MP4 回放及設定保留檢查；既有 0.6.0 在 Samsung Android 14 上完成實車連線播放與控制列收合。新 0.6.1 APK 已覆蓋安裝、保留連線資料，並實測開啟車機舊影片、無 SEI 提示及逐層返回。[簽章、下載及更新頻道驗證](APK_RELEASE_20261118.zh-TW.md)。合成影片或單一手機測試不代表所有車用盒子均已驗收。
 
 ## 介面與操作修正（2026-11-18）
 
@@ -204,7 +218,7 @@ APK 由既有受保護簽章建置，使用獨立 carrot-cockpit-tw-updates 更�
 
 ### 物件類別與限制
 
-現有本機 EfficientDet-Lite0 模型的內嵌 labels.txt 已核對，本次擴充其顯示允許類別，並未訓練或新增模型權重。需在既有 Vision 設定明確開啟物件辨識，並有有效前鏡頭影像；預設開關、CPU worker、最多 4Hz 自動降頻、一次一張影像與 1.2 秒過期規則保留，影像不會為此上傳。
+現有本機 EfficientDet-Lite0 模型的內嵌 labels.txt 已核對，本次擴充其顯示允許類別，並未訓練或新增模型權重。需在既有 Vision 設定明確開啟物件辨識，並有有效前鏡頭影像；預設開關、CPU worker、最多 4Hz 自動降頻、一次一張影像與 1.2 秒過期規則保留，影像不會為此上傳。C4 標準串流比例、首次預熱及定位不足時的分類提示已修正，詳見[物件顯示檢查指南](OBJECT_DISPLAY_RECOVERY.zh-TW.md)。
 
 | 類別 | 本版實際顯示 |
 | --- | --- |
