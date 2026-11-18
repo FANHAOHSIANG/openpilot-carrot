@@ -13,10 +13,10 @@
 
 `ModelPathIndicator`
 
-30km/h 이상에서 모델의 1~3초 경로가 차선 곡선을 넘어 이어지고 실제 제어 곡률도 같은 방향이면 깜박이를 표시합니다. 대상 차선 신뢰도 10% 이상, 연속적인 경계와 반복 관측이 필요합니다. 좌측 중앙선·우측 로드에지 제외 조건을 적용하며 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 아이오닉5 PE·Jetson USB2CAN 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 아이오닉5 PE·아이오닉9·그랜저 GN7의 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.
+30km/h 이상에서 모델의 1~3초 경로가 차선 곡선을 넘어 이어지고 실제 제어 곡률도 같은 방향이면 깜박이를 표시합니다. 대상 차선 신뢰도 10% 이상, 연속적인 경계와 반복 관측이 필요합니다. 좌측 중앙선·우측 로드에지 제외 조건을 적용하며 자동 조향 요청은 추가하지 않습니다. 기본 꺼짐. 규격이 확인된 USB2CAN·BLE·Panda/SPAS 출력 및 자동 깜박이 1·2번에서 지원합니다. 실제 램프와 주행 검증은 별도로 필요합니다. 지원되는 Panda/SPAS 출력에서도 같은 설정과 판단을 사용합니다. Panda/SPAS 출력은 차종명 제한 없이 ECAN의 SPAS 0x165(24바이트)·0x16A(32바이트)와 레버 0x3C1(8바이트)가 확인된 카메라 SCC CAN-FD 구성에서 선택할 수 있습니다.
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="95fe249da0c78043cb0d3c27d805663838d205e708f62fe25451743e1ffcf340" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="73d9ef710e067485c4fc17b80a1f1779312ce37b755a8d1c6c13368ad15f6980" semantic="105411b81dff89e278f6afa169b10277120a014e25f7acdff01a72283332cd68" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 토글
 - **기본값:** `0`

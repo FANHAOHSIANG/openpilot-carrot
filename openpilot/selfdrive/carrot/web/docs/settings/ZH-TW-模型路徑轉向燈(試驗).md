@@ -16,7 +16,7 @@
 車速至少30km/h，模型未來1至3秒路徑持續越過彎曲車道邊界，且控制曲率方向一致時顯示轉向燈。要求目標線置信度至少10%、連續邊界及重複觀測。排除左側中央線及右側道路邊緣，不新增自動轉向請求。 預設關閉，僅支援Ioniq 5 PE、Jetson USB2CAN及自動轉向燈模式1或2；實車驗證另行進行。
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="e1c9040435e4e3b2473a941637e34df473af3c484f09c36eff4bc1976b89b270" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="6bcf6eeeddada352a5abe27b0078263f7693d19c2e0138a22df1f391b8e53ddd" semantic="105411b81dff89e278f6afa169b10277120a014e25f7acdff01a72283332cd68" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 開關
 - **預設值:** `0`

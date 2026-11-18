@@ -16,7 +16,7 @@
 僅在外部導航未連線時應用。外部導航連線期間，即使沒有當前引導專案也不使用原車導航。 選擇何時使用原車導航 CAN 的攝影機和減速帶實際距離進行減速。路徑匹配是指 vNAVI 的未來事件與當前計算路線及路徑一致。 0：禁用 1：攝影機和減速帶始終應用 2：攝影機始終應用，減速帶僅在路徑匹配時應用 3：攝影機和減速帶僅在路徑匹配時應用 路徑資料超過兩秒未更新時按無路徑處理。車輛直接確認的當前攝影機狀態由 VehicleSpeedCameraControlMode 單獨控制。PV5 直接確認的區間測速狀態在模式 1～3 中保持有效。此為實驗功能，請僅在已驗證車輛上使用。 當前攝影機警告僅關聯限速相同且距離較近的候選；若只有同限速的遠處攝影機，則使用當前警告自身的虛擬距離。
 
 <!-- CARROT:AUTO:BEGIN VehicleNaviCanControl -->
-<!-- CARROT:AUTO:SOURCE facts="9174f881d199d4e82cb68f58c46826c7a5fe290a0dc334e0569318d304630831" semantic="f8d1712821a73e6fe7eba60cf61124d25e39d1cbafcd0c3129f9732ab42f4b13" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="052e964ea776a7b04f89543f7278643c7862609d8fc495b061c780f1e326664b" semantic="d7ce0eb4eac21251f9feb24e3bb202aa9e43839b018f2f113ca4895e026d8482" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 選擇
 - **預設值:** 禁用 (`0`)

@@ -16,7 +16,7 @@
 0：關閉（保留藍芽輕觸）。1：低於5km/h藍芽保持至轉彎結束，從ATC audioTurn提示開始保持，路口停車時不熄滅，實際轉彎後方向盤回正時解除。2：另含實際開始的ATC變道，等待時不亮。同方向取消保持，反方向切換。原車撥杆優先。需要支援的Jetson USB-CAN/B1車輛。 ATC在確認傳送完成但未亮燈時最多重試一次。有效TBT座標與車輛GPS確認直行透過後自動取消；位置不可靠時不使用該位置取消判斷。 TBT按audioTurn距離及行駛距離跟蹤至轉彎點後30米。確認對應方向轉角超過30度且車身方向變化至少20度後，車速至少1km/h時方向盤回到±15度以內立即結束保持。進入轉彎前的訊號燈停車仍保持。新的下一轉彎提示在當前轉彎結束後接續；對應方向轉角達到30度後，駕駛員反向施力使轉角越過零點進入反方向時取消。已確認傳送及亮燈的TBT保持不因接收端driver\_override狀態單獨解除。不能保證原車燈立即熄滅。 按巡航 CANCEL 會停止自動轉向燈請求並解除自動保持。泊車轉動方向盤不會重新觸發；用 SET/RES 或 +/− 解除巡航取消狀態後，新動作才可觸發。原車撥杆和藍芽轉向燈按鈕仍可手動使用。
 
 <!-- CARROT:AUTO:BEGIN AutoBlinkerControl -->
-<!-- CARROT:AUTO:SOURCE facts="5b1e9b2dd0e3c7e18600acb40b0505d5dcbaca3e0561a3669060f86c0f9a402a" semantic="f201e7abb802048e9cfb08de91f28ef854b93e6bf418d3ce82001bb17b91dafc" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="2c9cb951b8048ed246703b2e0f9ae5cc283b8afc7b4ab261b9740ad590b933d6" semantic="bec8c1e7a73c7c63379074f9c07dc8771b558a21feef757c841b15a77a5172ac" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 分段選擇
 - **預設值:** `0`

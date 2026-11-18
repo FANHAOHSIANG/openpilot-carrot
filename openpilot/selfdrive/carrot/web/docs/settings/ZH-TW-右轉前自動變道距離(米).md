@@ -16,7 +16,7 @@
 0米關閉，在設定距離內檢查條件。250米對應原有範圍，也可選擇300–400米。原開啟設定在啟動時轉換為250米。附加於ATC模式1或2。車速至少10km/h時，距TBT右轉或右側分岔設定距離以內且尚未開始轉彎時請求右轉向燈。需要Ioniq 5 PE USB2CAN、AutoBlinkerControl=2及LaneChangeNeedTorque=0。後方僅檢查有效原車BSD警告，不使用角雷達距離。右側目標車道的前方車輛當前距離及按相對速度預測3秒後的距離均須至少5米。前雷達故障或資料過期時不啟動。請求前轉向會重新確認條件，請求後駕駛員干預會取消。 低於30km/h開始的訊號始終僅作顯示；至少30km/h開始時才進入既有變道流程。右側車道線到道路邊緣須至少2.5米。
 
 <!-- CARROT:AUTO:BEGIN AutoTurnControlRightLaneChange -->
-<!-- CARROT:AUTO:SOURCE facts="39ecc892d2c12e21d9ea37b0679121c936c901f371547d3c3bf2e183a2ed7f16" semantic="3008498ad9b26c4e6721da72acaa56057939a66d7d15c51954adbc9bb64b1584" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="1d8490d1311782842f78a0b57787b6d4bb1b9a6bddba659050ae3bb9806d6586" semantic="7eb68aa23e6c576d77c96daa5b8748f9c5b81963f9e52932d2d46477cb987df5" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 數值
 - **預設值:** `0`

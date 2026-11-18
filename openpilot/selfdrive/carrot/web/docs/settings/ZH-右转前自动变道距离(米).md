@@ -13,10 +13,10 @@
 
 `AutoTurnControlRightLaneChange`
 
-0米关闭，在设定距离内检查条件。250米对应原有范围，也可选择300–400米。原开启设置在启动时转换为250米。附加于ATC模式1或2。车速至少10km/h时，距TBT右转或右侧分岔设定距离以内且尚未开始转弯时请求右转向灯。需要Ioniq 5 PE USB2CAN、AutoBlinkerControl=2及LaneChangeNeedTorque=0。后方仅检查有效原车BSD警告，不使用角雷达距离。右侧目标车道的前方车辆当前距离及按相对速度预测3秒后的距离均须至少5米。前雷达故障或数据过期时不启动。请求前转向会重新确认条件，请求后驾驶员干预会取消。 低于30km/h开始的信号始终仅作显示；至少30km/h开始时才进入既有变道流程。右侧车道线到道路边缘须至少2.5米。
+0米关闭，在设定距离内检查条件。250米对应原有范围，也可选择300–400米。原开启设置在启动时转换为250米。附加于ATC模式1或2。车速至少10km/h时，距TBT右转或右侧分岔设定距离以内且尚未开始转弯时请求右转向灯。需要protocol-matched USB2CAN, BLE or Panda/SPAS、AutoBlinkerControl=2及LaneChangeNeedTorque=0。后方仅检查有效原车BSD警告，不使用角雷达距离。右侧目标车道的前方车辆当前距离及按相对速度预测3秒后的距离均须至少5米。前雷达故障或数据过期时不启动。请求前转向会重新确认条件，请求后驾驶员干预会取消。 低于30km/h开始的信号始终仅作显示；至少30km/h开始时才进入既有变道流程。右侧车道线到道路边缘须至少2.5米。
 
 <!-- CARROT:AUTO:BEGIN AutoTurnControlRightLaneChange -->
-<!-- CARROT:AUTO:SOURCE facts="1ef251bdf4ed77a75adec8ba99c887ca893b07f5c36bc58023c1fa7723c3a510" semantic="3008498ad9b26c4e6721da72acaa56057939a66d7d15c51954adbc9bb64b1584" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="6b809a67b52a705dd86dee07cb99999798f90820c0069ffed413d50d506b4f25" semantic="7eb68aa23e6c576d77c96daa5b8748f9c5b81963f9e52932d2d46477cb987df5" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 数值
 - **默认值:** `0`

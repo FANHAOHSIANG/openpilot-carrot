@@ -13,10 +13,10 @@
 
 `ModelPathIndicator`
 
-车速至少30km/h，模型未来1至3秒路径持续越过弯曲车道边界，且控制曲率方向一致时显示转向灯。要求目标线置信度至少10%、连续边界及重复观测。排除左侧中央线及右侧道路边缘，不新增自动转向请求。 默认关闭，仅支持Ioniq 5 PE、Jetson USB2CAN及自动转向灯模式1或2；实车验证另行进行。 支持的Panda/SPAS输出使用相同设置和判断，适用于摄像头SCC CAN-FD配置的IONIQ 5 PE、IONIQ 9和Grandeur GN7。
+车速至少30km/h，模型未来1至3秒路径持续越过弯曲车道边界，且控制曲率方向一致时显示转向灯。要求目标线置信度至少10%、连续边界及重复观测。排除左侧中央线及右侧道路边缘，不新增自动转向请求。 默认关闭，仅支持协议匹配的USB2CAN、BLE或Panda/SPAS输出及自动转向灯模式1或2；实车验证另行进行。 支持的Panda/SPAS输出使用相同设置和判断，适用于ECAN上确认SPAS 0x165（24字节）、0x16A（32字节）及拨杆0x3C1（8字节）的摄像头SCC CAN-FD配置，不按车型名称限制。
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="e5fe2c7b1cff86ceb8dcd86b2f6d20b45febb081bea33cc5981b314a819613d1" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="628afd2a3aaa2ec0fe8ac63eadae8ddf76e5bbc38f90eb671edeec582c7b1339" semantic="105411b81dff89e278f6afa169b10277120a014e25f7acdff01a72283332cd68" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 开关
 - **默认值:** `0`

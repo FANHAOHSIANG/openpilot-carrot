@@ -13,10 +13,10 @@
 
 `ModelPathIndicator`
 
-At 30km/h or above, indicates a model path crossing the curved boundary within 1–3 seconds while commanded curvature agrees. Requires target-line confidence of at least 10%, continuous geometry and repeated observations. Applies left centre-line and right road-edge exclusions; adds no steering request. Default OFF; Ioniq 5 PE with Jetson USB2CAN and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate. The supported Panda/SPAS output uses these same settings and decisions. It is available on IONIQ 5 PE, IONIQ 9 and Azera / Grandeur GN7 with camera-SCC CAN-FD.
+At 30km/h or above, indicates a model path crossing the curved boundary within 1–3 seconds while commanded curvature agrees. Requires target-line confidence of at least 10%, continuous geometry and repeated observations. Applies left centre-line and right road-edge exclusions; adds no steering request. Default OFF; protocol-matched USB2CAN, BLE or Panda/SPAS outputs and AutoBlinkerControl 1 or 2. Physical lamp and road validation remain separate. The supported Panda/SPAS output uses these same settings and decisions. It is available on camera-SCC CAN-FD with ECAN SPAS 0x165 (24 bytes), 0x16A (32 bytes) and stalk 0x3C1 (8 bytes), without a model-name restriction.
 
 <!-- CARROT:AUTO:BEGIN ModelPathIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="3894d8653a908645d4d6f43ed93d8557c95fe7b253f1233c99b354ae10838ba9" semantic="ac3fae83b3cbd966f679df5a0c47e4a7a5df7ccf39e463eb4b75ab2e23521a73" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="34e6d786cc400a189c3fcc04c95f721350c069868cd2c66832ded367d4eea249" semantic="105411b81dff89e278f6afa169b10277120a014e25f7acdff01a72283332cd68" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Toggle
 - **Default:** `0`
