@@ -45,6 +45,7 @@ python tools/signal_validation/run.py \
   openpilot/selfdrive/carrot/server/tests/test_web_settings_road_detector.py
 python tools/signal_validation/run.py \
   opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_steering_guard.py \
+  opendbc_repo/opendbc/car/hyundai/tests/test_classic_safety_stream.py \
   opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py \
   opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_spas_piggyback.py \
   openpilot/selfdrive/car/tests/test_canfd_steering_safety_config.py \

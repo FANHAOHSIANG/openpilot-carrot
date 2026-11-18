@@ -313,7 +313,7 @@ static bool hyundai_tx_hook(const CANPacket_t *to_send) {
                                         hyundai_alt_limits ? HYUNDAI_STEERING_LIMITS_ALT : HYUNDAI_STEERING_LIMITS;
 
     if (steer_torque_cmd_checks(desired_torque, steer_req, limits)) {
-      //tx = false;
+      tx = false;
     }
   }
 

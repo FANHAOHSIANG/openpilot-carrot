@@ -416,6 +416,12 @@ class CarController(CarControllerBase):
       self.params.STEER_DELTA_UP = self.steerDeltaUp
       self.params.STEER_DELTA_DOWN = self.steerDeltaDown
 
+    classic = not self.CP.flags & HyundaiFlags.CANFD
+    if classic:
+      alt2 = any(c.safetyParam & HyundaiSafetyFlags.ALT_LIMITS_2 for c in self.CP.safetyConfigs)
+      self.params.STEER_MAX = min(self.params.STEER_MAX, 170 if alt2 else 512)
+      self.params.STEER_DELTA_UP = min(self.params.STEER_DELTA_UP, 2 if alt2 else 3)
+
     angle_control = self.CP.flags & HyundaiFlags.ANGLE_CONTROL
 
     # steering torque
@@ -429,6 +435,16 @@ class CarController(CarControllerBase):
         up=self.steerDeltaUpOrg, down=self.steerDeltaDownOrg)
     apply_torque = apply_driver_steer_torque_limits(new_torque, self.apply_torque_last, CS.out.steeringTorque,
                                                    self.params, steer_max=reserve_max)
+
+    if classic:
+      # Under opposing driver effort, Panda requires withdrawal at its own
+      # minimum rate. Normal torque reductions still use the stored setting.
+      driver = CS.out.steeringTorque
+      cap = self.params.STEER_MAX
+      withdrawal = 3 if alt2 else 10
+      upper = max(0, self.apply_torque_last - withdrawal, cap + (50 + driver) * 2)
+      lower = min(0, self.apply_torque_last + withdrawal, -cap + (driver - 50) * 2)
+      apply_torque = int(np.clip(apply_torque, lower, upper))
 
     # >90 degree steering fault prevention
     self.angle_limit_counter, apply_steer_req = common_fault_avoidance(abs(CS.out.steeringAngleDeg) >= MAX_ANGLE, CC.latActive,
@@ -603,6 +619,15 @@ class CarController(CarControllerBase):
 
     # Hold torque with induced temporary fault when cutting the actuation bit
     torque_fault = CC.latActive and not apply_steer_req
+
+    if classic:
+      if not self.lkas11_active or CS.lkas11 is None:
+        apply_torque = 0
+        self.angle_limit_counter = 0
+      elif not apply_steer_req and self.max_angle_frames < MAX_ANGLE_FRAMES:
+        # Permit the EPS fault-prevention cut at the configured angle duration
+        # without asking Panda to transmit torque with the request bit clear.
+        apply_torque = 0
 
     self.apply_torque_last = apply_torque
 
