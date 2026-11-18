@@ -12,10 +12,10 @@ jobs:
         with:
           fetch-depth: 0
       - run: |
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git d2b71a759f0fcb37368efba2db7c772150d67891
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 715f3f53d6ceabdf42794275d4002e97fc4fb1ba
           git bundle verify reviewed.bundle
           git fetch reviewed.bundle HEAD
-          test "$(git rev-parse FETCH_HEAD)" = "5f1d3858b2e8db86f3b767377ac390134cfdc2a4"
-          test "$(git rev-parse FETCH_HEAD^1)" = "7d7279e2ec0063f3b906607c4fea7f692fb14ec5"
-          test "$(git rev-parse FETCH_HEAD^2)" = "d2b71a759f0fcb37368efba2db7c772150d67891"
-          git push origin 5f1d3858b2e8db86f3b767377ac390134cfdc2a4:refs/heads/review/tony-android-note-candidate-20261118
+          test "$(git rev-parse FETCH_HEAD)" = "fd6ca6c5c9f486a81b6aed421f2c25671ddc8047"
+          test "$(git rev-parse FETCH_HEAD^1)" = "5f1d3858b2e8db86f3b767377ac390134cfdc2a4"
+          test "$(git rev-parse FETCH_HEAD^2)" = "715f3f53d6ceabdf42794275d4002e97fc4fb1ba"
+          git push origin fd6ca6c5c9f486a81b6aed421f2c25671ddc8047:refs/heads/review/tony-teacher-candidate-20261118
