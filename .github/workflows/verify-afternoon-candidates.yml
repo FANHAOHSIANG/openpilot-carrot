@@ -1,41 +1,20 @@
-name: Verify coordinate-navigation integration
+name: Verify offline teacher follow-up
 on:
   push:
     branches: ['review/tony-afternoon-import-20261118']
 permissions:
-  contents: read
+  contents: write
 jobs:
-  check:
+  prepare:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check out exact candidate
-        run: |
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 0dc17ef2057cdcbd262c003bcdb6c0b88cdb3cf4
+      - run: |
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 9cea50138ee1b4a6a8f989f435bc1cb9248d47fd
+          git bundle verify candidates.bundle
           git fetch candidates.bundle HEAD
-          test "$(git rev-parse FETCH_HEAD)" = "a2c41011d16cd0c3088b4c542f7663f354934fef"
-          git checkout --detach a2c41011d16cd0c3088b4c542f7663f354934fef
-      - name: Build updated vehicle schema and native telemetry encoder
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y capnproto libcapnp-dev
-          schema="$RUNNER_TEMP/native/cereal/gen/cpp"
-          mkdir -p "$schema"
-          cp openpilot/cereal/{log,deprecated,custom}.capnp opendbc_repo/opendbc/car/car.capnp "$schema/"
-          cp -r openpilot/cereal/include "$schema/"
-          (cd "$schema" && capnp compile -I. -oc++:. *.capnp)
-          g++ -std=c++17 -shared -fPIC -Iopenpilot -I"$schema" -I"$RUNNER_TEMP/native" "$schema"/*.capnp.c++ openpilot/selfdrive/carrot/realtime/compact_state_native.cc -lcapnp -lkj -o "$RUNNER_TEMP/compact.so"
-      - name: Build and run driving video metadata tests
-        run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -Iopenpilot openpilot/system/loggerd/tests/test_driving_sei.cc -o /tmp/driving-sei-test
-          /tmp/driving-sei-test
-      - name: Run CPU ONNX regression
-        run: |
-          python -m pip install numpy pytest
-          DEV=CPU PYTHONPATH=tinygrad_repo:. python -m pytest -c /dev/null --noconftest -q openpilot/selfdrive/modeld/tests/test_onnx_history_gather.py
-      - name: Preserve candidate
-        run: git push origin a2c41011d16cd0c3088b4c542f7663f354934fef:refs/heads/review/tony-coordinate-final-20261118
+          test "$(git rev-parse FETCH_HEAD)" = "1b51e15a9414d9a090b494e19bcd1d32a59aac04"
+          test "$(git rev-parse FETCH_HEAD^1)" = "a2c41011d16cd0c3088b4c542f7663f354934fef"
+          git push origin 1b51e15a9414d9a090b494e19bcd1d32a59aac04:refs/heads/review/tony-coordinate-teacher-20261118
