@@ -12,9 +12,9 @@ jobs:
         with:
           fetch-depth: 0
       - run: |
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 9cea50138ee1b4a6a8f989f435bc1cb9248d47fd
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 42bc975c2b791da4a16e655169a0c957ecd1c14c
           git bundle verify candidates.bundle
           git fetch candidates.bundle HEAD
-          test "$(git rev-parse FETCH_HEAD)" = "1b51e15a9414d9a090b494e19bcd1d32a59aac04"
-          test "$(git rev-parse FETCH_HEAD^1)" = "a2c41011d16cd0c3088b4c542f7663f354934fef"
-          git push origin 1b51e15a9414d9a090b494e19bcd1d32a59aac04:refs/heads/review/tony-coordinate-teacher-20261118
+          test "$(git rev-parse FETCH_HEAD)" = "cb92f5f22718e3f9708718ce08fb9fc7c31302e4"
+          test "$(git rev-parse FETCH_HEAD^1)" = "1b51e15a9414d9a090b494e19bcd1d32a59aac04"
+          git push origin cb92f5f22718e3f9708718ce08fb9fc7c31302e4:refs/heads/review/tony-coordinate-worker-20261118
