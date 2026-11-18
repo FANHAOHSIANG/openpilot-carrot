@@ -158,3 +158,6 @@ python -m openpilot.tools.curve_centering.export_shadow --format rlog /path/to/r
 `curve_centering_shadow_stopped`에 전송 종료 이유가 남습니다. 일시적인 유실은
 관찰 안정화 시간을 초기화합니다. C4 시간 특성은 미검증이며 이전 데스크톱
 정지 주입 시험의 33.5 ms 발행 간격 결과를 유지합니다.
+
+
+최신 그림자 관찰기는 일반 스케줄링과 nice19로 시작하며 C4에서는 분석 모듈을 읽기 전에 백그라운드 코어0–3을 요청합니다. 진단에 스케줄러, nice와 affinity가 포함됩니다. 제어 프로세스의 스케줄링 상속 결함을 수정하지만 보고된 카메라 프레임 저하의 원인이나 해결을 입증하지는 않습니다. 기본 켜짐과 환경값0을 통한 끄기는 유지됩니다.

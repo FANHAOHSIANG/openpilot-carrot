@@ -153,3 +153,31 @@ def test_actual_lac_activity_is_not_inferred_from_requested_lateral_activity():
     assert not packet['flags']['lac_active']
   finally:
     monitor.close()
+
+
+def test_spawn_resets_realtime_before_exec_and_avoids_controlsd_import(monkeypatch):
+  import os
+  from openpilot.tools.curve_centering.process_shadow import ChildProcess
+  calls = []
+  def spawn(*args, **kwargs):
+    calls.append((args, kwargs))
+    return 12345
+  monkeypatch.setattr(os, 'posix_spawn', spawn)
+  child = ChildProcess(NS(fileno=lambda: 9))
+  assert child.pid == 12345
+  args, kwargs = calls[0]
+  assert kwargs['scheduler'] == (os.SCHED_OTHER, os.sched_param(0))
+  assert kwargs['file_actions'] == [(os.POSIX_SPAWN_DUP2, 9, 3)]
+  bootstrap = args[1][2]
+  assert bootstrap.index('os.nice(19)') < bootstrap.index('import worker_entry')
+  assert bootstrap.index('os.sched_setaffinity') < bootstrap.index('import worker_entry')
+  assert 'controlsd' not in bootstrap
+
+
+def test_spawn_failure_closes_transport_instead_of_falling_back_to_inherited_realtime(monkeypatch):
+  import os
+  def denied(*args, **kwargs):
+    raise PermissionError('synthetic scheduler reset failure')
+  monkeypatch.setattr(os, 'posix_spawn', denied)
+  with pytest.raises(PermissionError):
+    ProcessShadow()

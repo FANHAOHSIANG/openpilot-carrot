@@ -4,7 +4,10 @@ No geometry traversal, whole-message serialization, analysis thread, blocking se
 observe(). Child subscribes to model/plan and requires exact consumed timestamps.
 No return channel can select an actuator command. This is not C4 qualification.
 """
-import multiprocessing
+import os
+import signal
+import sys
+import json
 import socket
 import struct
 import time
@@ -88,6 +91,58 @@ class ExactJoin:
     return self.processor.process(Capture(tick, tuple(records), previous, f['lateral_started'], actual, self.generation))
 
 
+class ChildProcess:
+  """Minimal nonblocking lifecycle; no multiprocessing helper inherits realtime."""
+  def __init__(self, receiver, config=None):
+    self.pid = os.posix_spawn(sys.executable, [sys.executable, '-c',
+      'import os; os.nice(19); ' +
+      'os.sched_setaffinity(0, {0,1,2,3}) if os.path.isfile("/TICI") else None; ' +
+      'from openpilot.tools.curve_centering.process_shadow import worker_entry; worker_entry()',
+      json.dumps(config)], dict(os.environ),
+      file_actions=[(os.POSIX_SPAWN_DUP2, receiver.fileno(), 3)],
+      scheduler=(os.SCHED_OTHER, os.sched_param(0)))
+    self.reaped = False
+
+  def is_alive(self):
+    if not self.reaped:
+      pid, _ = os.waitpid(self.pid, os.WNOHANG)
+      self.reaped = bool(pid)
+    return not self.reaped
+
+  def terminate(self):
+    if self.is_alive():
+      try:
+        os.kill(self.pid, signal.SIGTERM)
+      except ProcessLookupError:
+        pass
+
+  def join(self, timeout=1):
+    deadline = time.monotonic()+timeout
+    while self.is_alive() and time.monotonic() < deadline:
+      time.sleep(.005)
+
+
+def worker_entry():
+  # posix_spawn resets scheduling BEFORE exec/imports; never import controlsd here.
+  if os.sched_getscheduler(0) != os.SCHED_OTHER:
+    raise RuntimeError('shadow must not inherit realtime scheduling')
+  if os.path.isfile('/TICI'):
+    os.sched_setaffinity(0, {0, 1, 2, 3})
+    if not os.sched_getaffinity(0) <= {0, 1, 2, 3}:
+      raise RuntimeError('shadow background affinity not applied')
+  hook = sink = None
+  config = json.loads(sys.argv[1])
+  if config is not None:
+    if os.path.isfile('/TICI'):
+      raise RuntimeError('benchmark hooks forbidden on vehicle hardware')
+    from .process_bench import WorkerLoad, WorkerSink
+    hook = WorkerLoad(config['epoch_path'], config['location'], config['event_path'], config['stall_s'])
+    sink = WorkerSink(config['sink_path'])
+  channel = socket.socket(fileno=3)
+  channel.setblocking(False)
+  worker_main(channel, hook, sink)
+
+
 def worker_main(channel, hook=None, sink=None):
   """All native IPC, source geometry and policy work stays in this process."""
   import select
@@ -143,7 +198,9 @@ def worker_main(channel, hook=None, sink=None):
                 'actual_baseline_error': result.get('actual_baseline_error'),
                 'policy_delta_curvature': result.get('policy_delta_curvature'),
                 'history_delta_curvature': result.get('residual_curvature'),
-                'worker_wall_ns': time.monotonic_ns()-started, 'worker_cpu_ns': time.thread_time_ns()-cpu}
+                'worker_wall_ns': time.monotonic_ns()-started, 'worker_cpu_ns': time.thread_time_ns()-cpu,
+                'worker_scheduler': os.sched_getscheduler(0), 'worker_nice': os.getpriority(os.PRIO_PROCESS, 0),
+                'worker_affinity': sorted(os.sched_getaffinity(0))}
       if sink is not None:
         sink(report)
       if p['now']-last_emit >= 1_000_000_000:
@@ -156,7 +213,7 @@ def worker_main(channel, hook=None, sink=None):
 
 
 class ProcessShadow:
-  def __init__(self, *, start_worker=True, clock=time.monotonic_ns, worker_hook=None, worker_sink=None):
+  def __init__(self, *, start_worker=True, clock=time.monotonic_ns, worker_config=None):
     self.clock = clock
     self.created_ns = clock()
     self.failed = False
@@ -175,9 +232,7 @@ class ProcessShadow:
     self.test_receiver = None
     if start_worker:
       try:
-        self.worker = multiprocessing.get_context('spawn').Process(
-          target=worker_main, args=(receiver, worker_hook, worker_sink), name='curve-shadow-isolated', daemon=True)
-        self.worker.start()
+        self.worker = ChildProcess(receiver, worker_config)
       except Exception:
         receiver.close()
         self.close()

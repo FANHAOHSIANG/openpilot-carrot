@@ -156,3 +156,6 @@ two-second startup grace), and does not automatically restart in that controlsd
 instance. `curve_centering_shadow_stopped` records the transport reason when logging
 is available. Transient drops reset observation stability. C4 timing is unverified;
 previous desktop stall testing retained a 33.5 ms publication interval.
+
+
+The latest shadow observer starts with normal scheduling and nice19; on C4 it requests background cores0–3 before analysis imports. Scheduler, nice and affinity are included in diagnostics. This corrects inherited control-process scheduling; it does not establish the cause or resolution of a reported camera frame-rate warning. Default-on and the environment0 opt-out remain unchanged.

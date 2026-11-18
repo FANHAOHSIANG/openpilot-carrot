@@ -55,3 +55,12 @@ OPENPILOT_PREFIX=pr52synthetic-defaultcheck PARAMS_ROOT=/tmp/pr52-defaultcheck-p
 取得24筆觀察（11筆非零比較）及2筆退出紀錄；明確關閉12秒沒有工作程序、擷取或影子紀錄。
 新測試最長發布間隔29.439ms，不取代原33.519ms負面結果。
 Swaglog及合成zstd rlog匯出26筆完全一致；這不是私人真實行車回放。
+
+
+## 相機低幀率回報後的修正
+
+已修正影子程序繼承控制程序即時排程／核心綁定的缺陷，詳見
+[SCHEDULER_FIX.md](SCHEDULER_FIX.md)。目前啟動前指定一般排程，啟動後立即降低到
+nice19，C4使用背景核心0–3；套用失敗就退出觀察，不退回即時排程。
+紀錄新增 `worker_scheduler`、`worker_nice`、`worker_affinity` 供核對。
+照片的確切故障原因與C4恢復情況仍未獲證；不取消或放寬相機警告。

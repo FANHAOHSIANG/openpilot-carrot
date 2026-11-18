@@ -5,7 +5,7 @@ from pathlib import Path
 
 FIELDS = {'event', 'mode', 'vehicle_output', 'sequence', 'generation', 'now_ns', 'observation_age_ns',
           'reasons', 'reason', 'actual_baseline_error', 'policy_delta_curvature', 'history_delta_curvature',
-          'worker_wall_ns', 'worker_cpu_ns'}
+          'worker_wall_ns', 'worker_cpu_ns', 'worker_scheduler', 'worker_nice', 'worker_affinity'}
 
 
 def extract(record):

@@ -56,7 +56,10 @@ class WorkerLoad:
     self.stall_s = stall_s
 
   def __call__(self, packet):
-    t = (time.monotonic_ns() - self.epoch.value) / 1e9
+    epoch = int(Path(self.epoch).read_text()) if isinstance(self.epoch, str) else self.epoch.value
+    if not epoch:
+      return
+    t = (time.monotonic_ns() - epoch) / 1e9
     current = phase(t)
     if current == 'worker_exception':
       with open(self.event_path, 'a') as f:
@@ -94,6 +97,7 @@ def child(output, seconds):
   stop_load = threading.Event()
   monitors = []
   worker_path, event_path = output / 'worker.jsonl', output / 'events.jsonl'
+  (output/'epoch').write_text('0')
   hook = WorkerLoad(epoch, location, str(event_path), float(os.environ.get('CURVE_BENCH_STALL', '.06')))
   sink = WorkerSink(str(worker_path))
 
@@ -120,7 +124,8 @@ def child(output, seconds):
 
   def factory():
     if backend == 'process':
-      monitor = ProcessShadow(worker_hook=hook, worker_sink=sink)
+      monitor = ProcessShadow(worker_config={'epoch_path': str(output/'epoch'), 'location': location,
+        'event_path': str(event_path), 'stall_s': hook.stall_s, 'sink_path': str(worker_path)})
     else:
 
       def emit(result):
@@ -175,6 +180,8 @@ def child(output, seconds):
     original_init(self)
     origin[0] = time.monotonic()
     epoch.value = int(origin[0] * 1e9)
+    (output/'epoch-new').write_text(str(epoch.value))
+    (output/'epoch-new').replace(output/'epoch')
     send = self.pm.send
 
     def observed_send(service, dat):

@@ -483,3 +483,17 @@ per-setting Wiki pages are not applicable.
   policy/geometric negatives remain. Default-on is the owner's requested test
   branch behavior, not evidence of C4 timing qualification. Full aggregate in
   DEFAULT_SHADOW_VALIDATION.json; usage and disable semantics in DEFAULT_SHADOW.md.
+
+
+### Camera alert follow-up: scheduler inheritance
+
+Concrete defect found: multiprocessing observer inherited controlsd FIFO53/core6
+on device, while prior PC timing tests skip those settings. Replace observer
+launch with explicit pre-exec SCHED_OTHER, nice19/background device affinity before
+analysis import, no controlsd re-import/helper process and no realtime fallback.
+See SCHEDULER_FIX.md / SCHEDULER_FIX_VALIDATION.json. 208 focused tests and Ruff
+passed. New native-IPC 40-second trial recorded24 observations and2 stops, all
+reported worker policy0/nice19; publication peak26.664ms remains negative.
+SCHED_BATCH inheritance probe and spawn contract checks are desktop evidence;
+C4 FIFO/affinity execution and photo causality remain unverified. No device access,
+private-log download, camera alert threshold or actuator change.
