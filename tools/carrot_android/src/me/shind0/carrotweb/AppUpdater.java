@@ -38,6 +38,7 @@ public final class AppUpdater {
   private File pending;
   public AppUpdater(Activity activity, SharedPreferences preferences, Runnable openSpeechSetup, Runnable openTextSize, Runnable openDiagnostics) { this.activity=activity; this.preferences=preferences; this.openSpeechSetup=openSpeechSetup; this.openTextSize=openTextSize; this.openDiagnostics=openDiagnostics; }
   private void toast(String message) { if (!destroyed) Toast.makeText(activity,message,Toast.LENGTH_LONG).show(); }
+  private String appLabel() { return UpdatePolicy.cockpit(activity.getPackageName()) ? "Formosa 座艙" : "CarrotAssist"; }
   private PackageInfo installed() throws Exception { return activity.getPackageManager().getPackageInfo(activity.getPackageName(), flags()); }
   private static int flags() { return Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES; }
   private static long version(PackageInfo info) { return Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode; }
@@ -45,7 +46,7 @@ public final class AppUpdater {
     return Build.VERSION.SDK_INT >= 28 ? (info.signingInfo == null ? null : info.signingInfo.getApkContentsSigners()) : info.signatures;
   }
   public void info() {
-    String label = "CarrotAssist";
+    String label = appLabel();
     try { label += " "+installed().versionName; } catch (Exception ignored) {}
     android.widget.CheckBox autoVoice = new android.widget.CheckBox(activity);
     autoVoice.setText(UiText.get("당근웹 연결 시 음성조수 자동 실행", "Start the voice assistant when Carrot Web connects"));
@@ -60,7 +61,7 @@ public final class AppUpdater {
     options.setOrientation(android.widget.LinearLayout.VERTICAL);
     android.widget.Button speech = new android.widget.Button(activity);
     speech.setText(UiText.get("중국어 음성 확인 및 설치", "Chinese speech model and microphone setup")); speech.setAllCaps(false);
-    options.addView(speech); options.addView(autoVoice); options.addView(direct);
+    if (!UpdatePolicy.cockpit(activity.getPackageName())) { options.addView(speech); options.addView(autoVoice); options.addView(direct); }
     android.widget.Button textSize = new android.widget.Button(activity);
     textSize.setText(UiText.get("앱 기본 화면 글자 크기", "Native interface text size")); textSize.setAllCaps(false);
     textSize.setOnClickListener(v -> openTextSize.run()); options.addView(textSize);
@@ -68,7 +69,7 @@ public final class AppUpdater {
     diagnosis.setText("zh-tw".equals(UiText.languageCode()) ? "連線自我診斷與修復" : "Connection diagnosis and repair");
     diagnosis.setAllCaps(false);options.addView(diagnosis);
     android.widget.ScrollView scroll = new android.widget.ScrollView(activity); scroll.addView(options);
-    AlertDialog infoDialog = new AlertDialog.Builder(activity).setTitle(label).setView(scroll).setMessage(UiText.get("폰 직접 듣기는 차로변경과 깜박이 설정 열기를 처리합니다. 질문은 기본 음성비서에서 다시 말해 주세요. 직접 듣기를 끄면 미니창으로 시작합니다.\n\n업데이트 설치는 주차 후 진행하세요.", "Direct listening handles lane requests and turn signal settings. Repeat questions in the default assistant. Turn off direct listening to start in the assistant overlay.\n\nInstall updates while parked."))
+    AlertDialog infoDialog = new AlertDialog.Builder(activity).setTitle(label).setView(scroll).setMessage(UpdatePolicy.cockpit(activity.getPackageName()) ? "Formosa 座艙：顯示車況、導航與控制設定。請停車後安裝更新。" : UiText.get("폰 직접 듣기는 차로변경과 깜박이 설정 열기를 처리합니다. 질문은 기본 음성비서에서 다시 말해 주세요. 직접 듣기를 끄면 미니창으로 시작합니다.\n\n업데이트 설치는 주차 후 진행하세요.", "Direct listening handles lane requests and turn signal settings. Repeat questions in the default assistant. Turn off direct listening to start in the assistant overlay.\n\nInstall updates while parked."))
       .setPositiveButton(available == null ? UiText.get("업데이트 확인", "Check for updates") : UiText.get("새 버전 설치", "Install update"), (d,w)->{ if (available==null) check(true); else offer(); })
       .setNeutralButton(UiText.get("ChatGPT 맞춤 지침 복사", "Copy ChatGPT instructions"), (d,w)->copyChatGPTInstructions())
       .setNegativeButton(UiText.get("닫기", "Close"),null).show();
@@ -128,7 +129,7 @@ public final class AppUpdater {
   }
   private void offer() {
     if (available==null || busy || destroyed) return;
-    new AlertDialog.Builder(activity).setTitle("CarrotAssist "+available.optString("version"))
+    new AlertDialog.Builder(activity).setTitle(appLabel()+" "+available.optString("version"))
       .setMessage(UiText.get("새 버전을 다운로드하고 안드로이드 설치 화면을 열까요? 설치 중 앱이 종료될 수 있으니 주차 후 진행하세요.", "Download the update and open the Android installer? The app may close during installation. Please park first."))
       .setPositiveButton(UiText.get("다운로드", "Download"),(d,w)->download()).setNegativeButton(UiText.get("나중에", "Later"),null).show();
   }

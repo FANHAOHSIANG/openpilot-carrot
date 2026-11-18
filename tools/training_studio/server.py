@@ -69,14 +69,14 @@ def handler_for(store, port):
             text = stream.read().decode("utf-8",errors="replace")
         self.send_json({"text":text})
         return
-      files = {"/":"index.html","/studio.js":"studio.js","/studio.css":"studio.css"}
+      files = {"/":"index.html","/studio.js":"studio.js","/studio.css":"studio.css","/status.mjs":"status.mjs"}
       if self.path not in files:
         self.send_error(404)
         return
       file = WEB/files[self.path]
       body = file.read_bytes()
       self.send_response(200)
-      self.send_header("Content-Type",{".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8"}[file.suffix])
+      self.send_header("Content-Type",{".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".mjs":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8"}[file.suffix])
       self.send_header("Content-Length",str(len(body)))
       self.send_header("Cache-Control","no-store")
       self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'")
@@ -105,8 +105,18 @@ def handler_for(store, port):
             # Scan is performed by the worker, so large copies do not block HTTP threads.
             write_json(store.root/"scan-request.json",{"requested":time.time()})
           elif action == "retry":
+            from tools.training_studio.teacher_control import training_ready
+            if not training_ready(store):
+              raise ValueError('教師接口尚未通過對應權重的完整資格驗證')
             if not store.enqueue(force=True):
               raise ValueError("已有工作執行中，或尚缺 train／validation／test 行程")
+          elif action == 'teacher_retry':
+            progress=read_json(store.root/'teacher-qualification-progress.json',{})
+            if progress.get('state')=='running' and time.time()-progress.get('updated',0)<20:
+              raise ValueError('教師資格驗證已在執行中')
+            if not store.config().get('qualification_checkout'):
+              raise ValueError('尚未設定真實閉迴路模擬 checkout')
+            write_json(store.root/'teacher-retry.json',{'requested':time.time()})
           else:
             raise ValueError("unknown control")
           store.event("操作："+action)
@@ -139,6 +149,11 @@ def main():
       stdout=log,stderr=subprocess.STDOUT,start_new_session=os.name!="nt")
   server = ThreadingHTTPServer(("127.0.0.1",args.port),handler_for(store,args.port))
   stop = threading.Event()
+  teacher_thread=None
+  if store.config().get('teacher_connection'):
+    from tools.training_studio.teacher_control import monitor
+    teacher_thread=threading.Thread(target=monitor,args=(store,stop),name='studio-teacher',daemon=True)
+    teacher_thread.start()
   for signum in (signal.SIGINT,signal.SIGTERM):
     signal.signal(signum,lambda *_:stop.set())
   thread = threading.Thread(target=server.serve_forever,daemon=True)
@@ -151,6 +166,7 @@ def main():
         store.event("工作程序已退出；請查看 worker.log")
         child = None
   finally:
+    stop.set()
     server.shutdown()
     server.server_close()
     if child:
@@ -160,6 +176,7 @@ def main():
       except subprocess.TimeoutExpired:
         child.kill()
         child.wait()
+    if teacher_thread: teacher_thread.join(timeout=30)
 
 
 if __name__ == "__main__":

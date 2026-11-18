@@ -2,6 +2,8 @@
 
 這是實際讀取資料與工作狀態的本機工具。資料與模型不會發布到公開網站；服務只監聽 `127.0.0.1:8890`。
 
+儀表板會區分「同步行車資料」「驗證匯入資料」「教師標註」與「正在訓練」。工作程序心跳獨立於慢速下載與雜湊處理，每 2 秒更新；同步時顯示檔案及已接收 MiB。若尚無訓練版本，狀態列列出缺少的完整行程資料組與教師資格條件。同一趟行程即使有很多片段，也不會拆到 train／validation／test 三組；收集成功不代表已開始訓練。
+
 ## 已實作的流程
 
 1. 車主在 Carrot 原生網頁「工具 → 訓練資料授權」、車機 FormosaLink 配對畫面，或已登入的 FormosaLink 裝置網頁，明確同意訓練資料用途。
@@ -123,6 +125,14 @@ python -m tools.training_studio.remote setup --root build/training-studio
 `worker-readiness.json` 是實際 GPU／套件探測結果，不能當成訓練吞吐或車載效能量測。資料解析與特徵提取預設在工作站 CPU 上執行；DGX 負責可微分的學生輸出頭訓練。要將特徵提取搬到 CUDA，需先確認該主機的 ONNXRuntime CUDA provider，不能把 CPU fallback 誤報成 GPU 加速。
 
 ## 教師資格
+
+Studio 可維護自己的 SSH tunnel，並由背景監看程序每 3 秒核對線上教師。runtime `config.json` 的 `teacher_connection.tunnel_command` 使用可信任的本機參數陣列（既有 SSH wrapper、`-N`、`-o ExitOnForwardFailure=yes`、`-L 127.0.0.1:18766:127.0.0.1:8766`、既有 DGX host）；只停止自己啟動的 tunnel，不停止既有教師容器。`teacher_url` 指向 `http://127.0.0.1:18766`。
+
+Windows 請使用 `scripts/run_training_studio.ps1`：啟動器會隱藏視窗並維持 `wsl.exe` 存活，讓既有 Windows TCP proxy 的 WSL interop 環境不會隨啟動命令結束而失效。SSH 建議設定 `ConnectTimeout=10`、`ConnectionAttempts=1`、`ServerAliveInterval=15` 與 `ServerAliveCountMax=3`，讓失聯通道可以結束並由監看程序重建。
+
+`qualification_checkout` 必須指向已備妥 MetaDrive 完整場景資產、可執行 `openpilot.tools.sim.training.edge_experiment` 的 checkout；`qualification_display` 預設 `:0`。`teacher_qualification` 指定合格報告的本機檔案路徑。每個新教師指紋會自動執行一次真實資格驗證：3 個紅燈停等案例及其餘 8 個情境。任一失敗即停止並保留證據；相同失敗權重不會不斷重跑。修正教師後可按「重新驗證教師」，權重指紋改變也會自動重新驗證。
+
+儀表板顯示接口心跳、GPU、驗證情境、完成關卡、實際模型推論次數、模擬時間、推論耗時與失敗原因。資格驗證不是學生最佳化，不會產生假的 loss。通過全部關卡、報告與線上完整 provenance 一致、且三個完整行程資料組都有資料後，工作程序才自動排入蒸餾；DGX 每 3 秒同步真實 epoch／train loss／validation loss。教師斷線、權重或 LoRA 改變、報告不符時，會暫停建立新訓練工作。
 
 使用既有 Edge 前向雙鏡頭推論服務，或在已安裝官方 pinned `alpamayo2_edge` 的 DGX 環境執行 `python -m tools.training_studio.teacher_service --model /work/model --receipt /work/model-receipt.json`。服務預設只監聽 loopback 8767；透過 SSH port forward 連接，並將 `teacher_url` 指向該埠。此入口保留真實影像時間戳、容許最多 35 ms 採樣誤差；不以複製影格補缺失視野。新服務預設不具駕駛資格，仍須通過下述閉迴路關卡。`config.json` 設定 `teacher_url`，並指定 `teacher_qualification` 的本機路徑。
 

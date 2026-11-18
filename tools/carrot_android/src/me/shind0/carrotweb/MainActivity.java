@@ -55,7 +55,7 @@ public final class MainActivity extends Activity {
   private final Handler ui = new Handler(Looper.getMainLooper());
   private final Map<String, Device> found = new LinkedHashMap<>();
   private final List<DeviceProbe> probes = new ArrayList<>();
-  private final int background = Color.rgb(16,21,28), foreground = Color.rgb(238,241,246), accent = Color.rgb(237,145,68);
+  private int background = Color.rgb(16,21,28), foreground = Color.rgb(238,241,246), accent = Color.rgb(237,145,68);
   private LinearLayout root, content, devices;
   private TextView title, status;
   private ProgressBar progress;
@@ -135,12 +135,12 @@ public final class MainActivity extends Activity {
     super.onCreate(saved);
     preferences = getSharedPreferences("carrot-web", MODE_PRIVATE);
     initializeVoiceMode(preferences);
-    speechSetup = new SpeechSetup(this);
+    if (!UpdatePolicy.cockpit(getPackageName())) speechSetup = new SpeechSetup(this);
     diagnostics = new AppDiagnostics(this, () -> currentAddress == null ? preferences.getString("last_address", "") : currentAddress,
       this::startSearch, this::manualAddress, () -> showSpeechSetup(""), this::openDeviceDiagnosis);
     updater = new AppUpdater(this, preferences, () -> showSpeechSetup(""), this::showTextSize, diagnostics::open);
-    welcome = new VoiceWelcome(this);
-    phoneVoice = new PhoneVoice(this, new PhoneVoice.Listener() {
+    if (!UpdatePolicy.cockpit(getPackageName())) welcome = new VoiceWelcome(this);
+    if (!UpdatePolicy.cockpit(getPackageName())) phoneVoice = new PhoneVoice(this, new PhoneVoice.Listener() {
       public void status(String text) { title.setText(text); if (!phoneVoice.listening()) phoneSession = false; }
       public void heard(LocalCommand command) { handlePhoneCommand(command); }
       public void missed(String heard, String reason) {
@@ -155,6 +155,7 @@ public final class MainActivity extends Activity {
       public void findSettings(String query) { startSettingAction("findSettings", JSONObject.quote(query)); }
       public void setupRequired(String reason) { showSpeechSetup(reason); }
     });
+    if (UpdatePolicy.cockpit(getPackageName())) { background=Color.rgb(245,245,245);foreground=Color.rgb(23,26,32);accent=Color.rgb(40,103,217); }
     root = column(); root.setBackgroundColor(background);
     if (android.os.Build.VERSION.SDK_INT >= 30) root.setOnApplyWindowInsetsListener((v,insets) -> {
       android.graphics.Insets b = insets.getInsets((visionImmersive ? 0 : WindowInsets.Type.systemBars()) | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
@@ -175,7 +176,7 @@ public final class MainActivity extends Activity {
     nativeBar = bar;
     Button search = button("⌕", v -> startSearch()); search.setContentDescription(UiText.get("당근 기기 찾기", "Find Carrot"));
     bar.addView(search,new LinearLayout.LayoutParams(dp(52),fontRowHeight(48)));
-    title = text("CarrotAssist",18); title.setSingleLine(true); title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    title = text(UpdatePolicy.cockpit(getPackageName()) ? "Formosa 座艙" : "CarrotAssist",18); title.setSingleLine(true); title.setEllipsize(android.text.TextUtils.TruncateAt.END);
     title.setOnClickListener(v -> updater.info()); title.setContentDescription(UiText.get("기기 이름 · 앱 정보와 업데이트 확인", "Device name · App information and updates"));
     bar.addView(title,new LinearLayout.LayoutParams(0,fontRowHeight(48),1)); title.setGravity(Gravity.CENTER_VERTICAL);
     Button visionLayout = button("▣", v -> {
@@ -199,11 +200,13 @@ public final class MainActivity extends Activity {
     root.addView(page, new LinearLayout.LayoutParams(-1, 0, 1));
     content = column();
     page.addView(content, new FrameLayout.LayoutParams(-1, -1));
+    if (!UpdatePolicy.cockpit(getPackageName())) {
     FloatingVoiceButton assistant = new FloatingVoiceButton(this, preferences);
     voiceOverlay = assistant;
     assistant.setOnClickListener(v -> invokeAssistant());
     page.addView(assistant, new FrameLayout.LayoutParams(dp(68), dp(68)));
     page.addOnLayoutChangeListener((v,l,t,r,b,oldL,oldT,oldR,oldB) -> assistant.place());
+    }
     setContentView(root);
     startSearch();
     updater.check(false);
@@ -485,7 +488,7 @@ public final class MainActivity extends Activity {
               view.evaluateJavascript(onDevicePage(CockpitLayout.SCRIPT), null);
             if (UpdatePolicy.cockpit(getPackageName()) && "/cockpit".equals(Uri.parse(url).getPath())) {
               setVisionImmersive(true);
-              view.evaluateJavascript(onDevicePage("window.CarrotCockpit?.layoutVersion >= 6"), value -> {
+              view.evaluateJavascript(onDevicePage("window.CarrotCockpit?.layoutVersion >= 7"), value -> {
                 if ("false".equals(value) && pageReady && foregroundActivity && url.equals(view.getUrl()))
                   android.widget.Toast.makeText(MainActivity.this,"車機仍提供舊座艙版面。請更新 carrot-wip 車機並重新啟動，才能使用新版操作介面。",android.widget.Toast.LENGTH_LONG).show();
               });
@@ -580,7 +583,7 @@ public final class MainActivity extends Activity {
         if(reconnectProbe!=probe)return;reconnectProbe=null;
         if(!foregroundActivity||token!=generation||!address.equals(currentAddress)||!pageLoadFailed)return;
         if(valid){
-          if(web==null){openDevice(new Device(address,"Carrot Cockpit"));return;}
+          if(web==null){openDevice(new Device(address,"Formosa 座艙"));return;}
           pageLoadFailed=false;content.removeAllViews();
           if(web.getParent() instanceof ViewGroup)((ViewGroup)web.getParent()).removeView(web);
           content.addView(web,new LinearLayout.LayoutParams(-1,-1));
@@ -596,6 +599,7 @@ public final class MainActivity extends Activity {
     });
   }
   private void invokeAssistant() {
+    if (UpdatePolicy.cockpit(getPackageName())) return;
     if (!foregroundActivity) return;
     if (recovering) { notice(UiText.get("당근웹 연결 중이에요. 웹이 열리면 음성을 시작할 수 있어요.", "Connecting to Carrot Web. Voice is available when the page opens.")); return; }
     if (phoneSession) { stopPhoneVoice(); title.setText(currentAddress); return; }
@@ -603,6 +607,7 @@ public final class MainActivity extends Activity {
     startVoice(false);
   }
   private void scheduleAutoVoice() {
+    if (UpdatePolicy.cockpit(getPackageName())) return;
     ui.removeCallbacks(tryAutoVoice);
     if (foregroundActivity && pageReady) ui.postDelayed(tryAutoVoice, 450);
   }
@@ -649,7 +654,7 @@ public final class MainActivity extends Activity {
     beginVoiceAttempt();
   }
   private boolean phoneMode() { return preferences.getBoolean("voice_local_first", true); }
-  private boolean autoVoiceEnabled() { return preferences.getBoolean("voice_auto_start", phoneMode()); }
+  private boolean autoVoiceEnabled() { return !UpdatePolicy.cockpit(getPackageName()) && preferences.getBoolean("voice_auto_start", phoneMode()); }
 
   private void stopPhoneVoice() {
     phoneGeneration++; directionCheck.clear(); cruiseCheck.clear(); phoneSearchId = null;
@@ -978,13 +983,18 @@ public final class MainActivity extends Activity {
     if (UpdatePolicy.cockpit(getPackageName()) && web!=null && currentAddress!=null)
       web.evaluateJavascript(onDevicePage("window.CarrotCockpit?."+action+"()"),null);
   }
-  @Override protected void onPause() { cancelDeviceReconnect(); if(web!=null)web.setKeepScreenOn(false); cockpitLifecycle("pause"); foregroundActivity = false; if (diagnostics!=null) diagnostics.pause(); resetVisionHost(); if (phoneVoice!=null) phoneVoice.resetSupport(); if (speechSetup!=null) speechSetup.pause(); stopPhoneVoice(); welcome.cancel(); ui.removeCallbacks(tryAutoVoice); cancelVoiceCheck(); super.onPause(); }
+  @Override protected void onPause() { cancelDeviceReconnect(); if(web!=null)web.setKeepScreenOn(false); cockpitLifecycle("pause"); foregroundActivity = false; if (diagnostics!=null) diagnostics.pause(); resetVisionHost(); if (phoneVoice!=null) phoneVoice.resetSupport(); if (speechSetup!=null) speechSetup.pause(); stopPhoneVoice(); if(welcome!=null)welcome.cancel(); ui.removeCallbacks(tryAutoVoice); cancelVoiceCheck(); super.onPause(); }
   @Override protected void onStop() { checkAfterBackground=true; if (scanning) { stopSearch(); if (status!=null) status.setText(UiText.get("검색이 중단됐어요. 다시 검색을 눌러 주세요.", "Search paused. Tap Search again.")); } super.onStop(); }
   @Override public void onBackPressed() {
     if (visionFullscreen != null) { leaveVisionView(); return; }
     if (UpdatePolicy.cockpit(getPackageName()) && pageReady && web != null && web.getUrl() != null
         && isCurrent(Uri.parse(web.getUrl())) && "/cockpit".equals(Uri.parse(web.getUrl()).getPath())) {
-      title.performClick(); return; // Device menu provides discovery and updates; retain cockpit chrome.
+      final WebView currentWeb=web; final String currentUrl=web.getUrl();
+      web.evaluateJavascript(onDevicePage("!!window.CarrotCockpit?.back?.()"), handled -> {
+        if(web!=currentWeb||!foregroundActivity||!pageReady||!currentUrl.equals(web.getUrl()))return;
+        if(!"true".equals(handled))title.performClick();
+      });
+      return; // Device menu remains available when the cockpit has nothing to close.
     }
     if (visionImmersive) { leaveVisionView(); return; }
     if(pageLoadFailed){startSearch();return;}

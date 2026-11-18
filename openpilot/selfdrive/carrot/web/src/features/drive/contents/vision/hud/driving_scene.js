@@ -27,7 +27,11 @@ export function drawSceneObject(ctx,project,object,{ego=false,flat=false,night=f
   if(kind==='unknown'){
     const p=project(x,y,.1);if(!p)return;
     ctx.strokeStyle=flat||night?'#b1beca':'#4f606d';ctx.lineWidth=1.8;ctx.beginPath();
-    ctx.ellipse(p[0],p[1],flat?6:9,flat?6:5,0,0,Math.PI*2);ctx.stroke();
+    if(flat)ctx.ellipse(p[0],p[1],6,6,0,0,Math.PI*2);
+    else{
+      const corners=[[-.55,-.4,0],[-.55,.4,0],[.55,.4,0],[.55,-.4,0],[-.55,-.4,.85],[-.55,.4,.85],[.55,.4,.85],[.55,-.4,.85]].map(([dx,dy,z])=>project(x+dx,y+dy,z));
+      for(const [a,b] of [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]])if(corners[a]&&corners[b]){ctx.moveTo(...corners[a]);ctx.lineTo(...corners[b]);}
+    }ctx.stroke();
     if(!flat){ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillStyle=ctx.strokeStyle;ctx.fillText(`${Math.round(x)} m`,p[0],p[1]-11);ctx.textAlign='left';}return;
   }
   const person=kind==='person',twoWheel=['motorcycle','bicycle'].includes(kind);
@@ -107,7 +111,7 @@ export function drawDrivingScene(ctx,width,height,scene,{rainbow=false,text,draw
     (model.roadEdges||[]).slice(0,2).forEach(line=>stroke(line,night?'#737b86':'#c7cdd1',2.5));
     (model.laneLines||[]).slice(0,4).forEach((line,i)=>{if((model.laneLineProbs?.[i]??0)>.3)stroke(line,night?'#e0e5ee':'#b9c1c8',1.6);});
     if(rainbow){['#f36d83','#f6b35b','#ece367','#72cba0','#6ab9e9','#a28ade','#d795cf'].forEach((color,i)=>ribbon(model.position,-.9+i*1.8/7,-.9+(i+1)*1.8/7,color));}
-    else ribbon(model.position,-.75,.75,night?'#168bffdc':'#69b7ecb0');
+    else ribbon(model.position,-.75,.75,night?'#0589fff0':'#178fffd9');
   }
   const objects=[...surroundingTargets(scene.radar),...(scene.vision?.objects||[]),...(scene.road?.objects||[])];
   objects.sort((a,b)=>project.depth?project.depth(b.x,b.y)-project.depth(a.x,a.y):b.x-a.x).forEach(object=>drawSceneObject(ctx,project,object,{text,night}));
