@@ -1,0 +1,25 @@
+name: Import reviewed Tony candidate
+on:
+  push:
+    branches: ['review/import-tony-1615-20261118']
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify reviewed merge and preserve candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin cb92f5f22718e3f9708718ce08fb9fc7c31302e4
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git c3c423ecbe6cd2ac1ee0600068b4b8140ec8b477
+          git bundle verify reviewed.bundle
+          git fetch reviewed.bundle HEAD
+          test "$(git rev-parse FETCH_HEAD)" = eb4ffb9dbdc6f39795ca0216d68b1ea41a7ef378
+          test "$(git show -s --format=%P FETCH_HEAD)" = "cb92f5f22718e3f9708718ce08fb9fc7c31302e4 c3c423ecbe6cd2ac1ee0600068b4b8140ec8b477"
+          git push origin eb4ffb9dbdc6f39795ca0216d68b1ea41a7ef378:refs/heads/review/tony-1615-candidate-20261118
