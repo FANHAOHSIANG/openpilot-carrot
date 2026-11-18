@@ -39,7 +39,7 @@ jobs:
       - name: Install offline test dependencies
         run: |
           set -euo pipefail
-          python -m pip install Cython==3.2.9 setuptools scons pytest pytest-mock pytest-subtests pytest-asyncio numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp jeepney tqdm hypothesis pillow -r formosalink/requirements.txt
+          python -m pip install Cython==3.2.9 setuptools scons pytest pytest-mock pytest-subtests pytest-asyncio numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp jeepney tqdm hypothesis pillow safetensors -r formosalink/requirements.txt
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Offline Studio and training regressions
         run: |
