@@ -1,0 +1,21 @@
+name: Recover reviewed candidate
+on:
+  push:
+    branches: ['review/recover-combined-20261118']
+permissions:
+  contents: write
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          git fetch --no-tags origin ea539df2f6b6f09229acf01c1f73c48b8f7fa487
+          git fetch --no-tags https://github.com/ajouatom/openpilot.git 446fa79624644c79db81b788d665abb6830ddff7
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git a2fbae27fd289a25cbf3212fb7714875e8543d8a
+          git bundle verify ./candidate.bundle
+          git fetch ./candidate.bundle HEAD
+          test "$(git rev-parse FETCH_HEAD)" = "2abefcc02a1ede07e2c7471ec815d7bd5afb2326"
+          git push origin "2abefcc02a1ede07e2c7471ec815d7bd5afb2326:refs/heads/sync/tony-integrated-combined-20261118"
