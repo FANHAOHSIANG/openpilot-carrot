@@ -1,0 +1,70 @@
+name: Verify reviewed Studio integration
+on:
+  push:
+    branches: ['review/tony-studio-check-20261119']
+permissions:
+  contents: read
+jobs:
+  preserve:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git be2a2c29c4a4e8031aa9425c2627cafe2f1a8396
+          git bundle verify reviewed.bundle
+          git fetch reviewed.bundle HEAD
+          test "$(git rev-parse FETCH_HEAD)" = 3bee471fbabfd7aff209d5538ee26201dc83d946
+          test "$(git show -s --format=%P FETCH_HEAD)" = "76257caf7bb811c98b63c4727091ffe5b8dddc71 be2a2c29c4a4e8031aa9425c2627cafe2f1a8396"
+          git push origin 3bee471fbabfd7aff209d5538ee26201dc83d946:refs/heads/review/tony-studio-source-20261119
+  compare:
+    needs: preserve
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3bee471fbabfd7aff209d5538ee26201dc83d946
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install offline test dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install Cython==3.2.9 setuptools scons pytest pytest-mock pytest-subtests pytest-asyncio numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp jeepney tqdm hypothesis pillow -r formosalink/requirements.txt
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Offline Studio and training regressions
+        run: |
+          set -euo pipefail
+          export PYTHONPATH=.:opendbc_repo:tools/jetlink
+          python tools/signal_validation/run.py tools/training_studio/tests
+          node --test tools/training_studio/tests/test_status.mjs
+      - name: Compare each Hyundai safety failure with the actual parent
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/base" 76257caf7bb811c98b63c4727091ffe5b8dddc71
+          for label in base candidate; do
+            if [[ "$label" == base ]]; then cd "$RUNNER_TEMP/base"; else cd "$GITHUB_WORKSPACE"; fi
+            export PYTHONPATH="$PWD:$PWD/opendbc_repo:$PWD/tools/jetlink"
+            scons -Q -f tools/native_cpu/SConstruct -j2
+            python opendbc_repo/opendbc/dbc/generator/generator.py
+            gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -Iopendbc_repo/opendbc/safety -Iopendbc_repo/opendbc/safety/board opendbc_repo/opendbc/safety/tests/libsafety/safety.c -o opendbc_repo/opendbc/safety/tests/libsafety/libsafety.so
+            rc=0
+            python tools/signal_validation/run.py opendbc_repo/opendbc/safety/tests/test_hyundai{,_canfd}.py > "$RUNNER_TEMP/$label.log" 2>&1 || rc=$?
+            echo "$label pytest exit $rc"
+            test "$rc" -eq 1
+            grep -E '^[0-9]+ failed, [0-9]+ passed' "$RUNNER_TEMP/$label.log"
+            awk '/^FAILED / {print $2}' "$RUNNER_TEMP/$label.log" | sort -u > "$RUNNER_TEMP/$label.ids"
+            test -s "$RUNNER_TEMP/$label.ids"
+            grep -c 'test_hyundai.py::' "$RUNNER_TEMP/$label.ids"
+            grep -c 'test_hyundai_canfd.py::' "$RUNNER_TEMP/$label.ids"
+          done
+          diff -u "$RUNNER_TEMP/base.ids" "$RUNNER_TEMP/candidate.ids"
