@@ -1,5 +1,10 @@
 # Desktop full-process shadow timing, 2026-11-18
 
+Historical thread experiment. The current backend is described in
+[PROCESS_ISOLATION.md](PROCESS_ISOLATION.md). To reproduce this older protocol
+with the current benchmark, explicitly add `--backend thread --load-location control`.
+The original measurements below are unchanged.
+
 Decision: retain `CURVE_CENTERING_SHADOW` default OFF. The requested default-on
 change is not supported by these measurements. No production control, limit,
 startup, vehicle installation or base-branch change was made.

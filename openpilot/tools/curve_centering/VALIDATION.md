@@ -429,3 +429,31 @@ failed with proxy 403; escalated download was rejected by automatic authorizatio
 review for lacking explicit permission for those private records. No raw bytes
 were obtained and no new real-log replay is claimed. Authorization is pending;
 none of the logs, identifiers, signed URLs or private metadata is committed.
+
+
+### Isolated observer follow-up, 2026-11-18
+
+Actual controlsd opt-in constructor now uses ProcessShadow; the existing control
+calculation and observation point are unchanged. See PROCESS_ISOLATION.md and
+process-isolation-20261118.json for five 40-second comparative trials, a separate
+one-second worker-stall trial and final 12-second payload confirmation.
+
+- Focused suite: 200 passed, three configuration warnings, with
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -o addopts=''
+  --confcutdir=openpilot/tools/curve_centering openpilot/tools/curve_centering/tests -q`.
+  An initial invocation without isolated pytest options failed at third-party
+  anyio plugin loading (pytest CallSpec2 deprecation); no product test ran then.
+- Ruff: `ruff check openpilot/tools/curve_centering`, passed.
+- Native startup: 13 passed, four warnings using the private Params root command
+  above. These are separate from full-process synthetic timing trials.
+- Original simulation regenerated and byte-compared against the retained sweep:
+  identical. No failed case or threshold changed.
+- Five modes of actual state_control comparisons include the new transport,
+  preserving all CarControl fields and control states across 300 steps per mode.
+  601-frame processor parity, exact timestamp/cache rejection, fixed packet size,
+  overflow, peer death and separate actual LaC activity are covered.
+- Analysis-load control publication counts improve from 130/128 to 400/400 in
+  four seconds, but the one-second-stall trial retains a 33.519 ms publication
+  interval. Default remains off; C4 timing and candidate actuation are unqualified.
+- Private log access remained denied after the earlier explicit authorization;
+  no download was retried in this follow-up and no new real-log replay is claimed.

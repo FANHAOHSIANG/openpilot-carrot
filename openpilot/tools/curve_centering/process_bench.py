@@ -50,17 +50,58 @@ def phase(t):
   return 'worker_exception'
 
 
+class WorkerLoad:
+  def __init__(self, epoch, location, event_path, stall_s=.06):
+    self.epoch, self.location, self.event_path = epoch, location, event_path
+    self.stall_s = stall_s
+
+  def __call__(self, packet):
+    t = (time.monotonic_ns() - self.epoch.value) / 1e9
+    current = phase(t)
+    if current == 'worker_exception':
+      with open(self.event_path, 'a') as f:
+        f.write(json.dumps({'event': 'injected_worker_exception', 'at': t}) + '\n')
+      raise RuntimeError('synthetic worker failure')
+    if current == 'slow_worker':
+      time.sleep(self.stall_s)
+    if current == 'gil_load' and self.location == 'worker':
+      end = time.monotonic() + 0.03
+      x = 1
+      while time.monotonic() < end:
+        x = (x * 17 + 23) % 10000019
+
+
+class WorkerSink:
+  def __init__(self, path):
+    self.path = path
+
+  def __call__(self, result):
+    with open(self.path, 'a') as f:
+      f.write(json.dumps(result, allow_nan=False) + '\n')
+
+
 def child(output, seconds):
+  import multiprocessing
   from openpilot.selfdrive.controls import controlsd
   from openpilot.tools.curve_centering.runtime_shadow import RuntimeShadow, ShadowProcessor
+  from openpilot.tools.curve_centering.process_shadow import ProcessShadow
 
-  publications, captures, work, diagnostics, events = [], [], [], [], []
+  backend = os.environ.get('CURVE_BENCH_BACKEND', 'process')
+  location = os.environ.get('CURVE_BENCH_LOAD', 'worker')
+  publications, captures, diagnostics, events = [], [], [], []
+  epoch = multiprocessing.get_context('spawn').RawValue('q', 0)
   origin = [None]
   stop_load = threading.Event()
   monitors = []
+  worker_path, event_path = output / 'worker.jsonl', output / 'events.jsonl'
+  hook = WorkerLoad(epoch, location, str(event_path), float(os.environ.get('CURVE_BENCH_STALL', '.06')))
+  sink = WorkerSink(str(worker_path))
 
   def elapsed():
     return 0.0 if origin[0] is None else time.monotonic() - origin[0]
+
+  def execution(m):
+    return getattr(m, 'worker', None) or getattr(m, 'thread', None)
 
   def load():
     while not stop_load.is_set():
@@ -72,49 +113,59 @@ def child(output, seconds):
       else:
         stop_load.wait(0.002)
 
-  threading.Thread(target=load, daemon=True).start()
-  observe = RuntimeShadow.observe
-  process = ShadowProcessor.process
-  init = RuntimeShadow.__init__
+  if location == 'control':
+    threading.Thread(target=load, daemon=True).start()
+  original_observe = {RuntimeShadow: RuntimeShadow.observe, ProcessShadow: ProcessShadow.observe}
+  original_process = ShadowProcessor.process
 
-  def instrument_init(self, emit, **kw):
-    def record(result):
-      diagnostics.append({'at': elapsed(), **result})
-      emit(result)
+  def factory():
+    if backend == 'process':
+      monitor = ProcessShadow(worker_hook=hook, worker_sink=sink)
+    else:
 
-    init(self, record, **kw)
-    monitors.append(self)
+      def emit(result):
+        diagnostics.append({'at': elapsed(), **result})
+        controlsd.cloudlog.event('curve_centering_shadow', **result)
+
+      monitor = RuntimeShadow(emit)
+    monitors.append(monitor)
+    return monitor
 
   def instrument_observe(self, *a, **kw):
     t, c = time.monotonic_ns(), time.thread_time_ns()
-    observe(self, *a, **kw)
+    original_observe[type(self)](self, *a, **kw)
     captures.append(
-      {'at': elapsed(), 'wall_ns': time.monotonic_ns() - t, 'cpu_ns': time.thread_time_ns() - c, 'dropped': self.dropped, 'closed': self._stop.is_set()}
-    )
-
-  def instrument_process(self, capture):
-    t, c = time.monotonic_ns(), time.thread_time_ns()
-    if phase(elapsed()) == 'worker_exception':
-      events.append({'event': 'injected_worker_exception', 'at': elapsed()})
-      raise RuntimeError('synthetic worker failure')
-    if phase(elapsed()) == 'slow_worker':
-      time.sleep(0.06)
-    result = process(self, capture)
-    work.append(
       {
         'at': elapsed(),
         'wall_ns': time.monotonic_ns() - t,
         'cpu_ns': time.thread_time_ns() - c,
+        'dropped': self.dropped,
+        'closed': self.closed if isinstance(self, ProcessShadow) else self._stop.is_set(),
+      }
+    )
+
+  def instrument_process(self, capture):
+    t, c = time.monotonic_ns(), time.thread_time_ns()
+    hook({'now': capture.tick.now_ns})
+    result = original_process(self, capture)
+    sink(
+      {
+        'now_ns': capture.tick.now_ns,
+        'worker_wall_ns': time.monotonic_ns() - t,
+        'worker_cpu_ns': time.thread_time_ns() - c,
         'generation': capture.generation,
-        'policy_delta': result['policy_delta_curvature'],
+        'policy_delta_curvature': result['policy_delta_curvature'],
         'reasons': result['reasons'],
+        'actual_baseline_error': result.get('actual_baseline_error'),
       }
     )
     return result
 
-  RuntimeShadow.__init__ = instrument_init
   RuntimeShadow.observe = instrument_observe
+  ProcessShadow.observe = instrument_observe
   ShadowProcessor.process = instrument_process
+  from openpilot.tools.curve_centering import process_shadow as process_module
+  process_module.ProcessShadow = factory
   original_init = controlsd.Controls.__init__
   publish = controlsd.Controls.publish
   state = controlsd.Controls.state_control
@@ -123,6 +174,7 @@ def child(output, seconds):
   def init_control(self):
     original_init(self)
     origin[0] = time.monotonic()
+    epoch.value = int(origin[0] * 1e9)
     send = self.pm.send
 
     def observed_send(service, dat):
@@ -158,7 +210,7 @@ def child(output, seconds):
         'curvature': cc.actuators.curvature,
         'monitor_present': monitor is not None,
         'monitor_failed': bool(monitor and monitor.failed),
-        'thread_alive': bool(monitor and monitor.thread and monitor.thread.is_alive()),
+        'thread_alive': bool(monitor and execution(monitor) and execution(monitor).is_alive()),
         'dropped': monitor.dropped if monitor else 0,
         **state_measure,
       }
@@ -171,9 +223,9 @@ def child(output, seconds):
         events.append({'event': 'close_called', 'at': elapsed(), 'wall_ns': time.monotonic_ns() - before})
     if t >= 32 and 'recreated' not in flags:
       flags.add('recreated')
-      if monitor:
+      if os.getenv('CURVE_CENTERING_SHADOW') == '1':
         events.append({'event': 'recreate_called', 'at': elapsed()})
-        self.curve_shadow = RuntimeShadow(lambda result: controlsd.cloudlog.event('curve_centering_shadow', **result))
+        self.curve_shadow = factory()
     if t >= seconds:
       raise Done()
 
@@ -189,18 +241,41 @@ def child(output, seconds):
     for m in monitors:
       m.close()
     for m in monitors:
-      if m.thread:
-        m.thread.join(timeout=1)
+      if execution(m):
+        execution(m).join(timeout=1)
+    work, parse_failures = [], 0
+    if worker_path.exists():
+      for line in worker_path.read_text().splitlines():
+        try:
+          r = json.loads(line)
+          work.append(
+            {
+              'at': (r['now_ns'] - epoch.value) / 1e9,
+              'wall_ns': r['worker_wall_ns'],
+              'cpu_ns': r['worker_cpu_ns'],
+              'generation': r['generation'],
+              'policy_delta': r['policy_delta_curvature'],
+              'reasons': r['reasons'],
+              'actual_baseline_error': r.get('actual_baseline_error'), 'age_ns': r.get('observation_age_ns'),
+            }
+          )
+        except (ValueError, KeyError):
+          parse_failures += 1
+    if event_path.exists():
+      events.extend(json.loads(line) for line in event_path.read_text().splitlines())
     (output / 'child.json').write_text(
       json.dumps(
         {
+          'backend': backend,
+          'load_location': location,
           'publications': publications,
           'captures': captures,
           'worker': work,
           'diagnostics': diagnostics,
-          'worker_stopped': [not m.thread.is_alive() for m in monitors],
+          'worker_stopped': [not execution(m).is_alive() for m in monitors],
           'worker_failures': [m.failure_reason for m in monitors],
           'events': events,
+          'partial_worker_reports': parse_failures,
         }
       )
     )
@@ -308,6 +383,9 @@ if __name__ == '__main__':
   p.add_argument('--output', type=Path, required=True)
   p.add_argument('--seconds', type=float, default=40)
   p.add_argument('--mode', choices=['off', 'on'], default='off')
+  p.add_argument('--backend', choices=['process', 'thread'], default='process')
+  p.add_argument('--load-location', choices=['worker', 'control'], default='worker')
+  p.add_argument('--stall-seconds', type=float, default=.06)
   p.add_argument('--child', action='store_true')
   a = p.parse_args()
   from openpilot.system.hardware import PC
@@ -327,6 +405,11 @@ if __name__ == '__main__':
   if a.child:
     child(a.output, a.seconds)
   else:
+    if not 0 < a.stall_seconds <= 5:
+      raise ValueError('stall duration must be 0..5 seconds')
+    os.environ['CURVE_BENCH_STALL'] = str(a.stall_seconds)
+    os.environ['CURVE_BENCH_BACKEND'] = a.backend
+    os.environ['CURVE_BENCH_LOAD'] = a.load_location
     if Path(params_root).exists():
       raise RuntimeError('use a fresh synthetic Params directory for every trial')
     a.output.mkdir(parents=True, exist_ok=False)

@@ -83,8 +83,8 @@ class Controls:
     self.curve_shadow = None
     if os.getenv("CURVE_CENTERING_SHADOW") == "1":
       try:
-        from openpilot.tools.curve_centering.runtime_shadow import RuntimeShadow
-        self.curve_shadow = RuntimeShadow(lambda result: cloudlog.event("curve_centering_shadow", **result))
+        from openpilot.tools.curve_centering.process_shadow import ProcessShadow
+        self.curve_shadow = ProcessShadow()
       except Exception:
         cloudlog.exception("curve_centering_shadow_init_failed")
 

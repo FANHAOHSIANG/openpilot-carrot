@@ -189,7 +189,7 @@ def controls():
             is_vw_meb=False, steer_limited_by_safety=False)
 
 
-@pytest.mark.parametrize('tap', ['off', 'capture', 'throw', 'runtime'])
+@pytest.mark.parametrize('tap', ['off', 'capture', 'throw', 'runtime', 'process'])
 def test_complete_control_method_outputs_unchanged(tap):
   old, new = controls(), controls()
   original, current = control_method(False), control_method(True)
@@ -198,6 +198,9 @@ def test_complete_control_method_outputs_unchanged(tap):
   processor = ShadowProcessor()
   if tap == 'runtime':
     new.curve_shadow = RuntimeShadow(lambda _: None, start_worker=False, clock=lambda: clock[0])
+  if tap == 'process':
+    from openpilot.tools.curve_centering.process_shadow import ProcessShadow
+    new.curve_shadow = ProcessShadow(start_worker=False, clock=lambda: clock[0])
   if tap == 'capture':
     new.curve_shadow = NS(observe=lambda *a, **kw: observed.append(kw))
   elif tap == 'throw':
@@ -219,8 +222,15 @@ def test_complete_control_method_outputs_unchanged(tap):
       result = processor.process(new.curve_shadow.queue.get_nowait())
       if result['actual_baseline_error'] is not None:
         assert abs(result['actual_baseline_error']) < 1e-9
+    if tap == 'process':
+      from openpilot.tools.curve_centering.process_shadow import decode
+      packet = decode(new.curve_shadow.test_receiver.recv(1024))
+      assert packet['values'][5] == cc_new.actuators.curvature
+      assert not new.curve_shadow.failed
     assert old.desired_curvature == new.desired_curvature
     assert old.lateral_started == new.lateral_started
+  if tap == 'process':
+    new.curve_shadow.close()
   assert len(observed) == (300 if tap == 'capture' else 0)
   if tap == 'throw':
     assert new.curve_shadow is None

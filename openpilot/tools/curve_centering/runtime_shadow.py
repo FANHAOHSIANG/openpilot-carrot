@@ -1,4 +1,6 @@
-"""Opt-in, observation-only tap at the real Controls.state_control consumer.
+"""Legacy thread observer retained for comparisons; production uses process_shadow.
+
+ShadowProcessor and snapshot are reused inside the isolated child only.
 
 Bounded nonblocking queue; no return path into controls, Params, CAN or actuator
 objects. Source objects are copied before queueing. All analysis and diagnostics

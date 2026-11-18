@@ -36,6 +36,7 @@ def summarize(directory):
                  'capture_cpu': distribution([c['cpu_ns'] for c in cs]),
                  'worker_wall': distribution([w['wall_ns'] for w in ws]),
                  'worker_cpu': distribution([w['cpu_ns'] for w in ws]),
+                 'observation_age': distribution([w['age_ns'] for w in ws if w.get('age_ns') is not None]),
                  'input_to_publish': distribution([p['publish_end_ns']-p['input_ns'] for p in ps]),
                  'input_to_receiver': distribution([received[p['message_ns']]-p['input_ns'] for p in ps if p['message_ns'] in received]),
                  'unreceived': sum(p['message_ns'] not in received for p in ps),
@@ -45,7 +46,9 @@ def summarize(directory):
                  'monitor_present': sum(p.get('monitor_present', p['thread_alive']) for p in ps),
                  'nonzero_policy_steps': sum(w['policy_delta'] is not None and w['policy_delta'] != 0 for w in ws),
                  'worker_reasons': dict(Counter(reason for w in ws for reason in w['reasons']))})
-  return {'trial': directory.name, 'scope': 'desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers',
+  return {'trial': directory.name, 'backend': data.get('backend', 'legacy_thread'),
+          'load_location': data.get('load_location', 'control'),
+          'partial_worker_reports': data.get('partial_worker_reports', 0), 'scope': 'desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers',
           'deployment_approved': False, 'receiver_poll_s': .01, 'worker_stopped': data['worker_stopped'],
           'worker_failures': data.get('worker_failures'), 'events': data.get('events', []),
           'input_send_intervals': distribution([b-a for a,b in zip(receiver['sent'],receiver['sent'][1:], strict=False)]),
