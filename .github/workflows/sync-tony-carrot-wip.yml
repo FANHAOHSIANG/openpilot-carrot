@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      SOURCE_SHA: 'b77f4702eebd8770f600608680f10623838d9b57'
-      EXPECTED_TARGET_SHA: '2d0d8d152503dfe7209afa1b353f54a570592e34'
+      SOURCE_SHA: 'a32340b5c7b154da70afb39ccc485e2a25f8e03d'
+      EXPECTED_TARGET_SHA: 'b77f4702eebd8770f600608680f10623838d9b57'
     steps:
       - name: Import pinned source history and verify mirror
         shell: bash
