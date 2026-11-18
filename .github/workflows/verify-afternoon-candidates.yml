@@ -1,39 +1,41 @@
-name: Verify reviewed ONNX and navigation candidates
+name: Verify coordinate-navigation integration
 on:
   push:
     branches: ['review/tony-afternoon-import-20261118']
 permissions:
   contents: read
 jobs:
-  review:
+  check:
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
-    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: |
-          git fetch --no-tags https://github.com/ajouatom/openpilot.git a9811adce075a81f6a719e611f28ae444193f750
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 00fc9c7e97d36a584b76742945176e2ba5cad0f6
-          git bundle verify candidates.bundle
+      - name: Check out exact candidate
+        run: |
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 0dc17ef2057cdcbd262c003bcdb6c0b88cdb3cf4
           git fetch candidates.bundle HEAD
-          test "$(git rev-parse FETCH_HEAD)" = "61dc77032edba7cf8449e713b9b0506d8d1908e0"
-          test "$(git rev-parse FETCH_HEAD^1)" = "28b19f7b3ca0b5c34ae3325e4e871a2c6042a8b0"
-          git push origin 61dc77032edba7cf8449e713b9b0506d8d1908e0:refs/heads/review/tony-afternoon-20261118
-  onnx:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - run: |
-          git fetch --no-tags https://github.com/ajouatom/openpilot.git a9811adce075a81f6a719e611f28ae444193f750
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 00fc9c7e97d36a584b76742945176e2ba5cad0f6
-          git fetch candidates.bundle HEAD
-          git checkout --detach 28b19f7b3ca0b5c34ae3325e4e871a2c6042a8b0
+          test "$(git rev-parse FETCH_HEAD)" = "a2c41011d16cd0c3088b4c542f7663f354934fef"
+          git checkout --detach a2c41011d16cd0c3088b4c542f7663f354934fef
+      - name: Build updated vehicle schema and native telemetry encoder
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y capnproto libcapnp-dev
+          schema="$RUNNER_TEMP/native/cereal/gen/cpp"
+          mkdir -p "$schema"
+          cp openpilot/cereal/{log,deprecated,custom}.capnp opendbc_repo/opendbc/car/car.capnp "$schema/"
+          cp -r openpilot/cereal/include "$schema/"
+          (cd "$schema" && capnp compile -I. -oc++:. *.capnp)
+          g++ -std=c++17 -shared -fPIC -Iopenpilot -I"$RUNNER_TEMP/native" "$schema"/*.capnp.c++ openpilot/selfdrive/carrot/realtime/compact_state_native.cc -lcapnp -lkj -o "$RUNNER_TEMP/compact.so"
+      - name: Build and run driving video metadata tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Iopenpilot openpilot/system/loggerd/tests/test_driving_sei.cc -o /tmp/driving-sei-test
+          /tmp/driving-sei-test
+      - name: Run CPU ONNX regression
+        run: |
           python -m pip install numpy pytest
           DEV=CPU PYTHONPATH=tinygrad_repo:. python -m pytest -c /dev/null --noconftest -q openpilot/selfdrive/modeld/tests/test_onnx_history_gather.py
+      - name: Preserve candidate
+        run: git push origin a2c41011d16cd0c3088b4c542f7663f354934fef:refs/heads/review/tony-coordinate-final-20261118
