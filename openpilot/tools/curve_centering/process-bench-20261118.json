@@ -1,0 +1,3940 @@
+{
+  "source_commit": "fa4696df5ce32b2365fc4c8f9d0ba6eb5dfcc51d",
+  "environment": {
+    "machine": "x86_64",
+    "python": "3.12.14",
+    "scheduler": 0,
+    "available_cpus": 5
+  },
+  "scope": "six desktop synthetic full-controlsd process trials; no C4, CAN, road or raw log replay",
+  "shadow_default_enabled": false,
+  "deployment_approved": false,
+  "limitations": [
+    "MOCK vehicle with synthetic torque tuning and input geometry; not a calibrated physical plant",
+    "Timing wrappers and in-memory measurements add overhead; desktop scheduling not C4 FIFO/core configuration",
+    "No logmessaged/disk logging process; original diagnostic IPC send still executes",
+    "Receiver polls at 10 ms; receive delay includes benchmark collector scheduling",
+    "First four trials 36 s; final two 40 s include worker exception and close events",
+    "Fresh private Params and unique msgq prefix per trial; no CAN consumers or device processes",
+    "Do not attribute all jitter to shadow: off trials also overrun",
+    "Original 13.255 ms capture-only spike is retained, not reproduced or invalidated by these trials"
+  ],
+  "trials": [
+    {
+      "trial": "trial1",
+      "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+      "deployment_approved": false,
+      "receiver_poll_s": 0.01,
+      "worker_stopped": [],
+      "worker_failures": null,
+      "events": [],
+      "input_send_intervals": {
+        "count": 3708,
+        "median_ms": 9.999862,
+        "p95_ms": 10.02849,
+        "p99_ms": 10.112055,
+        "max_ms": 55.608155,
+        "over_10ms": 1817,
+        "over_15ms": 2
+      },
+      "phases": [
+        {
+          "phase": "warmup",
+          "publications": 600,
+          "lat_active": 593,
+          "publication_interval": {
+            "count": 599,
+            "median_ms": 9.998425,
+            "p95_ms": 10.705806,
+            "p99_ms": 12.042106,
+            "max_ms": 15.324973,
+            "over_10ms": 297,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.324579,
+            "p95_ms": 0.531561,
+            "p99_ms": 0.708266,
+            "max_ms": 3.216585,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 0.848177,
+            "p95_ms": 1.545208,
+            "p99_ms": 2.502801,
+            "max_ms": 6.264411,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 599,
+            "median_ms": 10.167259,
+            "p95_ms": 10.437802,
+            "p99_ms": 10.877717,
+            "max_ms": 12.604801,
+            "over_10ms": 592,
+            "over_15ms": 0
+          },
+          "unreceived": 1,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "nominal",
+          "publications": 600,
+          "lat_active": 600,
+          "publication_interval": {
+            "count": 600,
+            "median_ms": 9.998343,
+            "p95_ms": 10.669363,
+            "p99_ms": 11.396382,
+            "max_ms": 13.219119,
+            "over_10ms": 299,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.321784,
+            "p95_ms": 0.512932,
+            "p99_ms": 0.693914,
+            "max_ms": 2.265609,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 0.82016,
+            "p95_ms": 1.576521,
+            "p99_ms": 2.197236,
+            "max_ms": 4.785475,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.168559,
+            "p95_ms": 10.459438,
+            "p99_ms": 10.681802,
+            "max_ms": 12.007075,
+            "over_10ms": 598,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "gil_load",
+          "publications": 87,
+          "lat_active": 87,
+          "publication_interval": {
+            "count": 87,
+            "median_ms": 44.499536,
+            "p95_ms": 69.695976,
+            "p99_ms": 80.003106,
+            "max_ms": 86.371102,
+            "over_10ms": 87,
+            "over_15ms": 86
+          },
+          "state_wall": {
+            "count": 87,
+            "median_ms": 21.069582,
+            "p95_ms": 26.343788,
+            "p99_ms": 41.718691,
+            "max_ms": 54.384689,
+            "over_10ms": 85,
+            "over_15ms": 79
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 87,
+            "median_ms": 48.928244,
+            "p95_ms": 72.418172,
+            "p99_ms": 82.235,
+            "max_ms": 90.790582,
+            "over_10ms": 86,
+            "over_15ms": 86
+          },
+          "input_to_receiver": {
+            "count": 87,
+            "median_ms": 50.290529,
+            "p95_ms": 80.234133,
+            "p99_ms": 90.182446,
+            "max_ms": 100.301968,
+            "over_10ms": 87,
+            "over_15ms": 86
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "after_gil",
+          "publications": 401,
+          "lat_active": 401,
+          "publication_interval": {
+            "count": 401,
+            "median_ms": 10.003519,
+            "p95_ms": 10.776171,
+            "p99_ms": 11.236357,
+            "max_ms": 21.315642,
+            "over_10ms": 204,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 401,
+            "median_ms": 0.351528,
+            "p95_ms": 0.572911,
+            "p99_ms": 0.799323,
+            "max_ms": 2.383653,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 401,
+            "median_ms": 0.917324,
+            "p95_ms": 1.68933,
+            "p99_ms": 2.516212,
+            "max_ms": 24.61723,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 401,
+            "median_ms": 10.188106,
+            "p95_ms": 10.518854,
+            "p99_ms": 10.680717,
+            "max_ms": 30.344557,
+            "over_10ms": 400,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "slow_worker",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.006316,
+            "p95_ms": 10.912926,
+            "p99_ms": 11.888511,
+            "max_ms": 14.51558,
+            "over_10ms": 204,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.379661,
+            "p95_ms": 0.620053,
+            "p99_ms": 1.075288,
+            "max_ms": 2.403947,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.963926,
+            "p95_ms": 1.916673,
+            "p99_ms": 2.97794,
+            "max_ms": 6.149622,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.196352,
+            "p95_ms": 10.532993,
+            "p99_ms": 10.912275,
+            "max_ms": 12.729032,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "after_overflow",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.998542,
+            "p95_ms": 10.848461,
+            "p99_ms": 11.525981,
+            "max_ms": 12.987038,
+            "over_10ms": 197,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.393302,
+            "p95_ms": 0.629087,
+            "p99_ms": 1.04323,
+            "max_ms": 2.560011,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.018682,
+            "p95_ms": 1.830468,
+            "p99_ms": 2.731794,
+            "max_ms": 3.604112,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.207927,
+            "p95_ms": 10.467448,
+            "p99_ms": 11.030074,
+            "max_ms": 11.863598,
+            "over_10ms": 396,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "closed",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.008677,
+            "p95_ms": 10.63535,
+            "p99_ms": 11.131888,
+            "max_ms": 12.649851,
+            "over_10ms": 208,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.325871,
+            "p95_ms": 0.559772,
+            "p99_ms": 0.768527,
+            "max_ms": 1.606277,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.845603,
+            "p95_ms": 1.604153,
+            "p99_ms": 2.137982,
+            "max_ms": 3.223529,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.163035,
+            "p95_ms": 10.402611,
+            "p99_ms": 10.738064,
+            "max_ms": 12.812235,
+            "over_10ms": 399,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "recreated",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.022216,
+            "p95_ms": 10.73482,
+            "p99_ms": 11.378441,
+            "max_ms": 13.832604,
+            "over_10ms": 213,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.380831,
+            "p95_ms": 0.609835,
+            "p99_ms": 0.737497,
+            "max_ms": 1.333076,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.993406,
+            "p95_ms": 1.772615,
+            "p99_ms": 2.382875,
+            "max_ms": 5.05497,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.196539,
+            "p95_ms": 10.437342,
+            "p99_ms": 10.593177,
+            "max_ms": 10.725946,
+            "over_10ms": 399,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "worker_exception",
+          "publications": 1,
+          "lat_active": 1,
+          "publication_interval": {
+            "count": 1,
+            "median_ms": 10.551521,
+            "p95_ms": 10.551521,
+            "p99_ms": 10.551521,
+            "max_ms": 10.551521,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 1,
+            "median_ms": 0.255423,
+            "p95_ms": 0.255423,
+            "p99_ms": 0.255423,
+            "max_ms": 0.255423,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 1,
+            "median_ms": 1.169875,
+            "p95_ms": 1.169875,
+            "p99_ms": 1.169875,
+            "max_ms": 1.169875,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 1,
+            "median_ms": 10.087064,
+            "p95_ms": 10.087064,
+            "p99_ms": 10.087064,
+            "max_ms": 10.087064,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        }
+      ],
+      "mode": "off"
+    },
+    {
+      "trial": "trial2",
+      "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+      "deployment_approved": false,
+      "receiver_poll_s": 0.01,
+      "worker_stopped": [
+        true,
+        true
+      ],
+      "worker_failures": null,
+      "events": [],
+      "input_send_intervals": {
+        "count": 3698,
+        "median_ms": 9.999869,
+        "p95_ms": 10.026151,
+        "p99_ms": 10.12925,
+        "max_ms": 17.033777,
+        "over_10ms": 1824,
+        "over_15ms": 1
+      },
+      "phases": [
+        {
+          "phase": "warmup",
+          "publications": 599,
+          "lat_active": 567,
+          "publication_interval": {
+            "count": 598,
+            "median_ms": 10.003398,
+            "p95_ms": 11.148907,
+            "p99_ms": 11.659033,
+            "max_ms": 32.104173,
+            "over_10ms": 300,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 599,
+            "median_ms": 0.443535,
+            "p95_ms": 0.646326,
+            "p99_ms": 0.831924,
+            "max_ms": 13.721012,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 599,
+            "median_ms": 0.097466,
+            "p95_ms": 0.196584,
+            "p99_ms": 0.289362,
+            "max_ms": 2.57227,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 599,
+            "median_ms": 0.096884,
+            "p95_ms": 0.195429,
+            "p99_ms": 0.289019,
+            "max_ms": 2.210848,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 599,
+            "median_ms": 0.194891,
+            "p95_ms": 0.710242,
+            "p99_ms": 1.167592,
+            "max_ms": 4.279841,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 599,
+            "median_ms": 0.194548,
+            "p95_ms": 0.710223,
+            "p99_ms": 1.168202,
+            "max_ms": 3.939201,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 599,
+            "median_ms": 1.059955,
+            "p95_ms": 2.109065,
+            "p99_ms": 2.713688,
+            "max_ms": 32.93209,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 599,
+            "median_ms": 10.161215,
+            "p95_ms": 10.429753,
+            "p99_ms": 10.571114,
+            "max_ms": 33.075405,
+            "over_10ms": 596,
+            "over_15ms": 2
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 599,
+          "monitor_present": 599,
+          "nonzero_policy_steps": 361,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 5,
+            "lateral_inactive": 28,
+            "observer_gate": 131,
+            "saturation_or_safety_limit": 2,
+            "control_clock_gap_or_reversal": 1,
+            "candidate_warmup": 102
+          }
+        },
+        {
+          "phase": "nominal",
+          "publications": 600,
+          "lat_active": 600,
+          "publication_interval": {
+            "count": 600,
+            "median_ms": 10.01086,
+            "p95_ms": 11.294753,
+            "p99_ms": 12.44149,
+            "max_ms": 26.071924,
+            "over_10ms": 309,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.464364,
+            "p95_ms": 0.714218,
+            "p99_ms": 1.034076,
+            "max_ms": 3.844448,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 600,
+            "median_ms": 0.101221,
+            "p95_ms": 0.220319,
+            "p99_ms": 0.329262,
+            "max_ms": 0.67537,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 600,
+            "median_ms": 0.100749,
+            "p95_ms": 0.220407,
+            "p99_ms": 0.329098,
+            "max_ms": 0.67496,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 600,
+            "median_ms": 0.181832,
+            "p95_ms": 0.746736,
+            "p99_ms": 1.02348,
+            "max_ms": 6.765238,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 600,
+            "median_ms": 0.181118,
+            "p95_ms": 0.746918,
+            "p99_ms": 1.023808,
+            "max_ms": 6.646154,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 1.065623,
+            "p95_ms": 2.465569,
+            "p99_ms": 3.575736,
+            "max_ms": 16.635406,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.170295,
+            "p95_ms": 10.498465,
+            "p99_ms": 10.830497,
+            "max_ms": 19.475677,
+            "over_10ms": 595,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 600,
+          "monitor_present": 600,
+          "nonzero_policy_steps": 494,
+          "worker_reasons": {
+            "control_clock_gap_or_reversal": 3,
+            "candidate_warmup": 103
+          }
+        },
+        {
+          "phase": "gil_load",
+          "publications": 94,
+          "lat_active": 94,
+          "publication_interval": {
+            "count": 94,
+            "median_ms": 42.477605,
+            "p95_ms": 69.026213,
+            "p99_ms": 79.39377,
+            "max_ms": 94.25566,
+            "over_10ms": 93,
+            "over_15ms": 93
+          },
+          "state_wall": {
+            "count": 94,
+            "median_ms": 20.988234,
+            "p95_ms": 26.57192,
+            "p99_ms": 27.075247,
+            "max_ms": 31.513465,
+            "over_10ms": 89,
+            "over_15ms": 65
+          },
+          "capture_wall": {
+            "count": 94,
+            "median_ms": 0.202771,
+            "p95_ms": 0.280876,
+            "p99_ms": 0.311562,
+            "max_ms": 0.482375,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 94,
+            "median_ms": 0.202029,
+            "p95_ms": 0.280346,
+            "p99_ms": 0.31071,
+            "max_ms": 0.481523,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 94,
+            "median_ms": 0.434374,
+            "p95_ms": 0.531729,
+            "p99_ms": 0.648976,
+            "max_ms": 0.65828,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 94,
+            "median_ms": 0.433643,
+            "p95_ms": 0.531478,
+            "p99_ms": 0.649112,
+            "max_ms": 0.657255,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 94,
+            "median_ms": 44.097346,
+            "p95_ms": 71.146844,
+            "p99_ms": 76.07379,
+            "max_ms": 82.467964,
+            "over_10ms": 94,
+            "over_15ms": 93
+          },
+          "input_to_receiver": {
+            "count": 94,
+            "median_ms": 50.163181,
+            "p95_ms": 79.916528,
+            "p99_ms": 80.34378,
+            "max_ms": 90.228127,
+            "over_10ms": 94,
+            "over_15ms": 94
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 94,
+          "monitor_present": 94,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 72,
+            "control_clock_gap_or_reversal": 93,
+            "candidate_warmup": 1
+          }
+        },
+        {
+          "phase": "after_gil",
+          "publications": 401,
+          "lat_active": 401,
+          "publication_interval": {
+            "count": 401,
+            "median_ms": 9.98388,
+            "p95_ms": 11.232537,
+            "p99_ms": 12.181333,
+            "max_ms": 51.37919,
+            "over_10ms": 191,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 401,
+            "median_ms": 0.457668,
+            "p95_ms": 0.767103,
+            "p99_ms": 1.052663,
+            "max_ms": 20.114961,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "capture_wall": {
+            "count": 401,
+            "median_ms": 0.104187,
+            "p95_ms": 0.217637,
+            "p99_ms": 0.333471,
+            "max_ms": 1.92214,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 401,
+            "median_ms": 0.103964,
+            "p95_ms": 0.218303,
+            "p99_ms": 0.332804,
+            "max_ms": 1.92209,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 401,
+            "median_ms": 0.23284,
+            "p95_ms": 0.836267,
+            "p99_ms": 1.421457,
+            "max_ms": 2.750756,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 401,
+            "median_ms": 0.233025,
+            "p95_ms": 0.836751,
+            "p99_ms": 1.374197,
+            "max_ms": 2.726446,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 401,
+            "median_ms": 1.113081,
+            "p95_ms": 2.442812,
+            "p99_ms": 3.414278,
+            "max_ms": 58.587116,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 401,
+            "median_ms": 10.173946,
+            "p95_ms": 10.471524,
+            "p99_ms": 10.69559,
+            "max_ms": 60.090411,
+            "over_10ms": 400,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 401,
+          "monitor_present": 401,
+          "nonzero_policy_steps": 291,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 1,
+            "control_clock_gap_or_reversal": 3,
+            "observer_gate": 6,
+            "candidate_warmup": 101
+          }
+        },
+        {
+          "phase": "slow_worker",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.021121,
+            "p95_ms": 10.897967,
+            "p99_ms": 12.017252,
+            "max_ms": 16.747531,
+            "over_10ms": 209,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.43353,
+            "p95_ms": 0.672119,
+            "p99_ms": 1.361484,
+            "max_ms": 5.159213,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.09331,
+            "p95_ms": 0.192319,
+            "p99_ms": 0.246771,
+            "max_ms": 0.572239,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.093118,
+            "p95_ms": 0.192044,
+            "p99_ms": 0.246746,
+            "max_ms": 0.572879,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 57,
+            "median_ms": 66.770687,
+            "p95_ms": 68.740503,
+            "p99_ms": 69.446497,
+            "max_ms": 75.892317,
+            "over_10ms": 57,
+            "over_15ms": 57
+          },
+          "worker_cpu": {
+            "count": 57,
+            "median_ms": 6.530701,
+            "p95_ms": 8.461877,
+            "p99_ms": 9.327896,
+            "max_ms": 15.664085,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.963932,
+            "p95_ms": 1.829971,
+            "p99_ms": 2.685871,
+            "max_ms": 7.567693,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.170365,
+            "p95_ms": 10.465397,
+            "p99_ms": 10.640451,
+            "max_ms": 10.822253,
+            "over_10ms": 393,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 114,
+          "monitor_failed": 0,
+          "thread_alive": 400,
+          "monitor_present": 400,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 56,
+            "observer_gate": 56,
+            "invalid_geometry": 56
+          }
+        },
+        {
+          "phase": "after_overflow",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.987851,
+            "p95_ms": 11.133851,
+            "p99_ms": 11.62712,
+            "max_ms": 12.289056,
+            "over_10ms": 192,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.421753,
+            "p95_ms": 0.643055,
+            "p99_ms": 0.835093,
+            "max_ms": 1.155855,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.096094,
+            "p95_ms": 0.210646,
+            "p99_ms": 0.285639,
+            "max_ms": 0.418548,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.095722,
+            "p95_ms": 0.210261,
+            "p99_ms": 0.285634,
+            "max_ms": 0.418461,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 395,
+            "median_ms": 0.163616,
+            "p95_ms": 0.687061,
+            "p99_ms": 0.935694,
+            "max_ms": 65.452258,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "worker_cpu": {
+            "count": 395,
+            "median_ms": 0.163732,
+            "p95_ms": 0.686578,
+            "p99_ms": 0.935837,
+            "max_ms": 5.381099,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.991343,
+            "p95_ms": 2.122001,
+            "p99_ms": 2.825486,
+            "max_ms": 3.685106,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.155723,
+            "p95_ms": 10.44089,
+            "p99_ms": 10.595192,
+            "max_ms": 12.654373,
+            "over_10ms": 398,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 116,
+          "monitor_failed": 0,
+          "thread_alive": 400,
+          "monitor_present": 400,
+          "nonzero_policy_steps": 185,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 5,
+            "observer_gate": 107,
+            "invalid_geometry": 5,
+            "candidate_warmup": 103
+          }
+        },
+        {
+          "phase": "closed",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.001629,
+            "p95_ms": 10.727708,
+            "p99_ms": 11.713494,
+            "max_ms": 14.58572,
+            "over_10ms": 201,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.376947,
+            "p95_ms": 0.616772,
+            "p99_ms": 0.946426,
+            "max_ms": 2.400657,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.003796,
+            "p95_ms": 0.005168,
+            "p99_ms": 0.009895,
+            "max_ms": 0.086622,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.003315,
+            "p95_ms": 0.004617,
+            "p99_ms": 0.00666,
+            "max_ms": 0.085938,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 1,
+            "median_ms": 0.147145,
+            "p95_ms": 0.147145,
+            "p99_ms": 0.147145,
+            "max_ms": 0.147145,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 1,
+            "median_ms": 0.146988,
+            "p95_ms": 0.146988,
+            "p99_ms": 0.146988,
+            "max_ms": 0.146988,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.018907,
+            "p95_ms": 1.807417,
+            "p99_ms": 2.384092,
+            "max_ms": 5.984431,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.201053,
+            "p95_ms": 10.485468,
+            "p99_ms": 10.68355,
+            "max_ms": 12.985399,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 116,
+          "monitor_failed": 0,
+          "thread_alive": 11,
+          "monitor_present": 11,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "recreated",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.017258,
+            "p95_ms": 11.219325,
+            "p99_ms": 11.8876,
+            "max_ms": 14.371613,
+            "over_10ms": 208,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.449766,
+            "p95_ms": 0.703487,
+            "p99_ms": 1.029697,
+            "max_ms": 3.337021,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.105018,
+            "p95_ms": 0.204297,
+            "p99_ms": 0.358128,
+            "max_ms": 0.426211,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.104455,
+            "p95_ms": 0.207107,
+            "p99_ms": 0.35782,
+            "max_ms": 0.425721,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 399,
+            "median_ms": 0.173333,
+            "p95_ms": 0.673333,
+            "p99_ms": 0.901144,
+            "max_ms": 6.651268,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 399,
+            "median_ms": 0.173357,
+            "p95_ms": 0.672617,
+            "p99_ms": 0.901877,
+            "max_ms": 5.98919,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.086208,
+            "p95_ms": 2.275175,
+            "p99_ms": 2.936259,
+            "max_ms": 5.56101,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.172918,
+            "p95_ms": 10.452231,
+            "p99_ms": 10.556769,
+            "max_ms": 12.107665,
+            "over_10ms": 395,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 116,
+          "monitor_failed": 0,
+          "thread_alive": 399,
+          "monitor_present": 399,
+          "nonzero_policy_steps": 194,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 3,
+            "observer_gate": 105,
+            "invalid_geometry": 3,
+            "candidate_warmup": 100
+          }
+        },
+        {
+          "phase": "worker_exception",
+          "publications": 1,
+          "lat_active": 1,
+          "publication_interval": {
+            "count": 1,
+            "median_ms": 8.625596,
+            "p95_ms": 8.625596,
+            "p99_ms": 8.625596,
+            "max_ms": 8.625596,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 1,
+            "median_ms": 0.513158,
+            "p95_ms": 0.513158,
+            "p99_ms": 0.513158,
+            "max_ms": 0.513158,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 1,
+            "median_ms": 0.093412,
+            "p95_ms": 0.093412,
+            "p99_ms": 0.093412,
+            "max_ms": 0.093412,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 1,
+            "median_ms": 0.092928,
+            "p95_ms": 0.092928,
+            "p99_ms": 0.092928,
+            "max_ms": 0.092928,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 1,
+            "median_ms": 0.193383,
+            "p95_ms": 0.193383,
+            "p99_ms": 0.193383,
+            "max_ms": 0.193383,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 1,
+            "median_ms": 0.193346,
+            "p95_ms": 0.193346,
+            "p99_ms": 0.193346,
+            "max_ms": 0.193346,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 1,
+            "median_ms": 0.856193,
+            "p95_ms": 0.856193,
+            "p99_ms": 0.856193,
+            "max_ms": 0.856193,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 1,
+            "median_ms": 10.165541,
+            "p95_ms": 10.165541,
+            "p99_ms": 10.165541,
+            "max_ms": 10.165541,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 1,
+          "monitor_present": 1,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {}
+        }
+      ],
+      "mode": "on"
+    },
+    {
+      "trial": "trial3",
+      "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+      "deployment_approved": false,
+      "receiver_poll_s": 0.01,
+      "worker_stopped": [
+        true,
+        true
+      ],
+      "worker_failures": null,
+      "events": [],
+      "input_send_intervals": {
+        "count": 3717,
+        "median_ms": 9.999866,
+        "p95_ms": 10.02924,
+        "p99_ms": 10.111944,
+        "max_ms": 23.624915,
+        "over_10ms": 1837,
+        "over_15ms": 1
+      },
+      "phases": [
+        {
+          "phase": "warmup",
+          "publications": 600,
+          "lat_active": 573,
+          "publication_interval": {
+            "count": 599,
+            "median_ms": 10.002262,
+            "p95_ms": 11.121406,
+            "p99_ms": 11.647527,
+            "max_ms": 25.796422,
+            "over_10ms": 302,
+            "over_15ms": 3
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.459872,
+            "p95_ms": 0.672111,
+            "p99_ms": 0.953935,
+            "max_ms": 5.502081,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 600,
+            "median_ms": 0.105841,
+            "p95_ms": 0.210637,
+            "p99_ms": 0.287233,
+            "max_ms": 0.772563,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 600,
+            "median_ms": 0.105216,
+            "p95_ms": 0.210452,
+            "p99_ms": 0.286835,
+            "max_ms": 0.772525,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 600,
+            "median_ms": 0.164137,
+            "p95_ms": 0.627885,
+            "p99_ms": 0.798532,
+            "max_ms": 4.297254,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 600,
+            "median_ms": 0.163793,
+            "p95_ms": 0.627901,
+            "p99_ms": 0.798564,
+            "max_ms": 4.002073,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 1.101563,
+            "p95_ms": 2.21308,
+            "p99_ms": 2.84436,
+            "max_ms": 26.970622,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.162722,
+            "p95_ms": 10.380145,
+            "p99_ms": 10.877834,
+            "max_ms": 30.067051,
+            "over_10ms": 592,
+            "over_15ms": 2
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 600,
+          "monitor_present": 600,
+          "nonzero_policy_steps": 218,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 5,
+            "lateral_inactive": 23,
+            "observer_gate": 127,
+            "saturation_or_safety_limit": 2,
+            "control_clock_gap_or_reversal": 6,
+            "candidate_warmup": 245
+          }
+        },
+        {
+          "phase": "nominal",
+          "publications": 600,
+          "lat_active": 600,
+          "publication_interval": {
+            "count": 600,
+            "median_ms": 10.032419,
+            "p95_ms": 11.390785,
+            "p99_ms": 11.962918,
+            "max_ms": 13.060694,
+            "over_10ms": 307,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.50426,
+            "p95_ms": 0.72956,
+            "p99_ms": 0.918374,
+            "max_ms": 1.49336,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 600,
+            "median_ms": 0.110907,
+            "p95_ms": 0.200832,
+            "p99_ms": 0.276256,
+            "max_ms": 0.947303,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 600,
+            "median_ms": 0.110403,
+            "p95_ms": 0.200717,
+            "p99_ms": 0.276189,
+            "max_ms": 0.9471,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 600,
+            "median_ms": 0.233482,
+            "p95_ms": 0.77635,
+            "p99_ms": 0.993637,
+            "max_ms": 2.074687,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 600,
+            "median_ms": 0.233787,
+            "p95_ms": 0.776742,
+            "p99_ms": 0.993593,
+            "max_ms": 2.074837,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 1.195366,
+            "p95_ms": 2.563588,
+            "p99_ms": 3.127573,
+            "max_ms": 4.533777,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.197136,
+            "p95_ms": 10.49078,
+            "p99_ms": 10.854528,
+            "max_ms": 11.770007,
+            "over_10ms": 593,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 600,
+          "monitor_present": 600,
+          "nonzero_policy_steps": 600,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "gil_load",
+          "publications": 82,
+          "lat_active": 82,
+          "publication_interval": {
+            "count": 82,
+            "median_ms": 47.812052,
+            "p95_ms": 78.673564,
+            "p99_ms": 85.327116,
+            "max_ms": 85.679961,
+            "over_10ms": 82,
+            "over_15ms": 82
+          },
+          "state_wall": {
+            "count": 82,
+            "median_ms": 21.343552,
+            "p95_ms": 22.900317,
+            "p99_ms": 26.847164,
+            "max_ms": 26.878725,
+            "over_10ms": 79,
+            "over_15ms": 68
+          },
+          "capture_wall": {
+            "count": 82,
+            "median_ms": 0.223226,
+            "p95_ms": 0.33926,
+            "p99_ms": 0.401785,
+            "max_ms": 0.480564,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 82,
+            "median_ms": 0.221939,
+            "p95_ms": 0.337149,
+            "p99_ms": 0.399984,
+            "max_ms": 0.479141,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 82,
+            "median_ms": 0.443938,
+            "p95_ms": 0.585601,
+            "p99_ms": 0.73709,
+            "max_ms": 0.79654,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 82,
+            "median_ms": 0.443738,
+            "p95_ms": 0.584877,
+            "p99_ms": 0.736822,
+            "max_ms": 0.796151,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 82,
+            "median_ms": 50.389067,
+            "p95_ms": 78.819017,
+            "p99_ms": 89.147938,
+            "max_ms": 94.39696,
+            "over_10ms": 82,
+            "over_15ms": 82
+          },
+          "input_to_receiver": {
+            "count": 82,
+            "median_ms": 60.121708,
+            "p95_ms": 80.395556,
+            "p99_ms": 90.150294,
+            "max_ms": 100.362637,
+            "over_10ms": 82,
+            "over_15ms": 82
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 82,
+          "monitor_present": 82,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 58,
+            "control_clock_gap_or_reversal": 82
+          }
+        },
+        {
+          "phase": "after_gil",
+          "publications": 401,
+          "lat_active": 401,
+          "publication_interval": {
+            "count": 401,
+            "median_ms": 10.048127,
+            "p95_ms": 11.507145,
+            "p99_ms": 11.933156,
+            "max_ms": 21.037106,
+            "over_10ms": 214,
+            "over_15ms": 2
+          },
+          "state_wall": {
+            "count": 401,
+            "median_ms": 0.600163,
+            "p95_ms": 0.858042,
+            "p99_ms": 2.31195,
+            "max_ms": 6.999167,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 401,
+            "median_ms": 0.125539,
+            "p95_ms": 0.230457,
+            "p99_ms": 0.288695,
+            "max_ms": 0.429897,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 401,
+            "median_ms": 0.124715,
+            "p95_ms": 0.229065,
+            "p99_ms": 0.288017,
+            "max_ms": 0.429587,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 401,
+            "median_ms": 0.229346,
+            "p95_ms": 0.77701,
+            "p99_ms": 1.101788,
+            "max_ms": 1.485847,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 401,
+            "median_ms": 0.231453,
+            "p95_ms": 0.770423,
+            "p99_ms": 1.102374,
+            "max_ms": 1.485883,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 401,
+            "median_ms": 1.51118,
+            "p95_ms": 2.942134,
+            "p99_ms": 4.044358,
+            "max_ms": 29.816698,
+            "over_10ms": 2,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 401,
+            "median_ms": 10.239325,
+            "p95_ms": 10.571385,
+            "p99_ms": 11.148164,
+            "max_ms": 30.148248,
+            "over_10ms": 397,
+            "over_15ms": 2
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 401,
+          "monitor_present": 401,
+          "nonzero_policy_steps": 32,
+          "worker_reasons": {
+            "control_clock_gap_or_reversal": 7,
+            "observer_gate": 92,
+            "candidate_warmup": 270
+          }
+        },
+        {
+          "phase": "slow_worker",
+          "publications": 399,
+          "lat_active": 399,
+          "publication_interval": {
+            "count": 399,
+            "median_ms": 10.003912,
+            "p95_ms": 11.121077,
+            "p99_ms": 12.802749,
+            "max_ms": 34.673158,
+            "over_10ms": 203,
+            "over_15ms": 3
+          },
+          "state_wall": {
+            "count": 399,
+            "median_ms": 0.583049,
+            "p95_ms": 0.925195,
+            "p99_ms": 3.63283,
+            "max_ms": 6.506595,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 399,
+            "median_ms": 0.118479,
+            "p95_ms": 0.251569,
+            "p99_ms": 0.423187,
+            "max_ms": 0.991676,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 399,
+            "median_ms": 0.117364,
+            "p95_ms": 0.251172,
+            "p99_ms": 0.422767,
+            "max_ms": 0.991319,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 56,
+            "median_ms": 67.310575,
+            "p95_ms": 70.941864,
+            "p99_ms": 77.175218,
+            "max_ms": 85.863544,
+            "over_10ms": 56,
+            "over_15ms": 56
+          },
+          "worker_cpu": {
+            "count": 56,
+            "median_ms": 6.835916,
+            "p95_ms": 10.862536,
+            "p99_ms": 12.986316,
+            "max_ms": 25.31136,
+            "over_10ms": 4,
+            "over_15ms": 1
+          },
+          "input_to_publish": {
+            "count": 399,
+            "median_ms": 1.270642,
+            "p95_ms": 2.369337,
+            "p99_ms": 6.433466,
+            "max_ms": 16.094831,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 399,
+            "median_ms": 10.228962,
+            "p95_ms": 10.440478,
+            "p99_ms": 10.762717,
+            "max_ms": 20.144179,
+            "over_10ms": 398,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 114,
+          "monitor_failed": 0,
+          "thread_alive": 399,
+          "monitor_present": 399,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {
+            "candidate_warmup": 1,
+            "unmatched_stale_or_future_observation": 55,
+            "observer_gate": 55,
+            "invalid_geometry": 55
+          }
+        },
+        {
+          "phase": "after_overflow",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.005705,
+            "p95_ms": 11.184412,
+            "p99_ms": 11.713689,
+            "max_ms": 12.450488,
+            "over_10ms": 205,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.449067,
+            "p95_ms": 0.691672,
+            "p99_ms": 1.074087,
+            "max_ms": 2.143945,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.104999,
+            "p95_ms": 0.201583,
+            "p99_ms": 0.400022,
+            "max_ms": 1.871062,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.104575,
+            "p95_ms": 0.201558,
+            "p99_ms": 0.399803,
+            "max_ms": 1.871235,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 401,
+            "median_ms": 0.202224,
+            "p95_ms": 0.720425,
+            "p99_ms": 0.96281,
+            "max_ms": 65.838223,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "worker_cpu": {
+            "count": 401,
+            "median_ms": 0.20211,
+            "p95_ms": 0.720579,
+            "p99_ms": 0.962957,
+            "max_ms": 5.750317,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.080187,
+            "p95_ms": 2.296549,
+            "p99_ms": 2.750941,
+            "max_ms": 3.822752,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.158656,
+            "p95_ms": 10.39329,
+            "p99_ms": 10.537006,
+            "max_ms": 10.657448,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 114,
+          "monitor_failed": 0,
+          "thread_alive": 400,
+          "monitor_present": 400,
+          "nonzero_policy_steps": 190,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 6,
+            "observer_gate": 107,
+            "invalid_geometry": 6,
+            "candidate_warmup": 104
+          }
+        },
+        {
+          "phase": "closed",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.015694,
+            "p95_ms": 10.75527,
+            "p99_ms": 11.233601,
+            "max_ms": 12.476947,
+            "over_10ms": 202,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.403028,
+            "p95_ms": 0.641616,
+            "p99_ms": 1.216306,
+            "max_ms": 2.51792,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.004126,
+            "p95_ms": 0.00634,
+            "p99_ms": 0.055674,
+            "max_ms": 0.098579,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.003665,
+            "p95_ms": 0.005768,
+            "p99_ms": 0.055812,
+            "max_ms": 0.098186,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 1,
+            "median_ms": 0.216426,
+            "p95_ms": 0.216426,
+            "p99_ms": 0.216426,
+            "max_ms": 0.216426,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 1,
+            "median_ms": 0.216381,
+            "p95_ms": 0.216381,
+            "p99_ms": 0.216381,
+            "max_ms": 0.216381,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.025242,
+            "p95_ms": 1.775248,
+            "p99_ms": 2.428612,
+            "max_ms": 3.159893,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.200467,
+            "p95_ms": 10.424799,
+            "p99_ms": 10.591288,
+            "max_ms": 11.485867,
+            "over_10ms": 399,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 114,
+          "monitor_failed": 0,
+          "thread_alive": 11,
+          "monitor_present": 11,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "recreated",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.987776,
+            "p95_ms": 11.346511,
+            "p99_ms": 11.7982,
+            "max_ms": 12.497078,
+            "over_10ms": 198,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.517359,
+            "p95_ms": 0.78836,
+            "p99_ms": 1.564696,
+            "max_ms": 2.71728,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.110126,
+            "p95_ms": 0.225109,
+            "p99_ms": 0.284219,
+            "max_ms": 1.673726,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.109622,
+            "p95_ms": 0.224463,
+            "p99_ms": 0.283991,
+            "max_ms": 1.674453,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 399,
+            "median_ms": 0.174353,
+            "p95_ms": 0.703852,
+            "p99_ms": 0.849652,
+            "max_ms": 5.350685,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 399,
+            "median_ms": 0.173978,
+            "p95_ms": 0.703974,
+            "p99_ms": 0.84966,
+            "max_ms": 5.324996,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.207198,
+            "p95_ms": 2.385809,
+            "p99_ms": 2.947938,
+            "max_ms": 3.345428,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.208946,
+            "p95_ms": 10.413954,
+            "p99_ms": 10.638623,
+            "max_ms": 11.414074,
+            "over_10ms": 399,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 114,
+          "monitor_failed": 0,
+          "thread_alive": 399,
+          "monitor_present": 399,
+          "nonzero_policy_steps": 189,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 6,
+            "observer_gate": 107,
+            "invalid_geometry": 6,
+            "candidate_warmup": 103
+          }
+        },
+        {
+          "phase": "worker_exception",
+          "publications": 1,
+          "lat_active": 1,
+          "publication_interval": {
+            "count": 1,
+            "median_ms": 10.106127,
+            "p95_ms": 10.106127,
+            "p99_ms": 10.106127,
+            "max_ms": 10.106127,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 1,
+            "median_ms": 0.475176,
+            "p95_ms": 0.475176,
+            "p99_ms": 0.475176,
+            "max_ms": 0.475176,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 1,
+            "median_ms": 0.106631,
+            "p95_ms": 0.106631,
+            "p99_ms": 0.106631,
+            "max_ms": 0.106631,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 1,
+            "median_ms": 0.106188,
+            "p95_ms": 0.106188,
+            "p99_ms": 0.106188,
+            "max_ms": 0.106188,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 1,
+            "median_ms": 0.244418,
+            "p95_ms": 0.244418,
+            "p99_ms": 0.244418,
+            "max_ms": 0.244418,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 1,
+            "median_ms": 0.230512,
+            "p95_ms": 0.230512,
+            "p99_ms": 0.230512,
+            "max_ms": 0.230512,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 1,
+            "median_ms": 1.352177,
+            "p95_ms": 1.352177,
+            "p99_ms": 1.352177,
+            "max_ms": 1.352177,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 1,
+            "median_ms": 10.530862,
+            "p95_ms": 10.530862,
+            "p99_ms": 10.530862,
+            "max_ms": 10.530862,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 1,
+          "monitor_present": 1,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {}
+        }
+      ],
+      "mode": "on"
+    },
+    {
+      "trial": "trial4",
+      "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+      "deployment_approved": false,
+      "receiver_poll_s": 0.01,
+      "worker_stopped": [],
+      "worker_failures": null,
+      "events": [],
+      "input_send_intervals": {
+        "count": 3691,
+        "median_ms": 10.00001,
+        "p95_ms": 10.03814,
+        "p99_ms": 10.463039,
+        "max_ms": 25.504763,
+        "over_10ms": 1850,
+        "over_15ms": 1
+      },
+      "phases": [
+        {
+          "phase": "warmup",
+          "publications": 599,
+          "lat_active": 576,
+          "publication_interval": {
+            "count": 598,
+            "median_ms": 10.023945,
+            "p95_ms": 11.242976,
+            "p99_ms": 13.061034,
+            "max_ms": 37.765917,
+            "over_10ms": 310,
+            "over_15ms": 4
+          },
+          "state_wall": {
+            "count": 599,
+            "median_ms": 0.492947,
+            "p95_ms": 0.966934,
+            "p99_ms": 2.066849,
+            "max_ms": 16.036406,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 599,
+            "median_ms": 1.405087,
+            "p95_ms": 2.799729,
+            "p99_ms": 5.119221,
+            "max_ms": 39.137759,
+            "over_10ms": 3,
+            "over_15ms": 2
+          },
+          "input_to_receiver": {
+            "count": 599,
+            "median_ms": 10.302479,
+            "p95_ms": 10.808864,
+            "p99_ms": 13.374494,
+            "max_ms": 40.252689,
+            "over_10ms": 589,
+            "over_15ms": 5
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "nominal",
+          "publications": 600,
+          "lat_active": 600,
+          "publication_interval": {
+            "count": 600,
+            "median_ms": 10.013478,
+            "p95_ms": 10.978583,
+            "p99_ms": 13.038099,
+            "max_ms": 21.380959,
+            "over_10ms": 302,
+            "over_15ms": 2
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.421695,
+            "p95_ms": 0.691763,
+            "p99_ms": 1.078496,
+            "max_ms": 3.752161,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 1.111579,
+            "p95_ms": 2.129719,
+            "p99_ms": 3.990757,
+            "max_ms": 12.339776,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.221292,
+            "p95_ms": 10.620254,
+            "p99_ms": 11.460174,
+            "max_ms": 20.432569,
+            "over_10ms": 592,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "gil_load",
+          "publications": 90,
+          "lat_active": 90,
+          "publication_interval": {
+            "count": 90,
+            "median_ms": 42.516286,
+            "p95_ms": 63.187062,
+            "p99_ms": 68.169485,
+            "max_ms": 88.641058,
+            "over_10ms": 90,
+            "over_15ms": 90
+          },
+          "state_wall": {
+            "count": 90,
+            "median_ms": 21.040254,
+            "p95_ms": 26.215196,
+            "p99_ms": 27.557952,
+            "max_ms": 41.66369,
+            "over_10ms": 89,
+            "over_15ms": 74
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 90,
+            "median_ms": 47.88457,
+            "p95_ms": 66.988575,
+            "p99_ms": 71.611646,
+            "max_ms": 86.035724,
+            "over_10ms": 90,
+            "over_15ms": 90
+          },
+          "input_to_receiver": {
+            "count": 90,
+            "median_ms": 50.243292,
+            "p95_ms": 70.412789,
+            "p99_ms": 80.286085,
+            "max_ms": 90.168545,
+            "over_10ms": 90,
+            "over_15ms": 90
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "after_gil",
+          "publications": 401,
+          "lat_active": 401,
+          "publication_interval": {
+            "count": 401,
+            "median_ms": 9.986252,
+            "p95_ms": 10.836203,
+            "p99_ms": 12.461884,
+            "max_ms": 17.211014,
+            "over_10ms": 195,
+            "over_15ms": 2
+          },
+          "state_wall": {
+            "count": 401,
+            "median_ms": 0.383228,
+            "p95_ms": 0.602147,
+            "p99_ms": 0.978494,
+            "max_ms": 1.719021,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 401,
+            "median_ms": 0.954368,
+            "p95_ms": 1.843598,
+            "p99_ms": 3.895401,
+            "max_ms": 26.834825,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 401,
+            "median_ms": 10.179137,
+            "p95_ms": 10.507197,
+            "p99_ms": 11.921389,
+            "max_ms": 30.12931,
+            "over_10ms": 398,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "slow_worker",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.975211,
+            "p95_ms": 10.833178,
+            "p99_ms": 11.645308,
+            "max_ms": 13.940167,
+            "over_10ms": 192,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.41166,
+            "p95_ms": 0.600295,
+            "p99_ms": 0.944433,
+            "max_ms": 2.459215,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.069197,
+            "p95_ms": 1.827594,
+            "p99_ms": 2.610024,
+            "max_ms": 4.483197,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.207865,
+            "p95_ms": 10.547138,
+            "p99_ms": 10.858116,
+            "max_ms": 13.253226,
+            "over_10ms": 395,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "after_overflow",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.996739,
+            "p95_ms": 10.804468,
+            "p99_ms": 11.300635,
+            "max_ms": 12.830959,
+            "over_10ms": 198,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.348498,
+            "p95_ms": 0.507775,
+            "p99_ms": 0.723194,
+            "max_ms": 0.977192,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.847003,
+            "p95_ms": 1.49817,
+            "p99_ms": 1.854801,
+            "max_ms": 3.503169,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.161773,
+            "p95_ms": 10.460147,
+            "p99_ms": 11.039341,
+            "max_ms": 12.775812,
+            "over_10ms": 391,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "closed",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.999733,
+            "p95_ms": 10.829582,
+            "p99_ms": 11.513405,
+            "max_ms": 12.539542,
+            "over_10ms": 198,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.376507,
+            "p95_ms": 0.61734,
+            "p99_ms": 0.889159,
+            "max_ms": 1.921554,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.975934,
+            "p95_ms": 1.877288,
+            "p99_ms": 2.638599,
+            "max_ms": 3.606446,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.185341,
+            "p95_ms": 10.563841,
+            "p99_ms": 11.097244,
+            "max_ms": 12.530382,
+            "over_10ms": 398,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "recreated",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.995659,
+            "p95_ms": 10.942625,
+            "p99_ms": 12.142443,
+            "max_ms": 20.814921,
+            "over_10ms": 198,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.39071,
+            "p95_ms": 0.622054,
+            "p99_ms": 0.830244,
+            "max_ms": 2.672442,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.987042,
+            "p95_ms": 1.985522,
+            "p99_ms": 3.361642,
+            "max_ms": 21.889158,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.18421,
+            "p95_ms": 10.552987,
+            "p99_ms": 11.804393,
+            "max_ms": 30.304458,
+            "over_10ms": 396,
+            "over_15ms": 2
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "worker_exception",
+          "publications": 1,
+          "lat_active": 1,
+          "publication_interval": {
+            "count": 1,
+            "median_ms": 9.850693,
+            "p95_ms": 9.850693,
+            "p99_ms": 9.850693,
+            "max_ms": 9.850693,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 1,
+            "median_ms": 0.343901,
+            "p95_ms": 0.343901,
+            "p99_ms": 0.343901,
+            "max_ms": 0.343901,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 1,
+            "median_ms": 0.748267,
+            "p95_ms": 0.748267,
+            "p99_ms": 0.748267,
+            "max_ms": 0.748267,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 1,
+            "median_ms": 10.335668,
+            "p95_ms": 10.335668,
+            "p99_ms": 10.335668,
+            "max_ms": 10.335668,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        }
+      ],
+      "mode": "off"
+    },
+    {
+      "trial": "trial5",
+      "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+      "deployment_approved": false,
+      "receiver_poll_s": 0.01,
+      "worker_stopped": [],
+      "worker_failures": [],
+      "events": [],
+      "input_send_intervals": {
+        "count": 4111,
+        "median_ms": 9.999735,
+        "p95_ms": 10.079732,
+        "p99_ms": 10.23043,
+        "max_ms": 13.568692,
+        "over_10ms": 2014,
+        "over_15ms": 0
+      },
+      "phases": [
+        {
+          "phase": "warmup",
+          "publications": 601,
+          "lat_active": 593,
+          "publication_interval": {
+            "count": 600,
+            "median_ms": 9.991289,
+            "p95_ms": 11.080776,
+            "p99_ms": 13.292768,
+            "max_ms": 19.565491,
+            "over_10ms": 294,
+            "over_15ms": 3
+          },
+          "state_wall": {
+            "count": 601,
+            "median_ms": 0.381344,
+            "p95_ms": 0.781085,
+            "p99_ms": 1.583773,
+            "max_ms": 11.351496,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 601,
+            "median_ms": 1.13236,
+            "p95_ms": 2.251297,
+            "p99_ms": 4.692276,
+            "max_ms": 11.946532,
+            "over_10ms": 2,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.266225,
+            "p95_ms": 10.570804,
+            "p99_ms": 11.641193,
+            "max_ms": 20.27477,
+            "over_10ms": 592,
+            "over_15ms": 3
+          },
+          "unreceived": 1,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "nominal",
+          "publications": 599,
+          "lat_active": 599,
+          "publication_interval": {
+            "count": 599,
+            "median_ms": 10.005952,
+            "p95_ms": 11.091616,
+            "p99_ms": 12.512494,
+            "max_ms": 16.430884,
+            "over_10ms": 301,
+            "over_15ms": 2
+          },
+          "state_wall": {
+            "count": 599,
+            "median_ms": 0.381223,
+            "p95_ms": 0.738582,
+            "p99_ms": 1.092825,
+            "max_ms": 2.800015,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 599,
+            "median_ms": 1.134718,
+            "p95_ms": 2.187859,
+            "p99_ms": 3.052571,
+            "max_ms": 8.582559,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 599,
+            "median_ms": 10.25393,
+            "p95_ms": 10.618243,
+            "p99_ms": 11.816547,
+            "max_ms": 13.478138,
+            "over_10ms": 589,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "gil_load",
+          "publications": 79,
+          "lat_active": 79,
+          "publication_interval": {
+            "count": 79,
+            "median_ms": 48.17717,
+            "p95_ms": 79.761674,
+            "p99_ms": 85.133538,
+            "max_ms": 109.957147,
+            "over_10ms": 78,
+            "over_15ms": 76
+          },
+          "state_wall": {
+            "count": 79,
+            "median_ms": 21.253931,
+            "p95_ms": 23.491662,
+            "p99_ms": 27.72693,
+            "max_ms": 42.17797,
+            "over_10ms": 74,
+            "over_15ms": 65
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 79,
+            "median_ms": 54.098255,
+            "p95_ms": 81.266164,
+            "p99_ms": 92.358846,
+            "max_ms": 107.385325,
+            "over_10ms": 77,
+            "over_15ms": 77
+          },
+          "input_to_receiver": {
+            "count": 79,
+            "median_ms": 60.214093,
+            "p95_ms": 90.188941,
+            "p99_ms": 100.878978,
+            "max_ms": 110.224955,
+            "over_10ms": 79,
+            "over_15ms": 77
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "after_gil",
+          "publications": 402,
+          "lat_active": 402,
+          "publication_interval": {
+            "count": 402,
+            "median_ms": 9.996874,
+            "p95_ms": 11.05739,
+            "p99_ms": 11.547227,
+            "max_ms": 86.084534,
+            "over_10ms": 200,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 402,
+            "median_ms": 0.446732,
+            "p95_ms": 0.831381,
+            "p99_ms": 1.308359,
+            "max_ms": 2.47223,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 402,
+            "median_ms": 1.270126,
+            "p95_ms": 2.274639,
+            "p99_ms": 3.610749,
+            "max_ms": 87.860247,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 402,
+            "median_ms": 10.303095,
+            "p95_ms": 10.748775,
+            "p99_ms": 11.272313,
+            "max_ms": 90.114444,
+            "over_10ms": 399,
+            "over_15ms": 1
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "slow_worker",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.996183,
+            "p95_ms": 10.810468,
+            "p99_ms": 11.328439,
+            "max_ms": 11.797343,
+            "over_10ms": 197,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.309265,
+            "p95_ms": 0.533403,
+            "p99_ms": 0.760236,
+            "max_ms": 1.396577,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.864233,
+            "p95_ms": 1.678807,
+            "p99_ms": 2.22386,
+            "max_ms": 2.779383,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.219535,
+            "p95_ms": 10.514601,
+            "p99_ms": 10.676936,
+            "max_ms": 11.487513,
+            "over_10ms": 396,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "after_overflow",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.994021,
+            "p95_ms": 10.757427,
+            "p99_ms": 11.118965,
+            "max_ms": 12.500364,
+            "over_10ms": 193,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.306101,
+            "p95_ms": 0.452312,
+            "p99_ms": 0.783119,
+            "max_ms": 1.720489,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.844809,
+            "p95_ms": 1.642623,
+            "p99_ms": 2.090534,
+            "max_ms": 3.224198,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.200973,
+            "p95_ms": 10.464158,
+            "p99_ms": 10.710917,
+            "max_ms": 11.549383,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "closed",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.995311,
+            "p95_ms": 11.020067,
+            "p99_ms": 12.935228,
+            "max_ms": 16.031217,
+            "over_10ms": 196,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.324167,
+            "p95_ms": 0.581627,
+            "p99_ms": 1.315209,
+            "max_ms": 2.168444,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.901187,
+            "p95_ms": 1.852641,
+            "p99_ms": 3.731643,
+            "max_ms": 4.89753,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.221638,
+            "p95_ms": 10.558952,
+            "p99_ms": 11.222973,
+            "max_ms": 13.44532,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "recreated",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.001682,
+            "p95_ms": 10.779353,
+            "p99_ms": 11.253748,
+            "max_ms": 14.623085,
+            "over_10ms": 201,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.364189,
+            "p95_ms": 0.566534,
+            "p99_ms": 0.66388,
+            "max_ms": 1.540201,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.017437,
+            "p95_ms": 1.896409,
+            "p99_ms": 2.47809,
+            "max_ms": 5.213181,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.233941,
+            "p95_ms": 10.508105,
+            "p99_ms": 10.856109,
+            "max_ms": 14.340219,
+            "over_10ms": 396,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "worker_exception",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.990234,
+            "p95_ms": 10.963565,
+            "p99_ms": 15.078757,
+            "max_ms": 31.933083,
+            "over_10ms": 194,
+            "over_15ms": 5
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.327924,
+            "p95_ms": 0.599282,
+            "p99_ms": 1.276562,
+            "max_ms": 15.737693,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "capture_wall": null,
+          "capture_cpu": null,
+          "worker_wall": null,
+          "worker_cpu": null,
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.932859,
+            "p95_ms": 1.967528,
+            "p99_ms": 6.433756,
+            "max_ms": 22.85694,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.233215,
+            "p95_ms": 10.516718,
+            "p99_ms": 10.738202,
+            "max_ms": 30.400742,
+            "over_10ms": 396,
+            "over_15ms": 2
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 0,
+          "monitor_present": 0,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {}
+        }
+      ],
+      "mode": "off"
+    },
+    {
+      "trial": "trial6",
+      "scope": "desktop_synthetic_mock_car_full_controlsd_with_measurement_wrappers",
+      "deployment_approved": false,
+      "receiver_poll_s": 0.01,
+      "worker_stopped": [
+        true,
+        true
+      ],
+      "worker_failures": [
+        null,
+        "worker_RuntimeError"
+      ],
+      "events": [
+        {
+          "event": "close_called",
+          "at": 28.000956735999353,
+          "wall_ns": 6750
+        },
+        {
+          "event": "recreate_called",
+          "at": 32.000072906999776
+        },
+        {
+          "event": "injected_worker_exception",
+          "at": 36.010264864999044
+        }
+      ],
+      "input_send_intervals": {
+        "count": 4109,
+        "median_ms": 9.999913,
+        "p95_ms": 10.036863,
+        "p99_ms": 10.162772,
+        "max_ms": 28.924204,
+        "over_10ms": 2036,
+        "over_15ms": 2
+      },
+      "phases": [
+        {
+          "phase": "warmup",
+          "publications": 598,
+          "lat_active": 576,
+          "publication_interval": {
+            "count": 597,
+            "median_ms": 9.996665,
+            "p95_ms": 11.376927,
+            "p99_ms": 14.100265,
+            "max_ms": 22.711401,
+            "over_10ms": 294,
+            "over_15ms": 5
+          },
+          "state_wall": {
+            "count": 598,
+            "median_ms": 0.416046,
+            "p95_ms": 0.738993,
+            "p99_ms": 2.899703,
+            "max_ms": 13.201913,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 598,
+            "median_ms": 0.100381,
+            "p95_ms": 0.221534,
+            "p99_ms": 0.310948,
+            "max_ms": 1.870454,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 598,
+            "median_ms": 0.100028,
+            "p95_ms": 0.216992,
+            "p99_ms": 0.306475,
+            "max_ms": 1.777826,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 598,
+            "median_ms": 0.172821,
+            "p95_ms": 0.781627,
+            "p99_ms": 1.249932,
+            "max_ms": 3.895684,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 598,
+            "median_ms": 0.172666,
+            "p95_ms": 0.781729,
+            "p99_ms": 1.250384,
+            "max_ms": 3.83681,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 598,
+            "median_ms": 1.038398,
+            "p95_ms": 2.403727,
+            "p99_ms": 6.580617,
+            "max_ms": 19.75291,
+            "over_10ms": 3,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 597,
+            "median_ms": 10.1833,
+            "p95_ms": 10.453347,
+            "p99_ms": 13.064193,
+            "max_ms": 29.574737,
+            "over_10ms": 591,
+            "over_15ms": 4
+          },
+          "unreceived": 1,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 598,
+          "monitor_present": 598,
+          "nonzero_policy_steps": 164,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 2,
+            "control_clock_gap_or_reversal": 8,
+            "lateral_inactive": 19,
+            "observer_gate": 123,
+            "saturation_or_safety_limit": 3,
+            "candidate_warmup": 301
+          }
+        },
+        {
+          "phase": "nominal",
+          "publications": 600,
+          "lat_active": 600,
+          "publication_interval": {
+            "count": 600,
+            "median_ms": 10.036581,
+            "p95_ms": 11.351419,
+            "p99_ms": 12.088482,
+            "max_ms": 14.185333,
+            "over_10ms": 318,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 600,
+            "median_ms": 0.429036,
+            "p95_ms": 0.700734,
+            "p99_ms": 0.878071,
+            "max_ms": 1.260576,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 600,
+            "median_ms": 0.10614,
+            "p95_ms": 0.217207,
+            "p99_ms": 0.347713,
+            "max_ms": 0.639923,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 600,
+            "median_ms": 0.105676,
+            "p95_ms": 0.217733,
+            "p99_ms": 0.347485,
+            "max_ms": 0.639619,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 600,
+            "median_ms": 0.224538,
+            "p95_ms": 0.821376,
+            "p99_ms": 0.986204,
+            "max_ms": 1.862363,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 600,
+            "median_ms": 0.223321,
+            "p95_ms": 0.821648,
+            "p99_ms": 0.986863,
+            "max_ms": 1.862361,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 600,
+            "median_ms": 1.057577,
+            "p95_ms": 2.402495,
+            "p99_ms": 3.086549,
+            "max_ms": 5.228036,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 600,
+            "median_ms": 10.173186,
+            "p95_ms": 10.397524,
+            "p99_ms": 10.569563,
+            "max_ms": 11.439191,
+            "over_10ms": 598,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 600,
+          "monitor_present": 600,
+          "nonzero_policy_steps": 600,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "gil_load",
+          "publications": 105,
+          "lat_active": 105,
+          "publication_interval": {
+            "count": 105,
+            "median_ms": 37.692301,
+            "p95_ms": 62.932794,
+            "p99_ms": 73.980967,
+            "max_ms": 83.581444,
+            "over_10ms": 104,
+            "over_15ms": 102
+          },
+          "state_wall": {
+            "count": 105,
+            "median_ms": 16.194945,
+            "p95_ms": 26.317842,
+            "p99_ms": 26.759075,
+            "max_ms": 31.61181,
+            "over_10ms": 95,
+            "over_15ms": 75
+          },
+          "capture_wall": {
+            "count": 105,
+            "median_ms": 0.195834,
+            "p95_ms": 0.289716,
+            "p99_ms": 0.410777,
+            "max_ms": 1.082508,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 105,
+            "median_ms": 0.194478,
+            "p95_ms": 0.289319,
+            "p99_ms": 0.409948,
+            "max_ms": 1.082244,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 105,
+            "median_ms": 0.429356,
+            "p95_ms": 0.667483,
+            "p99_ms": 0.820614,
+            "max_ms": 1.095657,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 105,
+            "median_ms": 0.429306,
+            "p95_ms": 0.66751,
+            "p99_ms": 0.821017,
+            "max_ms": 1.095654,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 105,
+            "median_ms": 41.120409,
+            "p95_ms": 63.756307,
+            "p99_ms": 73.648051,
+            "max_ms": 93.004114,
+            "over_10ms": 105,
+            "over_15ms": 102
+          },
+          "input_to_receiver": {
+            "count": 105,
+            "median_ms": 50.109647,
+            "p95_ms": 70.191476,
+            "p99_ms": 80.253852,
+            "max_ms": 101.011225,
+            "over_10ms": 105,
+            "over_15ms": 105
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 105,
+          "monitor_present": 105,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {
+            "invalid_or_stale_control_input": 34,
+            "control_clock_gap_or_reversal": 103,
+            "candidate_warmup": 1
+          }
+        },
+        {
+          "phase": "after_gil",
+          "publications": 402,
+          "lat_active": 402,
+          "publication_interval": {
+            "count": 402,
+            "median_ms": 9.971708,
+            "p95_ms": 11.466855,
+            "p99_ms": 12.029809,
+            "max_ms": 17.42884,
+            "over_10ms": 191,
+            "over_15ms": 2
+          },
+          "state_wall": {
+            "count": 402,
+            "median_ms": 0.435445,
+            "p95_ms": 0.700074,
+            "p99_ms": 0.865353,
+            "max_ms": 10.899374,
+            "over_10ms": 1,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 402,
+            "median_ms": 0.108063,
+            "p95_ms": 0.220422,
+            "p99_ms": 0.344769,
+            "max_ms": 0.561325,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 402,
+            "median_ms": 0.10827,
+            "p95_ms": 0.220176,
+            "p99_ms": 0.34434,
+            "max_ms": 0.561021,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 401,
+            "median_ms": 0.225589,
+            "p95_ms": 0.774065,
+            "p99_ms": 0.854266,
+            "max_ms": 1.108238,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 401,
+            "median_ms": 0.225304,
+            "p95_ms": 0.774027,
+            "p99_ms": 0.854057,
+            "max_ms": 1.108414,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 402,
+            "median_ms": 1.050475,
+            "p95_ms": 2.472512,
+            "p99_ms": 3.375269,
+            "max_ms": 21.165918,
+            "over_10ms": 2,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 402,
+            "median_ms": 10.166038,
+            "p95_ms": 10.412132,
+            "p99_ms": 10.850032,
+            "max_ms": 30.293584,
+            "over_10ms": 399,
+            "over_15ms": 3
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 402,
+          "monitor_present": 402,
+          "nonzero_policy_steps": 206,
+          "worker_reasons": {
+            "control_clock_gap_or_reversal": 4,
+            "candidate_warmup": 191
+          }
+        },
+        {
+          "phase": "slow_worker",
+          "publications": 399,
+          "lat_active": 399,
+          "publication_interval": {
+            "count": 399,
+            "median_ms": 9.98655,
+            "p95_ms": 11.055944,
+            "p99_ms": 16.369266,
+            "max_ms": 18.860348,
+            "over_10ms": 195,
+            "over_15ms": 7
+          },
+          "state_wall": {
+            "count": 399,
+            "median_ms": 0.43876,
+            "p95_ms": 0.783128,
+            "p99_ms": 1.955552,
+            "max_ms": 5.593763,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.120091,
+            "p95_ms": 0.232911,
+            "p99_ms": 0.40353,
+            "max_ms": 1.519809,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.119226,
+            "p95_ms": 0.232845,
+            "p99_ms": 0.403158,
+            "max_ms": 1.519503,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 57,
+            "median_ms": 66.385335,
+            "p95_ms": 69.021126,
+            "p99_ms": 72.75966,
+            "max_ms": 76.534507,
+            "over_10ms": 56,
+            "over_15ms": 56
+          },
+          "worker_cpu": {
+            "count": 57,
+            "median_ms": 6.228355,
+            "p95_ms": 8.517999,
+            "p99_ms": 11.02317,
+            "max_ms": 15.761217,
+            "over_10ms": 3,
+            "over_15ms": 1
+          },
+          "input_to_publish": {
+            "count": 399,
+            "median_ms": 0.976554,
+            "p95_ms": 2.192328,
+            "p99_ms": 8.018016,
+            "max_ms": 9.951534,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 399,
+            "median_ms": 10.169861,
+            "p95_ms": 10.386816,
+            "p99_ms": 10.492267,
+            "max_ms": 11.194773,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 114,
+          "monitor_failed": 0,
+          "thread_alive": 399,
+          "monitor_present": 399,
+          "nonzero_policy_steps": 0,
+          "worker_reasons": {
+            "candidate_warmup": 2,
+            "unmatched_stale_or_future_observation": 55,
+            "observer_gate": 55,
+            "invalid_geometry": 55
+          }
+        },
+        {
+          "phase": "after_overflow",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.001308,
+            "p95_ms": 11.138615,
+            "p99_ms": 11.804209,
+            "max_ms": 22.440863,
+            "over_10ms": 200,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.404008,
+            "p95_ms": 0.594254,
+            "p99_ms": 0.833854,
+            "max_ms": 2.868511,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 399,
+            "median_ms": 0.09953,
+            "p95_ms": 0.212189,
+            "p99_ms": 0.254944,
+            "max_ms": 1.603582,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 399,
+            "median_ms": 0.099388,
+            "p95_ms": 0.212275,
+            "p99_ms": 0.254878,
+            "max_ms": 1.603868,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 400,
+            "median_ms": 0.16646,
+            "p95_ms": 0.703038,
+            "p99_ms": 0.87743,
+            "max_ms": 68.043669,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "worker_cpu": {
+            "count": 400,
+            "median_ms": 0.166317,
+            "p95_ms": 0.703032,
+            "p99_ms": 0.877291,
+            "max_ms": 7.87629,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 0.963715,
+            "p95_ms": 1.975241,
+            "p99_ms": 3.425329,
+            "max_ms": 24.298307,
+            "over_10ms": 1,
+            "over_15ms": 1
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.160147,
+            "p95_ms": 10.438956,
+            "p99_ms": 10.75689,
+            "max_ms": 30.116882,
+            "over_10ms": 395,
+            "over_15ms": 2
+          },
+          "unreceived": 0,
+          "max_dropped": 115,
+          "monitor_failed": 0,
+          "thread_alive": 400,
+          "monitor_present": 400,
+          "nonzero_policy_steps": 89,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 3,
+            "observer_gate": 108,
+            "invalid_geometry": 3,
+            "candidate_warmup": 201,
+            "control_clock_gap_or_reversal": 2
+          }
+        },
+        {
+          "phase": "closed",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 10.014328,
+            "p95_ms": 10.728827,
+            "p99_ms": 11.442802,
+            "max_ms": 13.849036,
+            "over_10ms": 203,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.369876,
+            "p95_ms": 0.655156,
+            "p99_ms": 1.126002,
+            "max_ms": 1.706399,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 401,
+            "median_ms": 0.003956,
+            "p95_ms": 0.005468,
+            "p99_ms": 0.007642,
+            "max_ms": 0.135213,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 401,
+            "median_ms": 0.003585,
+            "p95_ms": 0.004717,
+            "p99_ms": 0.005579,
+            "max_ms": 0.134139,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 1,
+            "median_ms": 0.483777,
+            "p95_ms": 0.483777,
+            "p99_ms": 0.483777,
+            "max_ms": 0.483777,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 1,
+            "median_ms": 0.484178,
+            "p95_ms": 0.484178,
+            "p99_ms": 0.484178,
+            "max_ms": 0.484178,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.036879,
+            "p95_ms": 1.873528,
+            "p99_ms": 2.70679,
+            "max_ms": 5.45869,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.208023,
+            "p95_ms": 10.435807,
+            "p99_ms": 10.743921,
+            "max_ms": 13.177227,
+            "over_10ms": 393,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 115,
+          "monitor_failed": 0,
+          "thread_alive": 11,
+          "monitor_present": 400,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {}
+        },
+        {
+          "phase": "recreated",
+          "publications": 400,
+          "lat_active": 400,
+          "publication_interval": {
+            "count": 400,
+            "median_ms": 9.99811,
+            "p95_ms": 11.40128,
+            "p99_ms": 12.914816,
+            "max_ms": 16.667062,
+            "over_10ms": 199,
+            "over_15ms": 1
+          },
+          "state_wall": {
+            "count": 400,
+            "median_ms": 0.529376,
+            "p95_ms": 0.864811,
+            "p99_ms": 1.173726,
+            "max_ms": 3.06471,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 400,
+            "median_ms": 0.138759,
+            "p95_ms": 0.263186,
+            "p99_ms": 0.411369,
+            "max_ms": 0.771841,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 400,
+            "median_ms": 0.137554,
+            "p95_ms": 0.26321,
+            "p99_ms": 0.411009,
+            "max_ms": 0.771824,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 399,
+            "median_ms": 0.219951,
+            "p95_ms": 0.788166,
+            "p99_ms": 1.139084,
+            "max_ms": 5.685537,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 399,
+            "median_ms": 0.219846,
+            "p95_ms": 0.787969,
+            "p99_ms": 1.13953,
+            "max_ms": 5.629592,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 400,
+            "median_ms": 1.303476,
+            "p95_ms": 2.738921,
+            "p99_ms": 4.55697,
+            "max_ms": 8.133404,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 400,
+            "median_ms": 10.206223,
+            "p95_ms": 10.491181,
+            "p99_ms": 11.258106,
+            "max_ms": 13.411499,
+            "over_10ms": 397,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 115,
+          "monitor_failed": 0,
+          "thread_alive": 399,
+          "monitor_present": 400,
+          "nonzero_policy_steps": 184,
+          "worker_reasons": {
+            "unmatched_stale_or_future_observation": 5,
+            "observer_gate": 110,
+            "invalid_geometry": 5,
+            "candidate_warmup": 105
+          }
+        },
+        {
+          "phase": "worker_exception",
+          "publications": 401,
+          "lat_active": 401,
+          "publication_interval": {
+            "count": 401,
+            "median_ms": 9.984931,
+            "p95_ms": 10.714027,
+            "p99_ms": 11.213358,
+            "max_ms": 12.286717,
+            "over_10ms": 193,
+            "over_15ms": 0
+          },
+          "state_wall": {
+            "count": 401,
+            "median_ms": 0.353202,
+            "p95_ms": 0.596948,
+            "p99_ms": 0.782818,
+            "max_ms": 2.009743,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_wall": {
+            "count": 2,
+            "median_ms": 0.003655,
+            "p95_ms": 0.196526,
+            "p99_ms": 0.196526,
+            "max_ms": 0.196526,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "capture_cpu": {
+            "count": 2,
+            "median_ms": 0.003055,
+            "p95_ms": 0.196351,
+            "p99_ms": 0.196351,
+            "max_ms": 0.196351,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_wall": {
+            "count": 1,
+            "median_ms": 0.186931,
+            "p95_ms": 0.186931,
+            "p99_ms": 0.186931,
+            "max_ms": 0.186931,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "worker_cpu": {
+            "count": 1,
+            "median_ms": 0.186397,
+            "p95_ms": 0.186397,
+            "p99_ms": 0.186397,
+            "max_ms": 0.186397,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_publish": {
+            "count": 401,
+            "median_ms": 0.957525,
+            "p95_ms": 1.74142,
+            "p99_ms": 2.347767,
+            "max_ms": 3.547442,
+            "over_10ms": 0,
+            "over_15ms": 0
+          },
+          "input_to_receiver": {
+            "count": 401,
+            "median_ms": 10.198531,
+            "p95_ms": 10.424801,
+            "p99_ms": 10.539545,
+            "max_ms": 10.992216,
+            "over_10ms": 399,
+            "over_15ms": 0
+          },
+          "unreceived": 0,
+          "max_dropped": 0,
+          "monitor_failed": 0,
+          "thread_alive": 2,
+          "monitor_present": 2,
+          "nonzero_policy_steps": 1,
+          "worker_reasons": {}
+        }
+      ],
+      "mode": "on"
+    }
+  ]
+}

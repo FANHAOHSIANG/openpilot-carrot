@@ -338,7 +338,7 @@ node openpilot/tools/curve_centering/spatial-diagnostics.mjs
 `test_runtime_shadow` 執行整個生產 `state_control` 方法，保留原生 cereal 資料型別，
 但替代硬體／IPC、VM／LaC／LoC 等依賴；不是完整原生控制驗證。
 原方法移除新增觀察敘述後的 AST 雜湊必須與 fb59c77e 一致，再比對所有 CarControl
-欄位及狀態。此機器原生扭力測試缺 params_pyx，針對性編譯又缺 acados，未聲稱通過。
+欄位及狀態。先前缺少的 params_pyx／acados 已補齊，13項原生扭矩啟動測試已通過；詳見 VALIDATION。
 
 ### 三類否定結果應如何解讀
 
@@ -407,3 +407,9 @@ node openpilot/tools/curve_centering/spatial-diagnostics.mjs > spatial-diagnosti
 CI publishes `refinement-analysis.json` alongside the unchanged original sweep,
 withdrawal analysis and spatial counterexample. A passing job means the tools
 executed and invariants passed; it does not mean every simulated trajectory passed.
+
+### 桌面完整程序時序驗證
+
+六輪原生 IPC／完整 controlsd 關開對照與工作者例外結果，見 [PROCESS_BENCH.md](PROCESS_BENCH.md)。
+正常與背景負載仍有發布超時，故**維持預設關閉**；沒有把影子模式改成 C4 預設啟用。
+工具只啟動隔離的桌面合成程序，不部署車輛；原始資料下載沒有重試。
