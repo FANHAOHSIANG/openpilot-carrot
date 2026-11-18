@@ -7049,33 +7049,38 @@ class ClusterUiRenderer:
         if signal is None and camera is None:
             return
 
-        x, y = 560.0 + self._driving_hud_offset_design_x(screen_mode), 14.0
+        offset = self._driving_hud_offset_design_x(screen_mode)
+        camera_x, camera_y = 150.0 + offset, 122.0
+        signal_x, signal_y = 750.0 + offset, 14.0
         if screen_mode == CLUSTER_SCREEN_MODE_NAVI:
-            x, y = NAVI_MODE_MAP_X + 16.0, 14.0
+            camera_x, camera_y = NAVI_MODE_MAP_X + 16.0, 14.0
+            signal_x = camera_x + 200.0
         elif screen_mode == CLUSTER_SCREEN_MODE_DEBUG_GRAPH:
-            x, y = 145.0, 14.0
+            camera_x, camera_y = 145.0, 14.0
+            signal_x = camera_x + 200.0
 
         theme = self._current_theme()
-        width = 148.0
         if signal is not None:
             phase, seconds = signal
-            color = (NAVI_TRAFFIC_RED if phase == 0 else NAVI_TRAFFIC_GREEN if phase == 2 else theme.text)
-            self._rounded_rect(x, y, width, 76.0, 12.0, theme.panel_bg, color, 2.0)
-            for index, lamp in enumerate((NAVI_TRAFFIC_RED, AMBER, NAVI_TRAFFIC_GREEN)):
-                rl.draw_circle_v(rl.Vector2(x + 24.0, y + 16.0 + index * 22.0), 8.0,
-                                 rl_color(lamp if phase == index else (91, 98, 107)))
+            red, green = (255, 78, 76), (55, 255, 136)
+            color = red if phase == 0 else green if phase == 2 else WHITE
+            self._rounded_rect(signal_x, signal_y, 148.0, 76.0, 12.0, (18, 21, 26), color, 4.0)
+            for index, lamp in enumerate((red, AMBER, green)):
+                active = phase == index
+                center = rl.Vector2(signal_x + 22.0, signal_y + 16.0 + index * 22.0)
+                rl.draw_circle_v(center, 10.0 if active else 6.0, rl_color(lamp if active else (65, 70, 78)))
             if seconds is not None:
-                self._draw_text(f"{seconds} s", x + 89.0, y + 18.0, 38.0, theme.text, anchor="center")
-            x += width + 10.0
+                self._draw_text(f"{seconds} s", signal_x + 90.0, signal_y + 38.0, 35.0,
+                                color, anchor="center")
         if camera is not None:
             limit, distance = camera
-            self._rounded_rect(x, y, width + 28.0, 76.0, 12.0, theme.panel_bg, AMBER, 2.0)
-            center = rl.Vector2(x + 37.0, y + 38.0)
+            self._rounded_rect(camera_x, camera_y, 188.0, 76.0, 12.0, theme.panel_bg, AMBER, 2.0)
+            center = rl.Vector2(camera_x + 34.0, camera_y + 38.0)
             rl.draw_circle_v(center, 27.0, rl_color(WHITE))
             rl.draw_ring(center, 22.0, 27.0, 0.0, 360.0, 48, rl_color(RED))
-            self._draw_text(f"{display_speed(limit, self.is_metric):.0f}", center.x, center.y - 13.0,
+            self._draw_text(f"{display_speed(limit, self.is_metric):.0f}", center.x, center.y,
                             23.0, (20, 24, 28), anchor="center")
-            self._draw_text(self._format_navi_distance(distance), x + 117.0, y + 18.0,
+            self._draw_text(self._format_navi_distance(distance), camera_x + 124.0, center.y,
                             31.0, theme.text, anchor="center")
 
 
