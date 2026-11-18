@@ -1,0 +1,39 @@
+name: Verify reviewed ONNX and navigation candidates
+on:
+  push:
+    branches: ['review/tony-afternoon-import-20261118']
+permissions:
+  contents: read
+jobs:
+  review:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          git fetch --no-tags https://github.com/ajouatom/openpilot.git a9811adce075a81f6a719e611f28ae444193f750
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 00fc9c7e97d36a584b76742945176e2ba5cad0f6
+          git bundle verify candidates.bundle
+          git fetch candidates.bundle HEAD
+          test "$(git rev-parse FETCH_HEAD)" = "61dc77032edba7cf8449e713b9b0506d8d1908e0"
+          test "$(git rev-parse FETCH_HEAD^1)" = "28b19f7b3ca0b5c34ae3325e4e871a2c6042a8b0"
+          git push origin 61dc77032edba7cf8449e713b9b0506d8d1908e0:refs/heads/review/tony-afternoon-20261118
+  onnx:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: |
+          git fetch --no-tags https://github.com/ajouatom/openpilot.git a9811adce075a81f6a719e611f28ae444193f750
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 00fc9c7e97d36a584b76742945176e2ba5cad0f6
+          git fetch candidates.bundle HEAD
+          git checkout --detach 28b19f7b3ca0b5c34ae3325e4e871a2c6042a8b0
+          python -m pip install numpy pytest
+          DEV=CPU PYTHONPATH=tinygrad_repo:. python -m pytest -c /dev/null --noconftest -q openpilot/selfdrive/modeld/tests/test_onnx_history_gather.py
