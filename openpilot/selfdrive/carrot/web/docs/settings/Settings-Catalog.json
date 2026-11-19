@@ -1,7 +1,7 @@
 {
-  "catalogCommit": "9a6b80e21db964e4c51c4a1e18db4868db13ec0f",
-  "contentHash": "c382aaa8481a19ae09af508c7f3f894c74ec463cc85ccfacf5fe8060427152da",
-  "generatedAt": "2026-11-19T08:00:00Z",
+  "catalogCommit": "f6d40106e77141017d3117618a05d15b25b2359c",
+  "contentHash": "0ea15c907547c93381d29d1c0099b02a331cf9b7575d6d64882fd7df82907491",
+  "generatedAt": "2026-11-19T11:28:15Z",
   "locales": [
     "ko",
     "en",
@@ -124,6 +124,10 @@
     "EN-C3X-Lite-Hardware.md": {
       "bytes": 2162,
       "hash": "d41fddb82939d80ec9fae05721005fb503c81d8ffb322224ed220bc348220fbf"
+    },
+    "EN-C4-HUD-object-detection.md": {
+      "bytes": 1266,
+      "hash": "edc818b0318d971d23547bdc6933c8e39ca44d9d8b1f5dbb83778b52c19d57fd"
     },
     "EN-CAN-FD-SPAS-indicators-(trial).md": {
       "bytes": 1551,
@@ -948,6 +952,10 @@
     "KO-C3X-Lite-하드웨어.md": {
       "bytes": 2300,
       "hash": "4aaedccb663b7a0a40a0fd329ff3357b9b42852dd1c050a2e1ed71b23fb42b59"
+    },
+    "KO-C4-HUD-물체-인식.md": {
+      "bytes": 1320,
+      "hash": "7215119fa6c6dea4feced1b612d27a16f9ced65115f999319d5d77e9c4b3b8fc"
     },
     "KO-CAN-FD-SPAS-깜박이-사용(시험).md": {
       "bytes": 1671,
@@ -1810,8 +1818,8 @@
       "hash": "c36b52d2f81711770bb6532877ab8c359e6f5d670cc0ff058db0b0c834b7e810"
     },
     "Settings-Catalog.md": {
-      "bytes": 151937,
-      "hash": "c59f34e488b0d99c792916aa0f4b2bae1dd74070a68eb3757f1e29334af499d4"
+      "bytes": 152462,
+      "hash": "223265b5db424f5f022e036c85ec64b98e7292d5b5e7431f4a06a146456e17a3"
     },
     "ZH-ATC-依彎道曲率調速.md": {
       "bytes": 1375,
@@ -1840,6 +1848,10 @@
     "ZH-C3X-Lite-硬件.md": {
       "bytes": 1224,
       "hash": "1fb30d114981a8108e83d6d481966b6f81f06c1410989541f444ba454ca0b86b"
+    },
+    "ZH-C4-HUD-物体识别.md": {
+      "bytes": 1239,
+      "hash": "703ba2cd53bf4f0aada601fbd076af0faf2483b5af1d0bbf582916967f184d68"
     },
     "ZH-CAN-FD-SPAS-indicators-(trial).md": {
       "bytes": 1548,
@@ -1952,6 +1964,10 @@
     "ZH-TW-C3X-Lite-硬體.md": {
       "bytes": 2019,
       "hash": "ff8549508c723d495f53a29ea6eca97c09022075041c64e9247a4f0b2beba7b6"
+    },
+    "ZH-TW-C4-HUD-物件辨識.md": {
+      "bytes": 1236,
+      "hash": "4572267062f2204aa97069fbb58eacc1c2ea7cb87b9bf9d5bf095dea1a471db9"
     },
     "ZH-TW-CAN-FD-SPAS-indicators-(trial).md": {
       "bytes": 1551,
@@ -3616,7 +3632,7 @@
   },
   "review": {
     "current": 43,
-    "needs_review": 182
+    "needs_review": 183
   },
   "schemaVersion": 1,
   "settings": {
@@ -4580,6 +4596,37 @@
       },
       "reviewStatus": "needs_review",
       "semanticHash": "76514ada656e4e01d74e337bcc01f3dc8948509aca88bc57278eade000b25502"
+    },
+    "C4HudObjects": {
+      "group": "HUD_SCREEN",
+      "locales": {
+        "en": {
+          "anchor": "C4HudObjects",
+          "factsHash": "dcfebfe1cfa956e48a34a9218daa41580bfd46e4461d6144129258f7c3051b9a",
+          "page": "EN-C4-HUD-object-detection.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "C4HudObjects",
+          "factsHash": "e597f4f13cc17f4b64a61741f3165246364b0c424140b9404d585633236fc713",
+          "page": "KO-C4-HUD-물체-인식.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "C4HudObjects",
+          "factsHash": "54848a9566d9a7edfe1f063c2f359bd9ba16716e7c176eabdade43da3d880627",
+          "page": "ZH-C4-HUD-物体识别.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "C4HudObjects",
+          "factsHash": "ecf4729664901ce9a47fd953e5ad282fe8b29342d5932c7c9e55c6891edff411",
+          "page": "ZH-TW-C4-HUD-物件辨識.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "f61c8859ee1f36b022fd51eed33bba3840ba014fe6edbb097cd88c0ff32979c3"
     },
     "CameraYawTrimDeg": {
       "group": "STEER_CENTER",

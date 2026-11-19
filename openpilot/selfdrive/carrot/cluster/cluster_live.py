@@ -331,6 +331,10 @@ class OpenpilotLiveSource:
                 self._egpu_active = bool(params is not None and params.get_bool("UsbGpuActive"))
             except Exception:
                 self._egpu_active = False
+            try:
+                self._hud_objects_enabled = bool(params is not None and params.get_bool("C4HudObjects"))
+            except Exception:
+                self._hud_objects_enabled = False
             self._external_compute_label = ''
             try:
                 if callable(getattr(params, 'external_compute_label', None)):
@@ -459,6 +463,7 @@ class OpenpilotLiveSource:
         return replace(
             state,
             onroad=onroad,
+            hud_objects=self._live_hud_objects(onroad, now),
             ego_brake_lights=(bool(safe_get(car_state, "brakeLights", False))
                               if self._service_alive("carState") and self._service_valid("carState") else None),
             alert=self._live_cluster_alert(state.alert, onroad),
@@ -481,6 +486,20 @@ class OpenpilotLiveSource:
             cruise_override_label=cruise_override_label,
             cruise_override_color_mode=cruise_override_color_mode,
         )
+
+    def _live_hud_objects(self, onroad, now):
+        if not onroad or not getattr(self, "_hud_objects_enabled", False):
+            return ()
+        if not all(self._service_alive(s) and self._service_valid(s)
+                   for s in ("deviceState", "roadCameraState", "liveCalibration")):
+            return ()
+        reader = getattr(self, "_hud_objects_reader", None)
+        if reader is None:
+            from hud_objects import HudObjectReader
+            self._hud_objects_reader = reader = HudObjectReader()
+        device = str(safe_get(self._service_data("deviceState"), "deviceType", "")).lower()
+        sensor = str(safe_get(self._service_data("roadCameraState"), "sensor", "")).lower()
+        return reader.read(now, device, sensor, self._service_data("liveCalibration"))
 
     def _live_cluster_alert(self, current_alert: ClusterAlert | None, onroad: bool) -> ClusterAlert | None:
         now = time.monotonic()

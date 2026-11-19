@@ -581,9 +581,14 @@ def test_external_hud_brightness_and_orientation_use_catalog_controls(settings, 
   assert screen["params"] == [
     "ClusterHudEncoder",
     "ClusterHudScreenMode",
+    "ClusterHudFloatingArrows",
+    "ClusterHudSpeedLimitSign",
     "ClusterHudPanelLayout",
     "ClusterHudCameraViewMode",
+    "C4HudObjects",
   ]
+  objects = by_name["C4HudObjects"]
+  assert (objects["control"], objects["min"], objects["max"], objects["default"]) == ("toggle", 0, 1, 0)
   camera_view = by_name["ClusterHudCameraViewMode"]
   assert (camera_view["min"], camera_view["max"], camera_view["default"]) == (0, 4, 0)
   assert camera_view["control"] == "select"

@@ -93,7 +93,9 @@ def _set_cluster_hud_connected(connected: bool) -> None:
     try:
         from openpilot.common.params import Params
 
-        Params().put_bool_nonblocking("ClusterHudConnected", connected)
+        params = Params()
+        params.put_bool_nonblocking("ClusterHudConnected", connected)
+        params.put_bool_nonblocking("C4HudUsbConnected", connected)
     except ModuleNotFoundError:
         # PC replay runs may not have openpilot's compiled params extension.
         pass

@@ -142,6 +142,9 @@ def c3x_lite(started: bool, params: Params, CP: car.CarParams) -> bool:
 def enable_cluster_hud(started, params, CP: car.CarParams) -> bool:
   return cluster_hud_active(params)
 
+def enable_c4_hud_objects(started, params, CP: car.CarParams) -> bool:
+  return started and params.get_bool("C4HudObjects") and cluster_hud_active(params) and params.get_bool("C4HudUsbConnected")
+
 procs = [
   PythonProcess("formosalink", "openpilot.sunnypilot.formosalink.agent", formosalink_enabled),
   DaemonProcess("manage_athenad", "openpilot.system.athena.manage_athenad", "AthenadPid", enabled=comma_connect_enabled()),
@@ -224,6 +227,8 @@ procs = [
                 enabled=TICI, restart_if_crash=True, spawn=True),
   PythonProcess("cweb_push", "openpilot.selfdrive.carrot.cweb_push", always_run, enabled=not PC),
   PythonProcess("carrot_cluster", "openpilot.selfdrive.carrot.cluster_autorun", enable_cluster_hud, restart_if_crash=True),
+  PythonProcess("c4_hud_objects", "openpilot.selfdrive.carrot.hud_objects.worker", enable_c4_hud_objects,
+                enabled=TICI and HARDWARE.get_device_type() == "mici", restart_if_crash=True, spawn=True),
 
   #Xiaoge data broadcaster (conditional on ShareData param)
   # Starts after onroad readiness, when manager already has live IPC mappings.

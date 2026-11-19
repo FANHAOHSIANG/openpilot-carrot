@@ -2552,7 +2552,7 @@ class ClusterUiRenderer:
             self._camera_overlay_wide = self._select_camera_overlay_stream(state)
             projection = self._camera_overlay_projection(state)
             profile_stage = self._profile_start()
-            self._draw_camera_background(state, projection)
+            self._draw_camera_background(state, projection, scene)
             self._profile_add("render_world.camera_background", profile_stage)
             profile_stage = self._profile_start()
             self._draw_camera_projected_overlay(scene, state, projection)
@@ -2586,6 +2586,7 @@ class ClusterUiRenderer:
         self,
         state: ClusterUiState,
         projection: CameraOverlayProjection | None = None,
+        scene: ClusterScene | None = None,
     ) -> None:
         if not cluster_camera_view_is_road_camera(state.camera_view_mode):
             return
@@ -2627,6 +2628,11 @@ class ClusterUiRenderer:
                 rl.draw_rectangle_rec(projection.dest, rl_color((0, 0, 0), CAMERA_BACKGROUND_VIGNETTE_ALPHA))
                 if texture is None and live_camera is not None:
                     self._draw_signal_detections(projection, live_camera)
+                    if state.hud_objects and scene is not None:
+                        from hud_objects import draw_road_boxes, monotonic_display_frame, pair_objects
+                        now = time.monotonic()
+                        visible, tags = pair_objects(state.hud_objects, scene, now)
+                        draw_road_boxes(visible, projection, monotonic_display_frame(live_camera.display_frame), now, tags)
         finally:
             rl.end_scissor_mode()
 
@@ -4214,6 +4220,9 @@ class ClusterUiRenderer:
                     draw_ioniq5(ego, bool(state.ego_brake_lights), left, right)
             for vehicle in vehicles:
                 self._draw_vehicle(vehicle)
+            if state.hud_objects:
+                from hud_objects import draw_scene_objects
+                draw_scene_objects(state.hud_objects, scene, state, time.monotonic())
             self._profile_add("draw_scene.vehicles", profile_stage)
         finally:
             rl.rl_pop_matrix()

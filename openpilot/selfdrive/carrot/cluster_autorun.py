@@ -551,6 +551,7 @@ def main() -> None:
     scheduler.update(False, force=True)
     params = Params()
     params.put_bool_nonblocking("ClusterHudConnected", False)
+    params.put_bool_nonblocking("C4HudUsbConnected", False)
     while True:
         scheduler.update(False, force=True)
         hud_mode = _read_hud_mode(params)
@@ -630,6 +631,7 @@ def main() -> None:
         except Exception as exc:
             _report_cluster_failure(exc)
         finally:
+            params.put_bool_nonblocking("C4HudUsbConnected", False)
             # run_demo unfreezes on exit. Collect only after its stack and the
             # handled exception are gone, before another renderer allocates.
             # Otherwise failed pipeline traceback cycles survive the retry wait

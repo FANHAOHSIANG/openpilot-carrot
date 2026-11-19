@@ -360,6 +360,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 - [제한속도 표지](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A0%9C%ED%95%9C%EC%86%8D%EB%8F%84-%ED%91%9C%EC%A7%80) — `ClusterHudSpeedLimitSign`
 - [외부 HUD 좌우 배치(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%EC%A2%8C%EC%9A%B0-%EB%B0%B0%EC%B9%98%280%29) — `ClusterHudPanelLayout`
 - [외부 HUD 카메라 뷰 모드(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%EC%B9%B4%EB%A9%94%EB%9D%BC-%EB%B7%B0-%EB%AA%A8%EB%93%9C%280%29) — `ClusterHudCameraViewMode`
+- [C4 HUD 물체 인식](https://github.com/ajouatom/openpilot/wiki/KO-C4-HUD-%EB%AC%BC%EC%B2%B4-%EC%9D%B8%EC%8B%9D) — `C4HudObjects`
 
 ##### 레이더 표시
 
@@ -757,6 +758,7 @@ Per-setting pages generated from the current settings catalog.
 - [Speed limit sign](https://github.com/ajouatom/openpilot/wiki/EN-Speed-limit-sign) — `ClusterHudSpeedLimitSign`
 - [External HUD Panel Layout(0)](https://github.com/ajouatom/openpilot/wiki/EN-External-HUD-Panel-Layout%280%29) — `ClusterHudPanelLayout`
 - [External HUD Camera View Mode(0)](https://github.com/ajouatom/openpilot/wiki/EN-External-HUD-Camera-View-Mode%280%29) — `ClusterHudCameraViewMode`
+- [C4 HUD object detection](https://github.com/ajouatom/openpilot/wiki/EN-C4-HUD-object-detection) — `C4HudObjects`
 
 ##### Radar Display
 
@@ -1154,6 +1156,7 @@ Per-setting pages generated from the current settings catalog.
 - [速限圓牌](https://github.com/ajouatom/openpilot/wiki/ZH-%E9%80%9F%E9%99%90%E5%9C%93%E7%89%8C) — `ClusterHudSpeedLimitSign`
 - [External HUD Panel Layout(0)](https://github.com/ajouatom/openpilot/wiki/ZH-External-HUD-Panel-Layout%280%29) — `ClusterHudPanelLayout`
 - [External HUD Camera View Mode(0)](https://github.com/ajouatom/openpilot/wiki/ZH-External-HUD-Camera-View-Mode%280%29) — `ClusterHudCameraViewMode`
+- [C4 HUD 物体识别](https://github.com/ajouatom/openpilot/wiki/ZH-C4-HUD-%E7%89%A9%E4%BD%93%E8%AF%86%E5%88%AB) — `C4HudObjects`
 
 ##### 雷达显示
 
@@ -1551,6 +1554,7 @@ Per-setting pages generated from the current settings catalog.
 - [速限圓牌](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E9%80%9F%E9%99%90%E5%9C%93%E7%89%8C) — `ClusterHudSpeedLimitSign`
 - [External HUD Panel Layout(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-External-HUD-Panel-Layout%280%29) — `ClusterHudPanelLayout`
 - [External HUD Camera View Mode(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-External-HUD-Camera-View-Mode%280%29) — `ClusterHudCameraViewMode`
+- [C4 HUD 物件辨識](https://github.com/ajouatom/openpilot/wiki/ZH-TW-C4-HUD-%E7%89%A9%E4%BB%B6%E8%BE%A8%E8%AD%98) — `C4HudObjects`
 
 ##### 雷達顯示
 

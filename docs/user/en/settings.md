@@ -166,7 +166,7 @@ The current `carrot_settings.json` contains **217 parameters**. The driver-monit
 |---|---:|---|
 | Driving control | 142 | Startup and auto, Tesla, buttons and presets, steering, speed and deceleration, cruise and following gap |
 | Vehicle and hardware | 32 | Hyundai/Kia, CAN FD/HDA, radar, driver monitoring, vehicle assistance, device hardware |
-| Display | 34 | Information, path, brightness/on-road view, external HUD |
+| Display | 38 | Information, path, brightness/on-road view, external HUD |
 | System | 9 | Recording/power, network/map, sound, software |
 
 ## Driving control
@@ -398,9 +398,11 @@ A saved change takes effect at the **next vehicle-parameter initialization**; it
 <a id="display"></a>
 ## Display
 
-Display contains 34 settings. External-HUD settings control the layout and output of separate display hardware.
+Display contains 38 settings. External-HUD settings control the layout and output of separate display hardware.
 
 `ClusterHud` (External HUD Display) switches a **direct USB HUD** on or off. A HUD connected to Jetson starts automatically even when this value is `0`, and normally turns its display off with ignition. Use the existing always-on `ClusterHudDebug` modes to keep it visible offroad. Brightness and layout settings also apply to the Jetson HUD.
+
+In **Display → External HUD → Screen & Camera**, enable **C4 HUD object detection** (`C4HudObjects`) to add camera detections to the direct USB HUD while driving. The C4 recognizes vehicles, motorcycles, pedestrians and traffic cones for display. Detection pauses when the C4 is busy. This option defaults off.
 
 ESP32-S3 Wi-Fi display support has been removed. Connect the USB display to Jetson. Supported receivers accept HUD, navigation and signal information over bounded USB transfers during inference; older receivers keep Wi-Fi until updated. Update through Git Pull and reboot both devices when the Jetson runtime changes.
 
@@ -415,7 +417,7 @@ With `CarrotVisionEnabled` on, the external HUD and web camera view can be used 
 | Path | `ShowPathMode`, `ShowPathColor`, `ShowPathColorCruiseOff`, `ShowPathModeLane`, `ShowPathColorLane` | Path shape and color by driving state |
 | Rainbow road | `RainbowMode` | SP-style animated path fill while lateral control is active; display only |
 | Brightness/on-road view | `ShowCustomBrightness`, `ShowModelView`, `ShowCameraWithCluster` | Brightness, camera/model composition, and the on-device camera while the external HUD is connected |
-| External HUD | `ClusterHud`, `ClusterHudBrightness`, `ClusterHudOrientation`, and related `ClusterHud*` settings | Supported TURZX HUD layout, live brightness, screen rotation, camera, radar, and encoder options |
+| External HUD | `ClusterHud`, `ClusterHudBrightness`, `ClusterHudOrientation`, `C4HudObjects`, and related `ClusterHud*` settings | Supported TURZX HUD layout, live brightness, screen rotation, camera, radar, and encoder options |
 
 `RainbowMode` defaults off. Enable **Rainbow Road (SP style)** on the device Toggles screen, or search for it in Carrot Web / CarrotAssist. C3/C3X and C4 apply it without restarting, when lateral control is active. Turning it off restores the existing path mode and color. It changes only path fill and preserves geometry, steering, cruise control and alerts. The web / APK rainbow uses the separate `vision_rainbow_lane` display preference.
 

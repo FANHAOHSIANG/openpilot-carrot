@@ -166,11 +166,11 @@ class SelfdriveD:
     self.atc_turn_direction = LaneChangeDirection.none
 
 
-    # some comma three with NVMe experience NVMe dropouts mid-drive that
-    # cause loggerd to crash on write, so ignore it only on that platform
-    # Optional map preview expires in CarrotMan if its worker stops. Its
-    # absence must not turn loss of map assistance into a control disengagement.
-    self.ignored_processes = {'osmd'}
+    # Map preview and the experimental HUD overlay expire when their workers stop.
+    # Both workers remain visible in manager diagnostics.
+    self.ignored_processes = {'osmd', 'c4_hud_objects'}
+    # Some comma three with NVMe experience dropouts mid-drive that cause loggerd
+    # to crash on write. Ignore it only on that platform.
     if HARDWARE.get_device_type() == 'tici' and os.path.exists('/dev/nvme0'):
       self.ignored_processes.add('loggerd')
 

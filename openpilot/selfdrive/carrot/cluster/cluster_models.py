@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from hud_objects import HudObject
 
 from cluster_config import DEFAULT_LANE_WIDTH_M, WHITE
 
@@ -462,6 +465,7 @@ class ClusterUiState:
     vision_yaw_rate_rps: float | None = None
     vision_speed_std_mps: float | None = None
     vision_yaw_rate_std_rps: float | None = None
+    hud_objects: tuple[HudObject, ...] = ()
     camera_device_type: str | None = None
     camera_sensor: str | None = None
     camera_calibration_euler: tuple[float, float, float] | None = None

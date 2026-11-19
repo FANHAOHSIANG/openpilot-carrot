@@ -670,7 +670,8 @@
                 "ClusterHudFloatingArrows",
                 "ClusterHudSpeedLimitSign",
                 "ClusterHudPanelLayout",
-                "ClusterHudCameraViewMode"
+                "ClusterHudCameraViewMode",
+                "C4HudObjects"
               ],
               "zh-tw": "畫面·攝影機"
             },
@@ -5860,6 +5861,26 @@
       "tgroup": "外部 HUD",
       "ttitle": "External HUD Camera View Mode(0)",
       "tdescr": "0: Default\n1: Mode 1 (bottom view)\n2: Narrow road camera\n3: Wide road camera\n4: Automatic narrow/wide camera by speed"
+    },
+    {
+      "group": "외부 HUD",
+      "name": "C4HudObjects",
+      "title": "C4 HUD 물체 인식",
+      "descr": "주행 중 C4에 직접 연결한 외부 HUD에 차량, 오토바이, 보행자와 라바콘을 표시합니다. C4 부하가 높으면 인식을 일시 중지합니다. 표시 전용이며 기본값은 꺼짐입니다.",
+      "egroup": "CLUSTER HUD",
+      "etitle": "C4 HUD object detection",
+      "edescr": "Show vehicles, motorcycles, pedestrians and traffic cones on the external HUD connected directly to the C4 while driving. Detection pauses under load. Display only. Off by default.",
+      "cgroup": "外部 HUD",
+      "ctitle": "C4 HUD 物体识别",
+      "cdescr": "行驶时在直连 C4 的外部 HUD 上显示车辆、摩托车、行人和交通锥。C4 负载过高时会暂停识别。仅用于显示，默认关闭。",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1,
+      "control": "toggle",
+      "tgroup": "外部 HUD",
+      "ttitle": "C4 HUD 物件辨識",
+      "tdescr": "行駛時，在直連 C4 的外部 HUD 顯示車輛、機車、行人與三角錐。C4 負載過高時會暫停辨識。僅供顯示，預設關閉。"
     }
   ]
 }

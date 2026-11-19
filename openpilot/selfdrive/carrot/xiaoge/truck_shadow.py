@@ -111,10 +111,10 @@ class TruckShadow:
     meta = model.meta
     eligible = tuple(side for side, lane_width in (('left', meta.laneWidthLeft), ('right', meta.laneWidthRight)) if lane_width >= 2.)
     self.next_check = now + 2.
-    self.worker = threading.Thread(target=self.evaluate, args=(frame, width, height, eof, config, eligible, ticket), daemon=True)
+    self.worker = threading.Thread(target=self.evaluate, args=(frame, width, height, frame_id, eof, config, eligible, ticket), daemon=True)
     self.worker.start()
 
-  def evaluate(self, frame, width, height, eof, config, eligible, ticket):
+  def evaluate(self, frame, width, height, frame_id, eof, config, eligible, ticket):
     cpu_start = time.thread_time()
     started = time.monotonic()
     try:
@@ -126,7 +126,8 @@ class TruckShadow:
         return
       image, transform = letterbox_rgb(cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV12))
       self.infer.setInput(image)
-      boxes, candidate = side_result(decode_output(self.infer.forward(), transform), config, width, height, eligible)
+      output = self.infer.forward()
+      boxes, candidate = side_result(decode_output(output, transform), config, width, height, eligible)
       if self.ticket() != ticket or external_model_block(self.params, ticket[1]):
         return
       self.sm.update(0)
@@ -147,6 +148,8 @@ class TruckShadow:
                 'work_ms': (time.monotonic() - started) * 1000}
       write_status(RUN_DIR, record)
       cloudlog.event('truckShadowObservation', **record)
+      if self.params.get_bool('C4HudObjects') and self.params.get_bool('C4HudUsbConnected'):
+        self.publish_hud_objects(output, transform, frame_id, eof)
     except (OSError, RuntimeError, ValueError, ImportError, cv2.error) as error:
       self.failed = True
       self.infer = None
@@ -155,4 +158,19 @@ class TruckShadow:
       cpu = time.thread_time() - cpu_start
       self.cpu_used += cpu
       self.next_check = max(self.next_check, time.monotonic() + 19 * cpu)
+
+  @staticmethod
+  def publish_hud_objects(output, transform, frame_id, eof):
+    # Optional second decode of the same forward pass. Keep HUD file failures
+    # out of the truck observer's error latch and keep HUD classes out of its policy.
+    try:
+      from openpilot.selfdrive.carrot.hud_objects.detectors import decode_traffic_output
+      from openpilot.selfdrive.carrot.hud_objects.transport import SHARED_TRAFFIC_PATH, capture_monotonic, write_snapshot
+      stamp = capture_monotonic(eof)
+      if 0 <= time.monotonic() - stamp < 1.0:
+        write_snapshot(SHARED_TRAFFIC_PATH, {"version": 1, "camera": "wideRoad", "t": stamp,
+                                            "frame_id": int(frame_id), "timestamp_eof_ns": int(eof),
+                                            "objects": decode_traffic_output(output, transform)})
+    except (ImportError, OSError, ValueError, TypeError, RuntimeError, cv2.error) as error:
+      cloudlog.warning("C4 HUD could not publish the wide-camera detections: %s", error)
 

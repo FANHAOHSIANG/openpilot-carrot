@@ -166,7 +166,7 @@ Carrot Web 설정 화면에서는 다음 기능을 사용할 수 있습니다.
 |---|---:|---|
 | 주행 제어 | 142 | 시작·오토, Tesla, 버튼·프리셋, 차량 조향, 속도·감속, 크루즈·차간 |
 | 차량·하드웨어 | 32 | 현대·기아, CANFD·HDA, 레이더, 운전자 모니터링, 차량 보조, 기기 하드웨어 |
-| 화면 표시 | 34 | 정보 표시, 경로 표시, 밝기·주행화면, 외부 HUD |
+| 화면 표시 | 38 | 정보 표시, 경로 표시, 밝기·주행화면, 외부 HUD |
 | 시스템 | 9 | 녹화·전원, 네트워크·지도, 사운드, 소프트웨어 |
 
 ## 주행 제어
@@ -392,9 +392,11 @@ Bosch MRRevo14F 수신을 지원하는 버전에서 Bosch MRRevo14F 후보 차�
 <a id="display"></a>
 ## 화면 표시
 
-화면 표시에는 34개 항목이 있습니다. 외부 HUD 항목은 별도 하드웨어의 화면 구성과 출력 방식을 조정합니다.
+화면 표시에는 38개 항목이 있습니다. 외부 HUD 항목은 별도 하드웨어의 화면 구성과 출력 방식을 조정합니다.
 
 `ClusterHud`(외부 HUD 활성화)는 **본체 USB에 직접 연결한 HUD**를 켜고 끄는 설정입니다. Jetson에 연결한 HUD는 이 값이 `0`이어도 자동 실행되며, 기본적으로 시동 OFF 시 화면을 끕니다. 시동 OFF에도 표시하려면 기존 `ClusterHudDebug`의 항상 켜기를 사용합니다. 밝기·화면 구성 설정은 Jetson HUD에도 적용됩니다.
+
+**화면 표시 → 외부 HUD → 화면·카메라**에서 **C4 HUD 물체 인식**(`C4HudObjects`)을 켜면 주행 중 C4에 직접 연결한 USB HUD에 카메라가 인식한 차량, 오토바이, 보행자와 라바콘을 표시합니다. C4 부하가 높으면 인식을 일시 중지합니다. 표시 전용이며 기본값은 꺼짐입니다.
 
 ESP32-S3 Wi-Fi 디스플레이 지원은 제거되었습니다. USB 디스플레이를 Jetson에 연결하세요. 지원 수신기는 추론 중 제한된 USB 전송으로 HUD·지도·신호등 정보를 받으며, 구형 수신기는 업데이트 전까지 Wi-Fi를 사용합니다. Git Pull로 업데이트하고 Jetson 런타임이 바뀌면 양쪽 장치를 재부팅합니다.
 
@@ -410,7 +412,7 @@ Jetson HUD에는 `jetSON` 아래에 Jetson 내부 센서의 최고 온도가 표
 | 무지개 도로 | `RainbowMode` | 횡방향 제어 중 SP 스타일의 동적 경로 채움, 표시 전용 |
 | 밝기·주행화면 | `ShowCustomBrightness`, `ShowModelView`, `ShowCameraWithCluster` | 주행 중 밝기, 카메라·모델 표시 조합과 외부 HUD 연결 중 본체 카메라 표시 |
 | 외부 HUD·기본 | `ClusterHud`, `ClusterHudBrightness`, `ClusterHudOrientation`, `ClusterHudMirror`, `ClusterHudTheme`, `ClusterNaviMapTheme`, `ClusterNaviMapType`, `ClusterNaviMapFps` | TURZX 외부 HUD, 밝기, 화면 회전, 미러링과 지도 테마 |
-| 외부 HUD·화면·카메라 | `ClusterHudEncoder`, `ClusterHudScreenMode`, `ClusterHudPanelLayout`, `ClusterHudCameraViewMode` | 인코더와 화면·카메라·좌우 패널 구성 |
+| 외부 HUD·화면·카메라 | `ClusterHudEncoder`, `ClusterHudScreenMode`, `ClusterHudPanelLayout`, `ClusterHudCameraViewMode`, `C4HudObjects` | 인코더와 화면·카메라·좌우 패널 구성 |
 | 외부 HUD·레이더 표시 | `ClusterHudRadarInfo`, `ClusterHudRadarDisplay`, `ClusterHudRadarSourceColor` | 외부 HUD의 레이더 정보와 색상 |
 | 외부 HUD·디버그 | `ClusterHudDebug` | 진단 정보 |
 

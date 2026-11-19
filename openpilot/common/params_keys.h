@@ -205,6 +205,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ShowCameraWithCluster", {PERSISTENT, INT, "0"}},
     {"ClusterHud", {PERSISTENT, INT, "0"}},
     {"ClusterHudConnected", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"C4HudObjects", {PERSISTENT, BOOL, "0"}},
+    {"C4HudUsbConnected", {CLEAR_ON_MANAGER_START, BOOL}},  // Local panel only. Jetlink can also set ClusterHudConnected.
     {"ClusterHudDebug", {PERSISTENT, INT, "0"}},
     {"ClusterHudBrightness", {PERSISTENT, INT, "0"}},
     {"ClusterHudOrientation", {PERSISTENT, INT, "0"}},
