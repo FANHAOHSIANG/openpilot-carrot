@@ -5664,14 +5664,18 @@
           "Hide",
           "Show"
         ],
+        "zh-tw": [
+          "隱藏",
+          "顯示"
+        ],
         "zh": [
           "隱藏",
           "顯示"
         ]
       },
       "tgroup": "外部 HUD",
-      "ttitle": "External HUD Panel Layout(0)",
-      "tdescr": "0: Driving view left / information panel right\n1: Information panel left / driving view right\nChanges apply automatically while the HUD is running."
+      "ttitle": "懸浮方向燈箭頭",
+      "tdescr": "行車畫面左右兩側的箭頭。車模方向燈會繼續跟隨車況。"
     },
     {
       "group": "외부 HUD",
@@ -5698,14 +5702,18 @@
           "Hide",
           "Show"
         ],
+        "zh-tw": [
+          "隱藏",
+          "顯示"
+        ],
         "zh": [
           "隱藏",
           "顯示"
         ]
       },
       "tgroup": "外部 HUD",
-      "ttitle": "External HUD Panel Layout(0)",
-      "tdescr": "0: Driving view left / information panel right\n1: Information panel left / driving view right\nChanges apply automatically while the HUD is running."
+      "ttitle": "速限圓牌",
+      "tdescr": "收到速限資料時，在行車畫面顯示速限圓牌。"
     },
     {
       "group": "외부 HUD",

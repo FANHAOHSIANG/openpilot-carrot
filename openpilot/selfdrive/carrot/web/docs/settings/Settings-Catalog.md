@@ -356,6 +356,8 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 
 - [외부 HUD 인코더(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%EC%9D%B8%EC%BD%94%EB%8D%94%280%29) — `ClusterHudEncoder`
 - [외부 HUD 화면 모드(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%ED%99%94%EB%A9%B4-%EB%AA%A8%EB%93%9C%280%29) — `ClusterHudScreenMode`
+- [방향지시등 화살표](https://github.com/ajouatom/openpilot/wiki/KO-%EB%B0%A9%ED%96%A5%EC%A7%80%EC%8B%9C%EB%93%B1-%ED%99%94%EC%82%B4%ED%91%9C) — `ClusterHudFloatingArrows`
+- [제한속도 표지](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A0%9C%ED%95%9C%EC%86%8D%EB%8F%84-%ED%91%9C%EC%A7%80) — `ClusterHudSpeedLimitSign`
 - [외부 HUD 좌우 배치(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%EC%A2%8C%EC%9A%B0-%EB%B0%B0%EC%B9%98%280%29) — `ClusterHudPanelLayout`
 - [외부 HUD 카메라 뷰 모드(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%EC%B9%B4%EB%A9%94%EB%9D%BC-%EB%B7%B0-%EB%AA%A8%EB%93%9C%280%29) — `ClusterHudCameraViewMode`
 
@@ -751,6 +753,8 @@ Per-setting pages generated from the current settings catalog.
 
 - [External HUD Encoder(0)](https://github.com/ajouatom/openpilot/wiki/EN-External-HUD-Encoder%280%29) — `ClusterHudEncoder`
 - [External HUD Screen Mode(0)](https://github.com/ajouatom/openpilot/wiki/EN-External-HUD-Screen-Mode%280%29) — `ClusterHudScreenMode`
+- [Floating turn arrows](https://github.com/ajouatom/openpilot/wiki/EN-Floating-turn-arrows) — `ClusterHudFloatingArrows`
+- [Speed limit sign](https://github.com/ajouatom/openpilot/wiki/EN-Speed-limit-sign) — `ClusterHudSpeedLimitSign`
 - [External HUD Panel Layout(0)](https://github.com/ajouatom/openpilot/wiki/EN-External-HUD-Panel-Layout%280%29) — `ClusterHudPanelLayout`
 - [External HUD Camera View Mode(0)](https://github.com/ajouatom/openpilot/wiki/EN-External-HUD-Camera-View-Mode%280%29) — `ClusterHudCameraViewMode`
 
@@ -1146,6 +1150,8 @@ Per-setting pages generated from the current settings catalog.
 
 - [外部 HUD 编码器(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%A4%96%E9%83%A8-HUD-%E7%BC%96%E7%A0%81%E5%99%A8%280%29) — `ClusterHudEncoder`
 - [外部 HUD 画面模式(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%A4%96%E9%83%A8-HUD-%E7%94%BB%E9%9D%A2%E6%A8%A1%E5%BC%8F%280%29) — `ClusterHudScreenMode`
+- [懸浮方向燈箭頭](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%87%B8%E6%B5%AE%E6%96%B9%E5%90%91%E7%87%88%E7%AE%AD%E9%A0%AD) — `ClusterHudFloatingArrows`
+- [速限圓牌](https://github.com/ajouatom/openpilot/wiki/ZH-%E9%80%9F%E9%99%90%E5%9C%93%E7%89%8C) — `ClusterHudSpeedLimitSign`
 - [External HUD Panel Layout(0)](https://github.com/ajouatom/openpilot/wiki/ZH-External-HUD-Panel-Layout%280%29) — `ClusterHudPanelLayout`
 - [External HUD Camera View Mode(0)](https://github.com/ajouatom/openpilot/wiki/ZH-External-HUD-Camera-View-Mode%280%29) — `ClusterHudCameraViewMode`
 
@@ -1541,6 +1547,8 @@ Per-setting pages generated from the current settings catalog.
 
 - [外部 HUD 編碼器(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%A4%96%E9%83%A8-HUD-%E7%B7%A8%E7%A2%BC%E5%99%A8%280%29) — `ClusterHudEncoder`
 - [外部 HUD 畫面模式(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%A4%96%E9%83%A8-HUD-%E7%95%AB%E9%9D%A2%E6%A8%A1%E5%BC%8F%280%29) — `ClusterHudScreenMode`
+- [懸浮方向燈箭頭](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%87%B8%E6%B5%AE%E6%96%B9%E5%90%91%E7%87%88%E7%AE%AD%E9%A0%AD) — `ClusterHudFloatingArrows`
+- [速限圓牌](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E9%80%9F%E9%99%90%E5%9C%93%E7%89%8C) — `ClusterHudSpeedLimitSign`
 - [External HUD Panel Layout(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-External-HUD-Panel-Layout%280%29) — `ClusterHudPanelLayout`
 - [External HUD Camera View Mode(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-External-HUD-Camera-View-Mode%280%29) — `ClusterHudCameraViewMode`
 
