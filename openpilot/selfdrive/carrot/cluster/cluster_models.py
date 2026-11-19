@@ -401,6 +401,7 @@ class ClusterUiState:
     camera_view_mode: int = 0
     extra_left_lane_visible: bool = False
     extra_right_lane_visible: bool = False
+    road_edge_filter_active: bool = False
     left_road_edge_offset: float | None = None
     right_road_edge_offset: float | None = None
     left_road_edge_points: tuple[ModelPathPoint, ...] = ()
