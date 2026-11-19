@@ -453,6 +453,9 @@ class OpenpilotLiveSource:
                     cruise_override_kph = desired_speed
                     cruise_override_label, cruise_override_color_mode = deceleration_source_presentation(desired_source)
 
+        from hud_road_edges import filter_live_targets
+        if self._service_alive("modelV2") and self._service_valid("modelV2"):
+            state = filter_live_targets(state, self._service_receive_time("modelV2"), now)
         return replace(
             state,
             onroad=onroad,

@@ -126,7 +126,8 @@ def draw_ioniq5(vehicle, brake, left, right):
     try:
         rl.rl_translatef(vehicle.center.x, vehicle.center.y, vehicle.center.z - vehicle.height_m*.5)
         rl.rl_rotatef(math.degrees(math.atan2(-vehicle.forward_x, vehicle.forward_y)), 0, 0, 1)
-        rl.rl_scalef(vehicle.width_m * 1.15, vehicle.length_m * 1.04, vehicle.height_m * 1.10)
+        scale = 0.92
+        rl.rl_scalef(vehicle.width_m * 1.15 * scale, vehicle.length_m * 1.04 * scale, vehicle.height_m * 1.10 * scale)
         rl.rl_disable_backface_culling()
         try:
             rl.rl_begin(0x0004)  # rlgl RL_TRIANGLES

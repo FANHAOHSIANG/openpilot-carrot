@@ -424,8 +424,9 @@ RADAR_LABEL_DISTANCE_FONT_SIZE = 16
 RADAR_LABEL_SPEED_FONT_SIZE = 14
 VEHICLE_BADGE_DISTANCE_FONT_SIZE = 17
 VEHICLE_BADGE_SPEED_FONT_SIZE = 15
-LEAD_ONE_DISTANCE_FONT_SIZE = 24
-LEAD_ONE_SPEED_FONT_SIZE = 22
+LEAD_ONE_DISTANCE_FONT_SIZE = 28
+LEAD_ONE_SPEED_FONT_SIZE = 26
+LEAD_ONE_METRIC_RED = (255, 94, 94)
 RADAR_LABEL_ANCHOR_Z_OFFSET_M = 0.30
 VEHICLE_BADGE_ANCHOR_Z_OFFSET_M = 0.32
 WORLD_LABEL_NEAR_M = 18.0
@@ -3132,7 +3133,8 @@ class ClusterUiRenderer:
         label = self._vehicle_overlay_label(vehicle, radar_info_mode)
         if label:
             label_size = LEAD_ONE_DISTANCE_FONT_SIZE if vehicle_has_lead_one_metrics(vehicle) else 17 if emphasized else 15
-            label_color = (*ring_base[:3], 255 if vehicle.primary or vehicle.cut_in else 230)
+            label_color = (*LEAD_ONE_METRIC_RED, 255) if vehicle_has_lead_one_metrics(vehicle) else (
+                *ring_base[:3], 255 if vehicle.primary or vehicle.cut_in else 230)
             label_y = marker.y - 12.0
             if lead_one:
                 label_y = marker.y - 18.0
@@ -4533,7 +4535,43 @@ class ClusterUiRenderer:
             return
         self._draw_vehicle_box(vehicle)
 
+    def _draw_native_car(self, vehicle: VehicleBox) -> None:
+        """Silhouette for the existing forward vehicle marker, using its native pose and tint."""
+
+        w, length, height = vehicle.width_m, vehicle.length_m, vehicle.height_m
+        alpha = int(80 + 150 * max(0., min(1., vehicle.confidence)))
+
+        def corner(side, fore, up):
+            return Vec3(vehicle.center.x + side*w*vehicle.right_x + fore*length*vehicle.forward_x,
+                          vehicle.center.y + side*w*vehicle.right_y + fore*length*vehicle.forward_y,
+                          .035 + up*height)
+
+        def ring(half_width, rear, front, z):
+            return [corner(-half_width, rear, z), corner(half_width, rear, z),
+                    corner(half_width, front, z), corner(-half_width, front, z)]
+
+        def surface(points, rgb):
+            self._draw_quad(*points, (*rgb[:3], alpha))
+
+        def sides(lower, upper, colors):
+            for i, color in enumerate(colors):
+                j = (i+1) % 4
+                surface((lower[i], lower[j], upper[j], upper[i]), color)
+
+        base = ring(.44, -.46, .45, .09)
+        belt = ring(.50, -.50, .50, .53)
+        sill = ring(.46, -.38, .33, .54)
+        roof = ring(.35, -.18, .15, .96)
+        self._draw_vehicle_shadow(vehicle)
+        sides(base, belt, (vehicle.rear_color, vehicle.side_color, vehicle.body_color, vehicle.side_color))
+        surface(belt, vehicle.body_color)
+        sides(sill, roof, ((59, 80, 99), (86, 106, 120), (70, 91, 110), (86, 106, 120)))
+        surface(roof, (209, 218, 225))
+
     def _draw_vehicle_marker(self, vehicle: VehicleBox) -> None:
+        if vehicle.source.startswith("modelV2") or vehicle_source_is_front_radar(vehicle.source):
+            self._draw_native_car(vehicle)
+            return
         alpha = int(80 + 150 * clamp(vehicle.confidence, 0.0, 1.0))
 
         def with_alpha(color: tuple[int, int, int] | tuple[int, int, int, int]) -> tuple[int, int, int, int]:
@@ -4843,15 +4881,18 @@ class ClusterUiRenderer:
             else:
                 distance_y = screen.y - distance_size * 0.5
             center_x = screen.x
-            text_color = vehicle_metric_color(vehicle, theme, radar_source_color_mode)
+            text_color = LEAD_ONE_METRIC_RED if lead_one else vehicle_metric_color(vehicle, theme, radar_source_color_mode)
             if clean:
                 text = "  ".join(part for part in (distance, speed) if part)
                 text_color = AMBER if vehicle.cut_in else (WHITE if theme.is_dark else (26, 30, 36))
                 closing = vehicle.relative_speed_mps is not None and vehicle.relative_speed_mps < -0.5
                 if closing and vehicle.ttc_s is not None and 0.0 < vehicle.ttc_s < CLEAN_TTC_AMBER_S:
                     text_color = RED if vehicle.ttc_s < CLEAN_TTC_RED_S else AMBER
+                if lead_one:
+                    text_color = LEAD_ONE_METRIC_RED
+                size = LEAD_ONE_SPEED_FONT_SIZE if lead_one else 20.0
                 metric_labels.append(VehicleMetricLabel(
-                    vehicle, (VehicleMetricLine(text, center_x, screen.y - 16.0, 20.0),), text_color, 0.0))
+                    vehicle, (VehicleMetricLine(text, center_x, screen.y - 16.0, size),), text_color, 0.0))
                 continue
             lines = []
             if distance:
