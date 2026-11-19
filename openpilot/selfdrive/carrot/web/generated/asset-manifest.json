@@ -6,7 +6,7 @@
       "kind": "bundle",
       "source": "src/entries/cockpit.js",
       "path": "js/generated/cockpit.js",
-      "hash": "a3c7b284359147ab472928e783fb13260074b7c00c5d4e8c1fbf5f688765f78d"
+      "hash": "fca439d8101ec5e9b4ca7833e08e735cf32a2363fd63c1af25dce0b2604310eb"
     },
     {
       "id": "tools.lane-mapping",
@@ -34,7 +34,7 @@
       "kind": "bundle",
       "source": "src/entries/drive.js",
       "path": "js/generated/drive.js",
-      "hash": "9eabc4f6df16268ce4af62a08fbc9f4d0fe667b66f6221c750607c256057ce45"
+      "hash": "e7d734648e99b40466aad18cff3d1a228f62265e8b1f062cb0d713b4c89abd8a"
     },
     {
       "id": "replay.runtime",
@@ -55,7 +55,7 @@
       "kind": "bundle",
       "source": "src/entries/tools.js",
       "path": "js/generated/tools.js",
-      "hash": "d7f1eb2a5f0e120dc093686319fd7947c13bd28ca5e644632145fde46358b00c"
+      "hash": "3a68c29d8154ffe909a9a10ccdc57bb5626d9a0158f26070950db2edab900537"
     },
     {
       "id": "logs.runtime",
@@ -170,10 +170,16 @@
       "hash": "f4dfadc44115c1df243eaade83192aac63adcfe881f13d521742386895d5b48e"
     },
     {
+      "id": "vision.occupancy-worker",
+      "kind": "worker",
+      "path": "js/generated/occupancy-worker.js",
+      "hash": "4ba645cf3999f8429869f36d47fd536b68081d0c6d9268db8b8cd35610f1cf6d"
+    },
+    {
       "id": "vision.parking-detector-worker",
       "kind": "worker",
       "path": "js/generated/parking-detector-worker.js",
-      "hash": "3edbd29e7acf371913a6e616371f052451d477f98cc426ce25f7eede562ff9df"
+      "hash": "bb060852410ed24e3ebb19f5b9ec75af6878629da62607cc45116d18d43ec500"
     },
     {
       "id": "vision.road-detector-worker",

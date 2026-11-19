@@ -7,6 +7,7 @@ from pathlib import Path
 from tools.training_studio.edge_inputs import MODEL_REVISION
 from tools.training_studio.store import read_json,write_json
 from tools.training_studio.teacher_train import observed_inputs
+from tools.training_studio.teacher_standstill import hold_acceleration,in_stop_zone,PROFILE as HOLD_PROFILE
 
 
 def check_source(result,health,split):
@@ -15,7 +16,9 @@ def check_source(result,health,split):
   provenance=health.get('provenance',{})
   fingerprint=hashlib.sha256(json.dumps(provenance,sort_keys=True).encode()).hexdigest()
   if not valid_seed: raise ValueError('policy supervision must use separate training/validation seeds')
-  if (result.get('scenario') not in ('red_light','pedestrian','lane_center') or result.get('backend')!='nvidia_alpamayo2_edge' or result.get('revision')!=MODEL_REVISION
+  # Simple turns have no moving permission/actor state to anticipate. Yield and
+  # arrow cases still require their own observed-actor freezing implementation.
+  if (result.get('scenario') not in ('red_light','pedestrian','lane_center','left_turn','right_turn') or result.get('backend')!='nvidia_alpamayo2_edge' or result.get('revision')!=MODEL_REVISION
       or result.get('scripted_fallback') is not False or result.get('model_inputs_include_signal_ground_truth') is not False
       or result.get('model_provenance_sha256')!=fingerprint or provenance.get('weights_verified') is not True
       or provenance.get('revision')!=MODEL_REVISION or provenance.get('camera_ids')!=[1,6]):
@@ -23,13 +26,15 @@ def check_source(result,health,split):
   return fingerprint
 
 
-def reference(episode,index,output,split,assets):
+def reference(episode,index,output,split,assets,*,turn_reference_speed_mps=None):
   import numpy as np
-  from openpilot.tools.sim.training.capture_teacher import rotation
-  from openpilot.tools.sim.training.scene import Scene,DT
   episode,output=Path(episode),Path(output)
   result=read_json(episode/'result.json');health=read_json(episode/'provenance.json')
   fingerprint=check_source(result,health,split)
+  if turn_reference_speed_mps is not None and (result.get('scenario') not in ('left_turn','right_turn') or not np.isfinite(turn_reference_speed_mps) or not 1<=turn_reference_speed_mps<=5):
+    raise ValueError('turn reference speed must be finite in [1,5] for a simple turn')
+  from openpilot.tools.sim.training.capture_teacher import rotation
+  from openpilot.tools.sim.training.scene import Scene,DT
   source=episode/f'input-{index:03d}.npz'
   prediction=read_json(episode/f'prediction-{index:03d}.json')
   source_hash=hashlib.sha256(source.read_bytes()).hexdigest()
@@ -61,8 +66,9 @@ def reference(episode,index,output,split,assets):
       'history_rotation':float(np.max(np.abs(rot_history-sample['ego_history_rot'][0,0])))}
     if max(errors.values())>.002: raise ValueError('physics replay differs from observed policy history: '+str(errors))
     front=scene.stop_s-progress-scene.vehicle.LENGTH/2
+    heading_change=abs((scene.vehicle.heading_theta-scene.initial_heading+np.pi)%(2*np.pi)-np.pi)
     blocked=scene.blocked()
-    maintain=blocked and front>0 and (scene.stopped or (front<5 and speed<.15))
+    maintain=blocked and in_stop_zone(scene)
     # Freeze a still-crossing actor at its observed position for offline labels.
     # Moving its clearance clock alone would teleport it back across the road.
     # Neither the future permission nor these label-only flags enter inference.
@@ -75,14 +81,21 @@ def reference(episode,index,output,split,assets):
     scene.update_actors();xyz=[];rot=[]
     latched_stop=maintain
     for step in range(128):
-      latched_stop=latched_stop or (scene.blocked() and scene.stopped)
+      latched_stop=latched_stop or (scene.blocked() and in_stop_zone(scene))
       action=scene.expert()
-      if latched_stop and scene.blocked(): action[1]=np.clip(-1.5*scene.state()[-1],-3.5,0.)
+      if turn_reference_speed_mps is not None:
+        # Offline corrective labels only: retain the original steering policy,
+        # and test whether a slower turn is physically recoverable. Observed
+        # history, source controls and every original failure flag stay intact.
+        speed=scene.state()[-1]
+        action[1]=min(action[1],float(np.clip((turn_reference_speed_mps-speed)*1.5,-3.5,1.6)))
+      if latched_stop and scene.blocked(): action[1]=hold_acceleration(scene.vehicle.velocity,scene.vehicle.heading)
       scene.step(action)
       if step%2==1:
         xyz.append((np.array([*scene.vehicle.position,0])-origin)@orientation)
         rot.append(orientation.T@rotation(scene.vehicle.heading_theta))
     output.mkdir(parents=True,exist_ok=False)
+    terminal=scene.state();terminal_front=scene.stop_s-terminal[3]-scene.vehicle.LENGTH/2
     if scene.failures:
       row={'rejected':True,'seed':result['seed'],'source_simulation_time_s':moment,'failures':sorted(scene.failures)}
     else:
@@ -93,6 +106,10 @@ def reference(episode,index,output,split,assets):
         'front_distance_m':front,'maintain_stop_reference':maintain,
         'pixel_sha256':hashlib.sha256(sample['image_frames'].tobytes()).hexdigest(),'source_input_sha256':source_hash,
         'source_teacher_provenance_sha256':fingerprint,'source_simulation_time_s':moment,'physics_replay_errors':errors,
+        'source_lateral_error_m':lateral,'source_heading_change_rad':float(heading_change),
+        'hold_control_profile':HOLD_PROFILE,
+        'turn_reference_speed_mps':turn_reference_speed_mps,
+        'reference_terminal_front_distance_m':terminal_front,'reference_terminal_speed_mps':terminal[-1],
         'future_permission_frozen_for_red_supervision':blocked and result['scenario']=='red_light',
         'future_actor_motion_frozen':freeze_actor,'source_episode_status':result['status'],
         'reference_generator_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
@@ -108,8 +125,9 @@ def main():
   parser.add_argument('--output',type=Path,required=True)
   parser.add_argument('--split',choices=('train','validation'),required=True)
   parser.add_argument('--assets',type=Path,default=Path('build/official-sim/full-assets/assets'))
+  parser.add_argument('--turn-reference-speed-mps',type=float,help='Optional offline speed cap for physically checked simple-turn correction labels')
   args=parser.parse_args()
-  row=reference(args.episode,args.index,args.output,args.split,args.assets)
+  row=reference(args.episode,args.index,args.output,args.split,args.assets,turn_reference_speed_mps=args.turn_reference_speed_mps)
   print(json.dumps({key:row[key] for key in ('seed','source_simulation_time_s','rejected','physics_replay_errors') if key in row}))
 
 

@@ -5,6 +5,41 @@ from tools.training_studio.teacher_optim import paired_indices
 
 
 class PairCoverageTest(unittest.TestCase):
+  def test_balanced_modes_do_not_permanently_alias_hold_to_right_and_recover_to_straight(self):
+    from collections import Counter
+    from tools.training_studio.teacher_optim import stop_mode
+    from tools.training_studio.teacher_reasoning_train import maneuver_class
+    items=[]
+    for mode in ('hold','recover','approach'):
+      items.extend({'row':{'stop_required':True,'scenario':'red_light','maintain_stop_reference':mode=='hold','front_distance_m':6.},'observed_speed_mps':0. if mode=='recover' else 3.} for _ in range(7))
+    for scenario in ('lane_center','left_turn','right_turn'):items.extend({'row':{'stop_required':False,'scenario':scenario}} for _ in range(7))
+    combined=Counter()
+    for epoch in range(3):
+      pairs=paired_indices(items,epoch,balanced_stop_modes=True)
+      counts=Counter((stop_mode(items[a]),maneuver_class(items[b]['row'])) for a,b in pairs)
+      self.assertEqual(len(counts),9)
+      self.assertLessEqual(max(counts.values())-min(counts.values()),1)
+      combined.update(counts)
+    self.assertEqual(set(combined.values()),{7})
+
+  def test_balanced_modes_rehearse_rare_recovery_and_cover_common_references_across_epochs(self):
+    from collections import Counter
+    from tools.training_studio.teacher_optim import stop_mode
+    from tools.training_studio.teacher_reasoning_train import maneuver_class
+    items=[]
+    for mode,scenario,count in [('hold','pedestrian',100),('hold','red_light',1),('recover','red_light',1),('approach','red_light',9)]:
+      items.extend({'row':{'stop_required':True,'scenario':scenario,'maintain_stop_reference':mode=='hold','front_distance_m':6.},'observed_speed_mps':0. if mode=='recover' else 3.} for _ in range(count))
+    for scenario,count in [('lane_center',100),('left_turn',1),('right_turn',1)]:items.extend({'row':{'stop_required':False,'scenario':scenario}} for _ in range(count))
+    covered=set()
+    for epoch in range(8):
+      pairs=paired_indices(items,epoch,balanced_stop_modes=True)
+      self.assertEqual(pairs,paired_indices(items,epoch,balanced_stop_modes=True))
+      self.assertEqual(set(Counter(stop_mode(items[s]) for s,g in pairs).values()),{37})
+      self.assertEqual(set(Counter(maneuver_class(items[g]['row']) for s,g in pairs).values()),{37})
+      covered.update(index for pair in pairs for index in pair)
+    self.assertEqual(covered,set(range(len(items))))
+    with self.assertRaises(ValueError):paired_indices(items[:111]+items[111:112],0,balanced_stop_modes=True)
+
   def test_every_training_reference_is_used_with_one_stop_and_one_go_per_step(self):
     items=[{'row':{'stop_required':value}} for value in (True,True,True,False,False)]
     pairs=paired_indices(items,3)
@@ -16,6 +51,18 @@ class PairCoverageTest(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec('torch'),'pinned training image supplies torch')
 class ProjectedPairTest(unittest.TestCase):
+  def test_unit_task_balancing_preserves_descent_and_is_invariant_to_task_scale(self):
+    import torch
+    from tools.training_studio.teacher_optim import project_pair
+    stop=torch.tensor([100.,0.]);go=torch.tensor([-1.,2.])
+    joint,cosine,conflict=project_pair(stop,go,unit_gradients=True)
+    scaled,_,_=project_pair(stop*1000,go*.01,unit_gradients=True)
+    torch.testing.assert_close(joint,scaled)
+    self.assertTrue(conflict);self.assertLess(cosine,0)
+    self.assertGreater(float(torch.dot(joint,stop)),0.);self.assertGreater(float(torch.dot(joint,go)),0.)
+    zero,_,_=project_pair(torch.zeros(2),go,unit_gradients=True)
+    torch.testing.assert_close(zero,go/go.norm()/2)
+
   def test_conflicting_projection_descends_both_tasks_and_preserves_original_gradients(self):
     import torch
     from tools.training_studio.teacher_optim import project_pair

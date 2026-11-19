@@ -5,17 +5,65 @@ optimization only; the original closed-loop driving gates remain authoritative.
 """
 
 
-def paired_indices(items,epoch):
+def stop_mode(item):
+  row=item['row']
+  if not row['stop_required']:raise ValueError('stop reference required')
+  if row.get('maintain_stop_reference'):return 'hold'
+  speed=item.get('observed_speed_mps')
+  if speed is None or not __import__('math').isfinite(speed):raise ValueError('observed stop speed required for balanced sampling')
+  return 'recover' if speed<.2 and row['front_distance_m']>=5 else 'approach'
+
+
+def _balanced_order(groups,epoch,count):
+  import numpy as np
+  rng=np.random.default_rng(42);prepared={}
+  for key,scenes in sorted(groups.items()):
+    names=rng.permutation(sorted(scenes)).tolist();prepared[key]=[rng.permutation(scenes[name]).tolist() for name in names]
+  keys=np.random.default_rng(epoch+42).permutation(sorted(groups)).tolist();per_class=count//len(keys);result=[]
+  for step in range(per_class):
+    slot=epoch*per_class+step
+    for key in keys:
+      scenes=prepared[key];members=scenes[slot%len(scenes)]
+      result.append(members[(slot//len(scenes))%len(members)])
+  return result
+
+
+def paired_indices(items,epoch,*,balanced_stop_modes=False):
   import numpy as np
   stop=[i for i,item in enumerate(items) if item['row']['stop_required']]
   go=[i for i,item in enumerate(items) if not item['row']['stop_required']]
   if not stop or not go: raise ValueError('paired training needs both stop and proceed references')
+  if balanced_stop_modes:
+    from tools.training_studio.teacher_reasoning_train import maneuver_class
+    groups=[{},{}]
+    for side,indices in enumerate((stop,go)):
+      for index in indices:
+        item=items[index];key=stop_mode(item) if side==0 else maneuver_class(item['row'])
+        groups[side].setdefault(key,{}).setdefault(item['row']['scenario'],[]).append(index)
+    if set(groups[0])!={'hold','recover','approach'} or set(groups[1])!={'straight','left','right'}:
+      raise ValueError('balanced recovery requires three stop modes and three permitted directions')
+    multiple=__import__('math').lcm(*(len(group) for group in groups));count=((max(len(stop),len(go))+multiple-1)//multiple)*multiple
+    stop_order,go_order=(_balanced_order(group,epoch,count) for group in groups)
+    # Independent class marginals are insufficient: identical class shuffles
+    # permanently tie hold/recover/approach to particular directions. Rotate
+    # each balanced direction round so all cross-task combinations are used.
+    crossed_go=[]
+    for start in range(0,count,3):
+      stop_order[start:start+3]=sorted(stop_order[start:start+3],key=lambda index:stop_mode(items[index]))
+      directions=sorted(go_order[start:start+3],key=lambda index:maneuver_class(items[index]['row']));rotation=(epoch+start//3)%3
+      crossed_go.extend(directions[rotation:]+directions[:rotation])
+    return list(zip(stop_order,crossed_go))
   rng=np.random.default_rng(epoch+42)
   stop=rng.permutation(stop).tolist();go=rng.permutation(go).tolist()
   return [(stop[i%len(stop)],go[i%len(go)]) for i in range(max(len(stop),len(go)))]
 
 
-def project_pair(stop,go):
+def paired_groups(items,epoch):
+  pairs=paired_indices(items,epoch,balanced_stop_modes=True)
+  return [tuple(index for pair in pairs[start:start+3] for index in pair) for start in range(0,len(pairs),3)]
+
+
+def project_pair(stop,go,*,unit_gradients=False):
   import torch
   if stop.ndim!=1 or stop.shape!=go.shape or not stop.numel(): raise ValueError('matching nonempty flat gradients required')
   if not bool(torch.isfinite(stop).all() and torch.isfinite(go).all()): raise ValueError('nonfinite paired gradient')
@@ -23,6 +71,13 @@ def project_pair(stop,go):
   if not bool(torch.isfinite(torch.stack((dot,stop_norm,go_norm))).all()): raise ValueError('nonfinite paired gradient norm')
   conflict=bool(dot<0)
   cosine=float(dot/(stop_norm*go_norm).sqrt()) if bool(stop_norm>0 and go_norm>0) else None
+  if unit_gradients:
+    # Normalize tasks before projection, so small held-stop gradients have the
+    # same directional influence as much larger moving/restart losses.
+    if bool(stop_norm>0):stop=stop/stop_norm.sqrt()
+    if bool(go_norm>0):go=go/go_norm.sqrt()
+    dot=torch.dot(stop,go);stop_norm=torch.dot(stop,stop);go_norm=torch.dot(go,go)
+    conflict=bool(dot<0)
   if conflict:
     # Both projections use the original other-task gradient, not an already
     # modified vector. With two tasks this is exactly the PCGrad update.
@@ -31,12 +86,50 @@ def project_pair(stop,go):
   return joint,cosine,conflict
 
 
-def paired_step(parameters,optimizer,objective,stop_item,go_item,max_backtracks=8):
+def project_group(gradients):
+  """Minimum-norm convex combination of up to six unit task gradients.
+
+  Small-task exact active-set solve of the MGDA subproblem described in
+  https://proceedings.neurips.cc/paper/2018/hash/432aca3a1e345e339f35a30c8f65edce-Abstract.html
+  A common descent direction protects hold/approach/recovery and all three
+  permitted directions together, rather than protecting only the current pair.
+  """
+  import itertools
+  import numpy as np
+  import torch
+  if not 2<=len(gradients)<=6 or any(g.ndim!=1 or g.shape!=gradients[0].shape or not g.numel() for g in gradients):
+    raise ValueError('two to six matching flat task gradients required')
+  matrix=torch.stack(gradients)
+  if not bool(torch.isfinite(matrix).all()):raise ValueError('nonfinite grouped gradient')
+  norms=matrix.norm(dim=1)
+  if not bool(torch.isfinite(norms).all()):raise ValueError('nonfinite grouped gradient norm')
+  unit=matrix/norms.clamp_min(1e-12).unsqueeze(1)
+  active=(norms>1e-12).nonzero().flatten().tolist()
+  gram=(unit@unit.T).double().cpu().numpy();best=None
+  for size in range(1,len(active)+1):
+    for subset in itertools.combinations(active,size):
+      block=gram[np.ix_(subset,subset)]
+      kkt=np.block([[block,np.ones((size,1))],[np.ones((1,size)),np.zeros((1,1))]])
+      rhs=np.r_[np.zeros(size),1.];solution=np.linalg.lstsq(kkt,rhs,rcond=1e-12)[0]
+      if np.max(np.abs(kkt@solution-rhs))>1e-7 or solution[:-1].min()<-1e-7:continue
+      weights=np.zeros(len(gradients));weights[list(subset)]=np.maximum(solution[:-1],0);weights/=weights.sum()
+      squared=float(weights@gram@weights)
+      if best is None or squared<best[0]:best=(squared,weights)
+  weights=np.zeros(len(gradients)) if best is None else best[1]
+  joint=torch.as_tensor(weights,device=matrix.device,dtype=matrix.dtype)@unit
+  gains=unit@joint
+  if bool((gains<-1e-6).any()):raise ValueError('grouped direction is not common descent')
+  return joint,weights.tolist(),float(gains.min()),bool((gram<-1e-6).any())
+
+
+def paired_step(parameters,optimizer,objective,stop_item,go_item,max_backtracks=8,*,unit_gradients=False,extra_items=(),progress=None):
   import torch
   from tools.training_studio.teacher_train import load_prefix,release_prefix_pages
   if not stop_item['row']['stop_required'] or go_item['row']['stop_required']: raise ValueError('one stop and one proceed example required')
   if not parameters: raise ValueError('no trainable expert parameters')
-  items=(stop_item,go_item);names=list(parameters);params=list(parameters.values())
+  items=(stop_item,go_item,*extra_items);names=list(parameters);params=list(parameters.values())
+  if extra_items and (len(items)!=6 or not unit_gradients or any(bool(item['row']['stop_required'])!=(i%2==0) for i,item in enumerate(items))):
+    raise ValueError('grouped update requires three alternating stop/proceed pairs and unit gradients')
   def objective_loss(item,grad):
     result=objective(item,grad)
     return result[0] if isinstance(result,(tuple,list)) else result
@@ -46,14 +139,23 @@ def paired_step(parameters,optimizer,objective,stop_item,go_item,max_backtracks=
     load_prefix.cache_clear()
   try:
     gradients=[];before_losses=[]
-    for item in items:
+    for task,item in enumerate(items,1):
+      if progress:progress(group_stage='gradient',group_task=task,group_tasks=len(items))
       optimizer.zero_grad(set_to_none=True)
       result=objective(item,True);loss=result[0] if isinstance(result,(tuple,list)) else result
       if loss.numel()!=1 or not bool(torch.isfinite(loss)): raise ValueError('invalid paired rollout loss')
       before_losses.append(float(loss.detach()));loss.backward()
       gradients.append(torch.cat([(p.grad.detach() if p.grad is not None else torch.zeros_like(p)).reshape(-1) for p in params]))
       del result,loss;release_mappings()
-    joint,cosine,conflict=project_pair(*gradients)
+    task_norms=[float(gradient.norm()) for gradient in gradients]
+    grouped={}
+    if extra_items:
+      joint,weights,gain,conflict=project_group(gradients);cosine=None
+      common_norm=joint.norm()
+      if bool(common_norm>1e-6):joint=joint/common_norm
+      else:joint=torch.zeros_like(joint)
+      grouped={'task_gradient_weights':weights,'minimum_task_gradient_gain':gain,'common_gradient_norm':float(common_norm),'task_count':len(items)}
+    else:joint,cosine,conflict=project_pair(*gradients,unit_gradients=unit_gradients)
     optimizer.zero_grad(set_to_none=True);offset=0
     for p in params:
       p.grad=joint[offset:offset+p.numel()].reshape_as(p);offset+=p.numel()
@@ -65,7 +167,8 @@ def paired_step(parameters,optimizer,objective,stop_item,go_item,max_backtracks=
     def check():
       with torch.no_grad():
         values=[]
-        for item in items:
+        for task,item in enumerate(items,1):
+          if progress:progress(group_stage='verify',group_task=task,group_tasks=len(items),backtracks=backtracks)
           loss=objective_loss(item,False);values.append(float(loss));del loss;release_mappings()
       if not all(__import__('math').isfinite(value) for value in values): raise ValueError('nonfinite paired post-step loss')
       return values
@@ -81,9 +184,12 @@ def paired_step(parameters,optimizer,objective,stop_item,go_item,max_backtracks=
         for name,p in parameters.items():p.copy_(before[name])
       optimizer.state.clear();scale=0.;observed=before_losses.copy()
     change=float(torch.stack([(p.detach()-before[name]).square().sum() for name,p in parameters.items()]).sum().sqrt())
-    return {'loss':sum(observed)/2,'loss_before_step':sum(before_losses)/2,'stop_loss':observed[0],'go_loss':observed[1],
-      'stop_loss_before_step':before_losses[0],'go_loss_before_step':before_losses[1],'step_scale':scale,'backtracks':backtracks,
-      'gradient_cosine':cosine,'gradient_projected':conflict,'parameter_delta_norm':change,'gradient_norm_before_clip':float(norm)}
+    count=len(items)//2
+    if extra_items:grouped.update(task_losses_before=before_losses,task_losses_after=observed)
+    return {'loss':sum(observed)/len(items),'loss_before_step':sum(before_losses)/len(items),'stop_loss':sum(observed[::2])/count,'go_loss':sum(observed[1::2])/count,
+      'stop_loss_before_step':sum(before_losses[::2])/count,'go_loss_before_step':sum(before_losses[1::2])/count,'step_scale':scale,'backtracks':backtracks,
+      'gradient_cosine':cosine,'gradient_projected':conflict,'parameter_delta_norm':change,'gradient_norm_before_clip':float(norm),
+      'task_gradients_normalized':unit_gradients,'stop_gradient_norm':sum(task_norms[::2])/count,'go_gradient_norm':sum(task_norms[1::2])/count,**grouped}
   finally:
     load_prefix.cache_clear()
     for item in items:

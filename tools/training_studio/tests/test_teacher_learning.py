@@ -9,6 +9,72 @@ HAS_TORCH=importlib.util.find_spec('torch') is not None
 
 @unittest.skipUnless(HAS_TORCH,'GPU training environment supplies torch')
 class TeacherLearningTest(unittest.TestCase):
+  def test_training_margin_requires_an_interior_stop_without_changing_original_stop_gate(self):
+    import torch
+    from tools.training_studio.teacher_train import stop_zone_loss,valid_stopped_trajectory
+    prediction=torch.zeros(1,64,3,requires_grad=True);target=torch.zeros_like(prediction);target[...,0]=2.
+    held=torch.ones(1,64)
+    self.assertFalse(bool(valid_stopped_trajectory(prediction,torch.zeros_like(prediction),5.)))
+    self.assertEqual(float(stop_zone_loss(prediction,target,held,5.)),0.)
+    loss=stop_zone_loss(prediction,target,held,5.,interior_margin_m=.5);self.assertGreater(float(loss),0.);loss.backward()
+    self.assertTrue(bool((prediction.grad[...,0]<0).all()))
+    self.assertEqual(float(stop_zone_loss(prediction.detach(),prediction.detach(),held,4.9)),0.)
+    inside=prediction.detach().clone();inside[...,0]=.6
+    self.assertEqual(float(stop_zone_loss(inside,target,held,5.,interior_margin_m=.5)),0.)
+    self.assertTrue(bool(valid_stopped_trajectory(inside,torch.zeros_like(inside),5.)))
+
+  def test_completed_epoch_retains_frozen_adapters_and_cannot_overwrite_qualified_snapshot(self):
+    import hashlib,json
+    import torch
+    from torch import nn
+    from safetensors.torch import load_file
+    from tools.training_studio.teacher_lora import DeltaLinear
+    from tools.training_studio.teacher_train import save_epoch_checkpoint
+    model=nn.Module();model.expert=DeltaLinear(nn.Linear(2,2));model.vlm=DeltaLinear(nn.Linear(2,2));model.vlm.requires_grad_(False)
+    with tempfile.TemporaryDirectory() as directory:
+      pointer=save_epoch_checkpoint(model,directory,1,{'validation_loss':5},dataset_sha256='d'*64,parent_sha256='p'*64,objective_revision='v3')
+      path=Path(directory)/pointer['file'];saved=load_file(str(path))
+      self.assertIn('vlm.a',saved);torch.testing.assert_close(saved['vlm.a'],model.vlm.a)
+      self.assertEqual(pointer['sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
+      self.assertFalse(pointer['driving_qualified'])
+      self.assertEqual(json.loads(path.with_suffix('.json').read_text()),pointer)
+      original=path.read_bytes()
+      with self.assertRaises(FileExistsError):save_epoch_checkpoint(model,directory,1,{},dataset_sha256='x',parent_sha256='y',objective_revision='z')
+      self.assertEqual(path.read_bytes(),original)
+
+  def test_immediate_steering_has_correct_symmetric_gradients_and_prioritizes_next_commands(self):
+    import torch
+    from tools.training_studio.teacher_train import immediate_steering_loss
+    space=SimpleNamespace(dt=.1,curvature_std=torch.tensor(.1))
+    history=torch.zeros(1,20,3);history[0,-2,0]=-.5
+    for curvature in (-1.,1.):
+      target=torch.zeros(1,64,2);target[:,:3,1]=curvature
+      prediction=torch.zeros_like(target,requires_grad=True)
+      loss=immediate_steering_loss(prediction,target,space,history);loss.backward()
+      self.assertTrue(torch.isfinite(prediction.grad).all())
+      self.assertTrue(bool((prediction.grad[:,:3,1]*curvature<0).all()))
+      self.assertEqual(float(prediction.grad[...,0].abs().sum()),0.)
+      self.assertEqual(float(prediction.grad[:,20:].abs().sum()),0.)
+      self.assertEqual(float(immediate_steering_loss(target,target,space,history)),0.)
+    early=torch.zeros(1,64,2);early[:,:3,1]=1.
+    late=torch.zeros_like(early);late[:,17:20,1]=1.
+    self.assertGreater(float(immediate_steering_loss(early,torch.zeros_like(early),space,history)),10*float(immediate_steering_loss(late,torch.zeros_like(late),space,history)))
+    parked=torch.zeros_like(history)
+    self.assertGreater(float(immediate_steering_loss(early,torch.zeros_like(early),space,parked)),0.)
+
+  def test_stationary_brake_margin_learns_against_creep_without_penalizing_sufficient_braking(self):
+    import torch
+    from tools.training_studio.teacher_train import held_brake_margin_loss
+    space=SimpleNamespace(accel_std=torch.tensor(2.),accel_mean=torch.tensor(.3))
+    action=torch.zeros(1,64,2);action[...,0]=-.15;action.requires_grad_()
+    loss=held_brake_margin_loss(action,space);loss.backward()
+    self.assertGreater(float(loss),0.)
+    self.assertTrue(bool((action.grad[:,:10,0]>0).all()))
+    self.assertEqual(float(action.grad[:,10:,0].abs().sum()),0.)
+    self.assertEqual(float(action.grad[...,1].abs().sum()),0.)
+    braking=torch.zeros_like(action);braking[...,0]=-.25
+    self.assertEqual(float(held_brake_margin_loss(braking,space)),0.)
+
   def test_moving_approach_commands_supervise_braking_without_forcing_brakes_on_distant_approaches(self):
     import torch
     from tools.training_studio.teacher_train import immediate_command_loss

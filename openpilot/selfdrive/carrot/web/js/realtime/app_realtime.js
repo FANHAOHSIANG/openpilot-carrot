@@ -805,6 +805,7 @@ async function stopCarrotVisionRealtime(reason = "user stop") {
     return;
   }
   if (!isCarrotVisionActive()) return;
+  document.getElementById("carrotStage")?.removeAttribute("data-auto-perception");
   console.warn("[vision] stop requested", reason);
   setCarrotVisionActive(false, {
     phase: CARROT_VISION_PHASE.INACTIVE,
@@ -821,7 +822,8 @@ async function stopCarrotVisionRealtime(reason = "user stop") {
 
 window.CarrotVisionStop = stopCarrotVisionRealtime;
 
-window.CarrotVisionStart = async function() {
+window.CarrotVisionStart = async function(options) {
+  const automatic = options?.automaticPerception === true;
   if (isCarrotVisionActive()) {
     syncCarrotVisionStartOverlay();
     return;
@@ -830,11 +832,14 @@ window.CarrotVisionStart = async function() {
     if (typeof showAppToast === "function") showAppToast(window.CARROT_VISION_DISABLED_MESSAGE, { tone: "error" });
     return;
   }
-  requestCarrotVisionDefaultFullscreen({ quiet: false }).catch(() => {});
-  window.CarrotVisionRtc?.prepareOwnershipRetry?.("user start");
+  document.getElementById("carrotStage")?.toggleAttribute("data-auto-perception", automatic);
+  if (!automatic) {
+    requestCarrotVisionDefaultFullscreen({ quiet: false }).catch(() => {});
+    window.CarrotVisionRtc?.prepareOwnershipRetry?.("user start");
+  }
   setCarrotVisionActive(true, {
     phase: CARROT_VISION_PHASE.STARTING,
-    reason: "user start",
+    reason: automatic ? "configured perception" : "user start",
   });
   
   syncCarrotVisionStartOverlay();

@@ -22,9 +22,10 @@ export function teacherMessage(value){
   const t=value.teacher||{},q=t.qualification||{};
   const fresh=Number.isFinite(t.updated)&&Math.abs(value.time-t.updated)<20;
   const connection=fresh&&t.connected?`教師接口已連線 · ${t.gpu||'GPU'} · ${t.qualified?'完整資格已通過':'尚未取得完整資格'}`:'教師接口尚未連通或心跳過期';
-  const state={running:'資格驗證中',failed:'資格未通過',passed:'資格驗證通過',error:'驗證程序錯誤',interrupted:'驗證已中斷'}[q.state]||'等待資格驗證';
-  const batch=String(q.batch||'').replaceAll('\\','/').match(/cycle-(\d+)\/qualification-(safety|balanced)(?:-early-epoch(\d+))?(?:-policy-([a-z0-9-]+))?(?:-stage-(visual-decision))?$/);
-  const candidate=batch?`第 ${Number(batch[1])} 輪 · ${batch[2]==='safety'?'安全優先候選':'綜合損失候選'}${batch[3]?` · Epoch ${Number(batch[3])} 固定快照`:''}${batch[4]==='crossing-v1'?' · 行人全程停讓指令':batch[4]?' · 輸入設定 '+batch[4]:''}${batch[5]?' · 視覺決策微調':''}`:null;
+  const stale=q.state==='running'&&Number.isFinite(q.updated)&&Number.isFinite(value.time)&&value.time-q.updated>20;
+  const state=stale?'驗收回報已過期，請檢查驗收程序':({running:'資格驗證中',failed:'資格未通過',passed:'資格驗證通過',error:'驗證程序錯誤',interrupted:'驗證已中斷'}[q.state]||'等待資格驗證');
+  const batch=String(q.batch||'').replaceAll('\\','/').match(/cycle-(\d+)\/qualification-(safety|balanced|latest|completed)(?:-early-epoch(\d+))?(?:-policy-([a-z0-9-]+))?(?:-stage-(visual-decision|small-batch))?$/);
+  const candidate=batch?`第 ${Number(batch[1])} 輪 · ${{safety:'安全優先候選',balanced:'綜合損失候選',latest:'最近完整epoch候選',completed:'固定epoch候選'}[batch[2]]}${batch[3]?` · Epoch ${Number(batch[3])} 固定快照`:''}${batch[4]==='crossing-v1'?' · 行人全程停讓指令':batch[4]?' · 輸入設定 '+batch[4]:''}${batch[5]==='visual-decision'?' · 視覺決策微調':batch[5]==='small-batch'?' · 小批次權重更新':''}`:null;
   const reasons={lane_envelope:'超出車道邊界 (lane_envelope)',red_stop_not_sustained:'紅燈停等未持續達標 (red_stop_not_sustained)',red_hold_not_maintained:'紅燈期間未保持停車 (red_hold_not_maintained)',insufficient_progress:'行駛進度不足 (insufficient_progress)',crossed_before_permission:'允許通行前越線 (crossed_before_permission)',stop_not_observed:'未在有效區內形成停等 (stop_not_observed)',resume_not_observed:'未觀察到恢復行駛 (resume_not_observed)'};
   const fields=[candidate,state,q.scenario,Number.isFinite(q.done)?`${q.done} / ${q.total} 關卡`:null,
     Number.isFinite(q.plan)?`已完成 ${q.plan+1} 次模型推論`:null,
@@ -40,11 +41,13 @@ export function teacherValidationSummary(value){
   const parts=[];
   if(row?.stop_metric==='valid_stop_zone_v2'&&Number.isFinite(row.red_safe_count)&&Number.isFinite(row.red_samples))parts.push(`停止區樣本 ${row.red_safe_count} / ${row.red_samples}`);
   if(Number.isFinite(row?.go_velocity_mse))parts.push(`放行速度 MSE ${row.go_velocity_mse.toFixed(4)}`);
-  if(progress.optimization_profile==='paired_stop_go_pcgrad_sgd_v1'){
-    parts.push('停止／通行成對最佳化');
-    if(progress.phase==='training'&&progress.stage!=='validation'&&Number.isFinite(progress.stop_loss_before_step)&&Number.isFinite(progress.go_loss_before_step)){
-      parts.push(`本對停止 loss ${progress.stop_loss_before_step.toFixed(3)} → ${progress.stop_loss.toFixed(3)}`);
-      parts.push(`本對通行 loss ${progress.go_loss_before_step.toFixed(3)} → ${progress.go_loss.toFixed(3)}`);
+  if(['paired_stop_go_pcgrad_sgd_v1','paired_unit_gradient_pcgrad_sgd_v2','paired_balanced_stop_modes_pcgrad_sgd_v3','paired_balanced_cross_task_pcgrad_sgd_v4','grouped_six_task_unit_descent_sgd_v6'].includes(progress.optimization_profile)){
+    const grouped=progress.optimization_profile==='grouped_six_task_unit_descent_sgd_v6';
+    if(grouped&&progress.phase==='training'&&progress.stage!=='validation'&&Number.isFinite(progress.group_task)&&Number.isFinite(progress.group_tasks))parts.push(`${progress.group_stage==='gradient'?'計算梯度':'檢查更新'} ${progress.group_task} / ${progress.group_tasks}${progress.group_stage==='verify'&&progress.backtracks?` · 回退 ${progress.backtracks} 次`:''}`);
+    parts.push(grouped?'六類共同更新／逐類損失檢查':progress.optimization_profile==='paired_balanced_cross_task_pcgrad_sgd_v4'?'停止狀態 × 通行方向九種交錯配對':progress.optimization_profile==='paired_balanced_stop_modes_pcgrad_sgd_v3'?'停等／接近／提早停車恢復均衡配對':'停止／通行成對最佳化');
+    if(progress.phase==='training'&&progress.stage!=='validation'&&!grouped&&Number.isFinite(progress.stop_loss_before_step)&&Number.isFinite(progress.go_loss_before_step)){
+      parts.push(`${grouped?'本組三類':'本對'}停止 loss ${progress.stop_loss_before_step.toFixed(3)} → ${progress.stop_loss.toFixed(3)}`);
+      parts.push(`${grouped?'本組三向':'本對'}通行 loss ${progress.go_loss_before_step.toFixed(3)} → ${progress.go_loss.toFixed(3)}`);
       if(Number.isFinite(progress.step_scale))parts.push(progress.step_scale===0?'本次更新已撤回':`採用步幅 ${progress.step_scale}`);
     }
   }
@@ -58,6 +61,32 @@ export function teacherLossHistory(value){
   if(current.history?.length)return {history:current.history,label:`第 ${current.cycle} 輪實際訓練／驗證 loss`};
   const saved=value.teacher_runs?.find(row=>row.history?.length);
   return saved?{history:saved.history,label:`顯示第 ${saved.cycle} 輪${saved.completed===false?'中斷前的實際':'已完成的'} loss；第 ${current.cycle||'—'} 輪尚無完成的 epoch。`}:{history:[],label:'本輪尚無實際 loss'};
+}
+
+export function teacherBatchObservation(value,previous={}){
+  const p=value.teacher_training||{},cycle=p.cycle,epoch=p.epoch,objective=p.objective_revision||'';
+  const valid=Number.isInteger(cycle)&&cycle>0&&Number.isInteger(epoch)&&epoch>0;
+  const same=valid&&previous.cycle===cycle&&previous.epoch===epoch&&previous.objective===objective;
+  const recorded=Array.isArray(p.batch_history);
+  const entries=!recorded&&!p.optimization_profile?.startsWith('grouped_six_task_')&&same&&Array.isArray(previous.entries)?previous.entries.filter(row=>Number.isInteger(row.batch)&&row.batch>0&&Number.isFinite(row.loss)&&Number.isFinite(row.before)).slice(-200):[];
+  const candidates=recorded?p.batch_history:(p.phase==='training'&&p.stage!=='validation'&&!p.optimization_profile?.startsWith('grouped_six_task_')?[p]:[]);
+  for(const row of candidates){
+    if(valid&&Number.isInteger(row.batch)&&row.batch>0&&Number.isFinite(row.loss)&&Number.isFinite(row.loss_before_step)&&!entries.some(entry=>entry.batch===row.batch))entries.push({batch:row.batch,loss:row.loss,before:row.loss_before_step});
+  }
+  entries.sort((a,b)=>a.batch-b.batch);
+  const retained=entries.slice(-200);
+  return {cycle,epoch,objective,entries:retained,label:retained.length?`第 ${cycle} 輪 Epoch ${epoch} · ${recorded?'工作程序已記錄':'本瀏覽器實際觀測'} ${retained.length} 個 batch（${retained[0].batch}–${retained.at(-1).batch}）；顯示更新前／後損失，不是完整 epoch 平均或驗證 loss。`:'等待實際 batch 完成紀錄'};
+}
+
+export function teacherTrainingLoss(value){
+  const p=value.teacher_training||{};
+  if(p.optimization_profile?.startsWith('grouped_six_task_')){
+    const row=p.batch_history?.at(-1);
+    if(row)return {label:'最近完成組 loss',value:row.loss};
+    if(p.task_count===6&&Number.isFinite(p.loss))return {label:'最近回報組 loss',value:p.loss};
+    return {label:'最近完整 epoch loss',value:p.history?.at(-1)?.train_loss};
+  }
+  return {label:'loss',value:p.loss??p.history?.at(-1)?.train_loss};
 }
 
 
