@@ -296,6 +296,7 @@ class Car:
 
     # Check for CAN timeout
     if not can_rcv_valid:
+      CS.speedLimitClusterKph = 0
       self.can_rcv_cum_timeout_counter += 1
       self.card_diag_can_timeouts += 1
 

@@ -304,6 +304,7 @@ struct CarState {
   lightingStateValid @120 :Bool; # fresh, decoded actual lamp state; false means unknown
   lowBeamOn @121 :Bool;
   highBeamOn @122 :Bool;
+  speedLimitClusterKph @123 :UInt8; # display-only instrument sign; zero when unknown
 
   struct TeslaTrafficControl {
     available @0 :Bool;

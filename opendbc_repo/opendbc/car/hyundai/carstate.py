@@ -134,6 +134,22 @@ def _get_ev_mode_state(cp: CANParser) -> tuple[bool, bool]:
   return active, valid
 
 
+def ioniq5_cluster_speed_limit(cp: CANParser, cp_cam: CANParser) -> int:
+  # The IONIQ 5 camera CAN carries two primary instrument sign values on 0x1FA.
+  # The secondary sign and the separate warning threshold can differ from them.
+  now = cp_cam._last_update_nanos
+  sign_ts = cp_cam.ts_nanos["CLUSTER_SPEED_LIMIT"]["SPEED_LIMIT_1"]
+  unit_ts = cp.ts_nanos["CRUISE_BUTTONS_ALT"]["DISTANCE_UNIT"]
+  if (not sign_ts or not unit_ts or not 0 <= now - sign_ts <= 500_000_000 or
+      not 0 <= now - unit_ts <= 500_000_000 or len(cp_cam.dat.get(0x1FA, b"")) != 32 or
+      len(cp.dat.get(0x1AA, b"")) != 16 or cp.vl["CRUISE_BUTTONS_ALT"]["DISTANCE_UNIT"] != 0):
+    return 0
+
+  signs = cp_cam.vl["CLUSTER_SPEED_LIMIT"]
+  primary = int(signs["SPEED_LIMIT_1"])
+  return primary if primary == signs["SPEED_LIMIT_2"] and 5 <= primary <= 125 and primary % 5 == 0 else 0
+
+
 def is_canfd_navi_camera_active(values) -> bool:
   return bool(int(values.get("CAMERA_STATUS", 0)) & CANFD_NAVI_CAMERA_ACTIVE_BIT)
 
@@ -1440,6 +1456,8 @@ class CarState(CarStateBase):
       ret.evModeActive, ret.evModeValid = _get_ev_mode_state(cp)
 
     self.is_metric = cp.vl["CRUISE_BUTTONS_ALT"]["DISTANCE_UNIT"] != 1
+    if self.CP.carFingerprint == CAR.HYUNDAI_IONIQ_5:
+      ret.speedLimitClusterKph = ioniq5_cluster_speed_limit(cp, cp_cam)
     speed_factor = CV.KPH_TO_MS if self.is_metric else CV.MPH_TO_MS
 
     if self.CP.flags & (HyundaiFlags.EV | HyundaiFlags.HYBRID):
@@ -1778,9 +1796,10 @@ class CarState(CarStateBase):
       # gate the value without making a counter/alive fault disable controls.
       pt_parser._add_message(EV_MODE_STATUS_MSG, math.nan, ignore_counter=True)
 
+    cam_msgs = [("CLUSTER_SPEED_LIMIT", math.nan)] if CP.carFingerprint == CAR.HYUNDAI_IONIQ_5 else []
     return {
       Bus.pt: pt_parser,
-      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], CAN.CAM),
+      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_msgs, CAN.CAM),
       Bus.alt: CANParser(DBC[CP.carFingerprint][Bus.pt], alt_msgs, CAN.ACAN),
     }
 
