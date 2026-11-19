@@ -232,6 +232,8 @@ jobs:
       - name: Check navigation voice PCM gain and protected warnings
         run: python -m pytest -o addopts='' -q openpilot/selfdrive/ui/tests/test_soundd.py openpilot/selfdrive/carrot/tests/test_sound_volume.py
 
+      - name: Execute the SCons-built internal model and camera warps
+        run: python tools/modeld/check_cheddar_model.py openpilot/selfdrive/modeld/models/driving_tinygrad.pkl
       - name: Check native offline cloud boundaries and C3 modem routing
         env:
           NATIVE_DEVICE_TESTS: '1'
