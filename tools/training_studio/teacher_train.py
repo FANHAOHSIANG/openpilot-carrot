@@ -18,6 +18,8 @@ RECOVERY_OBJECTIVE_REVISION='ten_step_balanced_recovery_interior_stop_margin_v4'
 FORWARD_OBJECTIVE_REVISION='ten_step_forward_physics_consistent_hold_v5'
 AXLE_OBJECTIVE_REVISION='ten_step_observed_rear_axle_forward_hold_v7'
 GENTLE_RECOVERY_OBJECTIVE_REVISION='ten_step_gentle_boundary_recovery_v8'
+PEAK_HOLD_OBJECTIVE_REVISION='ten_step_executed_peak_hold_brake_margin_v9'
+PEAK_EXECUTION_OBJECTIVE_REVISION='ten_step_executed_peak_hold_and_steering_v10'
 SIGNED_HOLD_OBJECTIVE_REVISION='ten_step_signed_standstill_controls_v6'
 
 
@@ -127,7 +129,7 @@ def restart_command_loss(accel_error):
   return immediate_command_loss(accel_error)
 
 
-def immediate_steering_loss(action,target_action,space,history_xyz):
+def immediate_steering_loss(action,target_action,space,history_xyz,*,executed_peak=False):
   """Supervise the curvature commands that execute before the next replan.
 
   Course/rotation losses over a long horizon can hide an incorrect first turn
@@ -138,19 +140,26 @@ def immediate_steering_loss(action,target_action,space,history_xyz):
   speed=torch.linalg.vector_norm(history_xyz[...,-1,:2]-history_xyz[...,-2,:2],dim=-1)/space.dt
   scale=speed.clamp(1,5).square().unsqueeze(-1)
   error=(action[...,1]-target_action[...,1])*space.curvature_std.to(action.device)*scale
-  return immediate_command_loss(error)
+  loss=immediate_command_loss(error)
+  # A short turn-entry error can disappear in horizon means even though
+  # only the first second executes before replanning. Keep the mean terms.
+  return loss+200*error[:,:10].square().amax() if executed_peak else loss
 
 
-def held_brake_margin_loss(action,space):
+def held_brake_margin_loss(action,space,*,executed_peak=False):
   """Learn a small brake margin on stationary, prohibited-motion references.
 
   A zero-acceleration target has no margin against small positive command
   errors accumulating into creep. This label-only term applies after an
   observed completed stop, and never supplies a stop flag at inference.
+  Forward execution may additionally constrain the worst command in the
+  first second; a mean penalty can dilute isolated creep-producing pulses.
   """
   import torch
   acceleration=action[...,0]*space.accel_std.to(action.device)+space.accel_mean.to(action.device)
-  return 50*torch.relu(acceleration[:,:10]+.1).square().mean()
+  mean=50*torch.relu(acceleration[:,:10]+.1).square().mean()
+  if not executed_peak:return mean
+  return mean+200*torch.relu(acceleration[:,:10]+.3).square().amax()
 
 
 def acceleration_error(action,target_action,space,*,completed_hold=False,forward_only=False):
@@ -166,7 +175,7 @@ def acceleration_error(action,target_action,space,*,completed_hold=False,forward
   return (action[...,0]-target_action.to(action.device)[...,0])*std
 
 
-def save_epoch_checkpoint(model,output,epoch,metrics,*,dataset_sha256,parent_sha256,objective_revision,forward_only=False,signed_hold_controls=False,optimization_profile=None,rear_axle_offset_m=0.,fp32_expert=False):
+def save_epoch_checkpoint(model,output,epoch,metrics,*,dataset_sha256,parent_sha256,objective_revision,forward_only=False,signed_hold_controls=False,optimization_profile=None,rear_axle_offset_m=0.,fp32_expert=False,mlp_only=False):
   """Keep every completed epoch available for the authoritative driving suite.
 
   Validation ranking may reject a model without testing it in closed loop.
@@ -182,7 +191,7 @@ def save_epoch_checkpoint(model,output,epoch,metrics,*,dataset_sha256,parent_sha
   save_file({name:p.detach().float().cpu().contiguous() for name,p in adapter_parameters(model).items()},str(path))
   pointer={'file':path.name,'epoch':epoch,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'metrics':metrics,
     'dataset_sha256':dataset_sha256,'parent_sha256':parent_sha256,'objective_revision':objective_revision,
-    'script_sha256':IMPLEMENTATION_SHA256,'forward_only':forward_only,'signed_hold_controls':signed_hold_controls,'optimization_profile':optimization_profile,'rear_axle_offset_m':rear_axle_offset_m,'fp32_expert':fp32_expert,'driving_qualified':False}
+    'script_sha256':IMPLEMENTATION_SHA256,'forward_only':forward_only,'signed_hold_controls':signed_hold_controls,'optimization_profile':optimization_profile,'rear_axle_offset_m':rear_axle_offset_m,'fp32_expert':fp32_expert,'mlp_only':mlp_only,'driving_qualified':False}
   write_json(path.with_suffix('.json'),pointer)
   return pointer
 
@@ -228,6 +237,7 @@ def main():
   parser.add_argument('--paired-stop-go',action='store_true',help='Pair stop/proceed gradients with PCGrad and guarded SGD')
   parser.add_argument('--unit-task-gradients',action='store_true',help='Balance stop/proceed gradient norms before paired projection')
   parser.add_argument('--expanded-expert',action='store_true')
+  parser.add_argument('--mlp-only',action='store_true',help='Train only expert fc1/fc2 LoRA; preserve visual, attention and output weights')
   parser.add_argument('--executed-commands',action='store_true',help='Supervise immediate steering and all permitted acceleration commands, with stationary hold margin')
   parser.add_argument('--balanced-stop-modes',action='store_true',help='Balance held, approaching and early-stopped recovery references; train non-held stops inside the legal zone')
   parser.add_argument('--forward-only',action='store_true',help='Use forward-only physical decoding and consistent completed-stop braking supervision')
@@ -238,6 +248,7 @@ def main():
   parser.add_argument('--correction-warmup',action='store_true',help='Prepend a guarded six-task group for rare physically checked correction labels each epoch')
   parser.add_argument('--lease',type=Path)
   args=parser.parse_args()
+  if args.mlp_only and not (args.parent and args.expanded_expert):raise ValueError('MLP-only training requires a parent and expanded expert adapters')
   from tools.training_studio.teacher_reference_frame import validate_offset
   args.rear_axle_offset_m=validate_offset(args.rear_axle_offset_m)
   if args.rear_axle_offset_m and not args.forward_only:raise ValueError('rear-axle calibration requires the forward-only profile')
@@ -254,7 +265,7 @@ def main():
   optimization_profile=('paired_unit_gradient_pcgrad_sgd_v2' if args.unit_task_gradients else 'paired_stop_go_pcgrad_sgd_v1') if args.paired_stop_go else 'single_sample_adamw_backtracking_v1'
   if args.balanced_stop_modes:optimization_profile='paired_balanced_cross_task_pcgrad_sgd_v4'
   if args.grouped_stop_go:optimization_profile='grouped_six_task_fp64_projection_sgd_v8'
-  if args.correction_warmup:optimization_profile='grouped_six_task_correction_fp64_projection_sgd_v9'
+  if args.correction_warmup:optimization_profile='grouped_six_task_recent5_correction_fp64_projection_sgd_v11'
   if args.learning_rate is None: args.learning_rate=.01 if args.paired_stop_go else 3e-5
   if not 0<args.learning_rate<=(.1 if args.paired_stop_go else .001): raise ValueError('invalid optimizer learning rate')
   if args.lease:
@@ -275,7 +286,7 @@ def main():
   from alpamayo2_edge.helper import get_processor,to_device
   from alpamayo2_edge.inference import predict
   from tools.training_studio.edge_inputs import MODEL_REVISION,prepare_front_inputs
-  from tools.training_studio.teacher_lora import install,load,expand,adapter_parameters
+  from tools.training_studio.teacher_lora import install,load,expand,adapter_parameters,train_mlp_only
   from tools.training_studio.store import write_json
   args.output.mkdir(parents=True,exist_ok=False)
   prefix_directory=tempfile.TemporaryDirectory(prefix='prefix-',dir=args.output)
@@ -305,8 +316,9 @@ def main():
     from tools.training_studio.teacher_reference_frame import install as install_reference
     install_reference(model.expert.action_space,args.rear_axle_offset_m)
   model.eval()
-  parameters={name:p for name,p in model.named_parameters() if p.requires_grad}
+  parameters=train_mlp_only(model) if args.mlp_only else {name:p for name,p in model.named_parameters() if p.requires_grad}
   adapter_scope='actual_Edge_expert_and_VLM_LoRA' if any(name.startswith('vlm.') for name in adapter_parameters(model)) else 'actual_Edge_expert_expanded_LoRA'
+  if args.mlp_only:adapter_scope='actual_Edge_MLP_LoRA_only_frozen_visual_attention_and_output'
   processor=get_processor(model.tokenizer,model.config)
   settings={'seed':42,'num_traj_sets':1,'num_traj_samples':1,'top_p':.98,'top_k':None,'temperature':.6,'max_generation_length':256,'diffusion_kwargs':{'inference_step':10}}
   manifest=json.loads((args.data/'manifest.json').read_text())
@@ -315,6 +327,8 @@ def main():
   if any(row.get('recovery_reference_profile') is not None for row in rows):
     for row in rows:stop_training_margin(row,args.balanced_stop_modes)
     objective_revision=GENTLE_RECOVERY_OBJECTIVE_REVISION
+  if args.forward_only and args.executed_commands and not args.signed_hold_controls:
+    objective_revision=PEAK_EXECUTION_OBJECTIVE_REVISION
   if {r['seed'] for r in rows if r['split']=='train'} & {r['seed'] for r in rows if r['split']=='validation'}: raise ValueError('seed leakage')
   if any(r['seed'] in (300,301,302,303) for r in rows): raise ValueError('qualification seeds must remain held out')
   captured={}
@@ -327,7 +341,7 @@ def main():
   model._sample_actions=capture
   history=[];checkpoints=[];batch_history=[]
   def emit(phase,**fields):
-    value={'phase':phase,'optimization_profile':optimization_profile,'learning_rate':args.learning_rate,'adapter_scope':adapter_scope,'stage':None,'objective_revision':objective_revision,'forward_only':args.forward_only,'rear_axle_offset_m':args.rear_axle_offset_m,'fp32_expert':args.fp32_expert,'signed_hold_controls':args.signed_hold_controls,'epochs':args.epochs,'history':history,'batch_history':batch_history,'latest_checkpoint':checkpoints[-1] if checkpoints else None,'updated':time.time(),
+    value={'phase':phase,'optimization_profile':optimization_profile,'learning_rate':args.learning_rate,'adapter_scope':adapter_scope,'stage':None,'objective_revision':objective_revision,'forward_only':args.forward_only,'rear_axle_offset_m':args.rear_axle_offset_m,'fp32_expert':args.fp32_expert,'mlp_only':args.mlp_only,'signed_hold_controls':args.signed_hold_controls,'epochs':args.epochs,'history':history,'batch_history':batch_history,'latest_checkpoint':checkpoints[-1] if checkpoints else None,'updated':time.time(),
       'cuda_budget_gib':cuda_budget/1024**3,'cuda_allocated_gib':torch.cuda.memory_allocated()/1024**3,
       'cuda_reserved_gib':torch.cuda.memory_reserved()/1024**3,'cuda_peak_allocated_gib':torch.cuda.max_memory_allocated()/1024**3,**fields}
     write_json(args.output/'progress.json',value)
@@ -389,7 +403,7 @@ def main():
       restart_error=(action[...,0]-item['target_action'].to(action.device)[...,0])*accel_std
       loss=loss+restart_command_loss(restart_error)
     if args.executed_commands:
-      loss=loss+immediate_steering_loss(action,item['target_action'].to(action.device),model.expert.action_space,item['ego_history_xyz'].to(action.device))
+      loss=loss+immediate_steering_loss(action,item['target_action'].to(action.device),model.expert.action_space,item['ego_history_xyz'].to(action.device),executed_peak=args.forward_only)
     if item['row']['stop_required']:
       held=(torch.linalg.vector_norm(ref_velocity,dim=-1)<.15).float()
       margin=stop_training_margin(item['row'],args.balanced_stop_modes)
@@ -408,7 +422,7 @@ def main():
         if args.signed_hold_controls:
           loss=loss+signed_held_command_loss(action,model.expert.action_space,item['ego_history_xyz'].to(action.device),item['ego_history_rot'].to(action.device))
         else:loss=loss+held_command_loss(action,model.expert.action_space,item['ego_history_xyz'].to(action.device))
-        if args.executed_commands and not args.signed_hold_controls:loss=loss+held_brake_margin_loss(action,model.expert.action_space)
+        if args.executed_commands and not args.signed_hold_controls:loss=loss+held_brake_margin_loss(action,model.expert.action_space,executed_peak=args.forward_only)
       loss=loss+30*torch.relu(xyz[...,0]-item['row']['front_distance_m']+.2).square().mean()
     if not torch.isfinite(loss): raise ValueError('nonfinite actual rollout loss')
     return loss,xyz,velocity
@@ -489,7 +503,7 @@ def main():
     history.append({'epoch':epoch+1,'train_loss':float(np.mean(values)),**metrics})
     checkpoints.append(save_epoch_checkpoint(model,args.output,epoch+1,history[-1],
       dataset_sha256=hashlib.sha256((args.data/'manifest.json').read_bytes()).hexdigest(),
-      parent_sha256=hashlib.sha256(args.parent.read_bytes()).hexdigest() if args.parent else None,objective_revision=objective_revision,forward_only=args.forward_only,signed_hold_controls=args.signed_hold_controls,optimization_profile=optimization_profile,rear_axle_offset_m=args.rear_axle_offset_m,fp32_expert=args.fp32_expert))
+      parent_sha256=hashlib.sha256(args.parent.read_bytes()).hexdigest() if args.parent else None,objective_revision=objective_revision,forward_only=args.forward_only,signed_hold_controls=args.signed_hold_controls,optimization_profile=optimization_profile,rear_axle_offset_m=args.rear_axle_offset_m,fp32_expert=args.fp32_expert,mlp_only=args.mlp_only))
     score=(metrics['red_safe_count'],-metrics['red_hold_speed_mse'],-metrics['validation_loss'])
     if score>best_score:
       best_score=score
@@ -502,7 +516,7 @@ def main():
   write_json(args.output/'result.json',{'revision':MODEL_REVISION,'baseline':baseline,'best':best_metrics,'best_epoch':best_epoch,
     'balanced_best':balanced_metrics,'balanced_epoch':balanced_epoch,'balanced_adapter_saved':(args.output/'balanced.safetensors').is_file(),
     'history':history,'checkpoints':checkpoints,'adapter_saved':(args.output/'best.safetensors').is_file(),'qualified':False,'objective':'actual_ten_step_Euler_rollout',
-    'objective_revision':objective_revision,'forward_only':args.forward_only,'rear_axle_offset_m':args.rear_axle_offset_m,'fp32_expert':args.fp32_expert,'signed_hold_controls':args.signed_hold_controls,'adapter_scope':adapter_scope,'optimization_profile':optimization_profile,'learning_rate':args.learning_rate,
+    'objective_revision':objective_revision,'forward_only':args.forward_only,'rear_axle_offset_m':args.rear_axle_offset_m,'fp32_expert':args.fp32_expert,'mlp_only':args.mlp_only,'signed_hold_controls':args.signed_hold_controls,'adapter_scope':adapter_scope,'optimization_profile':optimization_profile,'learning_rate':args.learning_rate,
     'script_sha256':IMPLEMENTATION_SHA256,'dataset_sha256':hashlib.sha256((args.data/'manifest.json').read_bytes()).hexdigest(),
     'parent_sha256':hashlib.sha256(args.parent.read_bytes()).hexdigest() if args.parent else None,'official_sampling_max_error':sampling_error,
     'disk_sampling_max_error':disk_difference})
