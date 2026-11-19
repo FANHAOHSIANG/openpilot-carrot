@@ -109,6 +109,7 @@ from cluster_scene import (
 )
 from cluster_system_monitor import SystemStats, SystemStatsSampler
 from cluster_vehicle_models import ego_model_name
+from cluster_ioniq5 import draw_ioniq5
 from cluster_utils import blink_visible, clamp
 
 
@@ -2556,7 +2557,7 @@ class ClusterUiRenderer:
         else:
             self._camera_overlay_wide = False
             profile_stage = self._profile_start()
-            self._draw_scene(scene, state)
+            self._draw_scene(scene, state, signal_lights)
             self._profile_add("render_world.draw_scene", profile_stage)
 
     def _scene_for_state(
@@ -4142,7 +4143,7 @@ class ClusterUiRenderer:
         rl.ffi.memmove(data, raw, len(raw))
         return data
 
-    def _draw_scene(self, scene: ClusterScene, state: ClusterUiState) -> None:
+    def _draw_scene(self, scene: ClusterScene, state: ClusterUiState, signal_lights: tuple[bool, bool]) -> None:
         camera = rl.Camera3D(
             vec3(scene.camera.position),
             vec3(scene.camera.target),
@@ -4199,7 +4200,15 @@ class ClusterUiRenderer:
                     self._draw_radar_point(point)
             self._profile_add("draw_scene.radar_points", profile_stage)
             profile_stage = self._profile_start()
-            for vehicle in scene.vehicles:
+            vehicles = iter(scene.vehicles)
+            # The 3D scene puts the ego box first. Camera views take a separate path.
+            if state.car_fingerprint == "HYUNDAI_IONIQ_5":
+                ego = next(vehicles, None)
+                if ego is not None:
+                    left, right = signal_lights if state.ego_brake_lights is not None else (False, False)
+                    self._draw_vehicle_shadow(ego)
+                    draw_ioniq5(ego, bool(state.ego_brake_lights), left, right)
+            for vehicle in vehicles:
                 self._draw_vehicle(vehicle)
             self._profile_add("draw_scene.vehicles", profile_stage)
         finally:
