@@ -13,7 +13,7 @@ jobs:
           fetch-depth: 0
       - run: |
           set -euo pipefail
-          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 689a7a33422c234c3e5169ecc9df53d289df02a7
-          test "$(git rev-parse FETCH_HEAD)" = 689a7a33422c234c3e5169ecc9df53d289df02a7
-          git merge-base --is-ancestor dd24c1c200d7d012dbfa4225b7708396d6c0dc2f 689a7a33422c234c3e5169ecc9df53d289df02a7
-          git push origin 689a7a33422c234c3e5169ecc9df53d289df02a7:refs/heads/review/tony-afternoon-import-20261119
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git d4ccaab71a886fb6f816948a19e8d82e00614818
+          test "$(git rev-parse FETCH_HEAD)" = d4ccaab71a886fb6f816948a19e8d82e00614818
+          git merge-base --is-ancestor 689a7a33422c234c3e5169ecc9df53d289df02a7 d4ccaab71a886fb6f816948a19e8d82e00614818
+          git push origin d4ccaab71a886fb6f816948a19e8d82e00614818:refs/heads/review/tony-afternoon-import-20261119
