@@ -346,3 +346,5 @@ the Mac HUD App and does not import Google's route into the driving model.
 ## Integrated branch navigation
 
 This integration retains coordinate-only destination entry and disables the address-search endpoint, including permanent geocoding. Google Maps sharing requires a link with usable destination coordinates. Tony favorites remain available: enter latitude, longitude, confirm them, give the place a name and save. Existing favorites can be renamed, deleted or activated without an address search. Direct coordinates retain the Test destination behavior; favorite activation uses the current-drive temporary destination, and selecting direct coordinates clears that temporary destination.
+
+Active navigation shares the cockpit equally with the driving view. In portrait the map appears below the driving view. The standard 3D quality setting can render up to 1920 × 1080, subject to viewport size and device pixel density. The optional OSM layer shows road centerlines. Camera and vehicle observations supply the lane markings.

@@ -1,5 +1,5 @@
 import {createObjectTracker} from './object_tracker.js';
-import {surroundingTargets} from './scene_objects.js';
+import {surroundingTargets,createModelLeadSource,mergeModelLead} from './scene_objects.js';
 
 // Draw one classified model when a measured radar target and a camera track
 // uniquely agree. Ambiguous neighbours and unclassified model leads stay independent.
@@ -32,7 +32,8 @@ function combineReferences(items, aliases) {
 
 export function createPerceptionScene(target) {
   const tracker=createObjectTracker(), stamps=new Map(), aliases=new Map();
-  let session=null, autoStarted=false, lastVideo=null, replaySample=null, poseLease=null, acquiring=false;
+  let session=null, autoStarted=false, retryAfter=0, lastVideo=null, replaySample=null, poseLease=null, acquiring=false;
+  const modelLead=createModelLeadSource(tracker);
   let lastMotion=null;
   function releasePose(){const lease=poseLease;poseLease=null;lease?.release?.();}
   function syncPose(enabled){
@@ -42,7 +43,7 @@ export function createPerceptionScene(target) {
     try {poseLease=target.CarrotDriveDataActivity.acquire({owner:'perception_pose',hud:true,overlay:true,ar:true});}
     finally {acquiring=false;}
   }
-  function clear() {tracker.reset();stamps.clear();aliases.clear();lastVideo=null;replaySample=null;lastMotion=null;}
+  function clear() {modelLead.clear();tracker.reset();stamps.clear();aliases.clear();lastVideo=null;replaySample=null;lastMotion=null;}
   function update(scene,now,active,replay) {
     if(!active) {clear();releasePose();session=null;return [];}
     syncPose(!replay && target.CarrotDeviceRuntimeState?.isOffroad!==true);
@@ -93,17 +94,19 @@ export function createPerceptionScene(target) {
         tracker.ingest(key,{stamp:result.capturedAt,epoch:result.generation,objects:result.objects,geometry:result.geometry},now,motion);
       } else tracker.drop(key);
     }
-    return combineReferences(tracker.sample(now,motion),aliases);
+    modelLead.update(connected?scene.model:null,mono.modelV2,now,motion);
+    const tracks=combineReferences(tracker.sample(now,motion),aliases);
+    return mergeModelLead(tracks,now);
   }
   function startConfigured(active,settings) {
-    const configured=settings.vision_object_detection===true||settings.vision_road_detection===true||settings.vision_environment_occupancy===true;
-    if(!configured){autoStarted=false;return;}
-    if(!active || autoStarted || ![1,true].includes(target.CarrotDeviceRuntimeState?.carrotVisionEnabled)
+    const cockpit=target.document?.body?.dataset?.cockpitPanel==='vision';
+    const configured=cockpit||settings.vision_object_detection===true||settings.vision_road_detection===true||settings.vision_environment_occupancy===true;
+    if(!configured || ![1,true].includes(target.CarrotDeviceRuntimeState?.carrotVisionEnabled) || !target.CarrotVisionState?.available){autoStarted=false;return;}
+    if(!active || autoStarted || Date.now()<retryAfter
       ||target.CarrotVisionReplay?.status?.()?.active || !target.CarrotVisionStart)return;
-    if(!target.CarrotVisionState?.available)return;
     autoStarted=true;
     // Never take over another viewer's camera, request full screen or write a camera setting.
-    if(!target.CarrotVisionState.active)Promise.resolve(target.CarrotVisionStart({automaticPerception:true})).catch(()=>{});
+    if(!target.CarrotVisionState.active)Promise.resolve(target.CarrotVisionStart({automaticPerception:true})).catch(()=>{autoStarted=false;retryAfter=Date.now()+3000;});
   }
   return {update,startConfigured,clear(){clear();releasePose();},tracker,get motion(){return lastMotion;}};
 }
@@ -125,9 +128,9 @@ export function createRenderMeter(){
 export function trackingReport(s) {
   if(!s)return '等待感知資料';
   const number=(v,d=0)=>Number.isFinite(v)?v.toFixed(d):'—';
-  const labels={radar:'原生目標',vision:'鏡頭物件',road:'道路辨識',tentative:'待確認',confirmed:'已確認',predicted:'短暫預測',lost:'遺失'};
+  const labels={model:'駕駛模型前車',radar:'原生目標',vision:'鏡頭物件',road:'道路辨識',tentative:'待確認',confirmed:'已確認',predicted:'短暫預測',lost:'遺失'};
   const rows=Object.entries(s.sources).map(([name,f])=>labels[name]+'　'+number(f.fps,1)+' FPS　'+
-    (name==='radar'?'收到後經過 '+number(f.ageMs):'擷取至結果 '+number(f.latencyMs))+' ms');
+    (['radar','model'].includes(name)?'收到後經過 '+number(f.ageMs):'擷取至結果 '+number(f.latencyMs))+' ms');
   rows.push('畫面 '+number(s.render.fps,1)+' FPS　繪製提交 '+number(s.render.submitMs,1)+' ms',
     '有效 '+s.active+'　新增 '+s.created+'　遺失 '+s.lost+'　移除 '+s.removed,
     '模型建立 '+(s.render.allocated??0)+'　重用 '+(s.render.reused??0)+'　釋放 '+(s.render.discarded??0),

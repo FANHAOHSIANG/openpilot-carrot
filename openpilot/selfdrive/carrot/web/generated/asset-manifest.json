@@ -6,7 +6,21 @@
       "kind": "bundle",
       "source": "src/entries/cockpit.js",
       "path": "js/generated/cockpit.js",
-      "hash": "34a4dc3a35761cb1fbe56311f6f49887864fd37986fa858fb8897c6e92b48068"
+      "hash": "926b7ab0684db620855d122fee77f5633336c14d38ebef6dae4154a81ab2a4c9"
+    },
+    {
+      "id": "navigation.offline",
+      "kind": "bundle",
+      "source": "src/entries/offline_map.js",
+      "path": "js/generated/offline-map.js",
+      "hash": "588a89b44b74c0e558be4f40c2540c960b52a8bf6edb400eb624851fd7f52b77"
+    },
+    {
+      "id": "tools.intersection",
+      "kind": "bundle",
+      "source": "src/entries/intersection.js",
+      "path": "js/generated/intersection.js",
+      "hash": "454e4792c84493d1a27c24b4c5b2e82f58b300a731ff70d57ac7ccc992039202"
     },
     {
       "id": "tools.lane-mapping",
@@ -34,7 +48,7 @@
       "kind": "bundle",
       "source": "src/entries/drive.js",
       "path": "js/generated/drive.js",
-      "hash": "d93c73f9efbce7546dc614d49c2fd6462ee41d85f389f4068b8d2ce0c2e36a8f"
+      "hash": "7ad677325d0d2bb9d65d697d3f9d238975e95ed31aef8dade22674d16f934c88"
     },
     {
       "id": "replay.runtime",
@@ -179,7 +193,7 @@
       "id": "vision.parking-detector-worker",
       "kind": "worker",
       "path": "js/generated/parking-detector-worker.js",
-      "hash": "426235bc125f62fbe3c6d0106dab4eda708e48799f96b224e980a207971de243"
+      "hash": "8fdfa66de1aba115cc470986e3c7d9aae427026523598ac4856ed05796787640"
     },
     {
       "id": "vision.road-detector-worker",
@@ -191,7 +205,7 @@
       "id": "vision.object-detector-worker",
       "kind": "worker",
       "path": "js/generated/bev-detector-worker.js",
-      "hash": "c94a7b1ee519cf3f400237c1c699182e3edfbc625a2a4bc23456ca01ddf13b84"
+      "hash": "45d8dd7fcdd03599e1d9e3c21880f58fa2054788a84c9be4299b5bf583bafc45"
     },
     {
       "id": "vision.webgl2.worker",
