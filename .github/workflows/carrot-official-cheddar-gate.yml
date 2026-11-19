@@ -61,3 +61,15 @@ jobs:
         env:
           DEV: CPU
         run: python -m pytest -c /dev/null --noconftest -q openpilot/selfdrive/modeld/tests/test_onnx_history_gather.py
+  native_scons_compile:
+    name: Native SCons compile with default internal Cheddar model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Prepare native build dependencies
+        run: ./tools/op.sh setup
+      - name: Compile source and default internal model (no device execution)
+        run: scons -j2
