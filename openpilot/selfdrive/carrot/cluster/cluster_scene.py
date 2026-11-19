@@ -2316,7 +2316,7 @@ def radar_vehicle_box(
     alpha = int(92 + 163 * confidence)
     if radar_point_is_oncoming(point, state):
         body_color = RED
-    elif radar_point_is_cross_traffic(point, lateral_speed_offset_mps):
+    elif point.cross_traffic_paint_until_s is not None or radar_point_is_cross_traffic(point, lateral_speed_offset_mps):
         body_color = AMBER
     else:
         body_color = vehicle_color_for_source(point.source, theme, state.radar_source_color_mode)

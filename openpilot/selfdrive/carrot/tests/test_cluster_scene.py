@@ -482,9 +482,19 @@ def test_lead_one_metrics_keep_large_size_at_every_distance(metric_renderer, dis
   vehicle = _metric_vehicle(distance=distance)
   renderer._draw_vehicle_badges((vehicle,), object())
   assert dict(labels) == {
-    cluster_renderer.vehicle_distance_label(vehicle, is_metric): 24,
-    cluster_renderer.vehicle_speed_label(vehicle, is_metric): 22,
+    cluster_renderer.vehicle_distance_label(vehicle, is_metric): 28,
+    cluster_renderer.vehicle_speed_label(vehicle, is_metric): 26,
   }
+
+
+def test_lead_metric_red_stays_with_the_primary_vehicle(metric_renderer, monkeypatch):
+  renderer, _ = metric_renderer
+  labels = []
+  monkeypatch.setattr(renderer, "_draw_vehicle_metric_labels", labels.extend)
+  renderer._draw_vehicle_badges((_metric_vehicle("L1"), _metric_vehicle("RF", primary=False)), object())
+  by_vehicle = {metric.vehicle.label: metric.color[:3] for metric in labels}
+  assert by_vehicle["L1"] == (255, 94, 94)
+  assert by_vehicle["RF"] != by_vehicle["L1"]
 
 
 def test_only_lead_one_has_large_metrics_among_primary_and_surrounding_vehicles(metric_renderer):
@@ -498,7 +508,7 @@ def test_only_lead_one_has_large_metrics_among_primary_and_surrounding_vehicles(
   )
   renderer._draw_vehicle_badges(vehicles, object())
   large = {text: size for text, size in labels if size > 17}
-  assert large == {"180 m": 24, "90 km/h": 22}
+  assert large == {"180 m": 28, "90 km/h": 26}
   for vehicle in (vehicles[0], vehicles[1], vehicles[3], vehicles[4]):
     scale = cluster_renderer.world_label_scale(vehicle.longitudinal_m)
     assert dict(labels)[cluster_renderer.vehicle_distance_label(vehicle)] == pytest.approx(max(9.0, 17 * scale))
@@ -519,14 +529,14 @@ def test_large_metrics_preserve_visibility_and_missing_speed_rules(metric_render
   renderer, labels = metric_renderer
   vehicle = _metric_vehicle(speed=speed)
   renderer._draw_vehicle_badges((vehicle,), object(), radar_info_mode=mode)
-  expected = {"180 m": 24}  # Existing important-lead distance remains visible in every mode.
+  expected = {"180 m": 28}  # Existing important-lead distance remains visible in every mode.
   if mode != CLUSTER_RADAR_INFO_NONE and speed == 90.0:
-    expected["90 km/h"] = 22
+    expected["90 km/h"] = 26
   assert dict(labels) == expected
 
 
 @pytest.mark.parametrize("distance", [8.0, 80.0, 220.0])
-@pytest.mark.parametrize("label,primary,size", [("L1", True, 24), ("L2", True, 17), ("CUT-IN", True, 17), ("RF", False, 15)])
+@pytest.mark.parametrize("label,primary,size", [("L1", True, 28), ("L2", True, 17), ("CUT-IN", True, 17), ("RF", False, 15)])
 def test_camera_overlay_enlarges_only_lead_one_metrics(metric_renderer, distance, label, primary, size):
   renderer, labels = metric_renderer
   vehicle = _metric_vehicle(label, distance=distance, primary=primary, cut_in=label == "CUT-IN")
@@ -546,11 +556,11 @@ def test_large_lead_labels_stay_in_view_and_suppress_only_overlapping_vehicle_te
   label = cluster_renderer.VehicleMetricLabel
   renderer._draw_vehicle_metric_labels([
     label(_metric_vehicle("L2"), (line("L2 speed", 500.0, 40.0, 15),), (255, 255, 255)),
-    label(_metric_vehicle(), (line("180 m", 500.0, -10.0, 24), line("90 km/h", 500.0, 20.0, 22)), (255, 255, 255)),
+    label(_metric_vehicle(), (line("180 m", 500.0, -10.0, 28), line("90 km/h", 500.0, 20.0, 26)), (255, 255, 255)),
     label(_metric_vehicle("RF", primary=False), (line("RF speed", 800.0, 100.0, 15),), (255, 255, 255)),
   ])
   assert {text for text, *_ in draws} == {"180 m", "90 km/h", "RF speed"}
-  assert {text: size for text, _, _, size in draws} == {"180 m": 24, "90 km/h": 22, "RF speed": 15}
+  assert {text: size for text, _, _, size in draws} == {"180 m": 28, "90 km/h": 26, "RF speed": 15}
   assert all(y - size * 0.5 >= 4.0 for _, _, y, size in draws)
   assert all(y + size * 0.5 <= renderer.height - 4.0 for _, _, y, size in draws)
 
@@ -565,7 +575,7 @@ def test_camera_overlay_reserves_large_lead_metrics_after_drawing_vehicle_frames
   )
   projection = SimpleNamespace(dest=cluster_renderer.rl.Rectangle(0.0, 0.0, 1124.0, 480.0))
   renderer._draw_camera_projected_overlay(scene, _cluster_state(), projection)
-  assert labels == [("180 m 90 km/h", 24)]
+  assert labels == [("180 m 90 km/h", 28)]
 
 
 def test_scene_cache_key_covers_every_cluster_scene_state_access() -> None:
@@ -1059,3 +1069,100 @@ def test_corner_radar_detail_mode_still_obeys_display_budget() -> None:
 
   assert len(displayed) == cluster_scene.CORNER_RADAR_DISPLAY_POINT_LIMIT
   assert len({point.label for point in displayed}) == len(displayed)
+
+
+def test_cross_traffic_paint_is_bounded_to_continuous_measured_track():
+  from cluster_route_replay import RouteLogParser
+  parser = RouteLogParser(recompute_cutins=False)
+  state = _cluster_state()
+
+  def point(track_id, crossing_speed, y=3.2, distance=20.0, measured=True, speed=8.0):
+    return SimpleNamespace(trackId=track_id, radarSource="frontRadar", dRel=distance, yRel=y,
+                           vLead=speed, yvRel=crossing_speed, measured=measured)
+
+  def colors(t, *tracks):
+    parser._update_live_tracks(SimpleNamespace(points=tracks), t)
+    return {label: cluster_scene.radar_vehicle_box(radar, state, 3.6).body_color[:3]
+            for label, radar in parser.live_track_radar_points.items()}
+
+  amber, red, ordinary = cluster_scene.AMBER, cluster_scene.RED, LIGHT_CLUSTER_THEME.default_vehicle
+  assert colors(1.0, point(7, 2.2), point(8, 0.0)) == {"T7": amber, "T8": ordinary}
+  assert colors(1.10, point(8, 0.0), point(7, 1.8)) == {"T8": ordinary, "T7": amber}
+  assert parser.live_track_radar_points["T7"].lateral_speed_mps == -1.8
+  assert colors(1.22, point(7, 1.8, speed=-8.0)) == {"T7": red}
+  assert colors(1.36, point(7, 1.8)) == {"T7": ordinary}
+  assert colors(1.4, point(7, 2.3)) == {"T7": amber}
+  assert colors(1.45, point(7, 0.0, y=-3.2)) == {"T7": ordinary}
+  assert colors(1.50, point(7, 2.3)) == {"T7": amber}
+  assert colors(1.55) == {}
+  assert colors(1.60, point(7, 0.0)) == {"T7": ordinary}
+  assert colors(1.65, point(7, 2.3)) == {"T7": amber}
+  assert colors(1.95, point(7, 1.9)) == {"T7": ordinary}
+  assert colors(2.00, point(7, 2.3)) == {"T7": amber}
+  assert colors(2.05, point(7, 0.0, measured=False)) == {"T7": ordinary}
+  assert colors(2.10, point(7, 0.0)) == {"T7": ordinary}
+  assert colors(2.15, point(7, 2.3)) == {"T7": amber}
+  assert colors(2.20, point(7, 0.0, distance=50.0)) == {"T7": ordinary}
+
+
+@pytest.mark.parametrize("clean_enabled, has_models", [(False, False), (False, True), (True, False), (True, True)])
+def test_fused_forward_vehicle_keeps_its_marker_across_source_handover(monkeypatch, clean_enabled, has_models):
+  renderer = object.__new__(ClusterUiRenderer)
+  renderer._vehicle_model = object()
+  renderer._other_vehicle_models = [object()] if has_models else []
+  draws = []
+  monkeypatch.setattr(cluster_renderer, "clean_ui_enabled", lambda: clean_enabled)
+  monkeypatch.setattr(renderer, "_draw_native_car", lambda v: draws.append(("native", v.body_color)))
+  monkeypatch.setattr(renderer, "_draw_vehicle_marker", lambda v: draws.append(("marker", v.body_color)))
+  monkeypatch.setattr(renderer, "_draw_vehicle_shadow", lambda _v: None)
+  monkeypatch.setattr(renderer, "_draw_vehicle_model", lambda v: draws.append(("model", v.body_color)))
+  lead = _metric_vehicle()
+
+  for source in ("radarState", "modelV2.leadsV3", "radarState+radar:T35", "CAN 0x162", "carState+radar:T35"):
+    renderer._draw_vehicle(replace(lead, source=source))
+  cutin = replace(lead, source="carState+radar:T35", cut_in=True, primary=False, body_color=(*cluster_scene.AMBER, 255))
+  renderer._draw_vehicle(cutin)
+  renderer._draw_vehicle(replace(lead, source="liveTracks", primary=False))
+  renderer._draw_vehicle(replace(lead, source="", primary=False))
+
+  forward = "model" if clean_enabled and has_models else "native"
+  side = "model" if clean_enabled and has_models else "marker"
+  assert draws == [(forward, lead.body_color)] * 5 + [
+    (forward, cutin.body_color), (side, lead.body_color), ("model", lead.body_color),
+  ]
+
+
+def test_crossing_vehicle_color_expires_at_render_time_and_preserves_separate_front_lead():
+  from cluster_route_replay import RouteLogParser
+
+  parser = RouteLogParser(recompute_cutins=False)
+  lead = DetectedVehicle("L1", 3.0, 0.2, source="radarState", primary=True)
+  crossing = dict(trackId=7, radarSource="frontRadar", dRel=15.0, yRel=3.2, vLead=8.0, measured=True)
+
+  def update(t, lateral_speed):
+    parser._update_live_tracks(SimpleNamespace(points=[SimpleNamespace(**crossing, yvRel=lateral_speed)]), t)
+
+  def visible(t):
+    points = parser._radar_points_from_current_state(t)
+    scene = build_cluster_scene(_cluster_state(radar_points=points, detected_vehicles=(lead,)))
+    return {car.label: car for car in scene.vehicles if car.source}
+
+  update(1.0, 2.2)
+  update(1.15, 1.6)
+  update(1.30, 1.6)
+  assert visible(1.34)["T7"].body_color[:3] == cluster_scene.AMBER
+  cars = visible(1.36)
+  assert set(cars) == {"T7", "L1"}
+  assert cars["T7"].body_color[:3] == LIGHT_CLUSTER_THEME.default_vehicle
+  assert cars["L1"].longitudinal_m == 3.0
+  assert set(visible(1.56)) == {"L1"}
+
+
+def test_clean_side_model_keeps_its_geometry_when_radar_speed_is_attached(monkeypatch):
+  monkeypatch.setattr(cluster_renderer, "clean_ui_enabled", lambda: True)
+  renderer = object.__new__(ClusterUiRenderer)
+  renderer._other_vehicle_models = [object()]
+  side_vehicle = replace(_metric_vehicle(), primary=False, cut_in=False)
+  for source in ("carState", "carState+radar:T7", "cornerRadar", "liveTracks"):
+    assert renderer._uses_other_model(replace(side_vehicle, source=source))
+  assert not renderer._uses_other_model(replace(side_vehicle, source="radarPoint"))
