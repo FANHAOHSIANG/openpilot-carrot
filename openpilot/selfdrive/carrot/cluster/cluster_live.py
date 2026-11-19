@@ -456,6 +456,8 @@ class OpenpilotLiveSource:
         return replace(
             state,
             onroad=onroad,
+            ego_brake_lights=(bool(safe_get(car_state, "brakeLights", False))
+                              if self._service_alive("carState") and self._service_valid("carState") else None),
             alert=self._live_cluster_alert(state.alert, onroad),
             egpu_active=getattr(self, "_egpu_active", False),
             external_compute_label=getattr(self, '_external_compute_label', ''),

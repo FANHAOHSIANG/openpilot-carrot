@@ -396,6 +396,7 @@ class ClusterUiState:
     lanes: tuple[LaneMarking, ...]
     onroad: bool = False
     car_fingerprint: str = ""
+    ego_brake_lights: bool | None = None
     active_lane_line: bool | None = None
     camera_view_mode: int = 0
     extra_left_lane_visible: bool = False
