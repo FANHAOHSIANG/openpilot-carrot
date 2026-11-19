@@ -184,6 +184,9 @@ def encode_snapshot(record):
     # Older HUD bundles know the driver-indicator origin and turning reason.
     record = dict(record, indicator_display=dict(indicator, origin='manual'))
   data = json.dumps(record, separators=(',', ':')).encode()
+  if len(data) > 96 * 1024 and 'road_hd' in record.get('cameras', {}):
+    record = dict(record, cameras={k: v for k, v in record['cameras'].items() if k != 'road_hd'})
+    data = json.dumps(record, separators=(',', ':')).encode()
   if len(data) > 96 * 1024:
     # Optional signal metadata must not evict an existing camera or NAV image.
     record.pop('indicator_display', None)
