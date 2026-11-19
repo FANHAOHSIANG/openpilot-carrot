@@ -185,13 +185,18 @@ def test_main_model_prioritized_on_lag_heat_memory_load_display_disconnect(monke
   sm = State(modelV2=model, deviceState=dev)
   assert worker.suspension_reason(sm, params) is None
   for obj, key, value in [(model,'timestampEof',4_000_000_000), (model,'modelExecutionTime',.08), (model,'frameDropPerc',1.01),
-                          (dev,'thermalStatus','yellow'), (dev,'memoryUsagePercent',94), (dev,'cpuUsagePercent',[]),
-                          (dev,'cpuUsagePercent',[90]*4 + [0]*4)]:
+                          (dev,'thermalStatus','yellow'), (dev,'memoryUsagePercent',94), (dev,'cpuUsagePercent',[])]:
     orig = getattr(obj,key)
     setattr(obj,key,value)
     assert worker.suspension_reason(sm, params)
     setattr(obj,key,orig)
   # Saturation on the child's permitted little cores allows only passive display.
+  dev.cpuUsagePercent = [94, 95, 95, 95, 100, 100, 100, 100]
+  assert worker.suspension_reason(sm, params) is None
+  dev.cpuUsagePercent[0] = 95
+  assert worker.suspension_reason(sm, params) == worker.CPU_BUSY
+  dev.cpuUsagePercent[0] = 96
+  assert worker.suspension_reason(sm, params) == worker.CPU_BUSY
   dev.cpuUsagePercent = [100, 100, 10, 10, 20, 20, 20, 20]
   assert worker.suspension_reason(sm, params, {0, 1}) == worker.CPU_BUSY
   assert worker.suspension_reason(sm, params, {2, 3}) is None

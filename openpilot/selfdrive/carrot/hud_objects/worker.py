@@ -36,7 +36,7 @@ def suspension_reason(sm, params, cores=LOW_PRIORITY_CPUS):
   age = time.clock_gettime(time.CLOCK_BOOTTIME) - model.timestampEof / 1e9
   if not (0 <= age <= .150 and 0 < model.modelExecutionTime <= .050 and 0 <= model.frameDropPerc <= 1.):
     return 'main model late, slow or dropping frames'
-  if sum(cpus[i] for i in cores) >= len(cores) * 85:
+  if sum(cpus[i] for i in cores) >= len(cores) * 95:
     return CPU_BUSY
   return None
 
