@@ -1,0 +1,19 @@
+name: Preserve upstream Studio and cockpit source for review
+on:
+  push:
+    branches: ['review/tony-afternoon-copy-20261119']
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/TonyBinheWu/sunnypilot.git 25fe1853bb030b5237335c5e91b54ad99003131c
+          test "$(git rev-parse FETCH_HEAD)" = 25fe1853bb030b5237335c5e91b54ad99003131c
+          git merge-base --is-ancestor be2a2c29c4a4e8031aa9425c2627cafe2f1a8396 25fe1853bb030b5237335c5e91b54ad99003131c
+          git push origin 25fe1853bb030b5237335c5e91b54ad99003131c:refs/heads/review/tony-afternoon-import-20261119
