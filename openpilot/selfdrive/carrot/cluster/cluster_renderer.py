@@ -1208,6 +1208,8 @@ class ClusterUiRenderer:
     # original Korean/metric presentation without running the GPU-heavy init.
     language = CLUSTER_LANGUAGE_KO
     is_metric = True
+    show_floating_arrows = False
+    show_speed_limit_sign = True
     _other_vehicle_models = ()
     _other_vehicle_names = ()
     _other_vehicle_paint = ()
@@ -8604,7 +8606,7 @@ class ClusterUiRenderer:
                 anchor="center",
             )
 
-        if state.speed_limit_kph is not None or state.navi_debug is not None:
+        if self.show_speed_limit_sign and (state.speed_limit_kph is not None or state.navi_debug is not None):
             center = rl.Vector2(SPEED_LIMIT_SIGN_CENTER_X, SPEED_LIMIT_SIGN_CENTER_Y)
             rl.draw_circle_v(center, SPEED_LIMIT_SIGN_RADIUS, rl_color(RED))
             rl.draw_circle_v(center, SPEED_LIMIT_SIGN_RADIUS - SPEED_LIMIT_SIGN_RING_WIDTH, rl_color(WHITE))
@@ -8631,9 +8633,9 @@ class ClusterUiRenderer:
 
     def _draw_clean_speed(self, state: ClusterUiState, speed_value: int, theme) -> None:
         text_color, stroke, muted = self._clean_text_colors(theme)
-        limit_value = None
-        if state.speed_limit_kph is not None:
-            limit_value = int(round(display_speed(state.speed_limit_kph, self.is_metric)))
+        limit_value = (int(round(display_speed(state.speed_limit_kph, self.is_metric)))
+                       if state.speed_limit_kph is not None else None)
+        if self.show_speed_limit_sign and limit_value is not None:
             center = rl.Vector2(82.0, 128.0)
             rl.draw_circle_v(center, 38.0, rl_color(RED))
             rl.draw_circle_v(center, 32.0, rl_color(WHITE))
@@ -9228,7 +9230,7 @@ class ClusterUiRenderer:
         show_inactive: bool = False,
         center_x_offset: float = 0.0,
     ) -> None:
-        if not lit and not show_inactive:
+        if not self.show_floating_arrows or (not lit and not show_inactive):
             return
 
         theme = self._current_theme()
