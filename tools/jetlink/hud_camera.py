@@ -15,17 +15,17 @@ import numpy as np
 WIDTH, HEIGHT = 384, 240
 
 
-def jpeg_preview(nv12):
+def jpeg_preview(nv12, width=WIDTH, height=HEIGHT, qualities=(50, 35, 20)):
   from PIL import Image
   raw = np.frombuffer(nv12, np.uint8)
-  y = raw[:WIDTH * HEIGHT].reshape(HEIGHT, WIDTH)
-  uv = raw[WIDTH * HEIGHT:].reshape(HEIGHT // 2, WIDTH)
-  yuv = np.empty((HEIGHT, WIDTH, 3), np.uint8)
+  y = raw[:width * height].reshape(height, width)
+  uv = raw[width * height:].reshape(height // 2, width)
+  yuv = np.empty((height, width, 3), np.uint8)
   yuv[:, :, 0] = y
   yuv[:, :, 1] = uv[:, 0::2].repeat(2, axis=0).repeat(2, axis=1)
   yuv[:, :, 2] = uv[:, 1::2].repeat(2, axis=0).repeat(2, axis=1)
   image = Image.fromarray(yuv, 'YCbCr')
-  for quality in (50, 35, 20):
+  for quality in qualities:
     output = BytesIO()
     image.save(output, format='JPEG', quality=quality)
     data = output.getvalue()
@@ -34,17 +34,17 @@ def jpeg_preview(nv12):
   raise ValueError('display preview exceeds its USB budget')
 
 
-def preview_nv12(frame):
+def preview_nv12(frame, width=WIDTH, height=HEIGHT):
   raw = np.frombuffer(frame.data, np.uint8)
   y = raw[:frame.uv_offset].reshape(-1, frame.stride)
   uv = raw[frame.uv_offset:frame.uv_offset + (frame.height // 2) * frame.stride].reshape(-1, frame.stride)
   # Preserve the entire camera field of view, independent of the model warp.
-  yi = np.arange(HEIGHT) * frame.height // HEIGHT
-  xi = np.arange(WIDTH) * frame.width // WIDTH
-  uyi = np.arange(HEIGHT // 2) * (frame.height // 2) // (HEIGHT // 2)
-  uxi = np.arange(WIDTH // 2) * (frame.width // 2) // (WIDTH // 2)
+  yi = np.arange(height) * frame.height // height
+  xi = np.arange(width) * frame.width // width
+  uyi = np.arange(height // 2) * (frame.height // 2) // (height // 2)
+  uxi = np.arange(width // 2) * (frame.width // 2) // (width // 2)
   small_y = y[np.ix_(yi, xi)]
-  small_uv = np.empty((HEIGHT // 2, WIDTH), np.uint8)
+  small_uv = np.empty((height // 2, width), np.uint8)
   small_uv[:, 0::2] = uv[np.ix_(uyi, uxi * 2)]
   small_uv[:, 1::2] = uv[np.ix_(uyi, uxi * 2 + 1)]
   return small_y.tobytes() + small_uv.tobytes()
@@ -94,6 +94,10 @@ class CameraPublisher:
                             'time': time.monotonic(),
                             'source_width': int(frame.width), 'source_height': int(frame.height),
                             'capture_time': client.timestamp_eof / 1e9, 'jpeg': base64.b64encode(jpeg_preview(preview_nv12(frame))).decode()}
+            if name == 'road':
+              hd = jpeg_preview(preview_nv12(frame, 640, 400), 640, 400, (72, 60, 48))
+              result['road_hd'] = dict(result[name], width=640, height=400,
+                                       jpeg=base64.b64encode(hd).decode())
         except Exception:
           continue  # Missing previews never affect inference or vehicle state.
       temporary = path.with_suffix('.tmp')
