@@ -3323,6 +3323,8 @@ class RouteLogParser:
 
     def _speed_limit_kph_from_car_state(self, car_state: Any) -> int | None:
         speed_limit = safe_float(car_state, "speedLimit", 0.0)
+        if speed_limit <= 0.0 and safe_get(car_state, "canValid", False):
+            speed_limit = safe_float(car_state, "speedLimitClusterKph", 0.0)
         if speed_limit <= 0.0:
             return None
         return int(round(speed_limit))

@@ -473,7 +473,11 @@ option; without raw received CAN, `carState` still provides LF/RF distance and
 LR/RR distance when the current cereal schema exposes it. Blindspot booleans do
 not create fallback vehicle boxes.
 Cluster road speed-limit display treats `carState.speedLimit` from the
-vehicle/HDA path as km/h. Navigation speed limits are accepted in either the
+vehicle/HDA path as km/h. On the non-PE IONIQ 5, a fresh metric instrument sign
+from camera CAN (0x1FA) supplies the HUD circle when the HDA field is empty.
+Both primary signs must match. Zero, a mismatch or a missing signal returns
+the circle to its usual navigation source. This instrument sign also travels
+in the Jetlink display snapshot and has no cruise-control consumer. Navigation speed limits are accepted in either the
 km/h values used by the current navigation integrations or the m/s values used
 by upstream `navd`; km/h-looking values such as 50/100 stay unchanged. Empty
 navigation speed-limit samples do not immediately clear the last valid

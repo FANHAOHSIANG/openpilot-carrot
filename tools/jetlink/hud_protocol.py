@@ -143,6 +143,7 @@ class SnapshotBuilder:
       return None
     self.next_send = now + .1 if now - self.next_send > .2 else self.next_send + .1
     self.sm.update(0)
+    now = time.monotonic()
     for name in SERVICES:
       if self.sm.updated[name]:
         event = log.Event.new_message(logMonoTime=self.sm.logMonoTime[name], valid=self.sm.valid[name])
@@ -167,6 +168,10 @@ class SnapshotBuilder:
               'external_compute_label': device_badge[0] if device_badge and device_badge[1] == 'active' else '',
               'received': self.sm.recv_time, 'mono': self.sm.logMonoTime,
               'valid': self.sm.valid, 'alive': self.sm.alive, 'cameras': self.camera_previews()}
+    # Older Mac helpers decode carState with a pinned cereal schema. Expose this
+    # display-only field separately so the extension needs no schema negotiation.
+    if self.sm.valid['carState'] and self.sm.alive['carState'] and 0 <= now - self.sm.recv_time['carState'] <= .5:
+      record['cluster_speed_limit_kph'] = int(self.sm['carState'].speedLimitClusterKph)
     from hud_signal import signal_packet
     record['signal_display'] = signal_packet(now)
     from openpilot.common.indicator_display import current

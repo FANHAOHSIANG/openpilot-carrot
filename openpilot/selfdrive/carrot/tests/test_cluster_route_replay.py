@@ -324,6 +324,28 @@ def test_controls_active_lane_line_reaches_cluster_state():
   assert state.active_lane_line is True
 
 
+def test_instrument_sign_is_a_display_fallback_between_vehicle_and_navigation():
+  parser = RouteLogParser()
+  parser._update_nav_instruction(SimpleNamespace(speedLimit=50), 1.0)
+  cs = SimpleNamespace(speedLimit=0, speedLimitClusterKph=80, canValid=True)
+
+  def sign():
+    frame = parser._frame_from_car_state(cs, 1.0)
+    return frame.speed_limit_kph, frame.speed_limit_source
+
+  assert sign() == (80, "v")
+  cs.speedLimit = 60
+  assert sign() == (60, "v")
+  cs.speedLimit = 0
+  cs.canValid = False
+  assert sign() == (50, "n")
+  cs.canValid = True
+  cs.speedLimitClusterKph = 0
+  assert sign() == (50, "n")
+  del cs.speedLimitClusterKph
+  assert sign() == (50, "n")
+
+
 def test_ev_mode_reaches_cluster_only_when_carstate_marks_it_valid():
   parser = RouteLogParser()
 
