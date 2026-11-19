@@ -44,6 +44,7 @@ from cluster_models import (
     ModelPathPoint,
     ModelRiskPoint,
     RadarPoint,
+    RADAR_CROSS_TRAFFIC_MIN_LATERAL_SPEED_MPS,
     RADAR_MOVING_VEHICLE_MIN_SPEED_KPH,
     RouteOverlay,
     TpmsInfo,
@@ -107,6 +108,7 @@ class DbcSignalSpec:
 
 MODEL_LEAD_MIN_PROB = 0.50
 RADAR_POINT_STALE_S = 0.25
+CROSS_TRAFFIC_PAINT_RELEASE_S = 0.35
 CORNER_DETECTION_STALE_S = 0.8
 RADAR_MIN_LONGITUDINAL_M = 0.0
 RADAR_FRONT_MAX_LONGITUDINAL_M = 180.0
@@ -2435,6 +2437,18 @@ class RouteLogParser:
                 allow_legacy_corner_ids=self.car_brand == "hyundai",
             )
             if point is not None and not (self.front_radar_only and point.source == CORNER_OBJECT_SOURCE):
+                if point.source == "liveTracks" and point.valid and safe_optional_int(track, "trackId") is not None:
+                    # Only carry paint for an uninterrupted measured front track. Heading, selection,
+                    # reported speed and the lifetime of the point all follow the current packet.
+                    previous = self.live_track_radar_points.get(point.label)
+                    if abs(point.lateral_speed_mps or 0.0) >= RADAR_CROSS_TRAFFIC_MIN_LATERAL_SPEED_MPS:
+                        point = replace(point, cross_traffic_paint_until_s=event_t + CROSS_TRAFFIC_PAINT_RELEASE_S)
+                    elif (previous is not None and previous.cross_traffic_paint_until_s is not None
+                          and event_t < previous.cross_traffic_paint_until_s
+                          and 0.0 <= event_t - self.live_track_radar_t < RADAR_POINT_STALE_S
+                          and abs(point.lateral_m - previous.lateral_m) <= 1.2
+                          and abs(point.longitudinal_m - previous.longitudinal_m) <= 4.0):
+                        point = replace(point, cross_traffic_paint_until_s=previous.cross_traffic_paint_until_s)
                 points[point.label] = point
                 if point.source == CORNER_OBJECT_SOURCE:
                     self.corner_radar_tracks_seen = True
@@ -3104,7 +3118,12 @@ class RouteLogParser:
         if live_tracks_fresh:
             if self.corner_radar_active_for_display():
                 return ()
-            return sorted_radar_points(self.live_track_radar_points.values())
+            return sorted_radar_points(
+                replace(point, cross_traffic_paint_until_s=None)
+                if point.cross_traffic_paint_until_s is not None and event_t >= point.cross_traffic_paint_until_s
+                else point
+                for point in self.live_track_radar_points.values()
+            )
         return ()
 
     def _raw_corner_points_from_current_state(self, event_t: float) -> tuple[RadarPoint, ...]:

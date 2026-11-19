@@ -321,6 +321,7 @@ class RadarPoint:
     in_my_lane: int | None = None
     motion_consistent: bool | None = None
     promotion_held: bool = False
+    cross_traffic_paint_until_s: float | None = None
 
 
 RADAR_ZERO_POSITION_EPS_M = 1e-3

@@ -3918,9 +3918,9 @@ class ClusterUiRenderer:
             return False
         if vehicle.primary or vehicle.cut_in:
             return True
-        if clean_ui_enabled() and (vehicle.source in SIDE_VEHICLE_MODEL_SOURCES or vehicle.source == "carState"):
-            return True  # EV6 HUD patch v6 (carState = blind-spot car reported by the car itself)
-        return vehicle.source in SIDE_VEHICLE_MODEL_SOURCES and vehicle.confidence >= SIDE_VEHICLE_MODEL_MIN_CONFIDENCE
+        # A temporarily matched radar speed adds "+radar:T…" to a side vehicle's source.
+        source = vehicle_source_base(vehicle.source)
+        return source in SIDE_VEHICLE_MODEL_SOURCES or source == "carState"
 
     def _attach_vehicle_shader(self, model):
         # One shader instance per model (UnloadModel frees its material shader).
@@ -4520,15 +4520,25 @@ class ClusterUiRenderer:
         return points, point_count
 
     def _draw_vehicle(self, vehicle: VehicleBox) -> None:
-        source_marker = vehicle.source.startswith("modelV2") or vehicle.source in ("radarState", "radarPoint", "cornerRadar")
-        use_model = (
-            self._vehicle_model is not None
-            and not source_marker
-            and (not vehicle.source or vehicle.primary or vehicle.cut_in)
+        # A fused forward lead can switch between modelV2, radarState+radar:T7 and ADAS.
+        # Each source must use the same geometry path and keep the scene's current warning tint.
+        native_forward = (
+            vehicle.source.startswith("modelV2")
+            or vehicle_source_is_front_radar(vehicle.source)
+            or (bool(vehicle.source) and (vehicle.primary or vehicle.cut_in)
+                and vehicle.longitudinal_m is not None and vehicle.longitudinal_m > 0.0)
         )
-        if use_model or self._uses_other_model(vehicle):  # EV6 HUD patch v3: realistic 3D cars
+        source_marker = native_forward or vehicle.source in ("radarPoint", "cornerRadar")
+        use_model = self._vehicle_model is not None and (
+            self._uses_other_model(vehicle)
+            or (not source_marker and (not vehicle.source or vehicle.primary or vehicle.cut_in))
+        )
+        if use_model:
             self._draw_vehicle_shadow(vehicle)
             self._draw_vehicle_model(vehicle)
+            return
+        if native_forward:
+            self._draw_native_car(vehicle)
             return
         if vehicle.source and (source_marker or (not vehicle.primary and not vehicle.cut_in)):
             self._draw_vehicle_marker(vehicle)
@@ -4569,9 +4579,6 @@ class ClusterUiRenderer:
         surface(roof, (209, 218, 225))
 
     def _draw_vehicle_marker(self, vehicle: VehicleBox) -> None:
-        if vehicle.source.startswith("modelV2") or vehicle_source_is_front_radar(vehicle.source):
-            self._draw_native_car(vehicle)
-            return
         alpha = int(80 + 150 * clamp(vehicle.confidence, 0.0, 1.0))
 
         def with_alpha(color: tuple[int, int, int] | tuple[int, int, int, int]) -> tuple[int, int, int, int]:
