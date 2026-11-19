@@ -421,6 +421,24 @@ class ClusterPanelLayoutParamReader:
             return CLUSTER_PANEL_LAYOUT_DRIVING_LEFT
 
 
+class ClusterDrivingOverlayParamReader:
+    def __init__(self) -> None:
+        try:
+            from openpilot.common.params import Params
+            self._params = Params()
+        except Exception:
+            self._params = None
+
+    def visible(self, key: str, default: bool) -> bool:
+        if self._params is None:
+            return default
+        try:
+            value = self._params.get(key)
+            return bool(int(value)) if value is not None else default
+        except (TypeError, ValueError, OSError, KeyError):
+            return default
+
+
 class ClusterRadarInfoParamReader:
     def __init__(self) -> None:
         self._params = None
@@ -836,6 +854,7 @@ def run_demo(
         if panel_layout_override is not None
         else panel_layout_param_reader.read()
     )
+    overlay_params = ClusterDrivingOverlayParamReader()
     radar_info_param_reader = ClusterRadarInfoParamReader()
     active_radar_info_mode = radar_info_param_reader.read()
     radar_display_param_reader = ClusterRadarDisplayParamReader()
@@ -1244,6 +1263,8 @@ def run_demo(
                     renderer.set_panel_layout(next_panel_layout)
                 next_panel_layout_param_read = now + PANEL_LAYOUT_PARAM_POLL_SECONDS
             if now >= next_radar_param_read:
+                renderer.show_floating_arrows = overlay_params.visible("ClusterHudFloatingArrows", False)
+                renderer.show_speed_limit_sign = overlay_params.visible("ClusterHudSpeedLimitSign", True)
                 next_radar_info_mode = radar_info_param_reader.read()
                 if next_radar_info_mode != active_radar_info_mode:
                     print(

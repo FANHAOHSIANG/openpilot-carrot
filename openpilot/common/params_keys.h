@@ -208,6 +208,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ClusterNaviMapType", {PERSISTENT, INT, "0"}},
     {"ClusterNaviMapFps", {PERSISTENT, INT, "1"}},
     {"ClusterHudScreenMode", {PERSISTENT, INT, "0"}},
+    {"ClusterHudFloatingArrows", {PERSISTENT, INT, "0"}},
+    {"ClusterHudSpeedLimitSign", {PERSISTENT, INT, "1"}},
     {"ClusterHudPanelLayout", {PERSISTENT, INT, "0"}},
     {"ClusterHudCameraViewMode", {PERSISTENT, INT, "0"}},
     {"ClusterHudRadarInfo", {PERSISTENT, INT, "4"}},
