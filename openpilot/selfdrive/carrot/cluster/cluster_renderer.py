@@ -2556,12 +2556,13 @@ class ClusterUiRenderer:
             frame = self._draw_camera_background(state, projection)
             self._profile_add("render_world.camera_background", profile_stage)
             profile_stage = self._profile_start()
-            self._draw_camera_projected_overlay(scene, state, projection)
+            metric_rects = [] if frame is not None and state.hud_objects else None
+            self._draw_camera_projected_overlay(scene, state, projection, metric_rects)
             self._profile_add("render_world.camera_projected_overlay", profile_stage)
             if frame is not None and state.hud_objects:
                 from hud_objects import draw_road_objects
                 detection_count = draw_road_objects(state.hud_objects, scene, projection, frame,
-                                                    time.monotonic(), 36 * self.height / DESIGN_HEIGHT)
+                                                    time.monotonic(), 36 * self.height / DESIGN_HEIGHT, metric_rects)
         else:
             self._camera_overlay_wide = False
             profile_stage = self._profile_start()
@@ -2886,6 +2887,7 @@ class ClusterUiRenderer:
         scene: ClusterScene,
         state: ClusterUiState,
         projection: CameraOverlayProjection | None = None,
+        metric_rects: list[tuple[float, float, float, float]] | None = None,
     ) -> None:
         if projection is None:
             projection = self._camera_overlay_projection(state)
@@ -2920,7 +2922,7 @@ class ClusterUiRenderer:
             self._draw_vehicle_metric_labels(metric_labels, (
                 projection.dest.x, projection.dest.y,
                 projection.dest.x + projection.dest.width, projection.dest.y + projection.dest.height,
-            ))
+            ), metric_rects)
             self._profile_add("render_world.camera_projected_overlay.vehicles", profile_stage)
         finally:
             rl.end_scissor_mode()
@@ -4254,22 +4256,24 @@ class ClusterUiRenderer:
             )
             self._profile_add("draw_scene.radar_labels", profile_stage)
             profile_stage = self._profile_start()
-            detection_count = 0
-            if state.onroad and state.hud_objects:
-                # The active label matrix applies scene_offset_x after projection.
-                left, right = 0., float(self.width)
-                if abs(view_shift_x) > .001:
-                    left = driving_offset_x
-                    right = left + NAVI_LIVE_PANEL_X * self.width / DESIGN_WIDTH
-                bounds = left - scene_offset_x, 0., right - scene_offset_x, self.height
-                detection_count = self._draw_scene_class_icons(state, camera, bounds)
+            metric_rects = [] if state.onroad and state.hud_objects else None
             self._draw_vehicle_badges(
                 scene.vehicles,
                 camera,
                 scene.scene_shift_x_m,
                 state.radar_info_mode,
                 state.radar_source_color_mode,
+                metric_rects,
             )
+            detection_count = 0
+            if metric_rects is not None:
+                # The active label matrix applies scene_offset_x after projection.
+                left, right = 0., float(self.width)
+                if abs(view_shift_x) > .001:
+                    left = driving_offset_x
+                    right = left + NAVI_LIVE_PANEL_X * self.width / DESIGN_WIDTH
+                bounds = left - scene_offset_x, 0., right - scene_offset_x, self.height
+                detection_count = self._draw_scene_class_icons(state, camera, bounds, metric_rects)
             self._profile_add("draw_scene.vehicle_badges", profile_stage)
         finally:
             if abs(scene_offset_x) > 0.001:
@@ -4277,7 +4281,7 @@ class ClusterUiRenderer:
 
         return detection_count
 
-    def _draw_scene_class_icons(self, state, camera, bounds):
+    def _draw_scene_class_icons(self, state, camera, bounds, metric_rects=()):
         from cluster_scene import render_scene_forward_m
         from hud_objects import ICON_HEIGHT_M, draw_class_icons
         now = time.monotonic()
@@ -4289,7 +4293,7 @@ class ClusterUiRenderer:
             screen = world_to_screen_label_anchor(point, camera, self.width, self.height)
             if screen is not None:
                 anchors.append((obj.kind, screen.x, screen.y))
-        return draw_class_icons(anchors, bounds, 36 * self.height / DESIGN_HEIGHT)
+        return draw_class_icons(anchors, bounds, 36 * self.height / DESIGN_HEIGHT, metric_rects)
 
     def _draw_ground(self) -> None:
         # Flat ground plane that fades into the background colour towards the horizon.
@@ -4858,6 +4862,7 @@ class ClusterUiRenderer:
         scene_shift_x_m: float = 0.0,
         radar_info_mode: int = CLUSTER_RADAR_INFO_ALL_SPEED_DISTANCE,
         radar_source_color_mode: int = 0,
+        metric_rects: list[tuple[float, float, float, float]] | None = None,
     ) -> None:
         clean = clean_ui_enabled()
         if clean:  # EV6 HUD patch v6: only the lead (L1) and cut-in vehicles get a label
@@ -4955,7 +4960,7 @@ class ClusterUiRenderer:
             if profile_enabled:
                 layout_ms += (time.perf_counter() - layout_stage) * 1000.0
         profile_stage = self._profile_start()
-        self._draw_vehicle_metric_labels(metric_labels)
+        self._draw_vehicle_metric_labels(metric_labels, metric_rects=metric_rects)
         self._profile_add("draw_scene.vehicle_badges.text", profile_stage)
         self._profile_add_elapsed("draw_scene.vehicle_badges.project", project_ms)
         self._profile_add_elapsed("draw_scene.vehicle_badges.layout", layout_ms)
@@ -4973,9 +4978,11 @@ class ClusterUiRenderer:
         self,
         labels: list[VehicleMetricLabel],
         bounds: tuple[float, float, float, float] | None = None,
+        metric_rects: list[tuple[float, float, float, float]] | None = None,
     ) -> None:
         lead = next((label for label in labels if vehicle_has_lead_one_metrics(label.vehicle)), None)
         protected = None
+        clean = clean_ui_enabled()
         if lead is not None:
             left, top, right, bottom = bounds if bounds is not None else (0.0, 0.0, float(self.width), float(self.height))
             x, y, width, height = self._vehicle_metric_label_rect(lead)
@@ -4983,6 +4990,7 @@ class ClusterUiRenderer:
             dx = clamp(x, left + 4.0, max(left + 4.0, right - width - 4.0)) - x
             dy = clamp(y, top + 4.0, max(top + 4.0, bottom - height - 4.0)) - y
             lead = replace(lead, lines=tuple(replace(line, x=line.x + dx, y=line.y + dy) for line in lead.lines))
+            lead_rect = (x + dx, y + dy, width, height)
             protected = (x + dx - 4.0, y + dy - 4.0, width + 8.0, height + 8.0)
 
         # Reserve L1's space first, but paint it last. Only overlapping secondary
@@ -4991,20 +4999,24 @@ class ClusterUiRenderer:
         for label in labels:
             if lead is not None and label.vehicle is lead.vehicle:
                 continue
-            if protected is not None and rectangles_overlap(self._vehicle_metric_label_rect(label), protected):
+            rect = self._vehicle_metric_label_rect(label) if protected is not None or clean or metric_rects is not None else None
+            if protected is not None and rectangles_overlap(rect, protected):
                 continue
-            visible.append(label)
+            visible.append((label, rect))
         if lead is not None:
-            visible.append(lead)
-        shadow = self._current_theme().world_label_shadow if any(label.shadow_offset for label in visible) else None
-        if clean_ui_enabled():  # EV6 HUD patch v6: chip behind the label
-            dark = self._current_theme().is_dark
-            for label in visible:
-                x, y, width, height = self._vehicle_metric_label_rect(label)
-                self._rounded_rect(x - 10.0, y - 4.0, width + 20.0, height + 8.0, (height + 8.0) * 0.5,
-                                   (12, 14, 18, 175) if dark else (255, 255, 255, 215),
-                                   (*label.color[:3], 120), 1.5)
-        for label in visible:
+            visible.append((lead, lead_rect))
+        shadow = self._current_theme().world_label_shadow if any(label.shadow_offset for label, _ in visible) else None
+        if clean or metric_rects is not None:
+            for label, (x, y, width, height) in visible:
+                if clean:  # Include the actual chip and its outline.
+                    x, y, width, height = x - 10.0, y - 4.0, width + 20.0, height + 8.0
+                    dark = self._current_theme().is_dark
+                    self._rounded_rect(x, y, width, height, height * 0.5,
+                                       (12, 14, 18, 175) if dark else (255, 255, 255, 215),
+                                       (*label.color[:3], 120), 1.5)
+                if metric_rects is not None:
+                    metric_rects.append((x, y, width, height))
+        for label, _ in visible:
             for line in label.lines:
                 if label.shadow_offset:
                     self._draw_world_label_text(

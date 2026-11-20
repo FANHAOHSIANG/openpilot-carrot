@@ -402,7 +402,7 @@ def test_road_camera_world_reuses_one_projection_for_background_and_overlay(monk
 
   assert projection_calls == [state]
   assert background_calls == [(state, projection)]
-  assert overlay_calls == [(scene, state, projection)]
+  assert overlay_calls == [(scene, state, projection, None)]
 
 
 def _cluster_state(**changes) -> ClusterUiState:
@@ -490,7 +490,7 @@ def test_lead_one_metrics_keep_large_size_at_every_distance(metric_renderer, dis
 def test_lead_metric_red_stays_with_the_primary_vehicle(metric_renderer, monkeypatch):
   renderer, _ = metric_renderer
   labels = []
-  monkeypatch.setattr(renderer, "_draw_vehicle_metric_labels", labels.extend)
+  monkeypatch.setattr(renderer, "_draw_vehicle_metric_labels", lambda items, **_: labels.extend(items))
   renderer._draw_vehicle_badges((_metric_vehicle("L1"), _metric_vehicle("RF", primary=False)), object())
   by_vehicle = {metric.vehicle.label: metric.color[:3] for metric in labels}
   assert by_vehicle["L1"] == (255, 94, 94)
@@ -574,8 +574,11 @@ def test_camera_overlay_reserves_large_lead_metrics_after_drawing_vehicle_frames
     vehicles=(_metric_vehicle(), _metric_vehicle("RF", primary=False, speed=60.0)),
   )
   projection = SimpleNamespace(dest=cluster_renderer.rl.Rectangle(0.0, 0.0, 1124.0, 480.0))
-  renderer._draw_camera_projected_overlay(scene, _cluster_state(), projection)
+  reserved = []
+  renderer._draw_camera_projected_overlay(scene, _cluster_state(), projection, reserved)
   assert labels == [("180 m 90 km/h", 28)]
+  assert len(reserved) == 1  # Suppressed secondary vehicle text reserves no area.
+  assert reserved[0][2] >= len("180 m 90 km/h") * 28 * .5
 
 
 def test_scene_cache_key_covers_every_cluster_scene_state_access() -> None:
@@ -1166,3 +1169,49 @@ def test_clean_side_model_keeps_its_geometry_when_radar_speed_is_attached(monkey
   for source in ("carState", "carState+radar:T7", "cornerRadar", "liveTracks"):
     assert renderer._uses_other_model(replace(side_vehicle, source=source))
   assert not renderer._uses_other_model(replace(side_vehicle, source="radarPoint"))
+
+
+@pytest.mark.parametrize("clean", [False, True])
+def test_vehicle_class_icon_clears_painted_metric_text_and_chip(metric_renderer, monkeypatch, clean):
+  import hud_objects
+  renderer, labels = metric_renderer
+  monkeypatch.setattr(cluster_renderer, "clean_ui_enabled", lambda: clean)
+  chips = []
+  monkeypatch.setattr(renderer, "_rounded_rect", lambda x, y, w, h, *_: chips.append((x, y, w, h)))
+  measurements = []
+  measure = renderer._vehicle_metric_label_rect
+  def measured(label):
+    measurements.append(label.vehicle.label)
+    return measure(label)
+  monkeypatch.setattr(renderer, "_vehicle_metric_label_rect", measured)
+  line = cluster_renderer.VehicleMetricLine
+  label = cluster_renderer.VehicleMetricLabel
+  reserved = []
+  # Out-of-bounds L1 speed/distance get clamped and mask the overlapping L2 group.
+  renderer._draw_vehicle_metric_labels([
+    label(_metric_vehicle("L2"), (line("L2", 220, 35, 18),), (255, 255, 255)),
+    label(_metric_vehicle("L1"), (line("90 km/h", 220, -4, 26), line("180 m", 220, 25, 28)), (255, 90, 90)),
+    label(_metric_vehicle("RF", primary=False), (line("RF", 500, 120, 16),), (255, 255, 255)),
+  ], metric_rects=reserved)
+  assert [text for text, _ in labels] == ["RF", "90 km/h", "180 m"]
+  assert sorted(measurements) == ["L1", "L2", "RF"]  # The icon uses the existing metric layout.
+  assert len(reserved) == 2
+  if clean:
+    assert reserved == chips
+  else:
+    assert not chips
+  rect = reserved[-1]
+  assert rect[1] == pytest.approx(0. if clean else 4.)
+  kind_x = rect[0] + rect[2]/2
+  kind_y = rect[1] + rect[3]*.8
+  lines, painted = [], []
+  monkeypatch.setattr(hud_objects.rl, "draw_line_ex", lambda *args: lines.append(args))
+  monkeypatch.setattr(hud_objects, "draw_object_icon", lambda kind, x, y, size: painted.append((x-size/2, y-size/2, size, size)))
+  bounds = (0, 0, renderer.width, renderer.height)
+  anchors = [("car", kind_x, kind_y)]
+  assert hud_objects.draw_class_icons(anchors, bounds, 36) == 1
+  assert cluster_renderer.rectangles_overlap(painted[-1], rect)
+  lines.clear()
+  assert hud_objects.draw_class_icons(anchors, bounds, 36, reserved) == 1
+  assert not any(cluster_renderer.rectangles_overlap(painted[-1], r) for r in reserved)
+  assert not lines  # The target starts inside the text, so its connector would cross a glyph.

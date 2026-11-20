@@ -140,7 +140,7 @@ def test_native_lead_matches_at_most_one_visual_car_and_never_a_pedestrian(tmp_p
 def icon_calls(monkeypatch):
   import hud_objects
   calls = []
-  def record(anchors, bounds, size):
+  def record(anchors, bounds, size, metric_rects=()):
     values = list(anchors)
     calls.append((values, bounds, size))
     return len(values)
@@ -439,13 +439,18 @@ def test_mode_five_class_icons_share_world_coordinates_and_vehicle_viewport(swap
   monkeypatch.setattr(renderer, "_draw_vehicle", lambda v: events.append(v))
   monkeypatch.setattr(hud_objects, "draw_scene_objects", lambda *_: None)
   monkeypatch.setattr(renderer, "_draw_radar_point_labels", lambda *_: None)
-  monkeypatch.setattr(renderer, "_draw_vehicle_badges", lambda *_: events.append("metrics"))
+  label_rect = (486., 201., 94., 56.)
+  def native_metrics(_vehicles, _camera, _shift, _info_mode, _color_mode, metric_rects):
+    metric_rects.append(label_rect)
+    events.append("metrics")
+  monkeypatch.setattr(renderer, "_draw_vehicle_badges", native_metrics)
 
   def project(point, camera, width, height):
     projected.append((point.x, point.y, point.z))
     return SimpleNamespace(x=renderer.width / 2 + point.x*10, y=height / 2 - point.y)
 
-  def record(anchors, bounds, size):
+  def record(anchors, bounds, size, metric_rects=()):
+    assert metric_rects == [label_rect]  # Already in the translated label matrix.
     offset = translations[-1]
     assert viewport[-1] == 0  # Now drawing with the translated 2D label matrix.
     events.append("icons")
@@ -459,7 +464,7 @@ def test_mode_five_class_icons_share_world_coordinates_and_vehicle_viewport(swap
   monkeypatch.setattr(cr, "world_to_screen_label_anchor", project)
   monkeypatch.setattr(hud_objects, "draw_class_icons", record)
   assert renderer._draw_scene(scene, state, (False, False)) == 2
-  assert events == [native, "icons", "metrics"]
+  assert events == [native, "metrics", "icons"]
   assert [kind for kind, _, _ in icons] == ["car", "person"]
   assert translations[0] == pytest.approx(scene.scene_shift_x_m)
   assert translations[-1] == pytest.approx(viewport[0])
@@ -510,7 +515,11 @@ def test_seven_coincident_video_classes_remain_legible_and_count_only_visible_ic
   monkeypatch.setattr(renderer, "_select_camera_overlay_stream", lambda *_: False)
   monkeypatch.setattr(renderer, "_camera_overlay_projection", lambda *_: projection)
   monkeypatch.setattr(renderer, "_draw_camera_background", lambda *_: (1, 10., 1344, 760, False))
-  monkeypatch.setattr(renderer, "_draw_camera_projected_overlay", lambda *_: None)
+  # This native camera label occupies the first pictogram position for this target.
+  metric = (baseline.u*video.width - 39., (baseline.v-baseline.h)*video.height - 42., 36., 36.)
+  def native_overlay(_scene, _state, _projection, metric_rects):
+    metric_rects.append(metric)
+  monkeypatch.setattr(renderer, "_draw_camera_projected_overlay", native_overlay)
   monkeypatch.setattr(renderer, "_draw_text_with_stroke", lambda text, *_, **kw: texts.append(text))
   for method in ("clear_background", "draw_rectangle_lines_ex", "begin_scissor_mode", "end_scissor_mode"):
     monkeypatch.setattr(cr.rl, method, lambda *_: None)
@@ -523,10 +532,13 @@ def test_seven_coincident_video_classes_remain_legible_and_count_only_visible_ic
   for (_, x, y, size), (_, other_x, other_y, _) in combinations(icons, 2):
     assert max(abs(other_x-x), abs(other_y-y)) >= size
   for _, x, y, size in icons:
+    assert not cr.rectangles_overlap((x-size/2, y-size/2, size, size), metric)
     assert rect.x <= x-size/2 <= x+size/2 <= rect.x+rect.width
     assert rect.y <= y-size/2 <= y+size/2 <= rect.y+rect.height
-    assert any((x0, y0, x1, y1) == pytest.approx(
-      (baseline.u*video.width, (baseline.v-baseline.h)*video.height, x, y)) for x0, y0, x1, y1 in leaders)
+  assert leaders
+  for x0, y0, x1, y1 in leaders:
+    assert (x0, y0) == pytest.approx((baseline.u*video.width, (baseline.v-baseline.h)*video.height))
+    assert any((x1, y1) == pytest.approx((x, y)) for _, x, y, _ in icons)
 
   icons.clear()
   texts.clear()
