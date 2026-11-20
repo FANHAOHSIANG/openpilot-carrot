@@ -13,6 +13,7 @@ import pyray as rl
 
 from openpilot.common.transformations.camera import DEVICE_CAMERAS, view_frame_from_device_frame
 from openpilot.common.transformations.orientation import rot_from_euler
+from openpilot.selfdrive.carrot.cluster.hud_object_icons import draw_object_icon
 
 MAX_AGE_S = 1.0
 MAX_BYTES = 32768
@@ -22,6 +23,8 @@ CLASSES = {
     'motorcycle': (226, 174, 67, 245), 'bicycle': (93, 203, 162, 245),
     'person': (248, 202, 111, 245), 'cone': (255, 122, 53, 250),
 }
+ICON_HEIGHT_M = {'person': 1.8, 'motorcycle': 1.35, 'bicycle': 1.25, 'cone': .7,
+                'car': 1.6, 'truck': 2.55, 'bus': 2.55}
 MOTOR_VEHICLES = ('car', 'truck', 'bus', 'motorcycle')
 
 
@@ -210,25 +213,66 @@ def monotonic_display_frame(camera_frame):
     return fid, stamp, width, height, wide
 
 
-def draw_road_boxes(objects, projection, camera_frame, now, motorcycle_tags=()):
-    if not camera_frame:
-        return
-    dest = projection.video_dest
-    for obj in objects:
-        if obj.matches_display_frame(camera_frame, now):
-            rect = rl.Rectangle(dest.x + (obj.u - obj.w / 2) * dest.width, dest.y + (obj.v - obj.h) * dest.height,
-                                obj.w * dest.width, obj.h * dest.height)
+def draw_class_icons(anchors, bounds, size):
+    """Keep each pictogram beside its observed target, including nearby targets."""
+    left, top, right, bottom = bounds
+    if min(right - left, bottom - top) < size:
+        return 0
+    half = size / 2
+    centers = []
+    placements = []
+    offsets = ((-.63, -.72), (.63, -.72), (0., -1.84), (-1.26, -1.84), (1.26, -1.84),
+               (-1.84, -.72), (1.84, -.72), (-.63, .49), (.63, .49), (-1.84, .49),
+               (1.84, .49), (0., 1.65), (-1.26, 1.65), (1.26, 1.65))
+    for kind, x, y in anchors:
+        if not (left <= x < right and top <= y < bottom):
+            continue
+        for dx, dy in offsets:
+            cx = min(max(x + size * dx, left + half), right - half)
+            cy = min(max(y + size * dy, top + half), bottom - half)
+            if all(abs(cx - px) >= size + 1 or abs(cy - py) >= size + 1 for px, py in centers):
+                centers.append((cx, cy))
+                placements.append((kind, x, y, cx, cy))
+                break
+
+    # Draw every leader before painting the icons so lines never cross a glyph.
+    for kind, x, y, cx, cy in placements:
+        start, end = rl.Vector2(x, y), rl.Vector2(cx, cy)
+        rl.draw_line_ex(start, end, max(2., size * .11), rl.Color(20, 30, 40, 245))
+        rl.draw_line_ex(start, end, max(1., size * .048), rl.Color(*CLASSES[kind]))
+    for kind, _, _, cx, cy in placements:
+        draw_object_icon(kind, cx, cy, size)
+    return len(placements)
+
+
+def draw_road_objects(objects, scene, projection, frame, now, size):
+    # A visual observation has its own box even if a native vehicle supplies
+    # the body. Filter the lens/time before pairing or another camera can win.
+    current = tuple(obj for obj in objects if obj.matches_display_frame(frame, now))
+    if not current:
+        return 0
+    dest, video = projection.dest, projection.video_dest
+    visible, _ = pair_objects(current, scene, now)
+    rl.begin_scissor_mode(round(dest.x), round(dest.y), round(dest.width), round(dest.height))
+    try:
+        for obj in visible:
+            rect = rl.Rectangle(video.x + (obj.u - obj.w / 2) * video.width,
+                                video.y + (obj.v - obj.h) * video.height,
+                                obj.w * video.width, obj.h * video.height)
             rl.draw_rectangle_lines_ex(rect, 2., rl.Color(*CLASSES[obj.kind]))
-    for obj, _ in motorcycle_tags:
-        if obj.matches_display_frame(camera_frame, now):
-            x = int(dest.x + (obj.u - obj.w / 2) * dest.width)
-            y = int(dest.y + (obj.v - obj.h) * dest.height) - 5
-            color = rl.Color(*CLASSES['motorcycle'])
-            rl.draw_circle_lines(x + 4, y, 3., color)
-            rl.draw_circle_lines(x + 16, y, 3., color)
-            rl.draw_line_ex(rl.Vector2(x + 4, y), rl.Vector2(x + 10, y - 4), 2., color)
-            rl.draw_line_ex(rl.Vector2(x + 10, y - 4), rl.Vector2(x + 13, y - 4), 2., color)
-            rl.draw_line_ex(rl.Vector2(x + 12, y - 7), rl.Vector2(x + 16, y), 2., color)
+        bounds = dest.x, dest.y, dest.x + dest.width, dest.y + dest.height
+        left, top, right, bottom = bounds
+        anchors = []
+        for obj in sorted(current, key=lambda o: o.forward):
+            x1 = max(left, video.x + (obj.u - obj.w / 2) * video.width)
+            x2 = min(right, video.x + (obj.u + obj.w / 2) * video.width)
+            y1 = max(top, video.y + (obj.v - obj.h) * video.height)
+            y2 = min(bottom, video.y + obj.v * video.height)
+            if x1 < x2 and y1 < y2:
+                anchors.append((obj.kind, (x1 + x2) / 2, y1))
+        return draw_class_icons(anchors, bounds, size)
+    finally:
+        rl.end_scissor_mode()
 
 
 def draw_motorcycle_tag(native):

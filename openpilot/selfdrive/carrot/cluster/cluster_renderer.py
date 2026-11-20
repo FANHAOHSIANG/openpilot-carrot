@@ -2553,19 +2553,20 @@ class ClusterUiRenderer:
             self._camera_overlay_wide = self._select_camera_overlay_stream(state)
             projection = self._camera_overlay_projection(state)
             profile_stage = self._profile_start()
-            detection_count = self._draw_camera_background(state, projection, scene)
+            frame = self._draw_camera_background(state, projection)
             self._profile_add("render_world.camera_background", profile_stage)
             profile_stage = self._profile_start()
             self._draw_camera_projected_overlay(scene, state, projection)
             self._profile_add("render_world.camera_projected_overlay", profile_stage)
+            if frame is not None and state.hud_objects:
+                from hud_objects import draw_road_objects
+                detection_count = draw_road_objects(state.hud_objects, scene, projection, frame,
+                                                    time.monotonic(), 36 * self.height / DESIGN_HEIGHT)
         else:
             self._camera_overlay_wide = False
             profile_stage = self._profile_start()
-            self._draw_scene(scene, state, signal_lights)
+            detection_count = self._draw_scene(scene, state, signal_lights)
             self._profile_add("render_world.draw_scene", profile_stage)
-            if state.hud_objects:
-                now = time.monotonic()
-                detection_count = sum(obj.is_fresh(now) for obj in state.hud_objects)
         if state.onroad and detection_count:
             # A matched native vehicle already has a body. Count its visual confirmation
             # once here, in the driving panel's status row, without a second target.
@@ -2598,15 +2599,14 @@ class ClusterUiRenderer:
         self,
         state: ClusterUiState,
         projection: CameraOverlayProjection | None = None,
-        scene: ClusterScene | None = None,
-    ) -> int:
+    ) -> tuple | None:
         if not cluster_camera_view_is_road_camera(state.camera_view_mode):
-            return 0
+            return None
         overlay = state.route_overlay
         if projection is None:
             projection = self._camera_overlay_projection(state)
         if projection is None:
-            return 0
+            return None
         texture = None
         if overlay is not None and overlay.video_rgba is not None:
             texture = self._route_video_texture_for_overlay(overlay)
@@ -2640,16 +2640,12 @@ class ClusterUiRenderer:
                 rl.draw_rectangle_rec(projection.dest, rl_color((0, 0, 0), CAMERA_BACKGROUND_VIGNETTE_ALPHA))
                 if texture is None and live_camera is not None:
                     self._draw_signal_detections(projection, live_camera)
-                    if state.hud_objects and scene is not None:
-                        from hud_objects import draw_road_boxes, monotonic_display_frame, pair_objects
-                        now = time.monotonic()
-                        visible, tags = pair_objects(state.hud_objects, scene, now)
-                        frame = monotonic_display_frame(live_camera.display_frame)
-                        draw_road_boxes(visible, projection, frame, now, tags)
-                        return sum(obj.matches_display_frame(frame, now) for obj in state.hud_objects)
+                    if state.hud_objects:
+                        from hud_objects import monotonic_display_frame
+                        return monotonic_display_frame(live_camera.display_frame)
         finally:
             rl.end_scissor_mode()
-        return 0
+        return None
 
     def _draw_signal_detections(self, projection, live_camera) -> None:
         brake = self._brake_display_reader.read(live_camera.display_frame)
@@ -4168,7 +4164,7 @@ class ClusterUiRenderer:
         rl.ffi.memmove(data, raw, len(raw))
         return data
 
-    def _draw_scene(self, scene: ClusterScene, state: ClusterUiState, signal_lights: tuple[bool, bool]) -> None:
+    def _draw_scene(self, scene: ClusterScene, state: ClusterUiState, signal_lights: tuple[bool, bool]) -> int:
         camera = rl.Camera3D(
             vec3(scene.camera.position),
             vec3(scene.camera.target),
@@ -4258,6 +4254,15 @@ class ClusterUiRenderer:
             )
             self._profile_add("draw_scene.radar_labels", profile_stage)
             profile_stage = self._profile_start()
+            detection_count = 0
+            if state.onroad and state.hud_objects:
+                # The active label matrix applies scene_offset_x after projection.
+                left, right = 0., float(self.width)
+                if abs(view_shift_x) > .001:
+                    left = driving_offset_x
+                    right = left + NAVI_LIVE_PANEL_X * self.width / DESIGN_WIDTH
+                bounds = left - scene_offset_x, 0., right - scene_offset_x, self.height
+                detection_count = self._draw_scene_class_icons(state, camera, bounds)
             self._draw_vehicle_badges(
                 scene.vehicles,
                 camera,
@@ -4269,6 +4274,22 @@ class ClusterUiRenderer:
         finally:
             if abs(scene_offset_x) > 0.001:
                 rl.rl_pop_matrix()
+
+        return detection_count
+
+    def _draw_scene_class_icons(self, state, camera, bounds):
+        from cluster_scene import render_scene_forward_m
+        from hud_objects import ICON_HEIGHT_M, draw_class_icons
+        now = time.monotonic()
+        anchors = []
+        for obj in sorted(state.hud_objects, key=lambda o: o.forward):
+            if not obj.is_fresh(now):
+                continue
+            point = rl.Vector3(obj.right, render_scene_forward_m(obj.forward, state), ICON_HEIGHT_M[obj.kind])
+            screen = world_to_screen_label_anchor(point, camera, self.width, self.height)
+            if screen is not None:
+                anchors.append((obj.kind, screen.x, screen.y))
+        return draw_class_icons(anchors, bounds, 36 * self.height / DESIGN_HEIGHT)
 
     def _draw_ground(self) -> None:
         # Flat ground plane that fades into the background colour towards the horizon.

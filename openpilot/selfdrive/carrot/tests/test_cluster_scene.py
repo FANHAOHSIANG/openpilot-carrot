@@ -401,7 +401,7 @@ def test_road_camera_world_reuses_one_projection_for_background_and_overlay(monk
   renderer._render_world(state, (False, False))
 
   assert projection_calls == [state]
-  assert background_calls == [(state, projection, scene)]
+  assert background_calls == [(state, projection)]
   assert overlay_calls == [(scene, state, projection)]
 
 
