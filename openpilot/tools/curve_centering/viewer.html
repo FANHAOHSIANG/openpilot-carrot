@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Carrot 過彎置中研究台</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          system-ui,
+          -apple-system,
+          "Noto Sans CJK TC",
+          sans-serif;
+        background: #0c1720;
+        color: #e7eef3;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        max-width: 1180px;
+        margin: auto;
+        padding: 32px 24px;
+      }
+      h1 {
+        font-size: 30px;
+        margin: 8px 0;
+      }
+      h2 {
+        font-size: 19px;
+        margin: 0 0 16px;
+      }
+      .eyebrow {
+        color: #7fc6b9;
+        font-size: 13px;
+        letter-spacing: 2px;
+      }
+      .muted {
+        color: #9fb1bf;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .notice {
+        border-left: 3px solid #f5b267;
+        padding: 12px 16px;
+        background: #1c2932;
+        line-height: 1.7;
+        margin: 22px 0;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      .card,
+      .panel {
+        background: #15242f;
+        border: 1px solid #2a3c48;
+        border-radius: 14px;
+        padding: 18px;
+      }
+      .value {
+        font-size: 28px;
+        font-weight: 650;
+        margin-top: 8px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 16px;
+        margin: 20px 0;
+      }
+      .panel {
+        min-width: 0;
+      }
+      canvas {
+        width: 100%;
+        height: 360px;
+        display: block;
+        background: #101d27;
+        border-radius: 10px;
+      }
+      select,
+      button {
+        background: #223744;
+        color: #e7eef3;
+        border: 1px solid #446071;
+        border-radius: 8px;
+        padding: 10px;
+        font: inherit;
+        max-width: 100%;
+      }
+      button {
+        cursor: pointer;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 16px 0;
+      }
+      input[type="range"] {
+        width: 100%;
+        accent-color: #6de0b5;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 12px;
+        margin: 14px 0;
+      }
+      .legend span::before {
+        content: "●";
+        color: var(--c);
+        margin-right: 5px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid #2a3c48;
+        vertical-align: top;
+      }
+      th {
+        color: #9fb1bf;
+        font-weight: 500;
+      }
+      .scroll {
+        overflow: auto;
+        max-height: 330px;
+      }
+      #reason {
+        line-height: 1.8;
+        color: #f5c487;
+      }
+      #finding {
+        line-height: 1.8;
+        color: #9fe2cc;
+      }
+      footer {
+        padding: 24px 0;
+        font-size: 12px;
+        color: #9fb1bf;
+        line-height: 1.8;
+      }
+      @media (max-width: 760px) {
+        body {
+          padding: 20px 14px;
+        }
+        .cards {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 25px;
+        }
+        .value {
+          font-size: 24px;
+        }
+        canvas {
+          height: 320px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="eyebrow">CARROT · CENTERING OBSERVER · v0.1</div>
+    <h1>過彎置中研究台</h1>
+    <p class="muted">分辨路徑偏移與控制追蹤差異，先把問題看清楚。</p>
+    <div class="notice">
+      <strong id="mode">僅觀察 · 不介入車控</strong
+      ><br />車道與路徑皆為模型估計；前方路徑誤差不是車身與護欄距離。偏差統計取前方
+      10／20／30 m 有效點的中位數。尚未完成車身中心校正時，不顯示車身間距。<span
+        id="liveStatus"
+      ></span>
+    </div>
+    <div class="cards">
+      <div class="card">
+        分析畫面數
+        <div class="value" id="total">—</div>
+      </div>
+      <div class="card">
+        可供置中評估
+        <div class="value" id="eligible">—</div>
+      </div>
+      <div class="card">
+        左彎 MPC 輸入偏差 P95
+        <div class="value" id="left">—</div>
+      </div>
+      <div class="card">
+        右彎 MPC 輸入偏差 P95
+        <div class="value" id="right">—</div>
+      </div>
+    </div>
+    <div class="controls">
+      <label
+        >行車片段
+        <select id="source"></select></label
+      ><label><input type="checkbox" id="onlyEligible" /> 只看可評估畫面</label
+      ><button id="play">播放</button><button id="export">下載分析 JSON</button>
+    </div>
+    <div class="layout">
+      <section class="panel">
+        <h2>道路與規劃路徑</h2>
+        <canvas
+          id="road"
+          aria-label="車道、原始模型路徑、MPC 輸入路徑及 MPC 預測"
+        ></canvas>
+        <div class="legend">
+          <span style="--c: #8296a5">車道邊界</span
+          ><span style="--c: #6de0b5">車道中心</span
+          ><span style="--c: #c391ff">原始模型</span
+          ><span style="--c: #65baff">MPC 輸入路徑</span
+          ><span style="--c: #ffb66c">MPC 預測</span>
+        </div>
+        <p class="muted">
+          上方為車前；橫向與縱向比例不同，僅用來比較路徑。左右偏差以車道法向近似計算。MPC
+          輸入與預測不代表控制器實際採用；模型模式直接使用
+          modelV2.action.desiredCurvature。
+        </p>
+      </section>
+      <section class="panel">
+        <h2 id="frameTitle">選取畫面</h2>
+        <table id="metrics"></table>
+        <p id="reason"></p>
+        <p id="finding"></p>
+        <p class="muted">
+          「可評估」只代表輸入通過診斷條件，並不代表道路安全或車控已驗證。
+        </p>
+      </section>
+    </div>
+    <input
+      id="scrub"
+      type="range"
+      min="0"
+      max="0"
+      value="0"
+      aria-label="畫面時間軸"
+    />
+    <p class="muted" id="time">—</p>
+    <section class="panel">
+      <h2>片段偏差趨勢</h2>
+      <canvas
+        id="trend"
+        style="height: 190px"
+        aria-label="MPC 輸入路徑偏差趨勢"
+      ></canvas>
+      <p class="muted">
+        右側為正、左側為負；灰點代表未通過評估條件。點擊圖表可跳到該畫面。
+      </p>
+    </section>
+    <div class="layout">
+      <section class="panel">
+        <h2>持續偏移候選</h2>
+        <p class="muted">
+          超過 20 cm 且持續至少 0.5 秒的MPC
+          輸入路徑偏差，需影片核對；不是已確認故障。
+        </p>
+        <div id="episodes" class="scroll"></div>
+      </section>
+      <section class="panel">
+        <h2>資料品質與排除原因</h2>
+        <div id="quality" class="scroll"></div>
+      </section>
+    </div>
+    <section class="panel">
+      <h2>輸入檔案</h2>
+      <p class="muted">
+        PathOffset 為記錄開始時的原始設定值（單位
+        cm），不是目前車上設定，也未確認整趟未變更。
+      </p>
+      <div id="sources" class="scroll"></div>
+    </section>
+    <footer>
+      目標：左右彎全程置中。此版本提供即時觀察、離線比較及 AI 分析用
+      JSON，沒有訓練新駕駛模型，也不會自動套用參數。所有計算與顯示都在本機完成。回放通過不等於實車改善。
+    </footer>
+    <script id="reportData" type="application/json">
+      __REPORT_DATA__
+    </script>
+    <script>
+      "use strict";
+      let report = JSON.parse(
+          document.getElementById("reportData").textContent,
+        ),
+        rows = [],
+        index = 0,
+        timer = null;
+      const live = __LIVE_MODE__,
+        el = (id) => document.getElementById(id);
+      const names = {
+        left: "左彎",
+        right: "右彎",
+        straight: "直行",
+        approach: "入彎前",
+        curve: "彎中",
+        exit: "出彎",
+        unknown: "未知",
+        maneuver: "變道／方向燈／轉彎意圖",
+        maneuver_recovery: "變道後穩定等待",
+        lateral_inactive: "自動轉向未啟用",
+        driver_override: "駕駛介入",
+        low_speed: "低速",
+        uncertain_lanes: "車道線可信度不足",
+        missing_lanes: "缺少車道線",
+        implausible_lane_width: "車道寬度不合理",
+        changing_lane_width: "車道寬度變動過大",
+        invalid_polyline: "路徑資料無效",
+        nonmonotonic_polyline: "路徑非前向單調",
+        insufficient_horizon: "前方有效距離不足",
+        warming_up: "等待連續穩定資料",
+        lane_geometry_jump: "車道幾何突變",
+        unmatched_model: "找不到同一模型時間",
+        invalid_model_or_plan: "模型／規劃無效",
+        stale_or_future_model: "模型過期或時間錯位",
+        stale_carState: "車況過期／缺失",
+        stale_carControl: "控制狀態過期／缺失",
+        stale_controlsState: "控制器資料過期／缺失",
+        requested_path_bias: "MPC 輸入路徑偏離車道中心",
+        raw_model_path_bias: "原始模型路徑偏離中心",
+        lane_centering_inactive: "車道線置中未啟用",
+        steering_saturated: "轉向輸出達限制",
+        lateral_response_mismatch: "橫向加速度追蹤差異",
+        ok: "已解析",
+        error: "解析失敗，整檔排除",
+        duplicate_skipped: "重複檔案，已略過",
+        no_lateral_plans: "缺少橫向規劃",
+        nonmonotonic_plan: "規劃時間倒退／重複",
+      };
+      const label = (s) => names[s] || s,
+        fmt = (v, d = 2) => (v == null ? "—" : Number(v).toFixed(d)),
+        cm = (v) => (v == null ? "—" : (v * 100).toFixed(1) + " cm");
+      function table(node, heads, data) {
+        node.replaceChildren();
+        const t = document.createElement("table"),
+          tr = document.createElement("tr");
+        heads.forEach((h) => {
+          const c = document.createElement("th");
+          c.textContent = h;
+          tr.append(c);
+        });
+        t.append(tr);
+        data.forEach((row) => {
+          const tr = document.createElement("tr");
+          row.forEach((v) => {
+            const c = document.createElement("td");
+            if (v instanceof Node) c.append(v);
+            else c.textContent = v;
+            tr.append(c);
+          });
+          t.append(tr);
+        });
+        node.append(t);
+      }
+      function init() {
+        const s = report.summary || {};
+        el("total").textContent = s.frames || 0;
+        el("eligible").textContent = s.eligible_frames || 0;
+        for (const d of ["left", "right"])
+          el(d).textContent = cm(s.by_direction?.[d]?.p95_abs_request_bias_m);
+        const value = el("source").value;
+        el("source").replaceChildren();
+        [...new Set((report.rows || []).map((r) => r.source))].forEach((s) => {
+          const o = document.createElement("option");
+          o.value = s;
+          o.textContent = s;
+          el("source").append(o);
+        });
+        if ([...el("source").options].some((o) => o.value === value))
+          el("source").value = value;
+        table(
+          el("quality"),
+          ["原因", "畫面數"],
+          Object.entries(s.reason_counts || {})
+            .sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => [label(k), v]),
+        );
+        table(
+          el("sources"),
+          ["檔案", "狀態", "畫面數", "起始 PathOffset"],
+          (report.sources || []).map((s) => [
+            s.name,
+            label(s.status),
+            s.summary?.frames ?? "—",
+            s.metadata?.initial_parameters_raw?.PathOffset ?? "—",
+          ]),
+        );
+        table(
+          el("episodes"),
+          ["片段／時間", "方向", "最大偏差"],
+          (report.episodes || []).slice(0, 100).map((e) => {
+            const b = document.createElement("button");
+            b.textContent = e.source + " · " + fmt(e.start_s, 1) + "s";
+            b.onclick = () => {
+              el("onlyEligible").checked = false;
+              el("source").value = e.source;
+              filter();
+              index = Math.max(
+                0,
+                rows.findIndex((r) => r.relative_s >= e.start_s),
+              );
+              draw();
+            };
+            return [b, label(e.direction), cm(e.max_abs_request_bias_m)];
+          }),
+        );
+        filter();
+      }
+      function filter() {
+        rows = (report.rows || []).filter(
+          (r) =>
+            r.source === el("source").value &&
+            (!el("onlyEligible").checked || r.eligible),
+        );
+        index = Math.min(index, Math.max(0, rows.length - 1));
+        el("scrub").max = Math.max(0, rows.length - 1);
+        draw();
+      }
+      function context(id) {
+        const c = el(id),
+          d = devicePixelRatio || 1;
+        c.width = Math.max(1, c.clientWidth * d);
+        c.height = Math.max(1, c.clientHeight * d);
+        const ctx = c.getContext("2d");
+        ctx.scale(d, d);
+        return [ctx, c.clientWidth, c.clientHeight];
+      }
+      function draw() {
+        el("scrub").value = index;
+        const r = rows[index];
+        const [ctx, w, h] = context("road");
+        ctx.fillStyle = "#9fb1bf";
+        ctx.font = "14px system-ui";
+        if (!r) {
+          ctx.fillText("沒有符合條件的畫面", 24, 45);
+          el("frameTitle").textContent = "沒有畫面";
+          el("metrics").replaceChildren();
+          el("reason").textContent = "";
+          el("finding").textContent = "";
+          el("time").textContent = "—";
+          drawTrend();
+          return;
+        }
+        el("frameTitle").textContent =
+          label(r.direction) + " · " + label(r.phase);
+        const g = r.geometry;
+        el("time").textContent =
+          r.source +
+          " · " +
+          fmt(r.relative_s, 2) +
+          " 秒 · " +
+          (index + 1) +
+          " / " +
+          rows.length;
+        table(
+          el("metrics"),
+          ["項目", "值"],
+          [
+            ["車速", fmt(r.speed_kph, 1) + " km/h"],
+            ["車道線置中", r.use_lane_lines ? "啟用" : "未啟用"],
+            ["MPC 輸入路徑偏差", cm(g?.request_bias_m)],
+            ["MPC 預測偏差", cm(g?.mpc_bias_m)],
+            [
+              "模型目標曲率 (1/km)",
+              r.model_action_curvature == null
+                ? "—"
+                : fmt(r.model_action_curvature * 1000, 3),
+            ],
+            [
+              "先前送出曲率 (1/km)",
+              r.command_curvature == null
+                ? "—"
+                : fmt(r.command_curvature * 1000, 3),
+            ],
+            [
+              "回授估計曲率 (1/km)",
+              r.estimated_curvature == null
+                ? "—"
+                : fmt(r.estimated_curvature * 1000, 3),
+            ],
+            ["模型原點偏差（估計）", cm(g?.origin_offset_m)],
+            ["車身中心偏差（需校正）", cm(g?.vehicle_offset_m)],
+            ["車身側邊最小餘量（估計）", cm(g?.estimated_body_clearance_m)],
+            ["前方有效距離", fmt(g?.horizon_m, 0) + " m"],
+            ["橫向加速度追蹤差", fmt(r.lateral_accel_error_mps2) + " m/s²"],
+          ],
+        );
+        el("reason").textContent = r.eligible
+          ? "可評估：資料連續且符合條件"
+          : "排除：" + r.reasons.map(label).join("、");
+        el("finding").textContent = r.findings.length
+          ? "待核對：" + r.findings.map(label).join("、")
+          : "尚未超過提示門檻；仍須核對上方偏差數值";
+        if (g) {
+          const p = g.plot,
+            maxY = Math.max(
+              3,
+              ...p.left.map(Math.abs),
+              ...p.right.map(Math.abs),
+            ),
+            X = (y) => w / 2 + (y / maxY) * (w * 0.43),
+            Y = (x) => h - 30 - (x / Math.max(g.horizon_m, 10)) * (h - 55);
+          for (const [k, color] of [
+            ["left", "#8296a5"],
+            ["right", "#8296a5"],
+            ["center", "#6de0b5"],
+            ["raw", "#c391ff"],
+            ["request", "#65baff"],
+            ["mpc", "#ffb66c"],
+          ]) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = k === "center" ? 2 : 1.8;
+            ctx.setLineDash(k === "center" ? [6, 5] : []);
+            ctx.beginPath();
+            p.x.forEach((x, i) =>
+              i ? ctx.lineTo(X(p[k][i]), Y(x)) : ctx.moveTo(X(p[k][i]), Y(x)),
+            );
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(X(0), Y(0), 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillText("模型原點", X(0) + 8, Y(0) + 3);
+          ctx.fillStyle = "#9fb1bf";
+          ctx.fillText("前方 " + fmt(g.horizon_m, 0) + " m", 12, 20);
+        } else ctx.fillText("幾何資料不足，不繪製推測路徑", 20, 45);
+        drawTrend();
+      }
+      function drawTrend() {
+        const [c, w, h] = context("trend"),
+          vals = rows
+            .filter((r) => r.geometry)
+            .map((r) => Math.abs(r.geometry.request_bias_m)),
+          max = Math.max(0.4, ...vals);
+        c.strokeStyle = "#50606c";
+        c.beginPath();
+        c.moveTo(0, h / 2);
+        c.lineTo(w, h / 2);
+        c.stroke();
+        rows.forEach((r, i) => {
+          if (!r.geometry) return;
+          c.fillStyle = r.eligible ? "#65baff" : "#62727f";
+          c.fillRect(
+            (i / Math.max(1, rows.length - 1)) * w,
+            h / 2 - (r.geometry.request_bias_m / max) * (h * 0.43),
+            2,
+            2,
+          );
+        });
+        c.strokeStyle = "#f5b267";
+        c.beginPath();
+        c.moveTo((index / Math.max(1, rows.length - 1)) * w, 0);
+        c.lineTo((index / Math.max(1, rows.length - 1)) * w, h);
+        c.stroke();
+        c.fillStyle = "#9fb1bf";
+        c.fillText("±" + cm(max), 8, 15);
+      }
+      el("source").onchange = () => {
+        index = 0;
+        filter();
+      };
+      el("onlyEligible").onchange = filter;
+      el("scrub").oninput = (e) => {
+        index = +e.target.value;
+        draw();
+      };
+      el("trend").onclick = (e) => {
+        index = Math.min(
+          rows.length - 1,
+          Math.max(
+            0,
+            Math.round(
+              (e.offsetX / el("trend").clientWidth) * (rows.length - 1),
+            ),
+          ),
+        );
+        draw();
+      };
+      el("play").onclick = () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+          el("play").textContent = "播放";
+          return;
+        }
+        el("play").textContent = "暫停";
+        const step = () => {
+          if (index >= rows.length - 1) {
+            timer = null;
+            el("play").textContent = "播放";
+            return;
+          }
+          const dt = Math.min(
+            1000,
+            Math.max(20, (rows[index + 1].t - rows[index].t) * 1000),
+          );
+          index++;
+          draw();
+          timer = setTimeout(step, dt);
+        };
+        timer = setTimeout(step, 50);
+      };
+      el("export").onclick = () => {
+        const url = URL.createObjectURL(
+          new Blob([JSON.stringify(report)], { type: "application/json" }),
+        );
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "centering-analysis.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+      window.onresize = draw;
+      init();
+      if (live) {
+        el("mode").textContent = "即時觀察 · 不介入車控";
+        setInterval(async () => {
+          try {
+            const r = await fetch("/snapshot", { cache: "no-store" });
+            if (!r.ok) throw Error("offline");
+            report = await r.json();
+            init();
+            index = rows.length - 1;
+            draw();
+            const age = report.age_s;
+            el("liveStatus").textContent =
+              age == null
+                ? " 等待資料。"
+                : age > 1
+                  ? " 資料已過期：" + fmt(age, 1) + " 秒。"
+                  : " 資料更新中。";
+          } catch {
+            el("liveStatus").textContent = " 連線中斷；目前顯示為舊資料。";
+          }
+        }, 500);
+      }
+    </script>
+  </body>
+</html>
