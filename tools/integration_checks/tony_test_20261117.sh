@@ -36,7 +36,7 @@ python tools/signal_validation/run.py \
 python tools/signal_validation/run.py \
   openpilot/selfdrive/car/tests/test_hyundai_kick.py \
   tools/jetlink/test_blinker_boundary.py \
-  tools/jetlink/test_boundary_recent_intent.py \
+  tools/jetlink/test_boundary_recent_intent.py tools/jetlink/test_integrated_boundary_guards.py tools/jetlink/test_indicator_continuity.py \
   tools/jetlink/test_manual_turn_indicator.py \
   tools/jetlink/test_indicator_reconstruction.py \
   openpilot/selfdrive/car/tests/test_card_diagnostics.py \
