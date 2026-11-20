@@ -1,5 +1,6 @@
 import json
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -91,6 +92,40 @@ def test_busy_signal_skips_detector_and_publishes_unknown(monkeypatch, tmp_path)
   result = json.loads(runtime.PATH.read_text())
   assert worker.sm is None and result['state'] == 'unknown'
   assert result['reason'] == 'signal_budget' and not result['control_permission']
+
+
+def test_logs_brief_confirmed_lamp_between_heartbeats(monkeypatch, tmp_path):
+  worker = runtime.BrakeRuntime()
+  worker.detector = LeadBrakeDetector()
+  lead, vision, car, calibration = context()
+  messages = {
+    'radarState': SimpleNamespace(leadOne=SimpleNamespace(to_dict=lambda: lead)),
+    'modelV2': SimpleNamespace(leadsV3=[SimpleNamespace(to_dict=lambda: vision)]),
+    'carState': SimpleNamespace(to_dict=lambda: car),
+    'liveCalibration': SimpleNamespace(to_dict=lambda: calibration),
+  }
+  worker.sm = MagicMock()
+  worker.sm.__getitem__.side_effect = messages.__getitem__
+  worker.sm.seen = worker.sm.valid = dict.fromkeys(messages, True)
+  monkeypatch.setattr(runtime, 'requested', lambda: True)
+  monkeypatch.setattr(runtime, 'PATH', tmp_path/'result.json')
+  monkeypatch.setattr(runtime, 'time', SimpleNamespace(monotonic=lambda: now))
+  logger = MagicMock()
+  lit = lamp_image()
+  dark = np.zeros_like(lit)
+
+  for frame in range(25):
+    now = 10. + frame / 8
+    worker.sm.logMonoTime = dict.fromkeys(messages, int(now * 1e9))
+    image = lit if 1 <= frame <= 3 or 5 <= frame <= 15 else dark
+    worker.update(image, frame, now, 'drive', now, logger)
+
+  records = [call.kwargs for call in logger.call_args_list]
+  assert [(r['frame_id'], r['state']) for r in records] == [
+    (0, 'unknown'), (3, 'candidate'), (7, 'candidate'), (15, 'candidate'), (23, 'unknown'),
+  ]
+  assert all(r['reason'] == 'central_lamp' and r['box'] for r in records if r['state'] == 'candidate')
+  assert all(r['control_permission'] is False for r in records)
 
 
 def test_display_stale_and_wrong_camera_never_holds_candidate():

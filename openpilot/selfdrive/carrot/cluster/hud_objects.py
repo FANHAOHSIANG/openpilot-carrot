@@ -38,6 +38,16 @@ class HudObject:
     forward: float
     right: float
 
+    def is_fresh(self, now):
+        return 0 <= now - self.t <= MAX_AGE_S
+
+    def matches_display_frame(self, camera_frame, now):
+        if not camera_frame:
+            return False
+        _, frame_t, _, _, wide = camera_frame
+        return (self.is_fresh(now) and 0 <= now - frame_t <= MAX_AGE_S
+                and self.camera == ('wideRoad' if wide else 'road') and abs(self.t - frame_t) <= .25)
+
 
 def _number(value):
     return type(value) in (int, float) and math.isfinite(value)
@@ -157,12 +167,12 @@ class HudObjectReader:
         except (AttributeError, OSError, ValueError, TypeError, RecursionError, OverflowError):
             self.packet = self.signature = self.projection_key = None
             self.objects = ()
-        return tuple(obj for obj in self.objects if 0 <= now - obj.t <= MAX_AGE_S)
+        return tuple(obj for obj in self.objects if obj.is_fresh(now))
 
 
 def pair_objects(objects, scene, now):
     """Pair at most one visual vehicle per native body in physical road coordinates."""
-    fresh = tuple(obj for obj in objects if 0 <= now - obj.t <= MAX_AGE_S)
+    fresh = tuple(obj for obj in objects if obj.is_fresh(now))
     if not fresh:
         return (), ()
     candidates = []
@@ -203,22 +213,14 @@ def monotonic_display_frame(camera_frame):
 def draw_road_boxes(objects, projection, camera_frame, now, motorcycle_tags=()):
     if not camera_frame:
         return
-    _, frame_t, _, _, wide = camera_frame
-    if not 0 <= now - frame_t <= MAX_AGE_S:
-        return
-    lens = 'wideRoad' if wide else 'road'
     dest = projection.video_dest
-
-    def frame_matches(obj):
-        return obj.camera == lens and abs(obj.t - frame_t) <= .25 and 0 <= now - obj.t <= MAX_AGE_S
-
     for obj in objects:
-        if frame_matches(obj):
+        if obj.matches_display_frame(camera_frame, now):
             rect = rl.Rectangle(dest.x + (obj.u - obj.w / 2) * dest.width, dest.y + (obj.v - obj.h) * dest.height,
                                 obj.w * dest.width, obj.h * dest.height)
             rl.draw_rectangle_lines_ex(rect, 2., rl.Color(*CLASSES[obj.kind]))
     for obj, _ in motorcycle_tags:
-        if frame_matches(obj):
+        if obj.matches_display_frame(camera_frame, now):
             x = int(dest.x + (obj.u - obj.w / 2) * dest.width)
             y = int(dest.y + (obj.v - obj.h) * dest.height) - 5
             color = rl.Color(*CLASSES['motorcycle'])

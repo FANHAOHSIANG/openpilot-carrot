@@ -2548,11 +2548,12 @@ class ClusterUiRenderer:
         profile_stage = self._profile_start()
         rl.clear_background(rl_color(theme.bg))
         self._profile_add("render_world.clear_background", profile_stage)
+        detection_count = 0
         if cluster_camera_view_is_road_camera(state.camera_view_mode):
             self._camera_overlay_wide = self._select_camera_overlay_stream(state)
             projection = self._camera_overlay_projection(state)
             profile_stage = self._profile_start()
-            self._draw_camera_background(state, projection, scene)
+            detection_count = self._draw_camera_background(state, projection, scene)
             self._profile_add("render_world.camera_background", profile_stage)
             profile_stage = self._profile_start()
             self._draw_camera_projected_overlay(scene, state, projection)
@@ -2562,6 +2563,17 @@ class ClusterUiRenderer:
             profile_stage = self._profile_start()
             self._draw_scene(scene, state, signal_lights)
             self._profile_add("render_world.draw_scene", profile_stage)
+            if state.hud_objects:
+                now = time.monotonic()
+                detection_count = sum(obj.is_fresh(now) for obj in state.hud_objects)
+        if state.onroad and detection_count:
+            # A matched native vehicle already has a body. Count its visual confirmation
+            # once here, in the driving panel's status row, without a second target.
+            sx, sy = self.width / DESIGN_WIDTH, self.height / DESIGN_HEIGHT
+            mode = self._effective_screen_mode(state)
+            clock_x = self._driving_hud_offset_design_x(mode) + self._center_clock_x(mode)
+            self._draw_text_with_stroke(f"AI {detection_count}", clock_x * sx, NAV_STATUS_CENTER_Y * sy,
+                                        NAV_STATUS_FONT_SIZE * sy, BLUE_SOFT, (0, 0, 0), 2, anchor="center", cache=True)
 
     def _scene_for_state(
         self,
@@ -2587,14 +2599,14 @@ class ClusterUiRenderer:
         state: ClusterUiState,
         projection: CameraOverlayProjection | None = None,
         scene: ClusterScene | None = None,
-    ) -> None:
+    ) -> int:
         if not cluster_camera_view_is_road_camera(state.camera_view_mode):
-            return
+            return 0
         overlay = state.route_overlay
         if projection is None:
             projection = self._camera_overlay_projection(state)
         if projection is None:
-            return
+            return 0
         texture = None
         if overlay is not None and overlay.video_rgba is not None:
             texture = self._route_video_texture_for_overlay(overlay)
@@ -2632,9 +2644,12 @@ class ClusterUiRenderer:
                         from hud_objects import draw_road_boxes, monotonic_display_frame, pair_objects
                         now = time.monotonic()
                         visible, tags = pair_objects(state.hud_objects, scene, now)
-                        draw_road_boxes(visible, projection, monotonic_display_frame(live_camera.display_frame), now, tags)
+                        frame = monotonic_display_frame(live_camera.display_frame)
+                        draw_road_boxes(visible, projection, frame, now, tags)
+                        return sum(obj.matches_display_frame(frame, now) for obj in state.hud_objects)
         finally:
             rl.end_scissor_mode()
+        return 0
 
     def _draw_signal_detections(self, projection, live_camera) -> None:
         brake = self._brake_display_reader.read(live_camera.display_frame)

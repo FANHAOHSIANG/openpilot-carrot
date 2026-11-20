@@ -85,18 +85,21 @@ class BrakeRuntime:
     self.sm = self.detector = None
     self.next_sample = 0.
     self.next_log = 0.
+    self.candidate_logged = False
     self.session = None
 
   def update(self, rgb, frame_id, stamp, session, work_start, logger=None):
     if not requested():
       self.sm = self.detector = None
       self.next_sample = 0.
+      self.candidate_logged = False
       self.session = None
       return
     if session != self.session:
       if self.detector is not None:
         self.detector.reset()
       self.next_sample = 0.
+      self.candidate_logged = False
       self.session = session
     now = time.monotonic()
     if now < self.next_sample:
@@ -135,6 +138,11 @@ class BrakeRuntime:
     temp = PATH.with_suffix('.tmp')
     temp.write_text(json.dumps(record, allow_nan=False))
     temp.replace(PATH)
-    if logger is not None and now >= self.next_log:
+    candidate = record['state'] == 'candidate'
+    if not candidate:
+      self.candidate_logged = False
+    # A short confirmation can start and end between the one-second heartbeats.
+    if logger is not None and (now >= self.next_log or (candidate and not self.candidate_logged)):
       logger('leadBrakeLights', **record)
       self.next_log = now + 1.
+      self.candidate_logged = candidate

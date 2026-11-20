@@ -313,3 +313,48 @@ def test_road_motorcycle_tag_only_on_contemporaneous_matching_lens(detected_moto
     calls.clear()
     draw_road_boxes(bodies, projection, (1, t, 1344, 760, wide), now, motorcycle_tags=tags)
     assert not calls
+
+
+@pytest.mark.parametrize("view", [0, 2])
+def test_driving_panel_confirms_a_fresh_visual_match_once_in_3d_and_camera(view, detected_motorcycle, monkeypatch):
+  from dataclasses import replace
+  import cluster_renderer as cr
+  from cluster_live import standby_state
+
+  bike, _, scene = detected_motorcycle
+  car = replace(bike, kind="car")
+  assert pair_objects((car,), scene, 10.1) == ((), ())  # The native lead already supplies its body.
+  state = replace(standby_state(), onroad=True, camera_view_mode=view, hud_objects=(car,))
+  renderer = cr.ClusterUiRenderer(screen_mode=5)
+  t = 10.1
+  camera = SimpleNamespace(display_frame=(5, 10.05, 1344, 760, False), draw=lambda area: True)
+  rect = cr.rl.Rectangle(0, 0, 1124, 462)
+  texts = []
+  monkeypatch.setattr(cr.time, "monotonic", lambda: t)
+  monkeypatch.setattr(cr.time, "clock_gettime", lambda clock: t)
+  monkeypatch.setattr(renderer, "_scene_for_state", lambda *_: scene)
+  monkeypatch.setattr(renderer, "_draw_scene", lambda *_: None)
+  monkeypatch.setattr(renderer, "_select_camera_overlay_stream", lambda *_: False)
+  monkeypatch.setattr(renderer, "_camera_overlay_projection", lambda *_: SimpleNamespace(dest=rect, video_dest=rect))
+  monkeypatch.setattr(renderer, "_live_road_camera_view", lambda: camera)
+  monkeypatch.setattr(renderer, "_draw_signal_detections", lambda *_: None)
+  monkeypatch.setattr(renderer, "_draw_camera_projected_overlay", lambda *_: None)
+  monkeypatch.setattr(renderer, "_draw_text_with_stroke", lambda text, *_, **kw: texts.append(text))
+  for op in ("clear_background", "begin_scissor_mode", "end_scissor_mode", "draw_rectangle_rec"):
+    monkeypatch.setattr(cr.rl, op, lambda *_: None)
+  monkeypatch.setattr(cr.rl, "draw_rectangle_lines_ex", lambda *_: pytest.fail("Matched car got a second box"))
+
+  def render(objects):
+    texts.clear()
+    renderer._render_world(replace(state, hud_objects=objects), (False, False))
+    return list(texts)
+
+  assert render((car,)) == ["AI 1"]
+  assert not render(())  # A native lead with no camera confirmation.
+  t = 11.2
+  assert not render((car,))
+  if view == 2:
+    t = 10.1
+    assert not render((replace(car, camera="wideRoad"),))
+    camera.display_frame = (6, 9.6, 1344, 760, False)
+    assert not render((car,))  # The HUD is displaying a different capture.
