@@ -1,0 +1,75 @@
+name: Official Cheddar Test integration gate
+on:
+  pull_request:
+    branches: ['test/carrot-wip-upstream-20261104']
+    paths:
+      - '.github/workflows/carrot-official-cheddar-gate.yml'
+      - 'openpilot/selfdrive/modeld/**'
+      - 'tools/modeld/**'
+      - 'tinygrad_repo/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate_source_preservation:
+    name: Keep Test LED, navigation, and original modeld behavior
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify pinned Test source and official history
+        env:
+          TEST_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$TEST_BASE"
+          git merge-base --is-ancestor "$TEST_BASE" HEAD
+          git merge-base --is-ancestor 34ce0aa171ef5145ff37bcd420ac13c733138410 HEAD
+          for file in tools/iphone_led openpilot/selfdrive/carrot/iphone_led_bridge.py openpilot/system/manager/process_config.py openpilot/cereal/custom.capnp openpilot/selfdrive/carrot/carrot_navi_control.py openpilot/selfdrive/modeld/jetlink; do
+            test "$(git rev-parse "$TEST_BASE:$file")" = "$(git rev-parse "HEAD:$file")" || { echo "Unexpected change: $file"; exit 1; }
+          done
+          bash -n launch_chffrplus.sh
+  cheddar_native_cpu:
+    name: Cheddar, model contract, selected-model fallback and native runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONPATH: '.:tinygrad_repo:opendbc_repo'
+      DEV: CPU:LLVM
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest numpy requests psutil scons cython setuptools aiohttp pycapnp
+      - name: Compile source syntax
+        run: |
+          python -m compileall -q openpilot/selfdrive/modeld/cheddar_model.py openpilot/selfdrive/modeld/cheddar_adapter.py openpilot/selfdrive/modeld/cheddar_runtime.py openpilot/selfdrive/modeld/cheddar_worker.py openpilot/selfdrive/modeld/modeld.py openpilot/selfdrive/modeld/generic_model_runtime.py
+      - name: Test source-level model runtime and fallback contracts
+        run: |
+          python -m pytest -c /dev/null --rootdir=. --confcutdir=openpilot/selfdrive/modeld/tests -q \
+            openpilot/selfdrive/modeld/tests/test_cheddar_model.py \
+            openpilot/selfdrive/modeld/tests/test_internal_model_selection.py \
+            openpilot/selfdrive/modeld/tests/test_internal_model_warmup.py \
+            openpilot/selfdrive/modeld/tests/test_generic_model_runtime.py
+      - name: Test pinned Cheddar CPU runtime without a vehicle
+        run: python tools/modeld/check_cheddar_runtime.py
+      - name: Verify ONNX history Gather native CPU
+        env:
+          DEV: CPU
+        run: python -m pytest -c /dev/null --noconftest -q openpilot/selfdrive/modeld/tests/test_onnx_history_gather.py
+  native_scons_compile:
+    name: Native SCons compile with default internal Cheddar model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Prepare native build dependencies
+        run: ./tools/op.sh setup
+      - name: Compile source and default internal model (no device execution)
+        run: scons -j2

@@ -565,3 +565,9 @@ After confirmed turn entry, the TBT indicator ends its hold as the wheel returns
 The ATC right lane-change distance uses 0m for off and 50m steps up to 500m. The former ON setting migrates to 250m at restart.
 
 This test branch caps automatic road/model increases at the selected cruise speed; manual speed commands remain available.
+
+## Internal baseline model: Cheddar (official 2026-11-19 source)
+
+The official internal model runtime now uses **Cheddar** for the built-in model on a compatible, newly built installation. This is a change to model execution and model output, **not** a new driving setting and **not** a claim that an existing device has been upgraded. The model-library status labels the internal model `Cheddar`.
+
+The external USB-GPU and Jetlink model selection, including N16, remains a separate path. If an external model is unavailable or errors, modeld can fall back to the internal runtime. Switching the underlying internal model may affect prediction and steering/longitudinal behavior, so platform build, performance and vehicle-safety verification are required before using it on a car. A successful source merge or offline CPU test is **not** permission to deploy it or evidence of road safety.
