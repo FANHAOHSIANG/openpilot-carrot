@@ -85,7 +85,7 @@ class WikiSettingsGeneratorTest(unittest.TestCase):
       catalog_commit=COMMIT,
       generated_at=STAMP,
     )
-    self.assertEqual(len(result.generated_settings), 219)
+    self.assertEqual(len(result.generated_settings), 221)
     self.assertIn("TeslaAutoSpeedLimit", result.index["settings"])
     self.assertIn("TeslaAutoTurnSignals", result.index["settings"])
     self.assertIn("NNFF", result.index["settings"])
