@@ -117,6 +117,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 - [레인모드: 속도(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%A0%88%EC%9D%B8%EB%AA%A8%EB%93%9C-%EC%86%8D%EB%8F%84%280%29) — `UseLaneLineSpeed`
 - [레인모드: 커브속도(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%A0%88%EC%9D%B8%EB%AA%A8%EB%93%9C-%EC%BB%A4%EB%B8%8C%EC%86%8D%EB%8F%84%280%29) — `UseLaneLineCurveSpeed`
 - [레인모드: 차선조절옵셋 (0)cm](https://github.com/ajouatom/openpilot/wiki/KO-%EB%A0%88%EC%9D%B8%EB%AA%A8%EB%93%9C-%EC%B0%A8%EC%84%A0%EC%A1%B0%EC%A0%88%EC%98%B5%EC%85%8B-%280%29cm) — `AdjustLaneOffset`
+- [모델 커브 중앙 보정](https://github.com/ajouatom/openpilot/wiki/KO-%EB%AA%A8%EB%8D%B8-%EC%BB%A4%EB%B8%8C-%EC%A4%91%EC%95%99-%EB%B3%B4%EC%A0%95) — `ModelCurveCentering`
 
 ##### 고급 토크
 
@@ -515,6 +516,7 @@ Per-setting pages generated from the current settings catalog.
 - [Laneline: Speed(0)](https://github.com/ajouatom/openpilot/wiki/EN-Laneline-Speed%280%29) — `UseLaneLineSpeed`
 - [Laneline: Curve Speed(0)](https://github.com/ajouatom/openpilot/wiki/EN-Laneline-Curve-Speed%280%29) — `UseLaneLineCurveSpeed`
 - [LaneLine: AdjustLaneOffset (0)cm](https://github.com/ajouatom/openpilot/wiki/EN-LaneLine-AdjustLaneOffset-%280%29cm) — `AdjustLaneOffset`
+- [Model curve centering](https://github.com/ajouatom/openpilot/wiki/EN-Model-curve-centering) — `ModelCurveCentering`
 
 ##### Advanced Torque
 
@@ -913,6 +915,7 @@ Per-setting pages generated from the current settings catalog.
 - [车道线: 速度 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%A6%E9%81%93%E7%BA%BF-%E9%80%9F%E5%BA%A6-%280%29) — `UseLaneLineSpeed`
 - [车道线: 弯道速度 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%A6%E9%81%93%E7%BA%BF-%E5%BC%AF%E9%81%93%E9%80%9F%E5%BA%A6-%280%29) — `UseLaneLineCurveSpeed`
 - [车道线: 车道偏移调整 (0)cm](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%A6%E9%81%93%E7%BA%BF-%E8%BD%A6%E9%81%93%E5%81%8F%E7%A7%BB%E8%B0%83%E6%95%B4-%280%29cm) — `AdjustLaneOffset`
+- [模型弯道居中修正](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%A8%A1%E5%9E%8B%E5%BC%AF%E9%81%93%E5%B1%85%E4%B8%AD%E4%BF%AE%E6%AD%A3) — `ModelCurveCentering`
 
 ##### 高级扭矩
 
@@ -1311,6 +1314,7 @@ Per-setting pages generated from the current settings catalog.
 - [車道線: 速度 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BB%8A%E9%81%93%E7%B7%9A-%E9%80%9F%E5%BA%A6-%280%29) — `UseLaneLineSpeed`
 - [車道線: 彎道速度 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BB%8A%E9%81%93%E7%B7%9A-%E5%BD%8E%E9%81%93%E9%80%9F%E5%BA%A6-%280%29) — `UseLaneLineCurveSpeed`
 - [車道線: 車道偏移調整 (0)cm](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BB%8A%E9%81%93%E7%B7%9A-%E8%BB%8A%E9%81%93%E5%81%8F%E7%A7%BB%E8%AA%BF%E6%95%B4-%280%29cm) — `AdjustLaneOffset`
+- [模型彎道置中修正](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E6%A8%A1%E5%9E%8B%E5%BD%8E%E9%81%93%E7%BD%AE%E4%B8%AD%E4%BF%AE%E6%AD%A3) — `ModelCurveCentering`
 
 ##### 高階扭矩
 

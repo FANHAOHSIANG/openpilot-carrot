@@ -21,6 +21,7 @@ from opendbc.car.hyundai.stop_object import signal_stop_object_requested
 from opendbc.car.volkswagen.values import MEB_CURVATURE_PID_KP, MEB_CURVATURE_PID_KI, MEB_CURVATURE_PID_KF, MEB_CURVATURE_MAX
 
 from openpilot.selfdrive.car.voice_indicator import set_lane_change_blinkers
+from openpilot.selfdrive.controls.lib.curve_centering import CurveCentering, MIN_SPEED as CURVE_CENTERING_MIN_SPEED
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature, is_volkswagen_meb
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -78,6 +79,12 @@ class Controls:
     self.steer_limited_by_safety = False
     self.curvature = 0.0
     self.desired_curvature = 0.0
+    self.curve_centering = (CurveCentering() if self.CP.brand == 'hyundai' and self.CP.carFingerprint == 'HYUNDAI_IONIQ_5'
+                            and not (self.CP.dashcamOnly or self.CP.notCar or self.CP.passive) else None)
+    self.curve_centering_enabled = False
+    self.curve_centering_delta = 0.0
+    self.curve_centering_eof = 0
+    self.curve_centering_frame = -1
     self.lateral_startup = LateralStartupGate()
     self.lateral_started = False
 
@@ -114,11 +121,49 @@ class Controls:
     self.sm.update(15)
     if self.sm.frame % 50 == 0:
       self.hkg_phase1_enabled = phase1_enabled(self.CP, self.params)
+      self.curve_centering_enabled = self.curve_centering is not None and self.params.get_bool("ModelCurveCentering")
     if self.sm.updated["liveCalibration"]:
       self.pose_calibrator.feed_live_calib(self.sm['liveCalibration'])
     if self.sm.updated["livePose"]:
       device_pose = Pose.from_live_pose(self.sm['livePose'])
       self.calibrated_pose = self.pose_calibrator.build_calibrated_pose(device_pose)
+
+  def _update_curve_centering(self, CS, CC, model):
+    if self.curve_centering is None:
+      return
+    if (not self.curve_centering_enabled or not CC.latActive or self.lanefull_mode_enabled or
+        not (math.isfinite(CS.vEgo) and CS.vEgo >= CURVE_CENTERING_MIN_SPEED) or
+        CS.gearShifter != car.CarState.GearShifter.drive or CS.steeringPressed or CS.leftBlinker or CS.rightBlinker or
+        not CS.canValid or CS.canTimeout or CS.steerFaultTemporary or CS.steerFaultPermanent or
+        model.meta.laneChangeState != log.LaneChangeState.off or model.meta.desire != log.Desire.none):
+      self.curve_centering.reset()
+      self.curve_centering_delta = 0.0
+      return
+
+    now = time.monotonic_ns()
+    eof = model.timestampEof
+    nav = get_carrot_man(self.sm)
+    near_turn = nav is not None and nav.activeCarrot > 1 and 0 < nav.xDistToTurn < 100
+    if (near_turn or not self.sm.all_checks(['modelV2', 'carState', 'liveCalibration']) or
+        self.sm['liveCalibration'].calStatus != log.LiveCalibrationData.Status.calibrated or
+        not 0 <= now * 1e-9 - self.sm.recv_time['modelV2'] <= 0.2 or
+        not 0 <= now - self.sm.logMonoTime['carState'] <= 100_000_000 or
+        not 0 <= now - eof <= 200_000_000):
+      self.curve_centering.reset()
+      self.curve_centering_delta = 0.0
+      return
+
+    # Hold one result between camera frames, but evaluate the vetoes on every controls tick.
+    if self.sm.updated['modelV2']:
+      if eof <= self.curve_centering_eof or model.frameId == self.curve_centering_frame:
+        self.curve_centering.reset()
+        self.curve_centering_delta = 0.0
+        return
+      if eof - self.curve_centering_eof > 200_000_000 or model.frameId < self.curve_centering_frame:
+        self.curve_centering.reset()
+      self.curve_centering_eof = eof
+      self.curve_centering_frame = model.frameId
+      self.curve_centering_delta = self.curve_centering.update(model, CS.vEgo)
 
   def state_control(self):
     CS = self.sm['carState']
@@ -199,6 +244,7 @@ class Controls:
     lat_plan = self.sm['lateralPlan']
     curve_speed_abs = abs(self.sm['carrotMan'].vTurnSpeed)
     self.lanefull_mode_enabled = (lat_plan.useLaneLines and curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
+    self._update_curve_centering(CS, CC, model_v2)
     if CC.latActive and len(lat_plan.curvatures) > 0 and (lat_plan.useLaneLines if self.is_vw_meb else self.lanefull_mode_enabled):
       lat_smooth_seconds = self.params.get_float("LatSmoothSec") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
@@ -238,8 +284,9 @@ class Controls:
     else:
       # Preserve custom lane-planner filter and its delay compensation. Only
       # the model-target branch uses faster low-speed same-direction turn-in.
-      tau = low_speed_response_tau(model_v2.action.desiredCurvature, self.desired_curvature, CS.vEgo, .1) if hkg_assist_active else .1
-      new_desired_curvature = smooth_value(model_v2.action.desiredCurvature, self.desired_curvature, tau)
+      model_target = model_v2.action.desiredCurvature + self.curve_centering_delta
+      tau = low_speed_response_tau(model_target, self.desired_curvature, CS.vEgo, .1) if hkg_assist_active else .1
+      new_desired_curvature = smooth_value(model_target, self.desired_curvature, tau)
 
     # Both response changes stay upstream of the original physical limits.
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
@@ -496,6 +543,8 @@ class Controls:
       cs.lateralControlState.torqueState = lac_log
 
     cs.activeLaneLine = self.lanefull_mode_enabled
+    cs.modelCurveCenteringDelta = self.curve_centering_delta
+    cs.modelCurveCenteringEnabled = self.curve_centering_enabled
     self.pm.send('controlsState', dat)
 
     # carControl

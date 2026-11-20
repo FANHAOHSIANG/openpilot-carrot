@@ -868,6 +868,8 @@ struct ControlsState @0x97ff69c53601abf1 {
   forceDecel @51 :Bool;
 
   activeLaneLine @67 : Bool;
+  modelCurveCenteringDelta @68 :Float32;  # additive model-target curvature before smoothing and limiting (1/m)
+  modelCurveCenteringEnabled @69 :Bool;   # user setting active on a supported platform
 
   lateralControlState :union {
     pidState @53 :LateralPIDState;

@@ -1,7 +1,7 @@
 {
-  "catalogCommit": "f6d40106e77141017d3117618a05d15b25b2359c",
-  "contentHash": "0ea15c907547c93381d29d1c0099b02a331cf9b7575d6d64882fd7df82907491",
-  "generatedAt": "2026-11-19T11:28:15Z",
+  "catalogCommit": "fb4529ac9cb4fb10f1275b29e98851f12f81e74c",
+  "contentHash": "6e84f8c50def74c7a785aa5bc1247377904422c73d4dadf5d3b60708a3172f3d",
+  "generatedAt": "2026-11-20T07:25:03Z",
   "locales": [
     "ko",
     "en",
@@ -532,6 +532,10 @@
     "EN-Model-Speed-Apply-Ratio.md": {
       "bytes": 2454,
       "hash": "bba616464205e82b3f3791fbafd10df132774dcbd08c92b0cce4fda0429e540b"
+    },
+    "EN-Model-curve-centering.md": {
+      "bytes": 1335,
+      "hash": "bb1cdf97997583bc40c9eb190f0418344869039f2896ae87448b1c424dc1d076"
     },
     "EN-Model-desire-indicator-(trial).md": {
       "bytes": 4985,
@@ -1397,6 +1401,10 @@
       "bytes": 2675,
       "hash": "7f4c728162e010aa629b9b8436c087622ebee1bb20b300042a063ce18da8217e"
     },
+    "KO-모델-커브-중앙-보정.md": {
+      "bytes": 1398,
+      "hash": "09f2aa2c55e339acf748038f9fa054613a57252eed997e467f3692e4d0a00944"
+    },
     "KO-무게중심-비율.md": {
       "bytes": 1686,
       "hash": "71aa57058375adcaeac7034c3d415c403b86081a4b1b46237c3a54271f8de4fa"
@@ -1818,8 +1826,8 @@
       "hash": "c36b52d2f81711770bb6532877ab8c359e6f5d670cc0ff058db0b0c834b7e810"
     },
     "Settings-Catalog.md": {
-      "bytes": 152462,
-      "hash": "223265b5db424f5f022e036c85ec64b98e7292d5b5e7431f4a06a146456e17a3"
+      "bytes": 153117,
+      "hash": "c66119fd2f3b7bc3ceb22be4310b9e9fcf5b5d07beb319ee3278d5f01d083e5a"
     },
     "ZH-ATC-依彎道曲率調速.md": {
       "bytes": 1375,
@@ -2356,6 +2364,10 @@
     "ZH-TW-最大角度幀數-(89).md": {
       "bytes": 1878,
       "hash": "8c78f54906ba7ea9cfa9e9144c5c925badabf6e470451b18c11a93ff8f1e3a24"
+    },
+    "ZH-TW-模型彎道置中修正.md": {
+      "bytes": 1330,
+      "hash": "c83a7446b5c47c1ab08fc4b61668f996070959377c1590e8bfe17ca6064beb95"
     },
     "ZH-TW-模型意圖轉向燈(試驗).md": {
       "bytes": 3980,
@@ -3289,6 +3301,10 @@
       "bytes": 1836,
       "hash": "efec0671ab9988d8c2369bb9503604c92a27f55fa1d4502b1ec1d500f9157a4c"
     },
+    "ZH-模型弯道居中修正.md": {
+      "bytes": 1324,
+      "hash": "a9e81f99932bfa6bd13eaf60e6927bb59b9a779a846d16236abbe7032ab4b026"
+    },
     "ZH-模型意图转向灯(试验).md": {
       "bytes": 4378,
       "hash": "2ba7b380e8d9c8412fd9aa16c1bbd705af4125da4d43b10d7de13f832e6e9b44"
@@ -3632,7 +3648,7 @@
   },
   "review": {
     "current": 43,
-    "needs_review": 183
+    "needs_review": 184
   },
   "schemaVersion": 1,
   "settings": {
@@ -8192,6 +8208,37 @@
       },
       "reviewStatus": "needs_review",
       "semanticHash": "3c6bd1ba89c52b9eb29c02d193878767c4a527a2cd122355fc4d67ca6d8eeaa8"
+    },
+    "ModelCurveCentering": {
+      "group": "STEER_LANEMODE",
+      "locales": {
+        "en": {
+          "anchor": "ModelCurveCentering",
+          "factsHash": "9dae7358ca6b4c956792894ccb32ffda502df2ef08b64ba10a5d280606ad1a54",
+          "page": "EN-Model-curve-centering.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "ModelCurveCentering",
+          "factsHash": "cbdb4161b3bfe3bef44abcf394da0831b22cdd65ca6eb9013c4f719d454485f4",
+          "page": "KO-모델-커브-중앙-보정.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "ModelCurveCentering",
+          "factsHash": "ade8e044168f48d9ce1251884053208e10f7a68177ca892d643fe3ad43cf17fc",
+          "page": "ZH-模型弯道居中修正.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "ModelCurveCentering",
+          "factsHash": "b54c5780345542ce5cc5ef9d8c7d01fc4169dc177a1e6608a2251d484fdea134",
+          "page": "ZH-TW-模型彎道置中修正.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "93bb71bdc261b9cd8a21ddbe3c2243f790b32d7b9141d440191bda6e9e442b20"
     },
     "ModelDesireIndicator": {
       "group": "INDICATOR_AUTO",
