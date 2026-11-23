@@ -2,6 +2,7 @@ import time
 import pyray as rl
 from dataclasses import dataclass
 from openpilot.common.constants import CV
+from openpilot.selfdrive.ui.layout_profile import large_display_layout
 from openpilot.selfdrive.carrot.deceleration_source import deceleration_source_presentation
 from openpilot.selfdrive.ui.onroad.exp_button import ExpButton
 from openpilot.selfdrive.ui.ui_state import ui_state, UIStatus
@@ -12,6 +13,8 @@ from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.text_draw import draw_text_ui_style
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.lib.overlay_cache import OverlayLayer, DisplayClock
+
+HUD_LAYOUT = large_display_layout()
 
 # Constants
 SET_SPEED_NA = 255
@@ -287,6 +290,9 @@ class HudRenderer(Widget):
     self._plot_renderer.update(self._show_plot_mode)
     state = self._overlay_state
     key = (state.key if state else None, self._blink_timer <= 8, self._disp_timer < 32, self._show_plot_mode)
+    if HUD_LAYOUT["scene_style"]:
+      from openpilot.selfdrive.ui.onroad.reality_scene import draw_minimal_hud
+      draw_minimal_hud(rect, ui_state, self, HUD_LAYOUT)
     self._overlay.draw(rect, self._paint, key, enabled=state is not None and state.enabled,
                        urgent=state is not None and state.urgent)
 
@@ -294,7 +300,8 @@ class HudRenderer(Widget):
     button_x = rect.x + rect.width - UI_CONFIG.border_size - UI_CONFIG.button_size
     button_y = rect.y + UI_CONFIG.border_size
     self._exp_button.render(rl.Rectangle(button_x, button_y, UI_CONFIG.button_size, UI_CONFIG.button_size))
-    self._draw_cruise_speed_animation(rect)
+    if not HUD_LAYOUT["scene_style"]:
+      self._draw_cruise_speed_animation(rect)
     from openpilot.common.indicator_display import draw as draw_indicator
     from openpilot.selfdrive.ui.lane_change_notice import draw_lane_change_notice
     badge_width = min(500, rect.width * .62)
@@ -303,6 +310,9 @@ class HudRenderer(Widget):
                      badge_width, self._font_display, 26 if rect.width > 1200 else 19)
 
   def _paint(self, rect: rl.Rectangle) -> None:
+    if HUD_LAYOUT["scene_style"]:
+      self._draw_egpu_badge(rect)
+      return
 
     # Draw the header background
     rl.draw_rectangle_gradient_v(
@@ -688,7 +698,7 @@ class HudRenderer(Widget):
     cur_text = str(cur_speed_int)
 
     draw_text_ui_style(
-      cur_text, bx, by + 50, 120, rl.WHITE,
+      cur_text, bx + HUD_LAYOUT["speed_x"], by + 50 + HUD_LAYOUT["speed_y"], HUD_LAYOUT["speed_font"], rl.WHITE,
       font=self._font_display,
       border_width=3.0,
       shadow_offset=8.0,
@@ -704,7 +714,7 @@ class HudRenderer(Widget):
       cruise_text = "--"
 
     draw_text_ui_style(
-      cruise_text, bx + 170, by + 15, 60, COLORS.CARROT_GREEN,
+      cruise_text, bx + 170 + HUD_LAYOUT["cruise_x"], by + 15 + HUD_LAYOUT["cruise_y"], HUD_LAYOUT["cruise_font"], COLORS.CARROT_GREEN,
       font=self._font_display,
       border_width=1.0,
       shadow_offset=5.0,
@@ -772,9 +782,9 @@ class HudRenderer(Widget):
 
     start_x = rect.x + rect.width / 2.0
     start_y = rect.y + rect.height - 400.0
-    target_x = rect.x + 140.0 + 170.0
-    target_y = rect.y + rect.height - 230.0 + 15.0
-    target_size = 60
+    target_x = rect.x + 310 + HUD_LAYOUT["hud_x"] + HUD_LAYOUT["cruise_x"]
+    target_y = rect.y + rect.height - 215 + HUD_LAYOUT["hud_y"] + HUD_LAYOUT["cruise_y"]
+    target_size = HUD_LAYOUT["cruise_font"]
 
     x = int((start_x * interpolation_time + target_x * (CRUISE_SPEED_ANIMATION_MAX - interpolation_time)) /
             CRUISE_SPEED_ANIMATION_MAX)
@@ -1395,8 +1405,8 @@ class HudRenderer(Widget):
   def _draw_set_speed_carrot(self, rect: rl.Rectangle) -> None:
 
     # C drawHud anchor
-    bx = int(rect.x + 140)
-    by = int(rect.y + rect.height - 230)
+    bx = int(rect.x + 140 + HUD_LAYOUT["hud_x"])
+    by = int(rect.y + rect.height - 230 + HUD_LAYOUT["hud_y"])
 
     speed_limit_info = self._get_speed_limit_info()
     self._draw_carrot_main_background(bx, by, speed_limit_info)

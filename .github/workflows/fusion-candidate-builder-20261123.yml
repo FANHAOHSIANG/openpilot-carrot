@@ -1,0 +1,70 @@
+name: Build isolated Test and Tony fusion candidate
+on:
+  push:
+    branches:
+      - review/fusion-merge-stage-20261123
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge into isolated candidate; never touch live branch
+        shell: bash
+        env:
+          TEST_REF: refs/remotes/origin/test/carrot-wip-upstream-20261104
+          TONY_REF: refs/remotes/origin/Tony/carrot-wip
+        run: |
+          set -euo pipefail
+          git config user.name "Carrot fusion integration"
+          git config user.email "carrot-fusion@users.noreply.github.com"
+          git fetch origin             '+refs/heads/test/carrot-wip-upstream-20261104:refs/remotes/origin/test/carrot-wip-upstream-20261104'             '+refs/heads/Tony/carrot-wip:refs/remotes/origin/Tony/carrot-wip'
+          echo "## Integration input SHAs" >> "$GITHUB_STEP_SUMMARY"
+          echo "Baseline: $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Test: $(git rev-parse --short "$TEST_REF")" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tony: $(git rev-parse --short "$TONY_REF")" >> "$GITHUB_STEP_SUMMARY"
+          git switch -c candidate-build
+          # Keep the already integrated/user-customized implementation for overlapping hunks,
+          # while accepting non-overlapping changes from each source.
+          git merge -s ort -X ours --no-ff -m "Integrate latest customized Test into fusion candidate" "$TEST_REF" || {
+            echo "::error::Test merge has conflicts requiring manual resolution"
+            git status --short
+            exit 1
+          }
+          git merge -s ort -X ours --no-ff -m "Integrate latest Tony mirror into fusion candidate" "$TONY_REF" || {
+            echo "::error::Tony merge has conflicts requiring manual resolution"
+            git status --short
+            exit 1
+          }
+          echo "## Result" >> "$GITHUB_STEP_SUMMARY"
+          git log -3 --oneline | tee -a "$GITHUB_STEP_SUMMARY"
+          if test -n "$(git ls-files -u)"; then
+            echo "::error::Unresolved index entries exist"
+            exit 1
+          fi
+          # Two upstream files have additional blank lines at EOF; normalize them.
+          python3 -c 'from pathlib import Path; fs=["openpilot/selfdrive/carrot/xiaoge/v_asm_server.py", "tools/training_studio/teacher_checkpoint.py"]; [(p.write_bytes(p.read_bytes().rstrip(b"\n") + b"\n")) for p in map(Path, fs) if p.exists()]'
+          git add openpilot/selfdrive/carrot/xiaoge/v_asm_server.py tools/training_studio/teacher_checkpoint.py
+          if ! git diff --cached --quiet; then git commit -m "Normalize inherited EOF whitespace in integrated candidate"; fi
+          git diff --check "$GITHUB_SHA" HEAD
+          python3 -m py_compile             opendbc_repo/opendbc/car/hyundai/carcontroller.py             opendbc_repo/opendbc/car/hyundai/carstate.py             opendbc_repo/opendbc/car/hyundai/interface.py             opendbc_repo/opendbc/car/hyundai/values.py             openpilot/selfdrive/car/card.py             openpilot/selfdrive/car/cruise.py             openpilot/selfdrive/carrot/carrot_navi.py             openpilot/selfdrive/carrot/carrot_navi_control.py             openpilot/selfdrive/carrot/carrot_pre_adjust.py             openpilot/selfdrive/controls/controlsd.py
+          if git grep -n -E '^(<<<<<<< |=======|>>>>>>> )' -- '*.py' '*.json' '*.yaml' '*.yml' | head -25; then
+            echo "Review any conflict marker-like lines above"
+          fi
+          # The default Actions token cannot push commits which modify workflow files.
+          # Keep workflow policy unchanged. Retain the current tested model binary
+          # until its separate runtime qualification is complete.
+          git restore --source="$GITHUB_SHA" --staged --worktree -- .github/workflows openpilot/selfdrive/modeld/models/driving_supercombo.onnx
+          # Squash the tested working tree against the existing review branch, so
+          # GitHub only receives a non-workflow delta. This is NOT a production merge.
+          git reset --soft "$GITHUB_SHA"
+          git add -A
+          git diff --cached --check
+          git commit -m "Review only: resolve Test and Tony fusion conflicts [skip ci]"
+          git push origin HEAD:refs/heads/review/fusion-merge-stage-20261123
+          echo "Published non-workflow code only to review/fusion-merge-stage-20261123" >> "$GITHUB_STEP_SUMMARY"

@@ -12,6 +12,7 @@ import time
 import numpy as np
 import zmq
 from datetime import datetime
+from functools import cache
 import traceback
 from typing import Any, Dict, List, Optional
 
@@ -32,6 +33,7 @@ from openpilot.system.hardware import PC, TICI
 from openpilot.selfdrive.navd.helpers import Coordinate
 from openpilot.selfdrive.navigation.source import RouteSource, coordinates as route_coordinates
 from openpilot.common.constants import CV
+from openpilot.common.egpu_diagnostics import append_report
 
 from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
 from openpilot.selfdrive.carrot.curve_speed import VisionCurveSpeed, curve_speed
@@ -49,11 +51,14 @@ from openpilot.selfdrive.carrot.web_upload import (
 
 from openpilot.common.gps import get_gps_location_service
 
-try:
-  from shapely.geometry import LineString
-  SHAPELY_AVAILABLE = True
-except ImportError:
-  SHAPELY_AVAILABLE = False
+@cache
+def _route_line_type():
+  # GEOS is only needed for resampling an active route.
+  try:
+    from shapely.geometry import LineString
+    return LineString
+  except ImportError:
+    return None
 
 NetworkType = log.DeviceState.NetworkType
 NAVI_HTTP_PORT = 7713
@@ -768,7 +773,6 @@ class CarrotMan:
     try:
       subprocess.run("rm -f /data/media/tmux.log; tmux capture-pane -pq -S-1000 > /data/media/tmux.log", shell=True, capture_output=True, text=False, check=True)
       subprocess.run("/data/openpilot/openpilot/selfdrive/apilot.py", shell=True, capture_output=True, text=False)
-      from openpilot.common.egpu_diagnostics import append_report
       append_report('/data/media/tmux.log')
       return True
     except Exception as e:

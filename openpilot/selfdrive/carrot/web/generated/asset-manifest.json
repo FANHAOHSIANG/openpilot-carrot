@@ -6,7 +6,7 @@
       "kind": "bundle",
       "source": "src/entries/cockpit.js",
       "path": "js/generated/cockpit.js",
-      "hash": "44e2e0bd46d620cd9f80a62ded6e9600e80f33673af60af5294a0b65ba578a9f"
+      "hash": "6370970c5cc9c475d2abcbc0857165f1fffed93a3082c7aaffef74895ee98ca7"
     },
     {
       "id": "navigation.offline",
@@ -69,14 +69,14 @@
       "kind": "bundle",
       "source": "src/entries/tools.js",
       "path": "js/generated/tools.js",
-      "hash": "3a68c29d8154ffe909a9a10ccdc57bb5626d9a0158f26070950db2edab900537"
+      "hash": "23e4033b81e0a305af770cd5fd9170449c6ee699eee8ed5f0da151b6d6bf2754"
     },
     {
       "id": "logs.runtime",
       "kind": "bundle",
       "source": "src/entries/logs.js",
       "path": "js/generated/logs.js",
-      "hash": "da0e99df78b8f8c465a7940d3646b1c676a0a6e10a4c9479c82b594dad9f7f85"
+      "hash": "d246d5ab01c8de0d519c19b0e558d1122aa2f106fd7d38fa7c1776e3c7aa8fc2"
     },
     {
       "id": "terminal.runtime",

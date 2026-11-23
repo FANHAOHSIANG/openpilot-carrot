@@ -13,14 +13,14 @@
 
 `MaxAngleFrames`
 
-89 Recommeded
+Recommended setting: 89. On the 2024 Sorento with camera SCC and torque steering, the controller uses 92–94 frames to match the camera cadence.
 
 <!-- CARROT:AUTO:BEGIN MaxAngleFrames -->
-<!-- CARROT:AUTO:SOURCE facts="ef51ac5ed189ed14f4379ba77bcceb7b3c94b72a3275d91ca41fb422ec2693ce" semantic="c21f5b2f6d919fcc7d07af6ad5fe3f43c01fc42b1a190dd097bbd44f74ebad29" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="07950b96155f2694bae56163d8a0da53b3f38b7dacb262f4752178e34f5dd617" semantic="1ed546e0abdc6d700858338cf8462a7210f582b9b9cefadc69fe75b66788aaa6" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Number
 - **Default:** `89`
-- **Range:** `80` ~ `100`
+- **Range:** `89` ~ `100`
 - **Step:** `1`
 - **Menu:** Vehicle & Hardware \> Vehicle Aux
 <!-- CARROT:SECTION:END OVERVIEW -->

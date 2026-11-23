@@ -1,0 +1,83 @@
+name: Fusion candidate full offline validation
+on:
+  push:
+    branches: ['review/fusion-resolved-candidate-20261123']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused-offline-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install offline dependencies
+        run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-mock pytest-subtests pytest-asyncio numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized aiohttp jeepney tqdm hypothesis -r formosalink/requirements.txt
+      - name: Install CPU teacher-training test dependencies
+        run: |
+          python -m pip install safetensors
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Build CPU test libraries
+        run: |
+          scons -Q -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+          gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -Iopendbc_repo/opendbc/safety -Iopendbc_repo/opendbc/safety/board opendbc_repo/opendbc/safety/tests/libsafety/safety.c -o opendbc_repo/opendbc/safety/tests/libsafety/libsafety.so
+      - run: npm ci --prefix openpilot/selfdrive/carrot/web
+      - name: Focused regressions (not a full safety or vehicle qualification)
+        run: bash tools/integration_checks/tony_test_20261117.sh
+      - name: Check reproducible web assets
+        run: git diff --exit-code -- openpilot/selfdrive/carrot/web/css/generated openpilot/selfdrive/carrot/web/js/generated openpilot/selfdrive/carrot/web/generated
+
+  firmware:
+    name: Panda F4 and H7 firmware
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install ARM compiler
+        run: |
+          # Fetch the toolchain through Ubuntu's signed HTTPS archive. Regional
+          # runner mirrors have stalled while downloading the large newlib package.
+          sources="$RUNNER_TEMP/panda-toolchain.list"
+          echo 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble main universe' > "$sources"
+          echo 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://archive.ubuntu.com/ubuntu noble-updates main universe' >> "$sources"
+          echo 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] https://security.ubuntu.com/ubuntu noble-security main universe' >> "$sources"
+          apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=- -o Acquire::https::Timeout=30 -o Acquire::Retries=2)
+          sudo apt-get "${apt_options[@]}" update -qq
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+          pip install scons pycryptodome
+      - name: Compile production firmware
+        working-directory: panda
+        run: scons --minimal -j2
+
+  pre-adjust:
+    name: Carrot navigation and ATC pre-adjust portable regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /openpilot/selfdrive/carrot/
+            /openpilot/common/constants.py
+            /openpilot/cereal/
+            /opendbc_repo/opendbc/car/
+            /tools/check_pre_adjust_portable.py
+      - name: Validate Carrot protocol and schema
+        run: |
+          python3 -m venv /tmp/pre-adjust-venv
+          /tmp/pre-adjust-venv/bin/pip install pytest pytest-asyncio aiohttp numpy psutil pycapnp
+          /tmp/pre-adjust-venv/bin/python tools/check_pre_adjust_portable.py

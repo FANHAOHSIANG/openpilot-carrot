@@ -1,0 +1,40 @@
+name: Refresh fusion candidate generated web assets
+on:
+  push:
+    branches: [review/fusion-resolved-candidate-20261123]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: review-fusion-web-assets
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build generated assets from merged source
+        working-directory: openpilot/selfdrive/carrot/web
+        run: |
+          npm ci
+          npm run build
+      - name: Commit only generated web artifacts to isolated review branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Fusion web assets"
+          git config user.email "fusion-web@users.noreply.github.com"
+          git add -- openpilot/selfdrive/carrot/web/css/generated openpilot/selfdrive/carrot/web/js/generated openpilot/selfdrive/carrot/web/generated
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Generated web assets already match source."
+          else
+            git commit -m "build: regenerate cockpit assets from merged navigation and HUD sources"
+            git push origin HEAD:refs/heads/review/fusion-resolved-candidate-20261123
+          fi

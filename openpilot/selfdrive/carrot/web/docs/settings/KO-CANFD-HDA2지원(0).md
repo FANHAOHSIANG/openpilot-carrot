@@ -13,10 +13,10 @@
 
 `CanfdHDA2`
 
-1: HDA2 차량
+0: HDA1, 1: HDA2. CameraSCC가 0이면 순정 HDA2 SCC 연결을 사용하며, CameraSCC 개조 설정을 켰으면 그 설정을 유지합니다. 차량·하네스에 맞게 선택하고 변경 후 재시작하세요.
 
 <!-- CARROT:AUTO:BEGIN CanfdHDA2 -->
-<!-- CARROT:AUTO:SOURCE facts="6e988b9fca3ef97df35f9a3ed25521e0f877cf391c10b6d6c932a016a6c8413c" semantic="2cd10469d96bc08a71fdfa257929f6cf6790a84cd48e7d2bcc55c07355d65caa" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="175c0a3c6560fbe90786017bbad6af5ae7327ab543d596ddbb5c2929269980aa" semantic="6b24754cbac58c945701508b8f8fc96985d82ba760a595087dd33c95e6210b76" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 토글
 - **기본값:** `0`

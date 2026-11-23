@@ -16,7 +16,7 @@
 結合駕駛員轉向力、方向盤轉動及車輛實際旋轉識別左右轉彎，獨立於ATC，支援車道線不清晰的路口。起始速度5–60km/h，同向轉向力持續0.15秒，轉角至少42度且增加22度，並確認同向車身旋轉。方向盤回到±15度且旋轉穩定、駕駛員反向轉向或持續30秒後結束。預設關閉，適用於Ioniq 5 PE、支援的轉向燈裝置及自動轉向燈模式1或2。停車場轉彎也可能觸發，彎道及避讓動作可能誤觸發，實車燈光驗證待完成。 手動變道指示期間符合相同方向的手動轉彎條件時，延續原請求並改依轉彎完成條件追蹤。
 
 <!-- CARROT:AUTO:BEGIN ManualTurnIndicator -->
-<!-- CARROT:AUTO:SOURCE facts="f86f81edda97a896bc4960b4fddf161fa1be2b5cf8a13910aa388dfe46bb5f27" semantic="f0ef06b901de4a75df1b35995bb04f0d67939b657e3530220224caffc30917a9" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="62192b589de128d9ad3e2f40e54fcb955b564bfb549b762314263f64e6e92790" semantic="d97a40a90b8c179facde86b6376a8ee85dbad1ab6c1ba3c99c7b0b44f5a208f2" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 開關
 - **預設值:** `0`

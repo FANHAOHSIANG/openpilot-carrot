@@ -16,7 +16,7 @@
 0: HDA1, 1: HDA2
 
 <!-- CARROT:AUTO:BEGIN CanfdHDA2 -->
-<!-- CARROT:AUTO:SOURCE facts="45c5ef680ca4a0e7ea68ead8bd754f787efb1968ae30494b3b28169a8e4e0aa8" semantic="2cd10469d96bc08a71fdfa257929f6cf6790a84cd48e7d2bcc55c07355d65caa" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="39f2ae39a8c8f9401cb35bd99e1fa583ba00e1c016808cbd65b61b1f0890cbb7" semantic="6b24754cbac58c945701508b8f8fc96985d82ba760a595087dd33c95e6210b76" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **型別:** 開關
 - **預設值:** `0`

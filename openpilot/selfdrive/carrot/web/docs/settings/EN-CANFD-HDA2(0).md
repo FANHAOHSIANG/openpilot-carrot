@@ -13,10 +13,10 @@
 
 `CanfdHDA2`
 
-0:HDA1, 1: HDA2
+0: HDA1, 1: HDA2. With CameraSCC at 0, use the stock HDA2 SCC connection; an explicit CameraSCC wiring setting takes precedence. Match the vehicle and harness, then restart after changing.
 
 <!-- CARROT:AUTO:BEGIN CanfdHDA2 -->
-<!-- CARROT:AUTO:SOURCE facts="08166219b234cafad7198d267cd8e0b21a8f3ab693a042a74a3c098e95244eed" semantic="2cd10469d96bc08a71fdfa257929f6cf6790a84cd48e7d2bcc55c07355d65caa" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="23f0cbfbeeae634664af7d5269c688a9f2def7d20d274b54eb4e15a6b16748d1" semantic="6b24754cbac58c945701508b8f8fc96985d82ba760a595087dd33c95e6210b76" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **Type:** Toggle
 - **Default:** `0`

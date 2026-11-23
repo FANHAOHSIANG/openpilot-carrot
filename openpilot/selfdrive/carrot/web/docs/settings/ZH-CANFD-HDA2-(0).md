@@ -13,10 +13,10 @@
 
 `CanfdHDA2`
 
-0: HDA1, 1: HDA2
+0：HDA1，1：HDA2。CameraSCC为0时使用原厂HDA2 SCC连接；启用CameraSCC改线设置时保留该设置。请按车辆和线束选择，修改后重启。
 
 <!-- CARROT:AUTO:BEGIN CanfdHDA2 -->
-<!-- CARROT:AUTO:SOURCE facts="d9a33aa2b46f29b95b6c3915c4c59967a4045534ca2b50e366af6bae18a37d34" semantic="2cd10469d96bc08a71fdfa257929f6cf6790a84cd48e7d2bcc55c07355d65caa" review="needs_review" -->
+<!-- CARROT:AUTO:SOURCE facts="356fb558e683c174f89566d0557b265917185666898c41d49562727c635da552" semantic="6b24754cbac58c945701508b8f8fc96985d82ba760a595087dd33c95e6210b76" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **类型:** 开关
 - **默认值:** `0`
