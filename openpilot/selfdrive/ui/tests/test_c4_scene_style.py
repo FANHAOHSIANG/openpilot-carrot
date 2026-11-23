@@ -63,9 +63,10 @@ class TestC4SceneStyle(unittest.TestCase):
       "ui_state": type("FakeUIState", (), {"params": selection})(),
     }
     exec(compile(module, str(path), "exec"), namespace)
-    namespace["_refresh_scene_style"](DummyView(), 10.0)
-    self.assertEqual(DummyView._reality.style["scene_style"], 2)
-    self.assertEqual(DummyView._scene_style_next_t, 10.5)
+    view = DummyView()
+    namespace["_refresh_scene_style"](view, 10.0)
+    self.assertEqual(view._reality.style["scene_style"], 2)
+    self.assertEqual(view._scene_style_next_t, 10.5)
 
   def test_native_setting_and_runtime_are_wired(self):
     toggles = (ROOT / "openpilot/selfdrive/ui/mici/layouts/settings/toggles.py").read_text()
