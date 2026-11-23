@@ -39,6 +39,26 @@ jobs:
               cat "/tmp/fusion-audit/$label.txt" >> "$GITHUB_STEP_SUMMARY"
               echo '~~~' >> "$GITHUB_STEP_SUMMARY"
               cat /tmp/fusion-audit/merge-output.txt
+              if [[ "$label" == "user-fusion-vs-Test" ]]; then
+                python - <<'PY'
+import subprocess
+from pathlib import Path
+files=subprocess.check_output(["git","diff","--name-only","--diff-filter=U"],text=True).splitlines()
+for name in files:
+  print(f"======== CONFLICT HUNKS: {name} ========")
+  try: lines=Path(name).read_text(errors="replace").splitlines()
+  except OSError: continue
+  emitted=0
+  for i,line in enumerate(lines):
+    if line.startswith("<<<<<<< "):
+      j=i
+      while j<len(lines) and not lines[j].startswith(">>>>>>> "): j+=1
+      j=min(j+1,len(lines))
+      part="\\n".join(f"{k+1:4} {lines[k]}" for k in range(max(0,i-5),min(len(lines),j+5)))
+      if emitted+len(part)>10000: print("[truncated]");break
+      print(part);emitted+=len(part)
+PY
+              fi
             fi
             if test -f .git/MERGE_HEAD; then git merge --abort; fi
           }
