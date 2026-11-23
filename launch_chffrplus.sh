@@ -137,7 +137,8 @@ function bootstrap_runtime_dependencies {
   # and libjpeg wrappers used by this branch's rednose and JPEG encoder. Keep
   # those native headers/libraries available from official offline wheels.
   if { [ -f /TICI ] || [ -f /AGNOS ]; } && \
-     { ! ensure_python_package eigen eigen 1 || ! ensure_python_package libjpeg libjpeg 1; }; then
+     { ! ensure_python_package "eigen; import os; assert os.path.isdir(eigen.INCLUDE_DIR), 'Eigen headers missing'" eigen 1 ||
+        ! ensure_python_package "libjpeg; import os; assert os.path.isfile(os.path.join(libjpeg.INCLUDE_DIR, 'jpeglib.h')), 'libjpeg headers missing'; assert os.path.isfile(os.path.join(libjpeg.LIB_DIR, 'libjpeg.a')), 'libjpeg archive missing'" libjpeg 1; }; then
     return 1
   fi
 
