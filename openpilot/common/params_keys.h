@@ -202,6 +202,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"RainbowMode", {PERSISTENT, BOOL, "0"}},
     {"ShowCustomBrightness", {PERSISTENT, INT, "100"}},
     {"ShowModelView", {PERSISTENT, INT, "0"}},
+    {"C4SceneStyle", {PERSISTENT, INT, "0"}},  // C4 native camera (0), Tony Reality night (1), day (2). Display only.
     {"ShowCameraWithCluster", {PERSISTENT, INT, "0"}},
     {"ClusterHud", {PERSISTENT, INT, "0"}},
     {"ClusterHudConnected", {CLEAR_ON_MANAGER_START, BOOL}},
