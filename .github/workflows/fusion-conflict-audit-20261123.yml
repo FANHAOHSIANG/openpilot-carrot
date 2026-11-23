@@ -41,7 +41,7 @@ jobs:
               cat /tmp/fusion-audit/merge-output.txt
               if [[ "$label" == "user-fusion-vs-Test" ]]; then
                 echo '=== Conflict marker details ==='
-                git diff --cc --no-ext-diff | head -c 90000 || true
+                git diff --cc --no-ext-diff -- openpilot/selfdrive/modeld/SConscript tools/docs/wiki_settings/tests/test_ci_check.py tools/docs/wiki_settings/tests/test_generate.py openpilot/selfdrive/car/tests/test_hyundai_kick.py | head -c 60000 || true
                 echo '=== End conflict details ==='
               fi
             fi
