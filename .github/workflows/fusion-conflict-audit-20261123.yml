@@ -1,0 +1,52 @@
+name: Fusion integration conflict audit (isolated)
+on:
+  push:
+    branches:
+      - review/fusion-sync-20261123
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Audit original merge conflicts (no push or deployment)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Fusion audit"
+          git config user.email "fusion-audit@users.noreply.github.com"
+          git fetch origin             '+refs/heads/upstream/carrot-wip-official:refs/remotes/origin/upstream/carrot-wip-official'             '+refs/heads/Tony/carrot-wip:refs/remotes/origin/Tony/carrot-wip'             '+refs/heads/test/carrot-wip-upstream-20261104:refs/remotes/origin/test/carrot-wip-upstream-20261104'
+          mkdir -p /tmp/fusion-audit
+          audit_pair () {
+            local label="$1" base="$2" source="$3"
+            git checkout -f --detach "$base"
+            git reset --hard "$base"
+            echo "## $label" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Base: $(git rev-parse --short HEAD), incoming: $(git rev-parse --short "$source")" | tee -a "$GITHUB_STEP_SUMMARY"
+            if git -c merge.conflictStyle=diff3 merge --no-commit --no-ff "$source" >/tmp/fusion-audit/merge-output.txt 2>&1; then
+              echo "Clean automatic merge" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              git diff --name-only --diff-filter=U | tee "/tmp/fusion-audit/$label.txt"
+              count=$(wc -l < "/tmp/fusion-audit/$label.txt")
+              echo "Conflicted paths: $count" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+              cat "/tmp/fusion-audit/$label.txt" >> "$GITHUB_STEP_SUMMARY"
+              echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+              cat /tmp/fusion-audit/merge-output.txt
+            fi
+            if test -f .git/MERGE_HEAD; then git merge --abort; fi
+          }
+          audit_pair "pure-official-vs-Tony" "origin/upstream/carrot-wip-official" "origin/Tony/carrot-wip"
+          audit_pair "user-fusion-vs-Test" "$GITHUB_SHA^" "origin/test/carrot-wip-upstream-20261104"
+      - name: Upload conflict path lists
+        uses: actions/upload-artifact@v4
+        with:
+          name: fusion-conflicts
+          path: /tmp/fusion-audit/*.txt
+          if-no-files-found: ignore
