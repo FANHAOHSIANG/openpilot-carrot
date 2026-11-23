@@ -1,0 +1,67 @@
+name: Resolve latest Test into isolated fusion candidate
+on:
+  push:
+    branches:
+      - review/fusion-sync-20261123
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test-merge-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Perform isolated Test merge with guarded conflict resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/integration_checks/resolve_test_fusion_conflicts_20261123.py /tmp/resolve_test_fusion_conflicts.py
+          git fetch origin \
+            '+refs/heads/test/tony-carrot-wip-integrated-20261117:refs/remotes/origin/test/tony-carrot-wip-integrated-20261117' \
+            '+refs/heads/test/carrot-wip-upstream-20261104:refs/remotes/origin/test/carrot-wip-upstream-20261104'
+          LIVE=$(git rev-parse 'origin/test/tony-carrot-wip-integrated-20261117')
+          test "$LIVE" = '51ec96c2534c500ee06fc20c581a9b05743462f3' || { echo 'Live fusion changed; refuse stale merge'; exit 1; }
+          git switch -C review/fusion-test-merge-20261123 "$LIVE"
+          git config user.name 'Fusion Integration Review'
+          git config user.email 'fusion-review@users.noreply.github.com'
+          if git -c merge.conflictStyle=diff3 merge --no-commit --no-ff 'origin/test/carrot-wip-upstream-20261104'; then
+            echo 'No manual resolution required'
+          else
+            python /tmp/resolve_test_fusion_conflicts.py
+          fi
+          test -z "$(git diff --name-only --diff-filter=U)" || { echo 'Unresolved conflicts'; exit 1; }
+          python -c 'import ast; from pathlib import Path; ast.parse(Path("openpilot/selfdrive/modeld/SConscript").read_text()); ast.parse(Path("openpilot/selfdrive/car/tests/test_hyundai_kick.py").read_text())'
+          git diff --check
+          echo 'Test merge resolved; beginning generated asset and docs validation'
+      - name: Build merged web assets
+        run: |
+          set -euo pipefail
+          npm ci --prefix openpilot/selfdrive/carrot/web
+          npm run build --prefix openpilot/selfdrive/carrot/web
+          cd openpilot/selfdrive/carrot/web
+          node --test tests/navigation_map.test.mjs tests/settings_parent_navigation.test.mjs tests/traditional_chinese.test.mjs
+      - name: Validate merged settings catalog and safety-facing test fixtures
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q
+          python -m compileall -q openpilot/selfdrive/car/tests/test_hyundai_kick.py
+          git diff --check
+      - name: Push only isolated candidate after successful lightweight checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git diff --cached --check
+          test -z "$(git diff --name-only --diff-filter=U)" || exit 1
+          git commit -m 'Merge latest official Test into fusion candidate (offline review)'
+          git push origin HEAD:refs/heads/review/fusion-test-merge-20261123
+          echo 'Candidate branch updated, live fusion untouched' >> "$GITHUB_STEP_SUMMARY"
