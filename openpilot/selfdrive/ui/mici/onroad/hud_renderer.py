@@ -304,7 +304,8 @@ class HudRenderer(Widget):
   def _render(self, rect: rl.Rectangle) -> None:
     """Render HUD elements to the screen."""
     state = self._overlay_state
-    key = (state.key if state else None, self._traffic_light_info, self._can_draw_top_icons, self._show_wheel_critical)
+    key = (state.key if state else None, self._traffic_light_info, self._can_draw_top_icons, self._show_wheel_critical,
+           HUD_LAYOUT["scene_style"])  # Invalidate cached HUD paint when switching stock/Reality styles.
     if HUD_LAYOUT["scene_style"]:
       from openpilot.selfdrive.ui.onroad.reality_scene import draw_minimal_hud
       draw_minimal_hud(rect, ui_state, self, HUD_LAYOUT)
