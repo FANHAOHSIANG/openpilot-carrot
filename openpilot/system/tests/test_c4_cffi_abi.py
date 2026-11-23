@@ -86,6 +86,6 @@ def test_cffi_repair_is_prior_to_python_runtime_and_scons():
   assert 'pycparser==3.0' in block
   assert '--no-index --no-deps' in block
   assert 'install_runtime_python_package' in block
-  assert block.index("native_dependency_audit --check cffi") < block.index("ensure_python_package serial")
+  assert block.index("native_dependency_audit --check cffi") < block.index("audit.check_or_raise(\'serial\')")
   assert launcher.index("run_startup_command bootstrap_runtime_dependencies") < launcher.index(
     'run_startup_command bash "$DIR/scripts/ensure_params_build.sh"')

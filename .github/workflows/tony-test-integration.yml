@@ -102,3 +102,22 @@ jobs:
           cffi.FFI()
           print("ARM64 cffi Python/backend both loaded from pydeps and FFI instantiated")
           PY
+      - name: Validate bundled aiohttp and pyserial service APIs in ARM64 pydeps overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/c4-service-pydeps"
+          python -m pip install --no-index --find-links third_party/wheels \
+            --target "$RUNNER_TEMP/c4-service-pydeps" 'aiohttp==3.13.3' 'pyserial==3.5'
+          PYTHONPATH="$RUNNER_TEMP/c4-service-pydeps:$GITHUB_WORKSPACE" \
+            python -m openpilot.system.manager.runtime_service_audit
+          PYTHONPATH="$RUNNER_TEMP/c4-service-pydeps:$GITHUB_WORKSPACE" python - <<'PY'
+          import aiohttp, serial
+          from aiohttp import WSMsgType, web
+          assert "/c4-service-pydeps/" in aiohttp.__file__, aiohttp.__file__
+          assert "/c4-service-pydeps/" in serial.__file__, serial.__file__
+          assert hasattr(web, "Application") and hasattr(web, "WebSocketResponse")
+          assert WSMsgType.TEXT is not None
+          assert callable(serial.Serial) and callable(serial.VTIMESerial)
+          print("ARM64 Carrot service dependencies verified")
+          PY

@@ -132,15 +132,27 @@ function bootstrap_runtime_dependencies {
       fi
     fi
   fi
-  if ! ensure_python_package serial pyserial 1 || \
+  # The previous import-only checks let namespace/shadowed aiohttp and
+  # serial pass while carrot_man, carrot_navi, carrot_webrtcd and modemd crashed.
+  # Check the exact service APIs and repair from bundled offline wheels if bad.
+  if ! ensure_python_package "openpilot.system.manager.runtime_service_audit as audit; audit.check_or_raise('serial')" "pyserial==3.5" 1 || \
      ! ensure_python_package msgpack msgpack 1 || \
-     ! ensure_python_package aiohttp aiohttp 1 1 || \
+     ! ensure_python_package "openpilot.system.manager.runtime_service_audit as audit; audit.check_or_raise('aiohttp')" "aiohttp==3.13.3" 1 1 || \
      ! ensure_python_package "aiortc; import av; import pylibsrtp" "aiortc==1.14.0" 1 1 || \
      ! ensure_python_package psutil psutil 1 || \
      ! ensure_python_package crcmod crcmod-plus 1 || \
      ! ensure_python_package jsonrpc json-rpc 1 || \
      ! ensure_python_package qrcode qrcode 1; then
     return 1
+  fi
+
+  if [ -f /TICI ] || [ -f /AGNOS ]; then
+    # Full audit with resolved paths, retained for recovery diagnostics.
+    if ! python3 -m openpilot.system.manager.runtime_service_audit \
+        --report /data/c4-runtime-service-audit.json; then
+      echo "Carrot service imports still broken; see /data/c4-runtime-service-audit.json"
+      return 1
+    fi
   fi
 
   ensure_python_package brotli brotli 0
