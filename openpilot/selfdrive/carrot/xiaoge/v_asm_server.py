@@ -682,7 +682,11 @@ class VASMService:
             self.snapshot_condition.notify_all()
           if not self.lane_inference.valid:
             continue
-          if now - self.last_lane_inference_at < self.lane_interval_seconds:
+          # Auxiliary lane inference must leave CPU time for modeld/USB when it
+          # overruns its configured period. Keep receiving frames and servicing
+          # snapshots during cooldown; never queue catch-up inference jobs.
+          lane_period = max(self.lane_interval_seconds, 2.0 * self.last_lane_inference_ms / 1000.0)
+          if now - self.last_lane_inference_at < lane_period:
             continue
 
           lane_threshold = self.lane_threshold

@@ -4,6 +4,7 @@ import json
 import asyncio
 import hashlib
 import os
+import re
 import time
 import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
@@ -336,7 +337,7 @@ async def upload_folder_to_web(
               if 400 <= resp.status < 500 and resp.status not in (408, 429):
                 raise UploadRejected(f"HTTP {resp.status}: {error}")
               raise RuntimeError(f"HTTP {resp.status}: {error}")
-            raw_size = (body or {}).get("size")
+            raw_size = body.get("size")
             remote_size = int(raw_size) if raw_size is not None else -1
             if remote_size != file_size or (not (body or {}).get('skipped') and remote_size != sent):
               raise RuntimeError(f"size mismatch for {filename}: sent {sent}, remote {remote_size}")

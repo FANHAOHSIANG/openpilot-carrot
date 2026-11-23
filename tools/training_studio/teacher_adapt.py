@@ -131,7 +131,7 @@ def main():
       label=remote.call('docker inspect studio-teacher --format \'{{index .Config.Labels "formosapilot.owner"}}\'',capture_output=True,text=True).stdout.strip()
       if label!='training-studio': raise RuntimeError('refusing to replace a foreign teacher container')
       call(['docker','rm','-f','studio-teacher'])
-    call(['docker','run','-d','--name','studio-teacher','--label',owner,'--gpus','all','--network','bridge','--memory','32g','--user','1000:1000',
+    call(['docker','run','-d','--restart','unless-stopped','--name','studio-teacher','--label',owner,'--gpus','all','--network','bridge','--memory','32g','--user','1000:1000',
       '-p','127.0.0.1:8767:8767','-v',remote.root+':/studio','-v',model_root+':/teacher:ro',
       '-v',settings['legacy_deps_root']+':/old:ro','-w','/studio','-e','HF_HUB_OFFLINE=1',
       '-e','PYTHONPATH=/teacher/deps:/old/deps:/teacher/source/src:'+container_program,'--entrypoint','python',remote.image,
@@ -238,10 +238,13 @@ def main():
           if settings.get('executed_commands'):args.append('--executed-commands')
           if settings.get('balanced_stop_modes'):args.append('--balanced-stop-modes')
           if settings.get('grouped_stop_go'):args.append('--grouped-stop-go')
+          if settings.get('separate_stop_safety'):args.append('--separate-stop-safety')
+          if settings.get('separate_lateral_safety'):args.append('--separate-lateral-safety')
           if settings.get('correction_warmup'):args.append('--correction-warmup')
           if settings.get('forward_only'):args.append('--forward-only')
           if settings.get('fp32_expert'):args.append('--fp32-expert')
           if settings.get('mlp_only'):args.append('--mlp-only')
+          if settings.get('mlp_output_residual'):args.append('--mlp-output-residual')
           if settings.get('rear_axle_offset_m'):args.extend(['--rear-axle-offset-m',str(settings['rear_axle_offset_m'])])
           if settings.get('signed_hold_controls'):args.append('--signed-hold-controls')
           child=subprocess.Popen(remote.command(command(args)),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,start_new_session=True)
@@ -258,6 +261,9 @@ def main():
           child=None; active_container=None
           remote.download(destination+'/output/result.json',folder/'result.json')
           result=read_json(folder/'result.json')
+          if settings.get('external_supervisor'):
+            report('completed',cycle=cycle,history=result['history'],baseline=result['baseline'],loss_convention=result.get('loss_convention'),completed_epochs=len(result['history']))
+            return  # The durable supervisor audits, qualifies and advances the next cycle.
           candidates=[]
           if result['adapter_saved']: candidates.append(('safety','best.safetensors',result.get('best_epoch')))
           if result.get('balanced_adapter_saved'): candidates.append(('balanced','balanced.safetensors',result.get('balanced_epoch')))
@@ -267,11 +273,21 @@ def main():
             candidates.append(('latest',latest['file'],latest['epoch']))
           seen=set()
           for selection,filename,epoch in candidates:
+            if result.get('baseline',{}).get('validation_guard') is not None:
+              from tools.training_studio.teacher_quality import checkpoint_quality
+              metrics=next((row for row in result['history'] if row['epoch']==epoch),{})
+              quality=checkpoint_quality(metrics,result['baseline'],result.get('validation_guard_reference'))
+              write_json(folder/f'checkpoint-quality-{selection}.json',{'epoch':epoch,'metrics':metrics,'baseline':result['baseline'],**quality})
+              if not quality['passed']:
+                store.event(f'第{cycle}輪{selection}候選拒收：完整驗證及固定壓力驗證條件未同時符合；保留權重與失敗指標，不進行資格推廣')
+                continue
             remote.download(destination+'/output/'+filename,folder/filename)
             checksum=hashlib.sha256((folder/filename).read_bytes()).hexdigest()
             if selection=='latest' and checksum!=latest['sha256']:raise ValueError('completed epoch checkpoint digest changed')
             if checksum in seen: continue
             seen.add(checksum)
+            if result.get('baseline',{}).get('validation_guard') is not None:
+              write_json(store.root/'teacher-quality'/f'{checksum}.json',{'candidate_sha256':checksum,'cycle':cycle,'epoch':epoch,'metrics':metrics,'baseline':result['baseline'],'guard_reference':result.get('validation_guard_reference'),**quality})
             pointer={'path':f'/studio/teacher/cycle-{cycle:03d}/output/'+filename,'sha256':checksum,
               'cycle':cycle,'training_epoch':epoch,'selection':selection,'scope':result.get('adapter_scope','actual_Edge_expert_expanded_LoRA'),'forward_only':result.get('forward_only',False),'fp32_expert':result.get('fp32_expert',False),'rear_axle_offset_m':result.get('rear_axle_offset_m',0.),'signed_hold_controls':result.get('signed_hold_controls',False),'driving_qualified':False}
             with candidate_publication(store):
@@ -317,6 +333,7 @@ def main():
           child=None; active_container=None
           state['cycle']=cycle+1
           write_json(loop_root/'state.json',state)
+          if settings.get('external_supervisor'):return
           stop.wait(10)
     except InterruptedError:
       report('paused',cycle=state['cycle'])

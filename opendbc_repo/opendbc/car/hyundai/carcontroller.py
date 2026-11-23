@@ -63,6 +63,7 @@ APRK_DEFAULT_SESSION = bytes([0x02, 0x10, 0x01, 0, 0, 0, 0, 0])
 APRK_IDLE, APRK_ASK, APRK_WAIT_QUIET, APRK_ACTIVE, APRK_FAILED = range(5)
 APRK_REPLY_FRAMES = int(0.4 / DT_CTRL)
 APRK_QUIET_NANOS = 100_000_000
+APRK_NO_REPLY_CACHE_NANOS = 60_000_000_000
 CANFD_JERK_ERROR_DELAY = 0.5
 CANFD_JERK_ERROR_FILTER_TIME = 0.4
 CANFD_JERK_ERROR_DEADBAND = 0.25
@@ -198,6 +199,42 @@ def apply_steer_angle_limits_physics(desired_sw_deg: float,
   cmd_sw = cmd_rw * steer_ratio
   return clip_float(cmd_sw, -steer_sw_max_deg, steer_sw_max_deg)
 
+
+class CameraLfaCadence:
+  """Pace ordinary torque updates using newly observed stock LFA frames."""
+  MAX_AGE_NS = 50_000_000  # five nominal LFA periods
+
+  def __init__(self):
+    self.last_batch_ns = 0
+    self.last_counter = None
+    self.last_progress_ns = None
+    self.pending = 0
+
+  def poll(self, parser, now_nanos):
+    interrupted = (self.last_progress_ns is not None and
+                   not 0 <= now_nanos - self.last_progress_ns <= self.MAX_AGE_NS)
+    if parser is not None:
+      stamp = parser.ts_nanos.get("LFA", {}).get("COUNTER", 0)
+      if stamp > self.last_batch_ns:
+        self.last_batch_ns = stamp
+        # CAN timestamps and the controller clock can have different origins.
+        if 0 <= parser._last_update_nanos - stamp <= self.MAX_AGE_NS:
+          for counter in parser.vl_all.get("LFA", {}).get("COUNTER", ()):
+            if counter != self.last_counter:
+              self.last_counter = counter
+              self.last_progress_ns = now_nanos
+              # A two-frame RX batch can cover the following host tick. Never
+              # infer frames from counter gaps or build a backlog after a stall.
+              self.pending = min(2, self.pending + 1)
+    if interrupted or self.last_progress_ns is None:
+      self.pending = 0
+      return False, False
+    if self.pending:
+      self.pending -= 1
+      return True, True
+    return True, False
+
+
 class CarController(CarControllerBase):
   def __init__(self, dbc_names, CP):
     super().__init__(dbc_names, CP)
@@ -231,7 +268,16 @@ class CarController(CarControllerBase):
     self.hyundai_jerk = HyundaiJerk()
     self.speedCameraHapticEndFrame = 0
     self.hapticFeedbackWhenSpeedCamera = 0
-    self.max_angle_frames = MAX_ANGLE_FRAMES
+    # Panda forwards this Sorento's torque commands on physical camera LFA frames.
+    self.lfa_cadence = None
+    self.lfa_active_last = False
+    if (CP.carFingerprint == CAR.KIA_SORENTO_2024 and CP.flags & HyundaiFlags.CAMERA_SCC
+        and not CP.flags & HyundaiFlags.ANGLE_CONTROL):
+      self.lfa_cadence = CameraLfaCadence()
+      self.angle_frame_bounds = (92, 94)
+    else:
+      self.angle_frame_bounds = (MAX_ANGLE_FRAMES, 100)
+    self.max_angle_frames = self.angle_frame_bounds[0]
     self.blinking_signal = False # 1Hz
     self.blinking_frame = int(1.0 / DT_CTRL)
     self.soft_hold_mode = 2
@@ -239,6 +285,7 @@ class CarController(CarControllerBase):
     self.kick_output_ready = False  # card owns the shared USB/BLE/native output lease
     self.blinker_kick_mode = 1  # CanfdBlinkerKickMode: 0 only after an ack; anything else (a stored 2/3 too) is 1, piggyback
     self.aprk_state, self.aprk_frame, self.aprk_nanos, self.aprk_acked, self.aprk_buses = APRK_IDLE, 0, 0, False, ()
+    self.aprk_no_reply_at = 0
     self.kick_direction = 0  # Fresh common-policy request, supplied by card.
     self.kick_request_id = self.aprk_request_id = None
     self.blinker_side = 0
@@ -294,13 +341,20 @@ class CarController(CarControllerBase):
     want = (self.blinker_control and self.kick_output_ready and direction in (3, 4) and
             CS.out.gearShifter == structs.CarState.GearShifter.drive and not opposite)
     if self.kick_request_id != self.aprk_request_id:
-      # A fresh policy request gets one handshake, including after an earlier
-      # failed request. A continuing request never repeatedly retries the ECU.
+      # A fresh policy request restarts admission, including after a failed
+      # request. A continuing request never repeatedly retries the ECU.
       ret += [CanData(APRK_ADDR, APRK_DEFAULT_SESSION, bus) for bus in self.aprk_buses]
       self.aprk_state, self.aprk_buses = APRK_IDLE, ()
       self.aprk_request_id = self.kick_request_id
     self.blinker_side = direction if want else 0
     now, stock, ack = getattr(CS, "can_nanos", 0), getattr(CS, "aprk_stock_nanos", 0), getattr(CS, "aprk_ack_nanos", 0)
+    # Repeated unanswered probes add 400 ms to every lamp. Remember only a
+    # recent failed probe while the verified stock stream and output owner stay
+    # healthy. Mode 0, a late reply or loss of continuity requires a new probe.
+    if (self.blinker_kick_mode == 0 or not self.blinker_control or not self.kick_output_ready or
+        not 0 <= now-stock < APRK_QUIET_NANOS or ack > self.aprk_no_reply_at or
+        not 0 <= now-self.aprk_no_reply_at < APRK_NO_REPLY_CACHE_NANOS):
+      self.aprk_no_reply_at = 0
 
     def give_back():
       restore = [CanData(APRK_ADDR, APRK_DEFAULT_SESSION, bus) for bus in self.aprk_buses]
@@ -310,11 +364,17 @@ class CarController(CarControllerBase):
     if not want:
       ret = give_back()
     elif self.aprk_state == APRK_IDLE:
-      self.aprk_buses = (self.CAN.ECAN, self.CAN.ACAN)
-      ret += [CanData(APRK_ADDR, APRK_EXT_SESSION, bus) for bus in self.aprk_buses]
-      self.aprk_state, self.aprk_frame, self.aprk_nanos = APRK_ASK, self.frame, now
+      if self.aprk_no_reply_at:
+        # Use the existing panda stock-following path without another UDS
+        # session. Fresh policy admission and all cancellation guards remain.
+        self.aprk_state, self.aprk_frame, self.aprk_nanos, self.aprk_acked = APRK_ACTIVE, self.frame, now, False
+      else:
+        self.aprk_buses = (self.CAN.ECAN, self.CAN.ACAN)
+        ret += [CanData(APRK_ADDR, APRK_EXT_SESSION, bus) for bus in self.aprk_buses]
+        self.aprk_state, self.aprk_frame, self.aprk_nanos = APRK_ASK, self.frame, now
     elif self.aprk_state == APRK_ASK:
       if ack >= self.aprk_nanos and ack > 0:
+        self.aprk_no_reply_at = 0
         ret += [CanData(APRK_ADDR, APRK_COM_DISABLE, bus) for bus in self.aprk_buses]
         self.aprk_state, self.aprk_frame = APRK_WAIT_QUIET, self.frame
       elif self.frame - self.aprk_frame >= APRK_REPLY_FRAMES:
@@ -324,6 +384,8 @@ class CarController(CarControllerBase):
         # each of our SPAS frames and sends it right behind the stock one (hyundai_canfd_rx_tx_hook), so the same id
         # never starts twice at once - 10-30..11-02 that collision made error frames in 78/111 kicks and bus-off in 33.
         self.aprk_state, self.aprk_frame, self.aprk_nanos, self.aprk_acked = APRK_ACTIVE, self.frame, now, False
+        if 0 <= now-stock < APRK_QUIET_NANOS:
+          self.aprk_no_reply_at = now
     elif self.aprk_state == APRK_WAIT_QUIET:
       if self.frame - self.aprk_frame >= APRK_QUIET_NANOS // 10_000_000 and now - stock >= APRK_QUIET_NANOS:
         self.aprk_state, self.aprk_frame, self.aprk_nanos, self.aprk_acked = APRK_ACTIVE, self.frame, now, True
@@ -340,20 +402,29 @@ class CarController(CarControllerBase):
 
   def update(self, CC, CS, now_nanos):
 
-    if not self.steering_template_ready and self.CP.flags & HyundaiFlags.CANFD and self.CP.flags & HyundaiFlags.CAMERA_SCC:
-      template = CS.lfa_alt if self.CP.flags & HyundaiFlags.ANGLE_CONTROL else CS.lfa
-      self.steering_template_ready = template is not None
-      if not self.steering_template_ready and CC.latActive:
-        # Do not run an invisible steering ramp while camera TX discovery is
-        # pending. Inactive handling below tracks the wheel and clears torque
-        # and handover history, so the first emitted command starts bounded.
+    lfa_fresh, lfa_due = True, True
+    if self.lfa_cadence is not None:
+      lfa_fresh, lfa_due = self.lfa_cadence.poll(CS.cp_cam, now_nanos)
+    if self.CP.flags & HyundaiFlags.CANFD and self.CP.flags & HyundaiFlags.CAMERA_SCC:
+      if not self.steering_template_ready:
+        template = CS.lfa_alt if self.CP.flags & HyundaiFlags.ANGLE_CONTROL else CS.lfa
+        self.steering_template_ready = template is not None
+      if CC.latActive and (not self.steering_template_ready or not lfa_fresh):
+        # Start and recover from zero after the camera stream is unavailable.
         CC = CC.as_builder()
         CC.latActive = False
         CC = CC.as_reader()
 
     if self.frame % 50 == 0:
       params = Params()
-      self.max_angle_frames = params.get_int("MaxAngleFrames")
+      # get_int returns zero for an absent value. At a sustained high angle
+      # that would clear the steering request on every frame, including recovery.
+      max_angle_frames = params.get_int("MaxAngleFrames")
+      if 80 <= max_angle_frames <= 100:
+        # Older settings allowed 80–88. Panda requires 89 valid requests between
+        # nonzero-torque request cuts on both Hyundai CAN and CAN-FD.
+        lower, upper = self.angle_frame_bounds
+        self.max_angle_frames = max(lower, min(max_angle_frames, upper))
       steerMax = params.get_int("CustomSteerMax")
       self.reserve_enabled = self.reserve_supported and (params.get_bool("LowSpeedSteerReserve") or phase1_enabled(self.CP, params))
       steerDeltaUp = params.get_int("CustomSteerDeltaUp")
@@ -433,6 +504,10 @@ class CarController(CarControllerBase):
       self.params.STEER_DELTA_UP, self.params.STEER_DELTA_DOWN = self.low_speed_steer_reserve.rates(
         requested=max(-reserve_max, min(new_torque, reserve_max)), previous=self.apply_torque_last, base=self.params.STEER_MAX,
         up=self.steerDeltaUpOrg, down=self.steerDeltaDownOrg)
+      if self.CP.carFingerprint == CAR.KIA_SORENTO_2024:
+        # Panda can see new driver torque before the host's low-speed ramp reaches it.
+        # Grow torque at the factory rate even while using the reserve.
+        self.params.STEER_DELTA_UP = self.steerDeltaUpOrg
     apply_torque = apply_driver_steer_torque_limits(new_torque, self.apply_torque_last, CS.out.steeringTorque,
                                                    self.params, steer_max=reserve_max)
 
@@ -689,7 +764,7 @@ class CarController(CarControllerBase):
       hda2_long = hda2 and self.CP.openpilotLongitudinalControl
       # steering control
       if camera_scc:
-        can_sends.extend(hyundaicanfd.create_steering_messages_camera_scc(self.frame, self.packer, self.CP, self.CAN, CC, apply_steer_req, apply_torque, CS, apply_angle, steering_authority, angle_control))
+        can_sends.extend(hyundaicanfd.create_steering_messages_camera_scc(self.frame, self.packer, self.CP, self.CAN, CC, apply_steer_req, apply_torque, CS, apply_angle, steering_authority, angle_control, send_torque=send_lfa))
       else:
         can_sends.extend(hyundaicanfd.create_steering_messages(self.packer, self.CP, self.CAN, CC.enabled, apply_steer_req, apply_torque, apply_angle, steering_authority, angle_control))
 
@@ -714,8 +789,8 @@ class CarController(CarControllerBase):
       if hda2 and self.CP.flags & HyundaiFlags.ENABLE_BLINKERS:
         can_sends.extend(hyundaicanfd.create_spas_messages(self.packer, self.CAN, self.frame, CC.leftBlinker, CC.rightBlinker))
       # carrot-wip's own SPAS path (CanfdBlinkerControl -> CANFD_SPAS_BLINKERS, card.py) owns APRK/SPAS when it is on;
-      # aprk_state != idle: a kick that was just switched off still restores the ECU's default session
-      elif not self.CP.flags & HyundaiFlags.CANFD_SPAS_BLINKERS and (self.blinker_control or self.aprk_state):
+      # A switched-off kick still restores its session and invalidates idle probe memory.
+      elif not self.CP.flags & HyundaiFlags.CANFD_SPAS_BLINKERS and (self.blinker_control or self.aprk_state or self.aprk_no_reply_at):
         can_sends.extend(self.aprk_blinkers(CS))
 
       if self.camera_scc_params in [2, 3]:

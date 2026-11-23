@@ -551,6 +551,8 @@ async def run_upload_segments(
           "files": files,
           "error": str(e),
         }
+        if isinstance(e, UploadLimitError):
+          results[idx0]["errorCode"] = e.code
         if job:
           append(job, f"[{idx}/{total}] {segment} FAILED: {e}")
     # post-upload bookkeeping runs synchronously (atomic between awaits)

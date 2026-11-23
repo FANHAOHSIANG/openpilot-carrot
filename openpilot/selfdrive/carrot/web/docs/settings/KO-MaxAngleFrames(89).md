@@ -13,14 +13,14 @@
 
 `MaxAngleFrames`
 
-89 권장
+권장 저장값은 89입니다. 2024 쏘렌토의 카메라 SCC 토크 조향은 실차 카메라 주기에 맞춰 92~94프레임을 적용합니다.
 
 <!-- CARROT:AUTO:BEGIN MaxAngleFrames -->
-<!-- CARROT:AUTO:SOURCE facts="9424d9f101db6e32704e7fcba55f38568cdc6d2178988594ebded61fb3cff6b5" semantic="c21f5b2f6d919fcc7d07af6ad5fe3f43c01fc42b1a190dd097bbd44f74ebad29" review="current" -->
+<!-- CARROT:AUTO:SOURCE facts="96542bce6b4a4a7a01f68375ae8c2f9047cd51ffaf6a80accb963b8cc36d0446" semantic="1ed546e0abdc6d700858338cf8462a7210f582b9b9cefadc69fe75b66788aaa6" review="needs_review" -->
 <!-- CARROT:SECTION:BEGIN OVERVIEW -->
 - **종류:** 숫자
 - **기본값:** `89`
-- **범위:** `80` ~ `100`
+- **범위:** `89` ~ `100`
 - **변경 단위:** `1`
 - **메뉴:** 차량·하드웨어 \> 차량 보조
 <!-- CARROT:SECTION:END OVERVIEW -->
