@@ -91,7 +91,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/c4-pydeps"
           python -m pip install --no-index --no-deps --find-links third_party/wheels \
-            --target "$RUNNER_TEMP/c4-pydeps" 'cffi==2.0.0'
+            --target "$RUNNER_TEMP/c4-pydeps" 'pycparser==3.0' 'cffi==2.0.0'
           PYTHONPATH="$RUNNER_TEMP/c4-pydeps:$GITHUB_WORKSPACE" \
             python -m openpilot.system.manager.native_dependency_audit --check cffi
           PYTHONPATH="$RUNNER_TEMP/c4-pydeps:$GITHUB_WORKSPACE" python - <<'PY'
