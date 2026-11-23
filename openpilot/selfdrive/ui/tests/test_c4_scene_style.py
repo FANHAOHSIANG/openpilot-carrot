@@ -1,4 +1,5 @@
 """C4 presentation selector contracts. No vehicle-control or graphics imports."""
+import ast
 import unittest
 from pathlib import Path
 from openpilot.selfdrive.ui.layout_profile import c4_scene_style, device_layout
@@ -32,6 +33,40 @@ class TestC4SceneStyle(unittest.TestCase):
       with self.subTest(selection=selection):
         self.assertEqual(c4_scene_style(_Params(selection)), 0)
     self.assertEqual(c4_scene_style(_Params(error=ValueError("unavailable"))), 0)
+
+  def test_refresh_implementation_lives_on_road_view_not_bookmark(self):
+    # This previously lived on BookmarkIcon, while AugmentedRoadView.render()
+    # called it every frame, triggering AttributeError and a C4 UI restart loop.
+    path = ROOT / "openpilot/selfdrive/ui/mici/onroad/augmented_road_view.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    bookmark = {node.name for node in classes["BookmarkIcon"].body if isinstance(node, ast.FunctionDef)}
+    road = {node.name: node for node in classes["AugmentedRoadView"].body if isinstance(node, ast.FunctionDef)}
+    self.assertNotIn("_refresh_scene_style", bookmark)
+    self.assertIn("_refresh_scene_style", road)
+    self.assertIn("_render", road)
+    self.assertIn("_refresh_plot_mode", road)
+
+    # Exercise the actual refresh implementation in isolation, without starting
+    # cameras, UI graphics or the vehicle-control stack.
+    method = next(node for node in classes["AugmentedRoadView"].body
+                  if isinstance(node, ast.FunctionDef) and node.name == "_refresh_scene_style")
+    module = ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[]))
+    class DummyReality:
+      style = {"scene_style": 0}
+    class DummyView:
+      _scene_style_next_t = 0.0
+      _reality = DummyReality()
+    selection = _Params(2)
+    namespace = {
+      "c4_scene_style": c4_scene_style,
+      "ui_state": type("FakeUIState", (), {"params": selection})(),
+    }
+    exec(compile(module, str(path), "exec"), namespace)
+    view = DummyView()
+    namespace["_refresh_scene_style"](view, 10.0)
+    self.assertEqual(view._reality.style["scene_style"], 2)
+    self.assertEqual(view._scene_style_next_t, 10.5)
 
   def test_native_setting_and_runtime_are_wired(self):
     toggles = (ROOT / "openpilot/selfdrive/ui/mici/layouts/settings/toggles.py").read_text()
