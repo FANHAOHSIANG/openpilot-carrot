@@ -17,6 +17,7 @@ from ..services.param_changes import (
 )
 from ..services.params import (
   HAS_PARAMS,
+  Params,
   INTERNAL_SESSION_PARAMS,
   ParamKeyType,
   build_params_qr_payload,
