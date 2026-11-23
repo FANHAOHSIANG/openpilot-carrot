@@ -72,6 +72,10 @@ def test_offline_cffi_wheel_contains_both_python_and_native_halves():
     names = wheel.namelist()
     assert any(p.endswith("cffi/__init__.py") for p in names)
     assert any("_cffi_backend" in p and p.endswith(".so") for p in names)
+  pycparser = list((ROOT / "third_party/wheels").glob("pycparser-3.0-*.whl"))
+  assert pycparser, "Need bundled pycparser to initialize native cffi.FFI() offline"
+  with ZipFile(pycparser[0]) as wheel:
+    assert any(p.endswith("pycparser/__init__.py") for p in wheel.namelist())
 
 
 def test_cffi_repair_is_prior_to_python_runtime_and_scons():
@@ -79,6 +83,7 @@ def test_cffi_repair_is_prior_to_python_runtime_and_scons():
   block = launcher.split("function bootstrap_runtime_dependencies {", 1)[1]
   assert 'native_dependency_audit --check cffi' in block
   assert 'cffi==2.0.0' in block
+  assert 'pycparser==3.0' in block
   assert '--no-index --no-deps' in block
   assert 'install_runtime_python_package' in block
   assert block.index("native_dependency_audit --check cffi") < block.index("ensure_python_package serial")
