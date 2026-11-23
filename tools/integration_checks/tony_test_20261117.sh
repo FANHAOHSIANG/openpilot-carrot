@@ -5,6 +5,7 @@ cd "$(dirname "$0")/../.."
 export PYTHONPATH=.:opendbc_repo:tools/jetlink
 bash -n launch_chffrplus.sh
 python -m pytest -c /dev/null --rootdir=. --noconftest -q openpilot/system/tests/test_c4_libjpeg_bootstrap.py
+python -m pytest -c /dev/null --rootdir=. --noconftest -q openpilot/system/tests/test_c4_native_dependency_audit.py
 python -m unittest -q openpilot.selfdrive.ui.tests.test_c4_scene_style
 python -m unittest -q openpilot.selfdrive.modeld.tests.test_internal_builder_abi_contract
 python -m pytest -c /dev/null --rootdir=. --noconftest -q openpilot/selfdrive/modeld/tests/test_internal_model_selection.py
