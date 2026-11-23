@@ -133,28 +133,50 @@ function bootstrap_runtime_dependencies {
   ensure_python_package "cv2; assert cv2.__version__ == '4.13.0'; assert hasattr(cv2.dnn, 'readNetFromONNX')" \
     "opencv-python-headless==4.13.0.92" 0
 
-  # AGNOS 19 follows current comma, which no longer includes the legacy Eigen
-  # and libjpeg wrappers used by this branch's rednose and JPEG encoder. Keep
-  # those native headers/libraries available from official offline wheels.
-  if { [ -f /TICI ] || [ -f /AGNOS ]; } && \
-     { ! ensure_python_package "eigen; import os; assert os.path.isdir(eigen.INCLUDE_DIR), 'Eigen headers missing'" eigen 1 ||
-        ! ensure_python_package "libjpeg; import os; assert os.path.isfile(os.path.join(libjpeg.INCLUDE_DIR, 'jpeglib.h')), 'libjpeg headers missing'; assert os.path.isfile(os.path.join(libjpeg.LIB_DIR, 'libjpeg.a')), 'libjpeg archive missing'" libjpeg 1; }; then
-    return 1
-  fi
+  # Validate *all* SCons native dependency ABIs before Params or model builds.
+  # Importing a namespace package is insufficient: SConstruct requires native
+  # INCLUDE_DIR/LIB_DIR plus acados headers, templates, and renderer.
+  if [ -f /TICI ] || [ -f /AGNOS ]; then
+    local native_pkg native_wheel
+    for native_pkg in acados eigen libjpeg json11; do
+      case "$native_pkg" in
+        acados) native_wheel="comma-deps-acados==0.2.2.post103" ;;
+        eigen) native_wheel="eigen" ;;
+        libjpeg) native_wheel="libjpeg" ;;
+        json11) native_wheel="comma-deps-json11==20170411.0.post103" ;;
+      esac
+      if ! ensure_python_package "openpilot.system.manager.native_dependency_audit as audit; audit.check_or_raise('$native_pkg')" "$native_wheel" 1; then
+        echo "C4 native package validation or offline repair failed for $native_pkg."
+        return 1
+      fi
+    done
 
-  # MPC headers, templates, native libraries and CasADi now come from one wheel.
-  if ! ensure_python_package "acados; from acados.acados_template import AcadosOcpSolver; from casadi import SX" \
-      "comma-deps-acados==0.2.2.post103" 1; then
-    return 1
-  fi
+    if [ -f "$DIR/.gitattributes" ] && \
+       ! ensure_python_package "openpilot.system.manager.native_dependency_audit as audit; audit.check_or_raise('catch2')" \
+           "comma-deps-catch2==2.13.10.post96" 1; then
+      return 1
+    fi
 
-  if ! ensure_python_package json11 "comma-deps-json11==20170411.0.post103" 1; then
-    return 1
-  fi
-
-  # Development checkouts build C++ tests by default, matching SConstruct extras.
-  if [ -f "$DIR/.gitattributes" ] && ! ensure_python_package catch2 "comma-deps-catch2==2.13.10.post96" 1; then
-    return 1
+    # Check every SConstruct-imported package, including the ones from AGNOS.
+    # The report survives reboot and can be retrieved via SSH/recovery console.
+    if ! python3 -m openpilot.system.manager.native_dependency_audit \
+        --report /data/c4-native-dependency-audit.json; then
+      echo "Native ABI audit failed. See /data/c4-native-dependency-audit.json"
+      return 1
+    fi
+  else
+    # Keep workstation development support with its normal Python environment.
+    if ! ensure_python_package "acados; from acados.acados_template import AcadosOcpSolver; from casadi import SX" \
+        "comma-deps-acados==0.2.2.post103" 1; then
+      return 1
+    fi
+    if ! ensure_python_package json11 "comma-deps-json11==20170411.0.post103" 1; then
+      return 1
+    fi
+    if [ -f "$DIR/.gitattributes" ] && \
+       ! ensure_python_package catch2 "comma-deps-catch2==2.13.10.post96" 1; then
+      return 1
+    fi
   fi
 
   ensure_python_package shapely shapely 0
