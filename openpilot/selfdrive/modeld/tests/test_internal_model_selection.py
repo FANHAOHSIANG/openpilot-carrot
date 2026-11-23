@@ -16,7 +16,7 @@ TONY_NATIVE_SIZE = 60792584
 
 def test_internal_default_matches_tony_native_model_blob():
   assert MODEL.stat().st_size == TONY_NATIVE_SIZE
-  digest = hashlib.sha1(f"blob {TONY_NATIVE_SIZE}\\0".encode())
+  digest = hashlib.sha1(f"blob {TONY_NATIVE_SIZE}".encode() + bytes([0]))
   with MODEL.open("rb") as stream:
     for piece in iter(lambda: stream.read(1024 * 1024), b""):
       digest.update(piece)
