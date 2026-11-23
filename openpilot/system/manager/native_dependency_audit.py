@@ -25,6 +25,7 @@ LOCAL_WHEEL_PACKAGES = {
   "libjpeg": "libjpeg",
   "json11": "comma-deps-json11==20170411.0.post103",
   "catch2": "comma-deps-catch2==2.13.10.post96",
+  "cffi": "cffi==2.0.0",
 }
 
 
@@ -80,8 +81,39 @@ def diagnose_one(name: str) -> dict:
   return result
 
 
+def diagnose_cffi() -> dict:
+  """Check that cffi Python sources and its native _cffi_backend agree.
+
+  AGNOS may have cffi 2.1.1 in /usr/local/venv while an old cffi 2.0.0
+  _cffi_backend remains in /data/openpilot/pydeps. An import of cffi alone
+  succeeds, but constructing FFI then fails with "Version mismatch".
+  """
+  result: dict = {"name": "cffi", "origin": None, "backend_origin": None,
+                  "version": None, "backend_version": None, "errors": [],
+                  "wheel": LOCAL_WHEEL_PACKAGES["cffi"]}
+  try:
+    module = importlib.import_module("cffi")
+    result["origin"] = getattr(module, "__file__", None)
+    result["version"] = getattr(module, "__version__", None)
+    backend = importlib.import_module("_cffi_backend")
+    result["backend_origin"] = getattr(backend, "__file__", None)
+    result["backend_version"] = getattr(backend, "__version__", None)
+    if not result["version"] or not result["backend_version"]:
+      result["errors"].append("cffi or _cffi_backend missing version metadata")
+    elif result["version"] != result["backend_version"]:
+      result["errors"].append(
+        f"cffi version mismatch: Python {result['version']} vs native {result['backend_version']}")
+    if not result["errors"]:
+      # Exercise the real native binding; string-version comparison alone
+      # cannot prove that the backend can actually be used by SCons.
+      module.FFI()
+  except Exception as exc:
+    result["errors"].append(f"cffi FFI initialization failed: {type(exc).__name__}: {exc}")
+  return result
+
+
 def check_or_raise(name: str) -> None:
-  result = diagnose_one(name)
+  result = diagnose_cffi() if name == "cffi" else diagnose_one(name)
   if result["errors"]:
     raise RuntimeError(
       f"C4 native dependency {name} invalid (origin={result['origin']}): " +
@@ -92,6 +124,7 @@ def run_all(*, c4: bool = True, extras: bool | None = None, report_path: Path | 
   if extras is None:
     extras = (ROOT / ".gitattributes").exists()
   results = [diagnose_one(name) for name in required_packages(c4=c4, extras=extras)]
+  results.append(diagnose_cffi())  # Detect mixed system-venv/pydeps Python/native cffi ABI.
   ok = all(not row["errors"] for row in results)
   data = {
     "ok": ok, "platform": sys.platform, "c4": c4, "extras": extras,
@@ -100,6 +133,9 @@ def run_all(*, c4: bool = True, extras: bool | None = None, report_path: Path | 
   for row in results:
     label = "OK" if not row["errors"] else "FAIL"
     print(f"[native-deps] {label}: {row['name']} | {row['origin'] or 'no module'}", flush=True)
+    if row["name"] == "cffi":
+      print(f"  Python version: {row['version']} | native version: {row['backend_version']}", flush=True)
+      print(f"  Native backend: {row['backend_origin']}", flush=True)
     for error in row["errors"]:
       print(f"  - {error}", flush=True)
     if row["errors"] and row["wheel"]:
