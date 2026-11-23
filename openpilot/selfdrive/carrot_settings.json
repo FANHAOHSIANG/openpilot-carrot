@@ -5717,68 +5717,6 @@
     },
     {
       "group": "외부 HUD",
-      "name": "ClusterHudFloatingArrows",
-      "title": "방향지시등 화살표",
-      "descr": "주행 화면 좌우의 화살표입니다. 자차 모델 방향지시등은 차량 상태를 따릅니다.",
-      "egroup": "CLUSTER HUD",
-      "etitle": "Floating turn arrows",
-      "edescr": "Arrows beside the lane view. The ego vehicle indicators continue to follow vehicle data.",
-      "cgroup": "外部 HUD",
-      "ctitle": "懸浮方向燈箭頭",
-      "cdescr": "行車畫面左右兩側的箭頭。車模方向燈會繼續跟隨車況。",
-      "min": 0,
-      "max": 1,
-      "default": 0,
-      "unit": 1,
-      "control": "select",
-      "options": {
-        "ko": [
-          "숨김",
-          "표시"
-        ],
-        "en": [
-          "Hide",
-          "Show"
-        ],
-        "zh": [
-          "隱藏",
-          "顯示"
-        ]
-      }
-    },
-    {
-      "group": "외부 HUD",
-      "name": "ClusterHudSpeedLimitSign",
-      "title": "제한속도 표지",
-      "descr": "제한속도 정보가 있으면 주행 화면에 원형 표지를 표시합니다.",
-      "egroup": "CLUSTER HUD",
-      "etitle": "Speed limit sign",
-      "edescr": "Show the round sign on driving views when a speed limit is available.",
-      "cgroup": "外部 HUD",
-      "ctitle": "速限圓牌",
-      "cdescr": "收到速限資料時，在行車畫面顯示速限圓牌。",
-      "min": 0,
-      "max": 1,
-      "default": 1,
-      "unit": 1,
-      "control": "select",
-      "options": {
-        "ko": [
-          "숨김",
-          "표시"
-        ],
-        "en": [
-          "Hide",
-          "Show"
-        ],
-        "zh": [
-          "隱藏",
-          "顯示"
-        ]
-      }
-    },
-    {
-      "group": "외부 HUD",
       "name": "ClusterHudPanelLayout",
       "title": "외부 HUD 좌우 배치(0)",
       "descr": "0: 주행 화면 왼쪽 / 정보 패널 오른쪽\n1: 정보 패널 왼쪽 / 주행 화면 오른쪽\n변경 사항은 실행 중인 HUD에 자동으로 적용됩니다.",
