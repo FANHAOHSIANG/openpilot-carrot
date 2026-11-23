@@ -40,10 +40,10 @@ jobs:
               echo '~~~' >> "$GITHUB_STEP_SUMMARY"
               cat /tmp/fusion-audit/merge-output.txt
               if [[ "$label" == "user-fusion-vs-Test" ]]; then
-                python - <<'PY'
-                import subprocess
-                from pathlib import Path
-                files=subprocess.check_output(["git","diff","--name-only","--diff-filter=U"],text=True).splitlines()
+                echo '=== Conflict marker details ==='
+                git diff --cc --no-ext-diff | head -c 90000 || true
+                echo '=== End conflict details ==='
+              files=subprocess.check_output(["git","diff","--name-only","--diff-filter=U"],text=True).splitlines()
                 for name in files:
                   print(f"======== CONFLICT HUNKS: {name} ========")
                   try: lines=Path(name).read_text(errors="replace").splitlines()
