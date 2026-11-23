@@ -8,8 +8,12 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def test_launcher_checks_real_native_libjpeg_files_not_import_alone():
   launch = (ROOT / "launch_chffrplus.sh").read_text(encoding="utf-8")
-  assert "assert os.path.isfile(os.path.join(libjpeg.INCLUDE_DIR, 'jpeglib.h'))" in launch
-  assert "assert os.path.isfile(os.path.join(libjpeg.LIB_DIR, 'libjpeg.a'))" in launch
+  # Startup now calls one centralized native dependency validator, rather
+  # than implementing a separate validator for each missing package.
+  assert 'audit.check_or_raise(\'$native_pkg\')' in launch
+  helper = (ROOT / "openpilot/system/manager/native_dependency_audit.py").read_text(encoding="utf-8")
+  assert '"INCLUDE_DIR", "jpeglib.h"' in helper
+  assert '"LIB_DIR", "libjpeg.a"' in helper
   assert "ensure_python_package" in launch
   assert '--no-index --no-deps --find-links "$wheel_dir"' in launch
   assert '--target "$PYDEPS" --upgrade' in launch
