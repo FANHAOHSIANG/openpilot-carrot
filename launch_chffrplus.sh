@@ -113,6 +113,25 @@ function ensure_python_package {
 }
 
 function bootstrap_runtime_dependencies {
+  # AGNOS Python comes from /usr/local/venv, but pydeps overlays it. A stale
+  # _cffi_backend.so in pydeps can shadow the system extension while Python's
+  # cffi sources are loaded from venv (e.g. 2.1.1 sources vs 2.0.0 native).
+  # Repair both halves from the *same* bundled ARM64 cffi wheel before any
+  # Python package check or SCons invocation, without altering the system venv.
+  if [ -f /TICI ] || [ -f /AGNOS ]; then
+    if ! python3 -m openpilot.system.manager.native_dependency_audit --check cffi; then
+      echo "C4 cffi ABI mismatch; installing matched offline wheel to pydeps."
+      if ! install_runtime_python_package --no-index --no-deps \
+          --find-links "$DIR/third_party/wheels" "cffi==2.0.0"; then
+        echo "Offline cffi repair failed; not starting SCons."
+        return 1
+      fi
+      if ! python3 -m openpilot.system.manager.native_dependency_audit --check cffi; then
+        echo "cffi and _cffi_backend still disagree after repair; refusing SCons."
+        return 1
+      fi
+    fi
+  fi
   if ! ensure_python_package serial pyserial 1 || \
      ! ensure_python_package msgpack msgpack 1 || \
      ! ensure_python_package aiohttp aiohttp 1 1 || \
