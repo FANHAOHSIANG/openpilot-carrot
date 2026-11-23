@@ -706,6 +706,11 @@ class CarController(CarControllerBase):
         # without asking Panda to transmit torque with the request bit clear.
         apply_torque = 0
 
+    if self.lfa_cadence is not None and lfa_fresh and not lfa_due and CC.latActive and apply_steer_req:
+      # Sorento camera pacing can skip a host tick. Keep the limiter anchored
+      # to the last torque actually queued for TX, not an unsent intermediate
+      # value; Panda must never see two host-rate steps in one physical frame.
+      apply_torque = self.apply_torque_last
     self.apply_torque_last = apply_torque
 
     # accel + longitudinal
