@@ -63,6 +63,15 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /openpilot/selfdrive/carrot/
+            /openpilot/common/constants.py
+            /openpilot/cereal/
+            /opendbc_repo/opendbc/car/
+            /tools/check_pre_adjust_portable.py
       - name: Validate Carrot protocol and schema
         run: |
           python3 -m venv /tmp/pre-adjust-venv

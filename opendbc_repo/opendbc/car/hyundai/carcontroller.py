@@ -405,6 +405,8 @@ class CarController(CarControllerBase):
     lfa_fresh, lfa_due = True, True
     if self.lfa_cadence is not None:
       lfa_fresh, lfa_due = self.lfa_cadence.poll(CS.cp_cam, now_nanos)
+    # Normal camera SCC transmits each tick; paced Sorento sends only on a fresh camera frame.
+    send_lfa = lfa_due
     if self.CP.flags & HyundaiFlags.CANFD and self.CP.flags & HyundaiFlags.CAMERA_SCC:
       if not self.steering_template_ready:
         template = CS.lfa_alt if self.CP.flags & HyundaiFlags.ANGLE_CONTROL else CS.lfa
