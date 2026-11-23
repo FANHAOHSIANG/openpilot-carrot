@@ -122,7 +122,7 @@ function bootstrap_runtime_dependencies {
     if ! python3 -m openpilot.system.manager.native_dependency_audit --check cffi; then
       echo "C4 cffi ABI mismatch; installing matched offline wheel to pydeps."
       if ! install_runtime_python_package --no-index --no-deps \
-          --find-links "$DIR/third_party/wheels" "cffi==2.0.0"; then
+          --find-links "$DIR/third_party/wheels" "pycparser==3.0" "cffi==2.0.0"; then
         echo "Offline cffi repair failed; not starting SCons."
         return 1
       fi
