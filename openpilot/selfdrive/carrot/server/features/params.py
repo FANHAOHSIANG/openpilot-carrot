@@ -17,6 +17,7 @@ from ..services.param_changes import (
 )
 from ..services.params import (
   HAS_PARAMS,
+  Params,
   INTERNAL_SESSION_PARAMS,
   ParamKeyType,
   build_params_qr_payload,
@@ -71,6 +72,21 @@ async def api_params_bulk(request: web.Request) -> web.Response:
   return web.json_response({"ok": True, "values": values})
 
 
+def _c4_scene_style_offroad() -> bool:
+  """Only permit C4 presentation changes when the device is offroad.
+
+  Fail closed when the vehicle Params state cannot be read. Unlike unrelated
+  tuning settings this read-only UI change must match C4's on-device gate.
+  """
+  if not HAS_PARAMS or Params is None:
+    return False
+  try:
+    params = Params()
+    return not params.get_bool("IsOnroad") and not params.get_bool("IsEngaged")
+  except Exception:
+    return False
+
+
 async def api_param_set(request: web.Request) -> web.Response:
   try:
     body = await request.json()
@@ -87,6 +103,14 @@ async def api_param_set(request: web.Request) -> web.Response:
     if str(name).startswith("ForceOffroad"):
       return web.json_response({"ok": False, "error": "use the Park-only offroad switch"}, status=403)
     return web.json_response({"ok": False, "error": "driver monitoring is controlled by the vehicle CANCEL gesture"}, status=403)
+
+  if name == "C4SceneStyle":
+    # Web and native C4 must have the same three allowed choices, and the
+    # scene cannot be changed through Web while the device is onroad.
+    if type(value) is not int or value not in (0, 1, 2):
+      return web.json_response({"ok": False, "error": "invalid C4 scene style"}, status=400)
+    if not _c4_scene_style_offroad():
+      return web.json_response({"ok": False, "error": "C4 scene style can only change while offroad"}, status=409)
 
   # clamp using settings if numeric
   p = None

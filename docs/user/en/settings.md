@@ -2,6 +2,13 @@
 
 [한국어](../ko/settings.md)
 
+## C4 driving display style (native and Web)
+
+On a C4 using the integrated Carrot branch, go to **C4 → Settings → Toggles → Driving display style** or **Carrot Web → Settings → Display → Brightness & View → C4 driving display style**. Both controls use the same persistent `C4SceneStyle` setting: **0 Original stock view** (default, road camera and model overlays), **1 Tony Reality 3D night**, or **2 Tony Reality 3D day**. The setting applies to the C4 native onroad renderer; it does not change the Carrot Web driving visualizer or external HUD presentation.
+
+Change the option while the device is offroad and driving assistance is disengaged. Web writes are rejected when the C4 is onroad or state is unavailable. The on-device renderer notices a saved change on its next update (about 0.5 seconds), with no vehicle-control changes. This is display-only: steering, braking, cruise, CAN/Panda messages and model inference remain unchanged. C3/C3X layouts retain their existing independent profiles.
+
+
 ## Native display layout
 
 On the development computer, run `python tools/layout_studio/server.py` and open the local address it prints. Add `--publish` on the prepared layout branch to enable **推送至 carrot-wip** after export. Confirming that action publishes the branch update. Choose C3X or C4, then Settings or Driving. Move menu items with the arrows, adjust text size and spacing, or drag the speed readouts in the driving preview. Each device has its own browser draft. **輸出版面** writes both profiles to the checkout. The native UI reads the exported profile on its next launch after the branch update. The preview uses sample vehicle data. Reality 3D on the device uses current model lanes, path and lead estimates. Its map uses the active route and fresh mapsd imagery. Missing layers disappear. The compact HUD shows speed and its unit, plus the set speed when cruise is engaged.
