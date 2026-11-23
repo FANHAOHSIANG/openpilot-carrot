@@ -1,6 +1,6 @@
 {
   "catalogCommit": "9a6b80e21db964e4c51c4a1e18db4868db13ec0f",
-  "contentHash": "0c5ca295cb700a9820f4d51761583976474160d8418a1116cb8cdeaaebea4ba9",
+  "contentHash": "5ce5e692d47400af74ab5c3b9b259a657c353bd2d00776b6eb55d124e4f8deea",
   "generatedAt": "2026-11-19T08:00:00Z",
   "locales": [
     "ko",
@@ -124,6 +124,10 @@
     "EN-C3X-Lite-Hardware.md": {
       "bytes": 2162,
       "hash": "d41fddb82939d80ec9fae05721005fb503c81d8ffb322224ed220bc348220fbf"
+    },
+    "EN-C4-driving-display-style.md": {
+      "bytes": 1398,
+      "hash": "50360aef0d642b920ce069374af5b924562d41ecb37a116ad5bc4fd2ee12b745"
     },
     "EN-CAN-FD-SPAS-indicators-(trial).md": {
       "bytes": 1551,
@@ -948,6 +952,10 @@
     "KO-C3X-Lite-하드웨어.md": {
       "bytes": 2300,
       "hash": "4aaedccb663b7a0a40a0fd329ff3357b9b42852dd1c050a2e1ed71b23fb42b59"
+    },
+    "KO-C4-주행-화면-스타일.md": {
+      "bytes": 1487,
+      "hash": "47133c30d972109a451cc2cb8b81d8933564ef3deaa92423e91c5066affd6591"
     },
     "KO-CAN-FD-SPAS-깜박이-사용(시험).md": {
       "bytes": 1671,
@@ -1810,8 +1818,8 @@
       "hash": "c36b52d2f81711770bb6532877ab8c359e6f5d670cc0ff058db0b0c834b7e810"
     },
     "Settings-Catalog.md": {
-      "bytes": 151937,
-      "hash": "c59f34e488b0d99c792916aa0f4b2bae1dd74070a68eb3757f1e29334af499d4"
+      "bytes": 152526,
+      "hash": "26938d2ca26c408f12a486ba32cd1050681a474e72732c246fad3ee96e47038a"
     },
     "ZH-ATC-依彎道曲率調速.md": {
       "bytes": 1375,
@@ -1840,6 +1848,10 @@
     "ZH-C3X-Lite-硬件.md": {
       "bytes": 1224,
       "hash": "1fb30d114981a8108e83d6d481966b6f81f06c1410989541f444ba454ca0b86b"
+    },
+    "ZH-C4-行车界面风格.md": {
+      "bytes": 1372,
+      "hash": "46417ac878c5c280279913e9f9ccccee7a697f654de1622b54940de82a6f70cb"
     },
     "ZH-CAN-FD-SPAS-indicators-(trial).md": {
       "bytes": 1548,
@@ -1952,6 +1964,10 @@
     "ZH-TW-C3X-Lite-硬體.md": {
       "bytes": 2019,
       "hash": "ff8549508c723d495f53a29ea6eca97c09022075041c64e9247a4f0b2beba7b6"
+    },
+    "ZH-TW-C4-行車介面風格.md": {
+      "bytes": 1459,
+      "hash": "ed1aed15e23a5b32b2853d35f202cecdbf8331140f35cfccda615a88b6a58f9b"
     },
     "ZH-TW-CAN-FD-SPAS-indicators-(trial).md": {
       "bytes": 1551,
@@ -3616,7 +3632,7 @@
   },
   "review": {
     "current": 43,
-    "needs_review": 182
+    "needs_review": 183
   },
   "schemaVersion": 1,
   "settings": {
@@ -4580,6 +4596,37 @@
       },
       "reviewStatus": "needs_review",
       "semanticHash": "76514ada656e4e01d74e337bcc01f3dc8948509aca88bc57278eade000b25502"
+    },
+    "C4SceneStyle": {
+      "group": "DISP_BRIGHT",
+      "locales": {
+        "en": {
+          "anchor": "C4SceneStyle",
+          "factsHash": "35307d51962efce040742a9ee14ad50efa7ae4400963c73fa230860841a34223",
+          "page": "EN-C4-driving-display-style.md",
+          "reviewStatus": "needs_review"
+        },
+        "ko": {
+          "anchor": "C4SceneStyle",
+          "factsHash": "958cac620a4e65eade72dbbebcdca972712146f3ec4cd93b9e18a847287ebd53",
+          "page": "KO-C4-주행-화면-스타일.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh": {
+          "anchor": "C4SceneStyle",
+          "factsHash": "b7b9db4ff7a6f513b822cbf5c997e93e5bbaa9fb09a26c93c5dc74338adcdc09",
+          "page": "ZH-C4-行车界面风格.md",
+          "reviewStatus": "needs_review"
+        },
+        "zh-tw": {
+          "anchor": "C4SceneStyle",
+          "factsHash": "d17066964116a902138eb7aed6b78dd42df36f97f1f67c0089e4c599451b6fa2",
+          "page": "ZH-TW-C4-行車介面風格.md",
+          "reviewStatus": "needs_review"
+        }
+      },
+      "reviewStatus": "needs_review",
+      "semanticHash": "b0282abe9c201deba4c70ac547c50a3d0c924a97c944e4d28bcda6edd292a250"
     },
     "CameraYawTrimDeg": {
       "group": "STEER_CENTER",

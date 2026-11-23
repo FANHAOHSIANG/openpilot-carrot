@@ -338,6 +338,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 - [주행중 화면밝기(100%)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A3%BC%ED%96%89%EC%A4%91-%ED%99%94%EB%A9%B4%EB%B0%9D%EA%B8%B0%28100-%29) — `ShowCustomBrightness`
 - [주행화면 구성(C4)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A3%BC%ED%96%89%ED%99%94%EB%A9%B4-%EA%B5%AC%EC%84%B1%28C4%29) — `ShowModelView`
 - [외부 HUD 연결 시 본체 카메라(0)](https://github.com/ajouatom/openpilot/wiki/KO-%EC%99%B8%EB%B6%80-HUD-%EC%97%B0%EA%B2%B0-%EC%8B%9C-%EB%B3%B8%EC%B2%B4-%EC%B9%B4%EB%A9%94%EB%9D%BC%280%29) — `ShowCameraWithCluster`
+- [C4 주행 화면 스타일](https://github.com/ajouatom/openpilot/wiki/KO-C4-%EC%A3%BC%ED%96%89-%ED%99%94%EB%A9%B4-%EC%8A%A4%ED%83%80%EC%9D%BC) — `C4SceneStyle`
 
 #### 외부 HUD
 
@@ -735,6 +736,7 @@ Per-setting pages generated from the current settings catalog.
 - [Onroad Screen Brightness(100%)](https://github.com/ajouatom/openpilot/wiki/EN-Onroad-Screen-Brightness%28100-%29) — `ShowCustomBrightness`
 - [Driving Screen Layout(C4)](https://github.com/ajouatom/openpilot/wiki/EN-Driving-Screen-Layout%28C4%29) — `ShowModelView`
 - [On-device Camera with External HUD(0)](https://github.com/ajouatom/openpilot/wiki/EN-On-device-Camera-with-External-HUD%280%29) — `ShowCameraWithCluster`
+- [C4 driving display style](https://github.com/ajouatom/openpilot/wiki/EN-C4-driving-display-style) — `C4SceneStyle`
 
 #### External HUD
 
@@ -1132,6 +1134,7 @@ Per-setting pages generated from the current settings catalog.
 - [行车中屏幕亮度(100%)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%A1%8C%E8%BD%A6%E4%B8%AD%E5%B1%8F%E5%B9%95%E4%BA%AE%E5%BA%A6%28100-%29) — `ShowCustomBrightness`
 - [行车画面布局(C4)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%A1%8C%E8%BD%A6%E7%94%BB%E9%9D%A2%E5%B8%83%E5%B1%80%28C4%29) — `ShowModelView`
 - [外部 HUD 连接时本机摄像头(0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%A4%96%E9%83%A8-HUD-%E8%BF%9E%E6%8E%A5%E6%97%B6%E6%9C%AC%E6%9C%BA%E6%91%84%E5%83%8F%E5%A4%B4%280%29) — `ShowCameraWithCluster`
+- [C4 行车界面风格](https://github.com/ajouatom/openpilot/wiki/ZH-C4-%E8%A1%8C%E8%BD%A6%E7%95%8C%E9%9D%A2%E9%A3%8E%E6%A0%BC) — `C4SceneStyle`
 
 #### 外部HUD
 
@@ -1529,6 +1532,7 @@ Per-setting pages generated from the current settings catalog.
 - [行車中螢幕亮度(100%)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%A1%8C%E8%BB%8A%E4%B8%AD%E8%9E%A2%E5%B9%95%E4%BA%AE%E5%BA%A6%28100-%29) — `ShowCustomBrightness`
 - [行車畫面佈局(C4)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%A1%8C%E8%BB%8A%E7%95%AB%E9%9D%A2%E4%BD%88%E5%B1%80%28C4%29) — `ShowModelView`
 - [外部 HUD 連線時本機攝影機(0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%A4%96%E9%83%A8-HUD-%E9%80%A3%E7%B7%9A%E6%99%82%E6%9C%AC%E6%A9%9F%E6%94%9D%E5%BD%B1%E6%A9%9F%280%29) — `ShowCameraWithCluster`
+- [C4 行車介面風格](https://github.com/ajouatom/openpilot/wiki/ZH-TW-C4-%E8%A1%8C%E8%BB%8A%E4%BB%8B%E9%9D%A2%E9%A2%A8%E6%A0%BC) — `C4SceneStyle`
 
 #### 外部HUD
 
