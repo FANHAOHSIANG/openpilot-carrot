@@ -66,6 +66,19 @@ def device_layout(device):
   return _load()["devices"][device]
 
 
+def c4_scene_style(params) -> int:
+  """C4's persistent, display-only road presentation choice.
+
+  Invalid or unreadable values fail back to the stock camera view. The layout
+  editor profile controls geometry only; the on-device selection owns the mode.
+  """
+  try:
+    value = params.get_int("C4SceneStyle")
+  except Exception:
+    return 0
+  return value if value in (0, 1, 2) else 0
+
+
 def large_display_layout():
   from openpilot.system.hardware import HARDWARE, PC
   # C3 and C3X use the same renderer. Only C3X has an editable profile.

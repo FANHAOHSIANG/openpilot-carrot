@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export PYTHONPATH=.:opendbc_repo:tools/jetlink
+python -m unittest -q openpilot.selfdrive.ui.tests.test_c4_scene_style
 python -m pytest -c /dev/null --rootdir=. --noconftest -q \
   openpilot/selfdrive/carrot/tests/test_osm_curve.py \
   openpilot/selfdrive/carrot/tests/test_route_curve.py \
