@@ -6,6 +6,7 @@ from openpilot.selfdrive.ui.mici.widgets.button import BigParamControl, BigMulti
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.selfdrive.ui.layouts.settings.common import restart_needed_callback
 from openpilot.selfdrive.ui.ui_state import ui_state
+from openpilot.selfdrive.ui.layout_profile import c4_scene_style
 
 PERSONALITY_TO_INT = log.LongitudinalPersonality.schema.enumerants
 
@@ -19,6 +20,8 @@ class TogglesLayoutMici(NavScroller):
     self._experimental_btn = BigParamControl(tr("experimental mode"), "ExperimentalMode")
     is_metric_toggle = BigParamControl(tr("use metric units"), "IsMetric")
     rainbow_toggle = BigParamControl(tr("Rainbow Road (SP style)"), "RainbowMode")
+    self._scene_style_toggle = BigMultiParamToggle(
+      "行車介面風格", "C4SceneStyle", ["官方原生", "Tony 3D 夜間", "Tony 3D 日間"])
     ldw_toggle = BigParamControl(tr("lane departure warnings"), "IsLdwEnabled")
     always_on_dm_toggle = BigParamControl(tr("always-on driver monitor"), "AlwaysOnDM")
     record_front = BigParamControl(tr("record & upload driver camera"), "RecordFront", toggle_callback=restart_needed_callback)
@@ -30,6 +33,7 @@ class TogglesLayoutMici(NavScroller):
       self._experimental_btn,
       is_metric_toggle,
       rainbow_toggle,
+      self._scene_style_toggle,
       ldw_toggle,
       always_on_dm_toggle,
       record_front,
@@ -49,6 +53,7 @@ class TogglesLayoutMici(NavScroller):
       ("OpenpilotEnabledToggle", enable_openpilot),
     )
 
+    self._scene_style_toggle.set_enabled(lambda: not ui_state.started and not ui_state.engaged)
     enable_openpilot.set_enabled(lambda: not ui_state.engaged)
     record_front.set_enabled(False if ui_state.params.get_bool("RecordFrontLock") else (lambda: not ui_state.engaged))
     record_mic.set_enabled(lambda: not ui_state.engaged)
@@ -70,6 +75,7 @@ class TogglesLayoutMici(NavScroller):
 
   def show_event(self):
     super().show_event()
+    self._scene_style_toggle.set_value(self._scene_style_toggle._options[c4_scene_style(ui_state.params)])
     self._update_toggles()
 
   def _update_toggles(self):
