@@ -1,9 +1,23 @@
 """C4 Web scene-style writes must agree with the C4 on-device selector."""
 import asyncio
 import json
-from types import SimpleNamespace
+import sys
+from pathlib import Path
+from types import ModuleType
 
 import pytest
+
+# Loading server.features/__init__.py pulls in live IPC and msgq, which the
+# portable Web settings CI intentionally does not build. Import the actual
+# param endpoint against a lightweight package and isolated system stub.
+FEATURES = "openpilot.selfdrive.carrot.server.features"
+if FEATURES not in sys.modules:
+  package = ModuleType(FEATURES)
+  package.__path__ = [str(Path(__file__).resolve().parents[1] / "features")]
+  sys.modules[FEATURES] = package
+system_stub = ModuleType(f"{FEATURES}.system")
+system_stub.is_drive_engaged = lambda request: False
+sys.modules.setdefault(f"{FEATURES}.system", system_stub)
 
 from openpilot.selfdrive.carrot.server.features import params as endpoint
 from openpilot.selfdrive.carrot.server.services.settings import build_menu_categories, group_index
