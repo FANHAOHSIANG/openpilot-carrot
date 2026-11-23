@@ -56,6 +56,15 @@ jobs:
           if git grep -n -E '^(<<<<<<< |=======|>>>>>>> )' -- '*.py' '*.json' '*.yaml' '*.yml' | head -25; then
             echo "Review any conflict marker-like lines above"
           fi
-          # The result is NOT approved for driving. Publish review only.
-          git push origin HEAD:refs/heads/review/fusion-resolved-candidate-20261123
-          echo "Published only review/fusion-resolved-candidate-20261123" >> "$GITHUB_STEP_SUMMARY"
+          # The default Actions token cannot push commits which modify workflow files.
+          # Keep workflow policy unchanged. Retain the current tested model binary
+          # until its separate runtime qualification is complete.
+          git restore --source="$GITHUB_SHA" --staged --worktree -- .github/workflows openpilot/selfdrive/modeld/models/driving_supercombo.onnx
+          # Squash the tested working tree against the existing review branch, so
+          # GitHub only receives a non-workflow delta. This is NOT a production merge.
+          git reset --soft "$GITHUB_SHA"
+          git add -A
+          git diff --cached --check
+          git commit -m "Review only: resolve Test and Tony fusion conflicts [skip ci]"
+          git push origin HEAD:refs/heads/review/fusion-merge-stage-20261123
+          echo "Published non-workflow code only to review/fusion-merge-stage-20261123" >> "$GITHUB_STEP_SUMMARY"
