@@ -62,6 +62,7 @@ subprocess.run(["git", "checkout", "--ours", "--",
   "openpilot/selfdrive/carrot/web/generated/asset-manifest.json",
   "openpilot/selfdrive/carrot/web/js/generated/tools.js"], check=True)
 
+subprocess.run(["git", "add", "--", *sorted(EXPECTED)], check=True)
 if git("diff", "--name-only", "--diff-filter=U").strip():
   raise SystemExit("Unresolved Git index entries remain")
 print("All expected conflict markers reconciled; regenerate assets and test before commit.")
