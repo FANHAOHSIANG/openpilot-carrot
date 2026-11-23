@@ -48,7 +48,7 @@ jobs:
             exit 1
           fi
           # Two upstream files have additional blank lines at EOF; normalize them.
-          python3 -c 'from pathlib import Path; fs=["openpilot/selfdrive/carrot/xiaoge/v_asm_server.py", "tools/training_studio/teacher_checkpoint.py"]; [(p.write_bytes(p.read_bytes().rstrip(b"\\n") + b"\\n")) for p in map(Path, fs) if p.exists()]'
+          python3 -c 'from pathlib import Path; fs=["openpilot/selfdrive/carrot/xiaoge/v_asm_server.py", "tools/training_studio/teacher_checkpoint.py"]; [(p.write_bytes(p.read_bytes().rstrip(b"\n") + b"\n")) for p in map(Path, fs) if p.exists()]'
           git add openpilot/selfdrive/carrot/xiaoge/v_asm_server.py tools/training_studio/teacher_checkpoint.py
           if ! git diff --cached --quiet; then git commit -m "Normalize inherited EOF whitespace in integrated candidate"; fi
           git diff --check "$GITHUB_SHA" HEAD
