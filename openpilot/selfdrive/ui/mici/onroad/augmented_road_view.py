@@ -67,14 +67,6 @@ class BookmarkIcon(Widget):
     self._is_swiping_left: bool = False
     self._triggered_time: float = 0.0
 
-  def _refresh_scene_style(self, now: float) -> None:
-    # Only refresh the display param twice a second; do not add disk IO to
-    # each camera frame. device_layout("c4") is shared with the C4 HUD renderer.
-    if now < self._scene_style_next_t:
-      return
-    self._scene_style_next_t = now + 0.5
-    self._reality.style["scene_style"] = c4_scene_style(ui_state.params)
-
   def is_swiping_left(self) -> bool:
     """Check if currently swiping left (for scroller to disable)."""
     return self._is_swiping_left
@@ -208,6 +200,14 @@ class AugmentedRoadView(CameraView):
       self._plot_mode = min(max(ui_state.params.get_int("ShowPlotMode"), 0), 255)
     except Exception:
       self._plot_mode = 0
+
+  def _refresh_scene_style(self, now: float) -> None:
+    # Only refresh the display param twice a second; do not add disk IO to
+    # each camera frame. device_layout("c4") is shared with the C4 HUD renderer.
+    if now < self._scene_style_next_t:
+      return
+    self._scene_style_next_t = now + 0.5
+    self._reality.style["scene_style"] = c4_scene_style(ui_state.params)
 
   def is_swiping_left(self) -> bool:
     """Check if currently swiping left (for scroller to disable)."""
