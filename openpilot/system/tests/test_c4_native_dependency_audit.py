@@ -68,12 +68,14 @@ def test_full_preflight_reports_all_modules_without_writing_over_user_settings(m
     "name": name, "origin": "/tmp/native", "errors": [] if name == "ffmpeg" else ["bad include"],
     "wheel": audit.LOCAL_WHEEL_PACKAGES.get(name),
   })
+  monkeypatch.setattr(audit, "diagnose_cffi", lambda: {"name": "cffi", "origin": "/tmp/native", "backend_origin": "/tmp/native", "version": "2.0.0", "backend_version": "2.0.0", "errors": [], "wheel": "cffi==2.0.0"})
   report = tmp_path / "c4-native-dependency-audit.json"
   assert audit.run_all(c4=True, extras=False, report_path=report) == 1
   import json
   result = json.loads(report.read_text(encoding="utf-8"))
   assert result["ok"] is False
-  assert len(result["packages"]) == 2
+  assert len(result["packages"]) == 3
+  assert result["packages"][-1]["name"] == "cffi"
 
 
 @pytest.mark.parametrize("package,prefix,required", [
