@@ -20,9 +20,13 @@ def test_bundled_offline_libjpeg_wheel_contains_expected_headers_and_archive():
   assert wheels, "Bundled offline libjpeg wheel missing; C4 cannot repair when offline"
   with ZipFile(wheels[0]) as wheel:
     entries = set(wheel.namelist())
-    assert "libjpeg/__init__.py" in entries
-    init = wheel.read("libjpeg/__init__.py").decode("utf-8")
+    # AGNOS-targeted wheels may carry the module under .data/purelib;
+    # pip relocates it to the import root when installing into pydeps.
+    init_path = next((name for name in entries if name.endswith("libjpeg/__init__.py")), None)
+    assert init_path is not None
+    prefix = init_path[:-len("libjpeg/__init__.py")]
+    init = wheel.read(init_path).decode("utf-8")
     assert "INCLUDE_DIR" in init
     assert "LIB_DIR" in init
-    assert "libjpeg/install/include/jpeglib.h" in entries
-    assert "libjpeg/install/lib/libjpeg.a" in entries
+    assert f"{prefix}libjpeg/install/include/jpeglib.h" in entries
+    assert f"{prefix}libjpeg/install/lib/libjpeg.a" in entries
