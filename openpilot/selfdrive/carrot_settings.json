@@ -631,6 +631,7 @@
           "zh": "亮度与视图",
           "params": [
             "ShowCustomBrightness",
+            "C4SceneStyle",
             "ShowModelView",
             "ShowCameraWithCluster"
           ],
@@ -5860,6 +5861,49 @@
       "tgroup": "外部 HUD",
       "ttitle": "External HUD Camera View Mode(0)",
       "tdescr": "0: Default\n1: Mode 1 (bottom view)\n2: Narrow road camera\n3: Wide road camera\n4: Automatic narrow/wide camera by speed"
+    },
+    {
+      "group": "화면",
+      "name": "C4SceneStyle",
+      "title": "C4 주행 화면 스타일",
+      "descr": "C4 전용 표시 모드입니다. 0: 공식 카메라/차선/경로 화면, 1: Tony Reality 3D 야간, 2: Tony Reality 3D 주간. 주행 중 변경할 수 없으며 제어, CAN, 모델 판단에 영향을 주지 않습니다.",
+      "egroup": "DISP",
+      "etitle": "C4 driving display style",
+      "edescr": "C4 display only: 0 original camera/lane/path view, 1 Tony Reality 3D night, 2 Tony Reality 3D day. Park before changing. Does not change steering, braking, cruise, CAN, or model inference.",
+      "cgroup": "显示设置",
+      "ctitle": "C4 行车界面风格",
+      "cdescr": "仅适用于 C4：0 原厂道路摄像头/车道/轨迹，1 Tony Reality 3D 夜间，2 Tony Reality 3D 日间。停车后才能更改，不影响车辆控制。",
+      "tgroup": "顯示設定",
+      "ttitle": "C4 行車介面風格",
+      "tdescr": "僅適用 C4：0 官方原生道路攝影機、車道線與路徑畫面；1 Tony Reality 3D 夜間；2 Tony Reality 3D 日間。請停車、解除行車狀態後再變更。本選項僅影響 C4 畫面，不影響轉向、煞車、巡航、CAN 或模型判斷。",
+      "min": 0,
+      "max": 2,
+      "default": 0,
+      "unit": 1,
+      "control": "select",
+      "choice_layout": "list",
+      "options": {
+        "ko": [
+          "공식 기본 화면",
+          "Tony 3D 야간",
+          "Tony 3D 주간"
+        ],
+        "en": [
+          "Official stock view",
+          "Tony 3D night",
+          "Tony 3D day"
+        ],
+        "zh": [
+          "官方原厂界面",
+          "Tony 3D 夜间",
+          "Tony 3D 日间"
+        ],
+        "zh-tw": [
+          "官方原生",
+          "Tony 3D 夜間",
+          "Tony 3D 日間"
+        ]
+      }
     }
   ]
 }
