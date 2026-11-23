@@ -13,6 +13,7 @@ from openpilot.selfdrive.ui.mici.onroad.alert_renderer import AlertRenderer
 from openpilot.selfdrive.ui.onroad.driver_preview import DriverPreview
 from openpilot.selfdrive.ui.mici.onroad.hud_renderer import HudRenderer
 from openpilot.selfdrive.ui.mici.onroad.model_renderer import ModelRenderer
+from openpilot.selfdrive.ui.layout_profile import device_layout, c4_scene_style
 from openpilot.selfdrive.ui.mici.onroad.vision_renderer import VisionRenderer
 from openpilot.selfdrive.ui.mici.onroad.confidence_ball import ConfidenceBall
 from openpilot.selfdrive.ui.mici.onroad.cameraview import CameraView
@@ -65,6 +66,14 @@ class BookmarkIcon(Widget):
     self._is_swiping = False
     self._is_swiping_left: bool = False
     self._triggered_time: float = 0.0
+
+  def _refresh_scene_style(self, now: float) -> None:
+    # Only refresh the display param twice a second; do not add disk IO to
+    # each camera frame. device_layout("c4") is shared with the C4 HUD renderer.
+    if now < self._scene_style_next_t:
+      return
+    self._scene_style_next_t = now + 0.5
+    self._reality.style["scene_style"] = c4_scene_style(ui_state.params)
 
   def is_swiping_left(self) -> bool:
     """Check if currently swiping left (for scroller to disable)."""
@@ -165,7 +174,6 @@ class AugmentedRoadView(CameraView):
     self._bookmark_icon = BookmarkIcon(bookmark_callback)
 
     self._model_renderer = ModelRenderer()
-    from openpilot.selfdrive.ui.layout_profile import device_layout
     from openpilot.selfdrive.ui.onroad.reality_scene import RealityScene
     self._reality = RealityScene(device_layout("c4"))
     self._hud_renderer = HudRenderer()
@@ -190,6 +198,7 @@ class AugmentedRoadView(CameraView):
     # uiDebug.plotMode용 ShowPlotMode 캐시 — 파일 읽기라 매 프레임 금지, ~2초 스로틀
     self._plot_mode = 0
     self._plot_mode_next_t = 0.0
+    self._scene_style_next_t = 0.0
 
   def _refresh_plot_mode(self, now: float) -> None:
     if now < self._plot_mode_next_t:
@@ -225,7 +234,9 @@ class AugmentedRoadView(CameraView):
 
   def _render(self, _):
     # plotMode 갱신(가끔 파일 읽기)은 drawTime 창 밖에서 — total을 오염시키지 않는다
-    self._refresh_plot_mode(time.monotonic())
+    now = time.monotonic()
+    self._refresh_scene_style(now)
+    self._refresh_plot_mode(now)
     start_draw = time.monotonic()
     timing = self._render_diagnostics
     timing.start()
