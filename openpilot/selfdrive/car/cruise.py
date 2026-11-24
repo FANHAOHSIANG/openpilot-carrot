@@ -5,7 +5,7 @@ import numpy as np
 from openpilot.cereal import car
 from openpilot.common.constants import CV
 from openpilot.selfdrive.carrot.carrot_man_input import get_carrot_man
-from openpilot.selfdrive.carrot.cruise_gap import cruise_gap_levels, next_gap_personality, supported_gap_levels
+from openpilot.selfdrive.carrot.cruise_gap import next_gap_personality, supported_gap_levels
 from openpilot.selfdrive.carrot.bluetooth.model import BLUETOOTH_CANCEL, CommandReader, REMOTE_BUTTONS
 from openpilot.selfdrive.carrot.assistant_speed import AssistantSpeed
 from openpilot.selfdrive.car.toyota_pcm_speed import ToyotaPcmSetSpeedSync
@@ -156,7 +156,7 @@ class VCruiseHelper:
 
 
 
-from openpilot.common.driving_planner import active_planner_mode, camera_only
+from openpilot.common.driving_planner import SUNNY_BLENDED, active_planner_mode, camera_only
 from openpilot.common.params import Params
 #from openpilot.selfdrive.selfdrived.events import Events
 #EventName = log.OnroadEvent.EventName
@@ -170,7 +170,9 @@ class VCruiseCarrot:
     self.frame = 0
     self.params_memory = Params("/dev/shm/params")
     self.params = Params()
-    self.vision_only = camera_only(active_planner_mode(CP, self.params))
+    mode = active_planner_mode(CP, self.params)
+    self.vision_only = camera_only(mode)
+    self.sunny = mode == SUNNY_BLENDED
     self.periodic_settings = None
     self.cruise_stage_ms = {}
     if cached_settings:
@@ -732,10 +734,8 @@ class VCruiseCarrot:
 
       elif button_type == ButtonType.gapAdjustCruise:
         longitudinalPersonalityMax = supported_gap_levels(self.params.get_int("LongitudinalPersonalityMax"))
-        gap_levels = cruise_gap_levels(self.params.get_int("CruiseGapLevels"), longitudinalPersonalityMax)
-        if not self.CP.openpilotLongitudinalControl:
-          gap_levels = longitudinalPersonalityMax
-        if remote == 'gapAdjustCruise' or CS.pcmCruiseGap == 0 or gap_levels < longitudinalPersonalityMax:
+        gap_levels = longitudinalPersonalityMax
+        if remote == 'gapAdjustCruise' or CS.pcmCruiseGap == 0:
           personality = next_gap_personality(self.params.get_int('LongitudinalPersonality'), gap_levels)
         else:
           personality = int(np.clip(CS.pcmCruiseGap - 1, 0, longitudinalPersonalityMax - 1))
@@ -836,7 +836,7 @@ class VCruiseCarrot:
     return v_cruise_kph
 
   def _auto_speed_up(self, v_cruise_kph):
-    if self.vision_only:
+    if self.vision_only or self.sunny:
       return v_cruise_kph
     if not self._pause_auto_speed_up and self.applyModelSpeed != 0.0:
       model_kph = self.model_v_kph * abs(self.applyModelSpeed)
