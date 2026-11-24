@@ -60,13 +60,13 @@ jobs:
           from pathlib import Path
           ours = Path("/tmp/fusion-AGENTS.md").read_text(encoding="utf-8")
           theirs = Path("/tmp/official-AGENTS.md").read_text(encoding="utf-8")
-          prefix = "# Repository memory\\n\\n"
+          prefix = "# Repository memory\n\n"
           assert ours.startswith(prefix) and theirs.startswith(prefix)
           assert theirs[len(prefix):].startswith("- 2026-11-23: Preserve fresh original camera 0x161")
-          memo = theirs[len(prefix):].split("\\n\\n", 1)[0].rstrip("\\n")
+          memo = theirs[len(prefix):].split("\n\n", 1)[0].rstrip("\n")
           assert "No live vehicle writes or physical display validation." in memo
           assert "No lane-control/paint-color inference" in memo
-          merged = ours if memo in ours else prefix + memo + "\\n\\n" + ours[len(prefix):]
+          merged = ours if memo in ours else prefix + memo + "\n\n" + ours[len(prefix):]
           Path("AGENTS.md").write_text(merged, encoding="utf-8")
           PY
             git add AGENTS.md
