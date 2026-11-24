@@ -59,7 +59,7 @@ def control_fixture(phase1=False, cp_override=None):
           torque_from_lateral_accel=lambda: partial(CarInterfaceBase.torque_from_lateral_accel_linear, None),
           get_pid_accel_limits=lambda *args: (-3.0, 2.0))
   sm = Messages()
-  sm.update(longitudinalPlan=NS(), radarState=NS(), carrotMan=NS(vTurnSpeed=100), liveDelay=NS(lateralDelay=0.1))
+  sm.update(longitudinalPlan=NS(plannerProfile='carrot'), radarState=NS(), carrotMan=NS(vTurnSpeed=100), liveDelay=NS(lateralDelay=0.1))
   sm.frame = 1
   sm.recv_time = {'modelV2': time.monotonic()}
   sm.recv_frame = {'longitudinalPlan': 1}
@@ -73,7 +73,7 @@ def control_fixture(phase1=False, cp_override=None):
     lateral = LatControlAngle(cp, ci)
   else:
     lateral = LatControlTorque(cp, ci)
-  control = NS(hkg_phase1_enabled=phase1, CP=cp, CI=ci, sm=sm, params=params, VM=VehicleModel(cp), LaC=lateral,
+  control = NS(hkg_phase1_enabled=phase1, vision_profile_requested=False, CP=cp, CI=ci, sm=sm, params=params, VM=VehicleModel(cp), LaC=lateral,
                LoC=NS(reset=lambda: None, update=lambda *args: (0.0, 0.0, 0.0), long_control_state='off'),
                carrot_controls=NS(lat_suspend_control=lambda cs, active: active), is_vw_meb=False,
                desired_curvature=0.0, lateral_startup=LateralStartupGate(), lateral_started=False,
