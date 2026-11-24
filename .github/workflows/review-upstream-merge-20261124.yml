@@ -82,6 +82,9 @@ jobs:
             git status --short
             git diff --name-only --diff-filter=U
             git diff --stat
+            python3 tools/integration_checks/review_resolve_tony_20261124.py
+            echo "Exact reviewed conflict resolution complete."
+            # Keep the conflict report while validating the resulting tree.
             python3 - <<'PY'
           from pathlib import Path
           import subprocess
@@ -100,10 +103,31 @@ jobs:
                   text = "\\n".join(f"{i+1}: {lines[i]}" for i in range(lo, top))
                   print(f"-- hunk {hi} (line {start+1}) --\\n{text[:6000]}", flush=True)
           PY
-            exit 20
           fi
           git diff --check || { echo "::error::Whitespace/patch errors in Tony merge"; exit 21; }
-          git commit -m "Merge Tony carrot-wip f8517762 into isolated fusion review"
+          git commit -m "Merge Tony carrot-wip f8517762 with reviewed conflict resolution"
+
+          # Regenerate only derived Web/Wiki content from both merged sources.
+          npm ci --prefix openpilot/selfdrive/carrot/web
+          npm run build --prefix openpilot/selfdrive/carrot/web
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.docs.wiki_settings import generate as wiki
+          root = Path("openpilot/selfdrive/carrot/web/docs/settings")
+          idx = json.loads((root / "Settings-Catalog.json").read_text(encoding="utf-8"))
+          result = wiki.generate(
+              wiki.DEFAULT_CATALOG, wiki_dir=root, locales=idx["locales"],
+              catalog_commit="f85177629d521147c8a29f206e09f48b4e9d020f",
+              wiki_commit=idx.get("wikiCommit"), generated_at="2026-11-24T05:30:00Z")
+          wiki.write_result(result, root)
+          print("Wiki regeneration:", len(result.pages), "pages", result.page_changes)
+          PY
+          git add -- openpilot/selfdrive/carrot/web
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m "Build merged cockpit assets and refresh complete Web settings wiki"
+          fi
 
           git merge-base --is-ancestor "$OFFICIAL_SHA" HEAD
           git merge-base --is-ancestor "$TONY_SHA" HEAD
