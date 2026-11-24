@@ -82,6 +82,24 @@ jobs:
             git status --short
             git diff --name-only --diff-filter=U
             git diff --stat
+            python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          files = subprocess.check_output(
+              ["git", "diff", "--name-only", "--diff-filter=U"], text=True).splitlines()
+          print(f"=== CONFLICT FILES: {len(files)} ===", flush=True)
+          for file in files:
+              print(f"\\n=== {file} ===", flush=True)
+              lines = Path(file).read_text(encoding="utf-8").splitlines()
+              indexes = [i for i, line in enumerate(lines) if line.startswith("<<<<<<<")]
+              print(f"Conflict hunks: {len(indexes)}", flush=True)
+              for hi, start in enumerate(indexes[:12], 1):
+                  end = next((i for i in range(start + 1, len(lines))
+                              if lines[i].startswith(">>>>>>>")), min(start+90, len(lines)-1))
+                  lo = max(0, start-4); top = min(len(lines), end+5)
+                  text = "\\n".join(f"{i+1}: {lines[i]}" for i in range(lo, top))
+                  print(f"-- hunk {hi} (line {start+1}) --\\n{text[:6000]}", flush=True)
+          PY
             exit 20
           fi
           git diff --check || { echo "::error::Whitespace/patch errors in Tony merge"; exit 21; }
