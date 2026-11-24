@@ -61,7 +61,7 @@ def publish_fixture(brand, flags, enabled):
   cp = car.CarParams.new_message(brand=brand, flags=flags, openpilotLongitudinalControl=True)
   cp.lateralTuning.init('pid')
   sent = {}
-  control = NS(CP=cp, sm=Messages(), curvature=0.0, steering_influence=0.0, desired_curvature=0.0, calibrated_pose=None,
+  control = NS(CP=cp, sm=Messages(), curvature=0.0, steering_influence='model', desired_curvature=0.0, calibrated_pose=None,
                physical_blinker_hold=NS(read=lambda valid: 0), is_vw_meb=False,
                params=NS(get_int=lambda key: 0), lanefull_mode_enabled=False,
                lat_hud_state=lambda lat_active, lac_log: 0,  # Controls.lat_hud_state is outside the compiled publish()
