@@ -1,0 +1,75 @@
+name: Isolated 2026-11-24 official and Tony upstream merge
+on:
+  push:
+    branches: ['sync/tony-integrated-upstream-20261124']
+    paths:
+      - '.github/workflows/review-upstream-merge-20261124.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  isolated-review-merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Fetch pinned official and Tony commits and safely three-way merge
+        shell: bash
+        env:
+          BRANCH: sync/tony-integrated-upstream-20261124
+          FUSION_BASE: 7ab0a6e0c9081cc4fae9c06cae032f20943fa7be
+          OFFICIAL_SHA: 6a9225b541f4777b7202ec49abd8b80d7a78b9ba
+          TONY_SHA: f85177629d521147c8a29f206e09f48b4e9d020f
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/$BRANCH"
+          git config user.name "Carrot upstream review"
+          git config user.email "carrot-upstream-review@users.noreply.github.com"
+          git merge-base --is-ancestor "$FUSION_BASE" HEAD || {
+            echo "Unexpected fusion base; refusing merge"; exit 1;
+          }
+          git remote add carrot-official https://github.com/ajouatom/openpilot.git
+          git remote add tony-original https://github.com/TonyBinheWu/sunnypilot.git
+          git fetch --no-tags carrot-official carrot-wip
+          git fetch --no-tags tony-original carrot-wip
+          git cat-file -e "$OFFICIAL_SHA^{commit}"
+          git cat-file -e "$TONY_SHA^{commit}"
+          git merge-base --is-ancestor "$OFFICIAL_SHA" FETCH_HEAD || true
+          echo "Fusion base $FUSION_BASE"
+          echo "Official pinned $OFFICIAL_SHA"
+          echo "Tony pinned $TONY_SHA"
+          echo "Current HEAD $(git rev-parse HEAD)"
+
+          if ! git merge --no-ff --no-commit "$OFFICIAL_SHA"; then
+            echo "::error::Official -> fusion conflict; manual hunk review required."
+            git status --short
+            git diff --name-only --diff-filter=U
+            git diff --stat
+            exit 10
+          fi
+          git diff --check || { echo "::error::Whitespace/patch errors in official merge"; exit 11; }
+          git commit -m "Merge official carrot-wip 6a9225b5 into isolated fusion review"
+          echo "Official merge complete"
+
+          if ! git merge --no-ff --no-commit "$TONY_SHA"; then
+            echo "::error::Tony -> fusion conflict; manual hunk review required."
+            git status --short
+            git diff --name-only --diff-filter=U
+            git diff --stat
+            exit 20
+          fi
+          git diff --check || { echo "::error::Whitespace/patch errors in Tony merge"; exit 21; }
+          git commit -m "Merge Tony carrot-wip f8517762 into isolated fusion review"
+
+          git merge-base --is-ancestor "$OFFICIAL_SHA" HEAD
+          git merge-base --is-ancestor "$TONY_SHA" HEAD
+          git merge-base --is-ancestor "$FUSION_BASE" HEAD
+          test -z "$(git status --porcelain)"
+          echo "Review candidate $(git rev-parse HEAD)"
+          echo "Changed file summary relative to existing fusion:"
+          git diff --stat "$FUSION_BASE"..HEAD
+          git push origin "HEAD:refs/heads/$BRANCH"
+          echo "Both upstream commits merged on the isolated review branch only."
