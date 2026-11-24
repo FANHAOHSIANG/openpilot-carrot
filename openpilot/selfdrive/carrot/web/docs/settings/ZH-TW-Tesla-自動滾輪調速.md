@@ -30,13 +30,13 @@
 <!-- CARROT:SECTION:BEGIN BEHAVIOR -->
 ### 行為
 
-受支援的 Tesla 須有額外車輛 CAN 及 alpha 縱向控制；巡航作用中，依原車 DAS 限速以顯示單位逐步調整設定速度。關閉時不設定自動滾輪傳送及相應 Panda 權限，保留手動滾輪及其他控制路徑。導航／Carrot 速度控制優先，並保留煞車、過期輸入及無確認回饋保護。
+支援的 Tesla 需額外車輛 CAN 及 alpha 縱向控制；巡航作用中，按原車 DAS 限速以顯示單位逐步調整設定速度。關閉時不設定自動滾輪傳送及相應 Panda 許可權，保留手動滾輪及其他控制路徑。導航/Carrot 速度控制優先，並保留剎車、過期輸入及無確認回饋保護。
 <!-- CARROT:SECTION:END BEHAVIOR -->
 
 <!-- CARROT:SECTION:BEGIN USAGE -->
 ### 使用
 
-在 Tesla 專用群組開啟後完整重啟。原先自動啟用的車輛現在也須明確開啟。手動滾輪會暫停自動調整；1秒內先向一方再向反方向滾動，或解除後重新啟用巡航可恢復。
+在 Tesla 專用群組開啟後完整重啟。此前自動啟用的車輛現在也須明確開啟。手動滾輪會暫停自動調節；1秒內先向一方再向反方向滾動，或解除再重新啟用巡航可恢復。
 <!-- CARROT:SECTION:END USAGE -->
 
 <!-- CARROT:SECTION:BEGIN REFERENCE -->

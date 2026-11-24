@@ -701,6 +701,24 @@ def test_gap_button_reduction_and_oem_gap(openpilot_long, requested, pcm_gap, cu
   assert values["LongitudinalPersonality"] == expected
 
 
+@pytest.mark.parametrize("maximum,requested,pcm_gap,expected", [
+  (4, 2, 0, [3, 2, 1, 0]),
+  (4, 2, 4, [3, 3, 3, 3]),
+  (3, 2, 3, [2, 2, 2, 2]),
+])
+def test_sunny_gap_button_ignores_legacy_cycle_limit(maximum, requested, pcm_gap, expected):
+  helper, CS, CC = make_cruise_helper(80, 0, False, True)
+  helper.sunny = True
+  helper._prepare_buttons = lambda CS, speed, remote=None: (speed, ButtonType.gapAdjustCruise, False)
+  helper.CP = SimpleNamespace(openpilotLongitudinalControl=True)
+  values = {"LongitudinalPersonalityMax": maximum, "CruiseGapLevels": requested, "LongitudinalPersonality": 0}
+  helper.params = SimpleNamespace(get_int=values.__getitem__, put_int_nonblocking=values.__setitem__)
+  CS.pcmCruiseGap = pcm_gap
+  for personality in expected:
+    assert helper._update_cruise_buttons(CS, CC, 80) == 80
+    assert values["LongitudinalPersonality"] == personality
+
+
 def test_gap_long_press_still_changes_driving_mode():
   helper, CS, CC = make_cruise_helper(80, 0, False, True)
   helper._prepare_buttons = lambda CS, speed, remote=None: (speed, ButtonType.gapAdjustCruise, True)

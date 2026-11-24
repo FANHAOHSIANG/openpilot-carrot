@@ -2,7 +2,7 @@
 import time
 
 from openpilot.cereal import car
-from openpilot.common.driving_planner import active_planner_mode, camera_only
+from openpilot.common.driving_planner import SUNNY_BLENDED, active_planner_mode, camera_only
 from openpilot.common.params import Params
 from openpilot.common.realtime import Priority, config_realtime_process
 from openpilot.common.swaglog import cloudlog
@@ -25,9 +25,9 @@ MIN_LONGITUDINAL_PLAN_INTERVAL_NS = 25_000_000
 
 
 def make_longitudinal_planner(CP, mode):
-  if mode == 1 or camera_only(mode):
+  if mode == 1 or camera_only(mode) or mode == SUNNY_BLENDED:
     from openpilot.selfdrive.controls.lib.upstream_planner import LongitudinalPlanner
-    return LongitudinalPlanner(CP, vision_only=camera_only(mode))
+    return LongitudinalPlanner(CP, vision_only=camera_only(mode), sunny=mode == SUNNY_BLENDED)
   else:
     from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner
   return LongitudinalPlanner(CP)
@@ -53,7 +53,7 @@ def main():
     params.get_int("EnableRadarTracks"),
   )
   mode = active_planner_mode(CP, params)
-  upstream = mode == 1 or camera_only(mode)
+  upstream = mode == 1 or camera_only(mode) or mode == SUNNY_BLENDED
   live_tracks_longitudinal = not upstream and CP.brand == "hyundai" and radar_track_mode >= 1
 
   ldw = LaneDepartureWarning()
@@ -69,7 +69,7 @@ def main():
   # Hyundai's two inputs wake this serial loop independently; no MPC overlaps.
   sm = messaging.SubMaster(
     ['carControl', 'carState', 'controlsState', 'liveParameters', 'radarState',
-     'liveTracks', 'modelV2', 'selfdriveState', 'carrotMan', 'carrotNavi', 'livePose'],
+     'liveTracks', 'modelV2', 'selfdriveState', 'carrotMan', 'carrotNavi', 'livePose', 'navInstruction'],
     poll=(['modelV2', 'liveTracks'] if live_tracks_longitudinal else 'modelV2'),
     ignore_avg_freq=['radarState'],
   )
@@ -184,8 +184,9 @@ def main():
       lateral_start = time.monotonic()
       timings['model_age_at_lateral_ms'] = (lateral_start - sm.logMonoTime['modelV2'] * 1e-9) * 1000
       model_frame += 1
-      lateral_planner.update(sm, carrot)
-      lateral_planner.publish(sm, pm, carrot)
+      lateral_context = None if mode == SUNNY_BLENDED else carrot
+      lateral_planner.update(sm, lateral_context)
+      lateral_planner.publish(sm, pm, lateral_context)
 
       ldw.update(model_frame, sm['modelV2'], sm['carState'], sm['carControl'])
       msg = messaging.new_message('driverAssistance')

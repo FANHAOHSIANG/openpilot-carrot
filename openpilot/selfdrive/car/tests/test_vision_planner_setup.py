@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from opendbc.car import car_helpers as helpers
-from openpilot.common.driving_planner import active_planner_mode
+from openpilot.common.driving_planner import active_planner_mode, automatic_longitudinal
 
 
 @pytest.mark.parametrize("case,provider,calls", [
@@ -38,9 +38,23 @@ def test_auto_setup(monkeypatch, case, provider, calls):
   assert requested == calls
 
 
-def test_trip_mode_is_latched_with_legacy_fallback():
+@pytest.mark.parametrize("saved_mode", [0, 1, 2, 3, 4])
+def test_trip_mode_is_latched(saved_mode):
+  params = Mock()
+  assert active_planner_mode(SimpleNamespace(drivingPlannerMode=saved_mode), params) == saved_mode
+  params.get_int.assert_not_called()
+
+
+def test_trip_mode_legacy_fallback():
   params = Mock()
   params.get_int.return_value = 1
-  assert active_planner_mode(SimpleNamespace(drivingPlannerMode=3), params) == 3
-  params.get_int.assert_not_called()
   assert active_planner_mode(SimpleNamespace(drivingPlannerMode=-1), params) == 1
+  params.get_int.assert_called_once_with("DrivingPlannerMode")
+
+
+@pytest.mark.parametrize("mode,sunny_enabled,expected", [
+  (0, False, False), (1, True, False), (2, True, False),
+  (3, False, True), (3, True, True), (4, False, False), (4, True, True),
+])
+def test_auto_longitudinal_selection(mode, sunny_enabled, expected):
+  assert automatic_longitudinal(mode, sunny_enabled) is expected

@@ -11,6 +11,15 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 
 #### 시작·오토
 
+##### 일상 주행
+
+- [Alpha 종방향 자동 설정](https://github.com/ajouatom/openpilot/wiki/KO-Alpha-%EC%A2%85%EB%B0%A9%ED%96%A5-%EC%9E%90%EB%8F%99-%EC%84%A4%EC%A0%95) — `SunnyAutoLongitudinal`
+- [비전 커브 감속](https://github.com/ajouatom/openpilot/wiki/KO-%EB%B9%84%EC%A0%84-%EC%BB%A4%EB%B8%8C-%EA%B0%90%EC%86%8D) — `SunnyVisionCurve`
+- [지도 커브 감속](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A7%80%EB%8F%84-%EC%BB%A4%EB%B8%8C-%EA%B0%90%EC%86%8D) — `SunnyMapCurve`
+- [내비게이션 제한속도 보조](https://github.com/ajouatom/openpilot/wiki/KO-%EB%82%B4%EB%B9%84%EA%B2%8C%EC%9D%B4%EC%85%98-%EC%A0%9C%ED%95%9C%EC%86%8D%EB%8F%84-%EB%B3%B4%EC%A1%B0) — `SunnySpeedLimit`
+- [방향지시등 조향 일시 정지 (km/h)](https://github.com/ajouatom/openpilot/wiki/KO-%EB%B0%A9%ED%96%A5%EC%A7%80%EC%8B%9C%EB%93%B1-%EC%A1%B0%ED%96%A5-%EC%9D%BC%EC%8B%9C-%EC%A0%95%EC%A7%80-%28km-h%29) — `SunnyBlinkerPauseKph`
+- [크루즈만 사용](https://github.com/ajouatom/openpilot/wiki/KO-%ED%81%AC%EB%A3%A8%EC%A6%88%EB%A7%8C-%EC%82%AC%EC%9A%A9) — `SunnyCruiseOnly`
+
 ##### 시작 동작
 
 - [오토인게이지](https://github.com/ajouatom/openpilot/wiki/KO-%EC%98%A4%ED%86%A0%EC%9D%B8%EA%B2%8C%EC%9D%B4%EC%A7%80) — `AutoEngage`
@@ -410,6 +419,15 @@ Per-setting pages generated from the current settings catalog.
 ### Driving
 
 #### Start & Auto
+
+##### Daily driving
+
+- [Automatic Alpha longitudinal setup](https://github.com/ajouatom/openpilot/wiki/EN-Automatic-Alpha-longitudinal-setup) — `SunnyAutoLongitudinal`
+- [Vision curve assist](https://github.com/ajouatom/openpilot/wiki/EN-Vision-curve-assist) — `SunnyVisionCurve`
+- [Map curve assist](https://github.com/ajouatom/openpilot/wiki/EN-Map-curve-assist) — `SunnyMapCurve`
+- [Navigation speed limit assist](https://github.com/ajouatom/openpilot/wiki/EN-Navigation-speed-limit-assist) — `SunnySpeedLimit`
+- [Pause steering below speed with one indicator (km/h)](https://github.com/ajouatom/openpilot/wiki/EN-Pause-steering-below-speed-with-one-indicator-%28km-h%29) — `SunnyBlinkerPauseKph`
+- [Cruise only](https://github.com/ajouatom/openpilot/wiki/EN-Cruise-only) — `SunnyCruiseOnly`
 
 ##### Engage
 
@@ -811,6 +829,15 @@ Per-setting pages generated from the current settings catalog.
 
 #### 启动·自动
 
+##### 日常驾驶
+
+- [自动适配 Alpha 纵向控制](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%87%AA%E5%8A%A8%E9%80%82%E9%85%8D-Alpha-%E7%BA%B5%E5%90%91%E6%8E%A7%E5%88%B6) — `SunnyAutoLongitudinal`
+- [视觉弯速辅助](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%A7%86%E8%A7%89%E5%BC%AF%E9%80%9F%E8%BE%85%E5%8A%A9) — `SunnyVisionCurve`
+- [地图弯速辅助](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%9C%B0%E5%9B%BE%E5%BC%AF%E9%80%9F%E8%BE%85%E5%8A%A9) — `SunnyMapCurve`
+- [导航道路限速辅助](https://github.com/ajouatom/openpilot/wiki/ZH-%E5%AF%BC%E8%88%AA%E9%81%93%E8%B7%AF%E9%99%90%E9%80%9F%E8%BE%85%E5%8A%A9) — `SunnySpeedLimit`
+- [低速打灯暂停转向（km/h）](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%BD%8E%E9%80%9F%E6%89%93%E7%81%AF%E6%9A%82%E5%81%9C%E8%BD%AC%E5%90%91%28km-h%29) — `SunnyBlinkerPauseKph`
+- [仅巡航，手动转向](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%BB%85%E5%B7%A1%E8%88%AA%2C%E6%89%8B%E5%8A%A8%E8%BD%AC%E5%90%91) — `SunnyCruiseOnly`
+
 ##### 起步动作
 
 - [上路自动激活](https://github.com/ajouatom/openpilot/wiki/ZH-%E4%B8%8A%E8%B7%AF%E8%87%AA%E5%8A%A8%E6%BF%80%E6%B4%BB) — `AutoEngage`
@@ -1210,6 +1237,15 @@ Per-setting pages generated from the current settings catalog.
 ### 駕駛控制
 
 #### 啟動·自動
+
+##### 日常駕駛
+
+- [依車型自動適配 Alpha 縱向控制](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E4%BE%9D%E8%BB%8A%E5%9E%8B%E8%87%AA%E5%8B%95%E9%81%A9%E9%85%8D-Alpha-%E7%B8%B1%E5%90%91%E6%8E%A7%E5%88%B6) — `SunnyAutoLongitudinal`
+- [視覺彎速輔助](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%A6%96%E8%A6%BA%E5%BD%8E%E9%80%9F%E8%BC%94%E5%8A%A9) — `SunnyVisionCurve`
+- [地圖彎速輔助](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%9C%B0%E5%9C%96%E5%BD%8E%E9%80%9F%E8%BC%94%E5%8A%A9) — `SunnyMapCurve`
+- [導航道路速限輔助](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%B0%8E%E8%88%AA%E9%81%93%E8%B7%AF%E9%80%9F%E9%99%90%E8%BC%94%E5%8A%A9) — `SunnySpeedLimit`
+- [低速打燈暫停轉向（km/h）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E4%BD%8E%E9%80%9F%E6%89%93%E7%87%88%E6%9A%AB%E5%81%9C%E8%BD%89%E5%90%91%28km-h%29) — `SunnyBlinkerPauseKph`
+- [僅巡航，手動轉向](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E5%83%85%E5%B7%A1%E8%88%AA%2C%E6%89%8B%E5%8B%95%E8%BD%89%E5%90%91) — `SunnyCruiseOnly`
 
 ##### 起步動作
 

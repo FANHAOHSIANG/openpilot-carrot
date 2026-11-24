@@ -564,6 +564,9 @@ class CarrotMan:
       lateral_allowance=self.osm_curve.lateral_allowance if source == 'osm' else 0.,
     )
     serv.route_curve_debug = f"{result.reason}:{result.distance:.0f}m/{result.curve_kph:.0f}kph/e{result.match_error:.1f}"
+    # Sunny blended planning consumes the same reviewed route match as the
+    # existing Test ATC/OSM pipeline; zero means that no safe cap is available.
+    serv.route_curve_kph = result.speed_kph if 0 < result.speed_kph < 250 else 0.
     if source == 'osm':
       serv.route_curve_debug = f"osm/{self.osm_curve.status}/{serv.route_curve_debug}/gps=device/lane={result.lateral_offset:.1f}"
     if source == 'route' and getattr(serv, 'atcAdaptiveSpeed', False):

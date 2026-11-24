@@ -75,6 +75,7 @@ DEVICE_SETTING_GROUPS: tuple[tuple[str, tuple[tuple[str, Any], ...]], ...] = (
   )),
   ("Toggles", (
     ("DrivingPlannerMode", 0),
+    ("SunnyAutoLongitudinal", False),
     ("OpenpilotEnabledToggle", False),
     ("ExperimentalMode", False),
     ("ExperimentalModeConfirmed", False),
@@ -88,6 +89,7 @@ DEVICE_SETTING_GROUPS: tuple[tuple[str, tuple[tuple[str, Any], ...]], ...] = (
   )),
   ("Developer", (
     ("DrivingPlannerMode", 0),
+    ("SunnyAutoLongitudinal", False),
     ("AdbEnabled", False),
     ("SshEnabled", False),
     ("JoystickDebugMode", False),

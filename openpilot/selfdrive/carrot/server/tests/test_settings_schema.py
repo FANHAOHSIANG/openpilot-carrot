@@ -100,6 +100,20 @@ def test_gap_cycle_setting_is_registered_and_in_gap_menu(settings):
   assert section["items"].index("CruiseGapLevels") < section["items"].index("TFollowGap1")
 
 
+def test_sunny_blended_profile_coexists_with_fusion_cruise_settings(settings):
+  groups, by_name, _ = group_index(settings)
+  assert {"SunnyAutoLongitudinal", "SunnyCruiseOnly", "SunnyBlinkerPauseKph",
+          "SunnyVisionCurve", "SunnyMapCurve", "SunnySpeedLimit"} <= set(by_name)
+  assert {"DrivingPlannerMode", "CruiseGapLevels", "CarrotCruiseDecel",
+          "OsmCurveSpeedEnabled"} <= set(by_name)
+  planner = by_name["DrivingPlannerMode"]
+  assert (planner["min"], planner["max"], planner["default"]) == (0, 4, 0)
+  assert all(len(options) == 5 for options in planner["options"].values())
+  assert any("SunnyAutoLongitudinal" in section["items"]
+             for category in build_menu_categories(settings, by_name)
+             for group in category["groups"] for section in group["sections"])
+
+
 def test_rear_camera_hold_uses_meter_values_and_persistent_default(settings, params):
   hold = next(p for p in params if p["name"] == "AutoNaviRearCameraHoldDistance")
   assert (hold["min"], hold["max"], hold["default"], hold["unit"]) == (0, 300, 100, 10)
@@ -610,6 +624,7 @@ def test_cluster_camera_preference_is_in_brightness_and_view(settings, params):
   brightness = next(group for group in display["groups"] if group["id"] == "DISP_BRIGHT")
   assert brightness["params"] == [
     "ShowCustomBrightness",
+    "C4SceneStyle",
     "ShowModelView",
     "ShowCameraWithCluster",
   ]

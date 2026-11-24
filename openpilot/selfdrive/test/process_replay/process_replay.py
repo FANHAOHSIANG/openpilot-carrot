@@ -20,7 +20,7 @@ from openpilot.cereal.services import SERVICE_LIST
 from msgq.visionipc import VisionIpcServer, get_endpoint_name as vipc_get_endpoint_name
 from opendbc.car.can_definitions import CanData
 from opendbc.car.car_helpers import get_car, interfaces
-from openpilot.common.driving_planner import CAMERA_ONLY_AUTO
+from openpilot.common.driving_planner import automatic_longitudinal
 from openpilot.common.params import Params
 from openpilot.common.prefix import OpenpilotPrefix
 from openpilot.common.timeout import Timeout
@@ -371,8 +371,10 @@ def get_car_params_callback(rc, pm, msgs, fingerprint):
       with car.CarParams.from_bytes(cached_params_raw) as _cached_params:
         cached_params = _cached_params
 
+    planner_mode = params.get_int("DrivingPlannerMode")
+    auto_long = automatic_longitudinal(planner_mode, params.get_bool("SunnyAutoLongitudinal"))
     CP = get_car(can_recv, lambda _msgs: None, lambda obd: None, params.get_bool("AlphaLongitudinalEnabled"), False, cached_params=cached_params,
-                 auto_long=params.get_int("DrivingPlannerMode") == CAMERA_ONLY_AUTO).CP
+                 auto_long=auto_long).CP
 
   params.put("CarParams", CP.to_bytes())
 
@@ -538,7 +540,8 @@ CONFIGS = [
   ),
   ProcessConfig(
     proc_name="plannerd",
-    pubs=["modelV2", "liveTracks", "carControl", "carState", "controlsState", "liveParameters", "radarState", "selfdriveState"],
+    pubs=["modelV2", "carControl", "carState", "controlsState", "liveParameters", "radarState", "selfdriveState",
+          "carrotMan", "carrotNavi", "livePose", "navInstruction"],
     subs=["longitudinalPlan", "driverAssistance"],
     ignore=["logMonoTime", "longitudinalPlan.processingDelay", "longitudinalPlan.deprecated.radarStateMonoTime",
             "longitudinalPlan.solverExecutionTime",

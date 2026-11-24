@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from openpilot.cereal import car, log
-from openpilot.common.driving_planner import active_planner_mode, camera_only
+from openpilot.common.driving_planner import SUNNY_BLENDED, active_planner_mode, camera_only
 from openpilot.common.runtime_diagnostics import RuntimeDiagnostics
 from openpilot.selfdrive.carrot.radar import effective_radar_track_mode
 from openpilot.selfdrive.carrot.radar_motion.timing import front_radar_distance_delay_s
@@ -83,6 +83,7 @@ def run_planner_events(mocker, brand, configured_mode, radar_period_ms, *, stopp
     'time': SimpleNamespace(monotonic=lambda: sm.now, thread_time=lambda: sm.now),
     'car': car,
     'active_planner_mode': active_planner_mode,
+    'SUNNY_BLENDED': SUNNY_BLENDED,
     'camera_only': camera_only,
     'Params': lambda: params,
     'Priority': SimpleNamespace(CTRL_LOW=0),

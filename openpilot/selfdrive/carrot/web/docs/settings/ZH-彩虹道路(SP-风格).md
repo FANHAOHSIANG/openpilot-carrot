@@ -26,7 +26,7 @@
 <!-- CARROT:AUTO:END RainbowMode -->
 
 <!-- CARROT:MANUAL:BEGIN RainbowMode -->
-<!-- CARROT:REVIEW reviewed-for="1aba7ed0cb53ca634c206d22650345f906fe8d15486d15e502ccfad140063cfd" reviewed-at="2026-11-15T15:32:12.239638+00:00" -->
+<!-- CARROT:REVIEW reviewed-for="1aba7ed0cb53ca634c206d22650345f906fe8d15486d15e502ccfad140063cfd" reviewed-at="2026-11-15T15:32:11.549173+00:00" -->
 <!-- CARROT:SECTION:BEGIN BEHAVIOR -->
 ### 运作方式
 

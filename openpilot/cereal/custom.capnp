@@ -54,6 +54,7 @@ struct CarrotMan @0x81c2f05a394cf4af {
 	atcCurveCandidateKph @39 :Float32; # 0 if no matched maneuver geometry
 	atcAdaptiveTargetKph @40 :Float32;
 	atcBroadCurveCandidateKph @41 :Float32;
+	routeCurveKph @42 :Float32; # zero when no matched route curve
 }
 
 struct CarrotNaviState @0xaedffd8f31e7b55d {

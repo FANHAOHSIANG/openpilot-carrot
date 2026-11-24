@@ -156,7 +156,7 @@ class VCruiseHelper:
 
 
 
-from openpilot.common.driving_planner import active_planner_mode, camera_only
+from openpilot.common.driving_planner import SUNNY_BLENDED, active_planner_mode, camera_only
 from openpilot.common.params import Params
 #from openpilot.selfdrive.selfdrived.events import Events
 #EventName = log.OnroadEvent.EventName
@@ -172,7 +172,9 @@ class VCruiseCarrot:
     self.frame = 0
     self.params_memory = Params("/dev/shm/params")
     self.params = Params()
-    self.vision_only = camera_only(active_planner_mode(CP, self.params))
+    mode = active_planner_mode(CP, self.params)
+    self.vision_only = camera_only(mode)
+    self.sunny = mode == SUNNY_BLENDED
     self.periodic_settings = None
     self.cruise_stage_ms = {}
     if cached_settings:
@@ -766,9 +768,11 @@ class VCruiseCarrot:
 
       elif button_type == ButtonType.gapAdjustCruise:
         longitudinalPersonalityMax = supported_gap_levels(self.params.get_int("LongitudinalPersonalityMax"))
-        gap_levels = cruise_gap_levels(self.params.get_int("CruiseGapLevels"), longitudinalPersonalityMax)
-        if not self.CP.openpilotLongitudinalControl:
-          gap_levels = longitudinalPersonalityMax
+        gap_levels = longitudinalPersonalityMax
+        if not getattr(self, 'sunny', False):
+          gap_levels = cruise_gap_levels(self.params.get_int("CruiseGapLevels"), longitudinalPersonalityMax)
+          if not self.CP.openpilotLongitudinalControl:
+            gap_levels = longitudinalPersonalityMax
         if remote == 'gapAdjustCruise' or CS.pcmCruiseGap == 0 or gap_levels < longitudinalPersonalityMax:
           personality = next_gap_personality(self.params.get_int('LongitudinalPersonality'), gap_levels)
         else:
@@ -871,7 +875,7 @@ class VCruiseCarrot:
 
   def _auto_speed_up(self, v_cruise_kph, *, explicit=False):
     selected_speed = v_cruise_kph
-    if getattr(self, 'vision_only', False):
+    if self.vision_only or self.sunny:
       return v_cruise_kph
     # Automatic road/model policies may reduce, but never raise the driver's
     # selection. Explicit SPEED UP still uses the requested increase policy.

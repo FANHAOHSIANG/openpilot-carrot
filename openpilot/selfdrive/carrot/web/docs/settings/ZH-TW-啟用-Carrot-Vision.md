@@ -32,19 +32,19 @@
 <!-- CARROT:SECTION:BEGIN BEHAVIOR -->
 ### 行為
 
-獨立於駕駛員監控及外部 HUD，支援行車及停車道路影像。停車時僅在觀看會話存在期間請求鏡頭與編碼器，其他鏡頭使用者仍遵循原有條件。
+獨立於駕駛員監控及外部 HUD，支援行車及停車道路影像。停車時僅在觀看會話存在期間請求攝像頭與編碼器，其他攝像頭使用者仍遵循原有條件。
 <!-- CARROT:SECTION:END BEHAVIOR -->
 
 <!-- CARROT:SECTION:BEGIN USAGE -->
 ### 使用
 
-開啟此設定並進入 App 或網頁的 Vision。車機更新並重新啟動一次後，可繼續使用 CarrotAssist 0.2.16，無須執行診斷鏡頭程序。
+開啟此設定並進入 App 或網頁的 Vision。車機更新並重新啟動一次後，可繼續使用 CarrotAssist 0.2.16，無需執行診斷攝像頭程式。
 <!-- CARROT:SECTION:END USAGE -->
 
 <!-- CARROT:SECTION:BEGIN REFERENCE -->
 ### 參考
 
-停車觀看不啟動駕駛模型、控制或一般行車錄影，也不沿用舊行車指引；錄影回放保留紀錄資料。原有電量關機條件不變。舊 DisableDM 影像選項只遷移一次，不改變駕駛員監控或實驗模式。
+停車觀看不啟動駕駛模型、控制或一般行車錄影，也不沿用舊行車指引；錄影回放保留記錄資料。原有電量關機條件不變。舊 DisableDM 影像選擇僅遷移一次，不改變駕駛員監控或實驗模式。
 <!-- CARROT:SECTION:END REFERENCE -->
 
 <!-- CARROT:MANUAL:END CarrotVisionEnabled -->

@@ -543,3 +543,47 @@ def test_web_lamp_tap_deadline_and_driver_override(monkeypatch, tmp_path, side, 
     assert s.test_until == 10.02
   else:
     assert not sent and s.test_request is None
+
+@pytest.mark.parametrize("setting,previous,in_progress,reason", [
+  (2, 2, False, "another_test_selected"),
+  (0, 0, True, "parked_test_in_progress"),
+  (0, 2, False, "test_selection_reset"),
+])
+def test_ev6_web_tap_conflict_reports_controller_snapshot(monkeypatch, tmp_path, setting, previous, in_progress, reason):
+  from openpilot.selfdrive.carrot.bluetooth.model import atomic_json, read_json
+  sig, params, cs, sm = setup(monkeypatch, "KIA_EV6")
+  sig.web_indicator.root = tmp_path
+  sig.web_indicator.started = 9.
+  sig.test_setting = previous
+  params.value = setting
+  if in_progress:
+    sig.test_request = "park:1"
+  atomic_json(tmp_path / "request.json", {"stamp": 10., "side": "left"})
+  sig.update(cs, sm, 10., True)
+  assert read_json(tmp_path / "reply.json") == {
+    "stamp": 10., "accepted": False, "reason": reason, "testSetting": setting, "gear": "park",
+  }
+
+@pytest.mark.parametrize("lamp", ["left", "right", "both", "dark", "unknown"])
+def test_web_receipt_requires_matching_vehicle_lamp(monkeypatch, tmp_path, lamp):
+  from openpilot.selfdrive.carrot.bluetooth.model import atomic_json, read_json
+  sig, _, cs, sm = setup(monkeypatch, "KIA_EV6")
+  sig.web_indicator.root = tmp_path
+  sig.web_indicator.started = 9.
+  warm(sig)
+  sig.update(cs, sm, 10., True)
+  atomic_json(tmp_path / "request.json", {"stamp": 10.005, "side": "left"})
+  sig.settings_at = 0
+  sig.update(cs, sm, 10.01, True)
+  assert read_json(tmp_path / "reply.json")["accepted"]
+  assert not (tmp_path / "lamp.json").exists()
+  sig.session.enter("active", 10.015)
+  cs.turnLampState = lamp
+  sig.update(cs, sm, 10.02, True)
+  if lamp == "left":
+    assert read_json(tmp_path / "lamp.json") == {"observed": True, "reason": None, "stamp": 10.005}
+  else:
+    assert not (tmp_path / "lamp.json").exists()
+    sig.test_until = 10.03
+    sig.update(cs, sm, 10.03, True)
+    assert read_json(tmp_path / "lamp.json") == {"observed": False, "reason": "lamp_feedback_missing", "stamp": 10.005}

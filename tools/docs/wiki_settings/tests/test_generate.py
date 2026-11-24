@@ -81,7 +81,7 @@ def write_catalog(root, payload):
 class WikiSettingsGeneratorTest(unittest.TestCase):
   def test_locale_iterator_keeps_requested_menu_labels(self):
     settings, leaves = GENERATOR.load_catalog(GENERATOR.DEFAULT_CATALOG, iter(("ko", "en")))
-    self.assertEqual(len(settings), 228)
+    self.assertEqual(len(settings), 234)
     self.assertTrue(all(set(leaf.labels) == {"ko", "en"} for leaf in leaves))
 
   def test_traditional_bundle_matches_current_catalog_and_preserves_manual(self):
@@ -101,7 +101,7 @@ class WikiSettingsGeneratorTest(unittest.TestCase):
       catalog_commit=COMMIT,
       generated_at=STAMP,
     )
-    self.assertEqual(len(result.generated_settings), 228)
+    self.assertEqual(len(result.generated_settings), 234)
     self.assertIn("ClusterHudFloatingArrows", result.index["settings"])
     self.assertIn("ClusterHudSpeedLimitSign", result.index["settings"])
     self.assertIn("RainbowMode", result.index["settings"])
@@ -130,15 +130,15 @@ class WikiSettingsGeneratorTest(unittest.TestCase):
     for retired in ("ClusterHudPriority", "ClusterHudCoreMode", "ClusterHudLiveFps", "CanfdStopRetry", "DisableDM",
                     "CarrotYouTubeLive", "CarrotYouTubeQuality", "CarrotYouTubeTimestamp"):
       self.assertNotIn(retired, result.index["settings"])
-    self.assertEqual(result.index["review"], {"current": 0, "needs_review": 228})
+    self.assertEqual(result.index["review"], {"current": 0, "needs_review": 234})
     self.assertEqual(result.index["locales"], ["ko", "en", "zh"])
-    self.assertEqual(len(result.pages), (228 * 3) + 2)
+    self.assertEqual(len(result.pages), (234 * 3) + 2)
     setting_pages = {
       name: text
       for name, text in result.pages.items()
       if GENERATOR.GENERATED_PAGE_RE.fullmatch(name)
     }
-    self.assertEqual(len(setting_pages), 228 * 3)
+    self.assertEqual(len(setting_pages), 234 * 3)
     self.assertTrue(all(text.count("<!-- CARROT:SETTING:BEGIN ") == 1 for text in setting_pages.values()))
     for name, text in result.pages.items():
       if name.endswith(".md"):
@@ -166,7 +166,8 @@ class WikiSettingsGeneratorTest(unittest.TestCase):
       + quote("KO-상시-조향", safe="-._~"),
       catalog_page,
     )
-    self.assertIn("### 주행 제어\n\n#### 시작·오토\n\n##### 시작 동작", catalog_page)
+    self.assertIn("### 주행 제어\n\n#### 시작·오토\n\n##### 일상 주행", catalog_page)
+    self.assertIn("##### 시작 동작", catalog_page)
 
   def test_manual_region_is_byte_preserved_and_semantic_change_requires_review(self):
     with tempfile.TemporaryDirectory() as temp:
