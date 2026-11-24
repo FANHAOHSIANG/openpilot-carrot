@@ -1,10 +1,70 @@
+import importlib
 import math
-from types import SimpleNamespace
+import sys
+from types import ModuleType, SimpleNamespace
 
+import numpy as np
 import pytest
 
 from openpilot.cereal import log
+
+# This is the camera input/planner message contract test. In headless x86 CI
+# the acados solver has no pre-generated Cython extension; isolate only that
+# numerical solver while retaining the actual upstream LongitudinalPlanner,
+# camera lead processing, validity checks, speed cap, and publish path.
+# If native solver is present, no test substitute is installed.
+_NATIVE = "openpilot.selfdrive.controls.lib.upstream_mpc.c_generated_code"
+_SOLVER = f"{_NATIVE}.acados_ocp_solver_pyx"
+try:
+  importlib.import_module(_SOLVER)
+  HAS_NATIVE_SOLVER = True
+except ModuleNotFoundError as exc:
+  if exc.name not in (_NATIVE, _SOLVER):
+    raise
+  HAS_NATIVE_SOLVER = False
+  package = ModuleType(_NATIVE)
+  package.__path__ = []
+  extension = ModuleType(_SOLVER)
+  class MissingNativeSolver:
+    def __init__(self, *args, **kwargs):
+      raise RuntimeError("native acados extension unavailable in headless CI")
+  extension.AcadosOcpSolverCython = MissingNativeSolver
+  sys.modules[_NATIVE] = package
+  sys.modules[_SOLVER] = extension
+
+from openpilot.selfdrive.controls.lib import upstream_planner
 from openpilot.selfdrive.controls.lib.upstream_planner import LongitudinalPlanner
+from openpilot.selfdrive.controls.lib.upstream_mpc.long_mpc import T_IDXS
+
+
+class OfflineMpc:
+  """Bounded deterministic stub for messaging contract tests, NOT MPC safety."""
+  def __init__(self, dt):
+    self.dt = dt
+    self.source = log.LongitudinalPlan.LongitudinalPlanSource.cruise
+    self.v_solution = np.full(len(T_IDXS), 12.)
+    self.a_solution = np.full(len(T_IDXS), -.4)
+    self.j_solution = np.zeros(len(T_IDXS)-1)
+    self.crash_cnt = 0
+    self.solve_time = 0.
+
+  def set_weights(self, *args, **kwargs):
+    return None
+
+  def set_cur_state(self, *args, **kwargs):
+    return None
+
+  def update(self, leads, **kwargs):
+    source = log.LongitudinalPlan.LongitudinalPlanSource
+    self.source = source.lead0 if leads.leadOne.status else source.cruise
+
+
+@pytest.fixture(autouse=True)
+def offline_solver_only_if_native_missing(monkeypatch):
+  if not HAS_NATIVE_SOLVER:
+    monkeypatch.setattr(upstream_planner, "LongitudinalMpc", OfflineMpc)
+
+
 
 
 @pytest.mark.parametrize("brand", ["toyota", "subaru", "hyundai", "honda"])
