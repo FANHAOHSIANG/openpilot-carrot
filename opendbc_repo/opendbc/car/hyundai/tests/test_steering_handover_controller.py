@@ -18,7 +18,11 @@ def setup_controller(monkeypatch, *, mode=None, angle=True, camera=True, cp_over
     assert key != "SteerHandoverMode", "retired setting must not be read"
     return settings.get(key, 0)
 
-  params = NS(get_int=get_int, get_bool=lambda key: False)
+  # Production controller now uses typed Params.get(..., return_default=True)
+  # for OEM sign presentation. Keep this off-vehicle fixture's default-on
+  # behavior without opening a live Params store.
+  params = NS(get_int=get_int, get_bool=lambda key: False,
+              get=lambda key, return_default=False: settings.get(key, True if return_default else None))
   monkeypatch.setattr(carcontroller, "Params", lambda: params)
   monkeypatch.setattr(hyundaicanfd, "Params", lambda: params)
   # Keep actual angle limiting, legacy authority and steering
