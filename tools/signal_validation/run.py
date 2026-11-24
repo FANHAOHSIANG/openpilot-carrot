@@ -36,6 +36,11 @@ def blocked(*args, **kwargs):
 def main():
   params = types.ModuleType('openpilot.common.params')
   params.Params = IsolatedParams
+  # Production Hyundai controller now catches this key-type exception; the
+  # offline harness must expose the same import without accessing live Params.
+  class UnknownKeyName(KeyError):
+    pass
+  params.UnknownKeyName = UnknownKeyName
   sys.modules[params.__name__] = params
   messaging = types.ModuleType('openpilot.cereal.messaging')
   for name in ('sub_sock', 'pub_sock', 'drain_sock', 'drain_sock_raw', 'SubMaster', 'PubMaster'):
