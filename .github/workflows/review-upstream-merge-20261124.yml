@@ -44,11 +44,34 @@ jobs:
           echo "Current HEAD $(git rev-parse HEAD)"
 
           if ! git merge --no-ff --no-commit "$OFFICIAL_SHA"; then
-            echo "::error::Official -> fusion conflict; manual hunk review required."
-            git status --short
-            git diff --name-only --diff-filter=U
-            git diff --stat
-            exit 10
+            echo "Inspecting official merge conflicts."
+            conflicted=$(git diff --name-only --diff-filter=U)
+            if [ "$conflicted" != "AGENTS.md" ]; then
+              echo "::error::Official source conflict beyond AGENTS.md; refusing auto-resolution."
+              git status --short
+              printf '%s\\n' "$conflicted"
+              exit 10
+            fi
+            # AGENTS.md is documentation only. Preserve fusion's historical
+            # safety/research notes and prepend the official PV5 safety memo.
+            git show :2:AGENTS.md > /tmp/fusion-AGENTS.md
+            git show :3:AGENTS.md > /tmp/official-AGENTS.md
+            python3 - <<'PY'
+          from pathlib import Path
+          ours = Path("/tmp/fusion-AGENTS.md").read_text(encoding="utf-8")
+          theirs = Path("/tmp/official-AGENTS.md").read_text(encoding="utf-8")
+          prefix = "# Repository memory\\n\\n"
+          assert ours.startswith(prefix) and theirs.startswith(prefix)
+          assert theirs[len(prefix):].startswith("- 2026-11-23: Preserve fresh original camera 0x161")
+          memo = theirs[len(prefix):].split("\\n\\n", 1)[0].rstrip("\\n")
+          assert "No live vehicle writes or physical display validation." in memo
+          assert "No lane-control/paint-color inference" in memo
+          merged = ours if memo in ours else prefix + memo + "\\n\\n" + ours[len(prefix):]
+          Path("AGENTS.md").write_text(merged, encoding="utf-8")
+          PY
+            git add AGENTS.md
+            test -z "$(git diff --name-only --diff-filter=U)"
+            echo "AGENTS.md resolved by preserving fusion notes plus official PV5 memo."
           fi
           git diff --check || { echo "::error::Whitespace/patch errors in official merge"; exit 11; }
           git commit -m "Merge official carrot-wip 6a9225b5 into isolated fusion review"
