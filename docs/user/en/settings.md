@@ -693,8 +693,12 @@ Open Device → FormosaLink (C3X) or Settings → FormosaLink (C4) for independe
 
 This test branch caps automatic road/model increases at the selected cruise speed; manual speed commands remain available.
 
-## Internal baseline model: Cheddar (official 2026-11-19 source)
+## Driving planner and original traffic signs (2026-11-24 integration)
 
-The official internal model runtime now uses **Cheddar** for the built-in model on a compatible, newly built installation. This is a change to model execution and model output, **not** a new driving setting and **not** a claim that an existing device has been upgraded. The model-library status labels the internal model `Cheddar`.
+**Driving planner** (`DrivingPlannerMode`) offers four options: **0 CarrotPlanner** (default), **1 openpilot Autospeed**, **2 experimental vision-only E2E**, and **3 vehicle-configured vision E2E**. The choice applies on the next drive, not as an active mid-drive switch. E2E and upstream-planner modes change longitudinal planning/control behavior and require separate closed-loop and vehicle-specific validation. Automatic vehicle setup may enable Alpha longitudinal, which can disable original stock AEB or radar operation on some supported vehicles. If hardware support, stock safety fallback, or compatibility is uncertain, leave the option at **0** and do not use an experimental planner in traffic. Passing source tests does not authorize a road deployment.
 
-The external USB-GPU and Jetlink model selection, including N16, remains a separate path. If an external model is unavailable or errors, modeld can fall back to the internal runtime. Switching the underlying internal model may affect prediction and steering/longitudinal behavior, so platform build, performance and vehicle-safety verification are required before using it on a car. A successful source merge or offline CPU test is **not** permission to deploy it or evidence of road safety.
+**Show OEM traffic signs and speed limits** (`HyundaiShowStockSigns`, default on) uses recent vehicle sensor/cluster sign data on supported Hyundai/Kia CCNC vehicles; OEM vehicle recognition must also be enabled. The presence of a display switch does not demonstrate compatibility on every model, nor does it override the original cluster safety priorities. SPAS parked indicator tests require verified Park, standstill, disengaged steering/longitudinal, valid CAN and fresh Panda safety state; UI acknowledgment is not proof of actual lamp activation.
+
+## Internal baseline model used by this fusion branch
+
+This integrated C4 branch retains the original Tony-compatible internal `driving_supercombo.onnx` model and its matching native model compiler, after restoring model artifact compatibility during C4 recovery. Cheddar remains an independent experimental model/runtime path where explicitly supported, not an assertion that the connected C4 uses Cheddar by default. The external USB-GPU and Jetlink/N16 selections are separate. A successful offline build cannot establish actual model frame timing, communication health, or on-road safety.

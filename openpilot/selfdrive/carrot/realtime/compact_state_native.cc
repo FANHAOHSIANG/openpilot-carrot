@@ -615,6 +615,10 @@ void encode_car_state(std::string &out, const DynamicReader &value) {
   append_bool(out, value, "canTimeout");
   append_bool(out, value, "steeringPressed");
   append_u64(out, value, "laneLineInfoMonoTime");
+  append_f32(out, value, "displayRearLeftDistance");
+  append_f32(out, value, "displayRearLeftLateral");
+  append_f32(out, value, "displayRearRightDistance");
+  append_f32(out, value, "displayRearRightLateral");
 }
 
 void encode_controls_state(std::string &out, const DynamicReader &value) {
@@ -859,7 +863,12 @@ std::string encode_carrot_state_compact_frame(const char *service_data, size_t s
   out.reserve(service == "modelV2" ? 2048 : 512);
   out.append("CVS1", 4);
   append_scalar(out, id);
-  append_scalar(out, static_cast<uint8_t>(!event.getValid()));
+  bool valid = event.getValid();
+  if (service == "radarState") {
+    const auto errors = event.getRadarState().getRadarErrors();
+    valid = valid && !errors.getCanError() && !errors.getRadarFault() && !errors.getWrongConfig() && !errors.getRadarUnavailableTemporary();
+  }
+  append_scalar(out, static_cast<uint8_t>(!valid));
   append_scalar(out, sequence);
   encode_service(out, service, value);
   return out;

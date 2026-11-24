@@ -119,3 +119,7 @@ An authenticated owner viewing lease can start camerad offroad for wide-road or 
 ## Lane-change notices and warning priority
 
 The new lane-change progress card yields to existing onroad alerts, including driver-monitoring warnings. It does not acknowledge or clear attention warnings, change escalation or lockout, or imply the driver may stop watching the road. Confirmed completion only ends the current lane-change desire. Existing blind-spot blocked warnings remain even when a held lamp is waiting for another driver request. See [lane-change notices](lane-change.md#observed-completion-and-advance-notices).
+
+## Vision-only planner and monitoring independence (2026-11-24)
+
+The new selectable `DrivingPlannerMode` can choose the upstream vision-only E2E longitudinal planner. This changes longitudinal plan/control input selection and its input-freshness handling; it does **not** opt out of driver monitoring, override driver-attention warnings, clear monitoring lockouts, or permit hands-free use. The vision-only planner requires a valid and current model plan; degraded model or communication health is not evidence of a safe fallback. Driver monitoring remains governed independently by the documented `DriverMonitoringEnabled` and `DriverMonitoringMode` policies. Vehicle-specific alpha-longitudinal activation can affect the stock AEB/radar path, so do not use the experimental planner on public roads without the required safety validation. The planner defaults to CarrotPlanner (mode 0).

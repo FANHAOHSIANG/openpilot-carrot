@@ -75,6 +75,16 @@ python tools/signal_validation/run.py \
   openpilot/selfdrive/carrot/server/tests/test_training_data_http.py \
   openpilot/selfdrive/carrot/server/tests/test_navigation_google.py \
   openpilot/selfdrive/carrot/server/tests/test_compact_heartbeat.py
+# Upstream 2026-11-24 source merge safety gate (Ioniq 5/EV6/PV5 cluster,
+# parked SPAS, driver cruise ceiling, E2E/Autospeed). Preserve in long-term CI.
+python tools/signal_validation/run.py \
+  opendbc_repo/opendbc/car/hyundai/tests/test_ccnc_cluster.py \
+  opendbc_repo/opendbc/car/hyundai/tests/test_pv5_stock_cluster_lanes.py \
+  openpilot/selfdrive/car/tests/test_hyundai_spas.py \
+  openpilot/selfdrive/controls/tests/test_autospeed.py \
+  openpilot/selfdrive/controls/tests/test_camera_e2e.py \
+  openpilot/selfdrive/carrot/server/tests/test_planner_status.py \
+  openpilot/selfdrive/carrot/server/tests/test_parked_indicator.py
 python -m unittest discover -s tools/docs/wiki_settings/tests -p 'test_*.py' -q
 cd openpilot/selfdrive/carrot/web
 node --test tests/navigation_map.test.mjs 'tests/settings_*.test.mjs' tests/traditional_chinese.test.mjs 'tests/cockpit_*.test.mjs' tests/hud_constant_heartbeat.test.mjs tests/training_data.test.mjs tests/compact_connection.test.mjs tests/navigation_google.test.mjs

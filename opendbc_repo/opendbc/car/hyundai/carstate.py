@@ -9,7 +9,7 @@ from opendbc.can import CANDefine, CANParser
 from opendbc.car import Bus, create_button_events, structs, DT_CTRL
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.carlog import carlog
-from opendbc.car.hyundai.hyundaicanfd import CanBus
+from opendbc.car.hyundai.hyundaicanfd import CanBus, _fresh_ev6_cluster_rx
 from opendbc.car.hyundai.navi_speedcam import SpeedcamPolicy
 from opendbc.car.hyundai.section_average import DISTANCE_SCALE as SECTION_DISTANCE_SCALE, SectionAverage
 from opendbc.car.hyundai.steering_touch import HyundaiSteeringTouch
@@ -636,8 +636,10 @@ class CarState(CarStateBase):
     ret.steeringRateDeg = cp.vl["SAS11"]["SAS_Speed"]
     ret.yawRate = cp.vl["ESP12"]["YAW_RATE"]
     ret.lightingStateValid, ret.lowBeamOn, ret.highBeamOn = classic_lighting_state(cp)
-    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(
-      50, cp.vl["CGW1"]["CF_Gway_TurnSigLh"], cp.vl["CGW1"]["CF_Gway_TurnSigRh"])
+    left_lamp = cp.vl["CGW1"]["CF_Gway_TurnSigLh"]
+    right_lamp = cp.vl["CGW1"]["CF_Gway_TurnSigRh"]
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, left_lamp, right_lamp)
+    ret.turnLampState = ("dark", "left", "right", "both")[bool(left_lamp) + 2 * bool(right_lamp)]
     ret.steeringTorque = cp.vl["MDPS12"]["CR_Mdps_StrColTq"]
     ret.steeringTorqueEps = cp.vl["MDPS12"]["CR_Mdps_OutTq"]
     ret.steeringPressed = self.update_steering_pressed(abs(ret.steeringTorque) > self.params.STEER_THRESHOLD, 5)
@@ -1561,6 +1563,7 @@ class CarState(CarStateBase):
       left_blinker_lamp = blinkers_info["LEFT_LAMP"] or blinkers_info["LEFT_LAMP_ALT"]
       right_blinker_lamp = blinkers_info["RIGHT_LAMP"] or blinkers_info["RIGHT_LAMP_ALT"]
       ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, left_blinker_lamp, right_blinker_lamp)
+      ret.turnLampState = ("dark", "left", "right", "both")[bool(left_blinker_lamp) + 2 * bool(right_blinker_lamp)]
       ret.blinkerLamp = 1 if left_blinker_lamp else 2 if right_blinker_lamp else 0
 
     if self.CP.enableBsm:
@@ -1629,6 +1632,16 @@ class CarState(CarStateBase):
 
     speed_limit_cam = False
     corner = False
+    if self.CP.carFingerprint == CAR.KIA_EV6 and self.CP.flags & HyundaiFlags.CANFD_HDA2:
+      parser = cp_cam if self.CP.flags & HyundaiFlags.CAMERA_SCC else cp
+      for name, address, kinds in (("ADRV_0x1ea", 0x1ea, (1, 2, 3, 4)), ("CCNC_0x162", 0x162, (3, 4, 5, 6))):
+        source = _fresh_ev6_cluster_rx(parser, name, address)
+        if source:
+          for side, prefix in (("LR", "displayRearLeft"), ("RR", "displayRearRight")):
+            distance, lateral = source[side + "_DETECT_DISTANCE"], source[side + "_DETECT_LATERAL"]
+            if not getattr(ret, prefix + "Distance") and source[side + "_DETECT"] in kinds and 0 < distance < 25.5 and 0 < lateral <= 12.7:
+              setattr(ret, prefix + "Distance", distance)
+              setattr(ret, prefix + "Lateral", lateral)
     corner_infos = [info for info in (self.adrv_0x1ea, self.ccnc_0x162) if info is not None]
     if corner_infos:
       def corner_max(signal):
@@ -1810,6 +1823,12 @@ class CarState(CarStateBase):
 
     CAN = CanBus(CP)
     pt_parser = register_vehicle_gps(CANParser(DBC[CP.carFingerprint][Bus.pt], msgs, CAN.ECAN))
+    if CP.carFingerprint == CAR.KIA_EV6 and CP.flags & HyundaiFlags.CANFD_HDA2 and not CP.flags & HyundaiFlags.CAMERA_SCC:
+      # Optional display data received on ECAN with the ADAS-module harness.
+      # Missing packets or a skipped counter must not invalidate vehicle controls.
+      pt_parser._add_message("ADRV_0x161", math.nan, ignore_counter=True)
+      pt_parser._add_message("ADRV_0x1ea", math.nan, ignore_counter=True)
+      pt_parser._add_message("CCNC_0x162", math.nan, ignore_counter=True)
     if CP.extFlags & HyundaiExtFlags.EV_MODE_STATUS_230:
       # Display-only while the signal is fleet-validated: checksum and freshness
       # gate the value without making a counter/alive fault disable controls.

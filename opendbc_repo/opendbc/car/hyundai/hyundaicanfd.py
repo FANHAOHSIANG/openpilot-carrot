@@ -399,7 +399,7 @@ def _apply_driver_monitoring_alert(values, hud_control, stock):
       values["SOUNDS_2"] = 3
 
 
-def create_lfa_icon_non_camera_scc(packer, CS, CAN, CC):
+def create_lfa_icon_non_camera_scc(packer, CS, CAN, CC, *, ev6_hud=False):
   ret = []
   if CS.adrv_0x161 is not None:
     values = copy.copy(CS.adrv_0x161)
@@ -411,21 +411,45 @@ def create_lfa_icon_non_camera_scc(packer, CS, CAN, CC):
     values["LFA_ICON"] = 2 if lat_active else 1 if lat_enabled else 0
     values["LKA_ICON"] = 4 if lat_active else 3 if lat_enabled else 0
 
-    if values["ALERTS_2"] in [1, 2, 5, 6, 10, 21, 22]:
-      values["ALERTS_2"] = 0
-      values["DAW_ICON"] = 0
+    if ev6_hud:
+      stock = _fresh_ev6_cluster_rx(getattr(CS, "cp", None), "ADRV_0x161", 0x161)
+      for key in ("NAV_ICON", "LCA_LEFT_ICON", "LCA_RIGHT_ICON", "LCA_LEFT_ARROW", "LCA_RIGHT_ARROW"):
+        if key in stock:
+          values[key] = stock[key]
+      hud = CC.hudControl
+      if CC.longActive:
+        speed = hud.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
+        show_speed = hud.speedVisible and math.isfinite(speed) and 0 < speed <= 255
+        values["SETSPEED"] = 3 if show_speed else 0
+        values["vSetDis"] = int(speed + 0.5) if show_speed else 0
+        lead_distance = hud.leadDistance
+        show_lead = hud.leadVisible and math.isfinite(lead_distance) and 0 < lead_distance <= 204.6
+        values["TARGET"] = int(show_lead)
+        values["TARGET_DISTANCE"] = lead_distance if show_lead else 0
+      if hud.lanesVisible:
+        for side, visible, departing, blindspot in (("LEFT", hud.leftLaneVisible, hud.leftLaneDepart, CS.out.leftBlindspot),
+                                                    ("RIGHT", hud.rightLaneVisible, hud.rightLaneDepart, CS.out.rightBlindspot)):
+          # Preserve OEM warnings and prioritize the blind spot for each side.
+          key = f"LANELINE_{side}"
+          if visible and not departing and values[key] in (0, 1, 2):
+            values[key] = 4 if blindspot else 6 if lat_active else 2
 
-    if values["ALERTS_1"] == 0:
-      values["SOUNDS_1"] = 0
-      values["SOUNDS_2"] = 0
-      values["SOUNDS_4"] = 0
+    if not (ev6_hud and stock):
+      if values["ALERTS_2"] in [1, 2, 5, 6, 10, 21, 22]:
+        values["ALERTS_2"] = 0
+        values["DAW_ICON"] = 0
 
-    if values["ALERTS_3"] in [3, 4, 11, 12, 13, 14, 17, 19, 26, 7, 8, 9, 10]:
-      values["ALERTS_3"] = 0
-      values["SOUNDS_3"] = 0
+      if values["ALERTS_1"] == 0:
+        values["SOUNDS_1"] = 0
+        values["SOUNDS_2"] = 0
+        values["SOUNDS_4"] = 0
 
-    if values["ALERTS_5"] in [1, 2, 3, 4, 5]:
-      values["ALERTS_5"] = 0
+      if values["ALERTS_3"] in [3, 4, 11, 12, 13, 14, 17, 19, 26, 7, 8, 9, 10]:
+        values["ALERTS_3"] = 0
+        values["SOUNDS_3"] = 0
+
+      if values["ALERTS_5"] in [1, 2, 3, 4, 5]:
+        values["ALERTS_5"] = 0
 
     _apply_driver_monitoring_alert(values, getattr(CC, "hudControl", None), CS.adrv_0x161)
     ret.append(packer.make_can_msg("ADRV_0x161", CAN.ECAN, values, rx_counter=rx_counter))
@@ -703,7 +727,100 @@ def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_t
       ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values))
   return ret
 
-def create_adrv_messages(CP, packer, CAN, frame):
+def _fresh_ev6_cluster_rx(parser, name, address):
+  if parser is not None:
+    stamp = parser.ts_nanos.get(name, {}).get("COUNTER", 0)
+    if stamp and 0 <= parser._last_update_nanos - stamp <= 150_000_000 and len(parser.dat.get(address, b"")) == 32:
+      return parser.vl[name]
+  return {}
+
+
+def ev6_cluster_corners(parser):
+  source = _fresh_ev6_cluster_rx(parser, "ADRV_0x1ea", 0x1EA)
+  if not source:
+    return {}
+  corners = {}
+  for side in ("LF", "RF", "LR", "RR"):
+    kind = source[f"{side}_DETECT"]
+    distance = source[f"{side}_DETECT_DISTANCE"]
+    if kind in (1, 2, 3, 4) and distance > 0:
+      corners[f"{side}_DETECT"] = 1 if kind == 4 else kind
+      corners[f"{side}_DETECT_DISTANCE"] = distance
+      corners[f"{side}_DETECT_LATERAL"] = source[f"{side}_DETECT_LATERAL"]
+  return corners
+
+
+def _add_ev6_corner_neighbors(values, parser, now_nanos):
+  source = _fresh_ev6_cluster_rx(parser, "CCNC_0x162", 0x162)
+  if not source or not 0 <= now_nanos - parser.ts_nanos["CCNC_0x162"]["COUNTER"] <= 150_000_000:
+    return
+  for side, max_distance, max_lateral in (("LF", 204.7, 12.7), ("RF", 204.7, 12.7), ("LR", 25.5, 6.3), ("RR", 25.5, 6.3)):
+    detect = f"{side}_DETECT"
+    distance = f"{side}_DETECT_DISTANCE"
+    lateral = f"{side}_DETECT_LATERAL"
+    # CCNC types 3..6 identify cars and trucks. Rear slots have a smaller encoding range.
+    if not values.get(detect) and source[detect] in (3, 4, 5, 6) and 0 < source[distance] <= max_distance and 0 <= source[lateral] <= max_lateral:
+      values.update({detect: 1, distance: source[distance], lateral: source[lateral]})
+
+
+def _add_ev6_front_neighbors(values, radar, now_nanos):
+  if radar is None or not radar.mdMonoTime or not 0 <= now_nanos - radar.mdMonoTime <= 250_000_000:
+    return
+  errors = radar.radarErrors
+  if errors.canError or errors.radarFault or errors.wrongConfig or errors.radarUnavailableTemporary:
+    return
+  for side, sign, leads in (("LF", 1, radar.leadsLeft), ("RF", -1, radar.leadsRight)):
+    if values.get(f"{side}_DETECT"):
+      continue
+    candidates = (lead for lead in leads if lead.status and lead.radar and 1 <= lead.dRel <= 110 and 0.1 <= sign * lead.yRel <= 12.7)
+    nearest = min(candidates, key=lambda lead: lead.dRel, default=None)
+    if nearest is not None:
+      values[f"{side}_DETECT"] = 1
+      values[f"{side}_DETECT_DISTANCE"] = nearest.dRel
+      values[f"{side}_DETECT_LATERAL"] = sign * nearest.yRel
+
+
+def _add_ev6_vision_neighbor(values, model, now_nanos, *, center=False):
+  # Display only the present lead observation, within two observed adjacent-lane boundaries.
+  if model is None or not model.timestampEof or not 0 <= now_nanos - model.timestampEof <= 250_000_000:
+    return
+  if not len(model.leadsV3) or len(model.laneLines) != 4 or len(model.laneLineProbs) != 4:
+    return
+  lead = model.leadsV3[0]
+  if not (lead.prob > 0.5 and len(lead.x) and len(lead.y) and len(lead.yStd)):
+    return
+  x, y, uncertainty = lead.x[0], lead.y[0], lead.yStd[0]
+  distance = x - 1.52  # camera to radar longitudinal reference, metres
+  if not (1 <= distance <= 110 and abs(y) <= 12.7 and 0 <= uncertainty <= 1):
+    return
+  side, indices = ("LF", (0, 1)) if y < 0 else ("RF", (2, 3))
+  if center:
+    side, indices = "FF", (1, 2)
+  if values.get(f"{side}_DETECT"):
+    return
+  bounds = []
+  for i in indices:
+    line = model.laneLines[i]
+    xs, ys = list(line.x), list(line.y)
+    if not model.laneLineProbs[i] >= 0.5 or len(xs) < 2 or len(xs) != len(ys) or not xs[0] <= x <= xs[-1]:
+      return
+    if not all(a < b for a, b in zip(xs, xs[1:])):
+      return
+    bounds.append(float(np.interp(x, xs, ys)))
+  left, right = bounds
+  margin = max(0.3, uncertainty)
+  if 2.4 <= right - left <= 5.0 and left + margin < y < right - margin:
+    if center:
+      lateral = y - (left + right) / 2
+      if -6.4 <= lateral <= 6.3:
+        values.update(FF_DETECT=3, FF_DISTANCE=distance, FF_LATERAL=lateral)
+    else:
+      values[f"{side}_DETECT"] = 1
+      values[f"{side}_DETECT_DISTANCE"] = distance
+      values[f"{side}_DETECT_LATERAL"] = abs(y)
+
+
+def create_adrv_messages(CP, packer, CAN, frame, corner_parser=None, *, radar=None, model=None, now_nanos=0):
   # messages needed to car happy after disabling
   # the ADAS Driving ECU to do longitudinal control
 
@@ -724,6 +841,15 @@ def create_adrv_messages(CP, packer, CAN, frame):
         #'DATA26': 1,  #1
         #'DATA32': 5,  #5
       }
+      if CP.carFingerprint == CAR.KIA_EV6:
+        stock = _fresh_ev6_cluster_rx(corner_parser, "ADRV_0x1ea", 0x1EA)
+        for key in ("HDA_MODE2", "AUTOLANECHANGE_MSG", "LANE_LEFT", "LANE_RIGHT", "LANE_CHANGING"):
+          if key in stock:
+            values[key] = stock[key]
+        values.update(ev6_cluster_corners(corner_parser))
+        _add_ev6_corner_neighbors(values, corner_parser, now_nanos)
+        _add_ev6_front_neighbors(values, radar, now_nanos)
+        _add_ev6_vision_neighbor(values, model, now_nanos)
       ret.append(packer.make_can_msg("ADRV_0x1ea", CAN.ECAN, values))
 
       values = {
@@ -965,6 +1091,30 @@ def _dashed_lane_line(color, lane_line, car=None):
   if car in DASHED_LANE_CARS and lane_line // 10 > 0 and lane_line % 10 in (0, 5):  # camera: dashed / DLM inner dashed (color 0 = no lane info)
     return {2: 8, 6: 10}.get(color, color)
   return color
+
+
+def _pv5_stock_lane_lines(CP, CS, camera_bus, now_nanos):
+  """Display only: use the original, validated camera template for at most 250 ms."""
+  if (getattr(CP, "carFingerprint", None) != CAR.KIA_PV5 or getattr(CP, "notCar", False)
+      or not CS.out.canValid or now_nanos is None):
+    return None
+  parser = getattr(CS, "cp_cam", None)
+  if parser is None or parser.bus != camera_bus:
+    return None
+  state = parser.message_states.get(0x161)
+  if (state is None or not state.timestamps or state.ignore_checksum or state.ignore_counter
+      or len(parser.dat.get(0x161, b"")) != 32 or CS.adrv_0x161 is not parser.vl.get(0x161)):
+    return None
+  stamp = state.timestamps[-1]
+  # Do not use an older packet delivered after a newer one, or an ambiguous
+  # same-time batch. A rejected CRC never refreshes this last-good timestamp.
+  if (stamp <= 0 or not 0 <= now_nanos - stamp <= 250_000_000 or parser._last_update_nanos < stamp
+      or stamp != max(state.timestamps) or state.timestamps.count(stamp) != 1):
+    return None
+  # 0/1/2/4/6 are DBC display states; 8 is present in original PV5 captures.
+  # Do not infer road paint color or feed these display codes to lane control.
+  return tuple(value if value in (0, 1, 2, 4, 6, 8) else None
+               for value in (CS.adrv_0x161["LANELINE_LEFT"], CS.adrv_0x161["LANELINE_RIGHT"]))
 
 
 # CcncTrafficBackground: red light -> steady red 5, green light -> steady green 8 (Ioniq 5 PE, 10-20; not DBC values)
@@ -1237,7 +1387,7 @@ def create_alt2_adas_button_request(packer, CAN, frame, CC, CS, stopping, *, kee
 
 def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
                          disp_angle, left_lane_warning, right_lane_warning,
-                         enable_corner_radar, stopping, canfd_debug, paddle_mode, hud_lateral=None):
+                         enable_corner_radar, stopping, canfd_debug, paddle_mode, hud_lateral=None, now_nanos=None, show_stock_signs=True):
   ret = []
   interlock_active = longitudinal_interlock_active(CS)
   display_lead = _display_lead(getattr(CS, "radarState", None))
@@ -1316,6 +1466,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
 
         ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values))
 
+    ev6_display = getattr(CP, "carFingerprint", None) == CAR.KIA_EV6 and bool(CP.flags & HyundaiFlags.CANFD_HDA2)
     # --- 0x161/0x200/0x1ea/0x162 (frame%5) ---
     if frame % 5 == 0:
       lat_active = CC.latActive
@@ -1382,26 +1533,28 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         values["HDA_ICON"] = 5 if hdp_active else 2 if cruise_enabled else 1 if main_enabled else 0
         values["LFA_ICON"] = 5 if hdp_active else 2 if lat_icon else 1 if lat_enabled else 0
         values["LKA_ICON"] = 4 if lat_icon else 3 if lat_enabled else 0
-        values["FCA_ALT_ICON"] = 0
+        stock = _fresh_ev6_cluster_rx(getattr(CS, "cp_cam", None), "ADRV_0x161", 0x161) if ev6_display else {}
+        if not (ev6_display and stock):
+          values["FCA_ALT_ICON"] = 0
 
-        if values["ALERTS_2"] in [1, 2, 5, 6, 10, 21, 22]:
-          values["ALERTS_2"] = 0
-          values["DAW_ICON"] = 0
+          if values["ALERTS_2"] in [1, 2, 5, 6, 10, 21, 22]:
+            values["ALERTS_2"] = 0
+            values["DAW_ICON"] = 0
 
-        if values["ALERTS_1"] == 0: # alerts가 있으면 사운드도 같이 나옴
-          values["SOUNDS_1"] = 0
-          values["SOUNDS_2"] = 0
-          values["SOUNDS_4"] = 0
+          if values["ALERTS_1"] == 0: # alerts가 있으면 사운드도 같이 나옴
+            values["SOUNDS_1"] = 0
+            values["SOUNDS_2"] = 0
+            values["SOUNDS_4"] = 0
 
-        if values["ALERTS_3"] in [3, 4, 11, 12, 13, 14, 17, 19, 20, 26, 27, 28, 7, 8, 9, 10]: # hide gap distance msg.(11,12,13,14), lanechange(19,20,27, 28)
-          values["ALERTS_3"] = 0
-          values["SOUNDS_3"] = 0
+          if values["ALERTS_3"] in [3, 4, 11, 12, 13, 14, 17, 19, 20, 26, 27, 28, 7, 8, 9, 10]: # hide gap distance msg.(11,12,13,14), lanechange(19,20,27, 28)
+            values["ALERTS_3"] = 0
+            values["SOUNDS_3"] = 0
 
-        if values["ALERTS_5"] in [1, 2, 3, 4, 5]:
-          values["ALERTS_5"] = 0
+          if values["ALERTS_5"] in [1, 2, 3, 4, 5]:
+            values["ALERTS_5"] = 0
 
-        if values["ALERTS_5"] in [11] and CS.softHoldActive == 0:
-          values["ALERTS_5"] = 0
+          if values["ALERTS_5"] in [11] and CS.softHoldActive == 0:
+            values["ALERTS_5"] = 0
 
         if cluster_display:
           # ALERTS_5 19/21 are DBC values: every CCNC cluster (IONIQ 9's 6 = trailer is the same DBC value, not another table)
@@ -1436,13 +1589,15 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           values["ALERTS_3"] = 6 + gap_bars
 
         # curvature 표시(0x161쪽 기존 로직 유지)
-        _suppress_trailer_mode_warning(values, CS)
+        if not (ev6_display and stock):
+          _suppress_trailer_mode_warning(values, CS)
 
         curvature = round(CS.out.steeringAngleDeg / 3)
         values["LANELINE_CURVATURE"] = (min(abs(curvature), 15) + (-1 if curvature < 0 else 0)) if lat_active else 0
         values["LANELINE_CURVATURE_DIRECTION"] = 1 if curvature < 0 and lat_active else 0
 
         trailer_lane_change_blocked = CS.trailer_connected
+        stock_lane_lines = _pv5_stock_lane_lines(CP, CS, CAN.CAM, now_nanos)
         # CcncClusterDisplay: an unseen line is drawn as nothing (14), a dashed camera line as dashed (8/10)
         lane_display = cluster_display and car not in LANE_UNSEEN_WIP_CARS
         if lane_display:
@@ -1458,6 +1613,10 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           values["LANELINE_RIGHT"] = 2 if hud_control.rightLaneVisible else 0
         else:
           lane_color = 6 if md is not None and md.meta.laneChangeAvailableLeft else 2
+          if ev6_display:
+            lane_color = 6 if lat_active else 2
+            if CS.adrv_0x161["LANELINE_LEFT"] == 4:
+              lane_color = 4
           if lane_line_check >= 1:
             lane_line_warn_left = CS.out.leftLaneLine % 10 not in (0, 5)
           else:
@@ -1465,12 +1624,20 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           lane_color = 4 if lane_line_warn_left or CS.out.leftBlindspot else lane_color
           if hud_control.leftLaneDepart:
             values["LANELINE_LEFT"] = 4 if (frame // 50) % 2 == 0 else 1
+          elif stock_lane_lines is not None and stock_lane_lines[0] is not None and (lane_color == 2 or stock_lane_lines[0] == 4):
+            # Existing departure/BSD/boundary and availability colors win;
+            # stock orange also takes priority over the green availability cue.
+            values["LANELINE_LEFT"] = stock_lane_lines[0]
           elif lane_display:
             values["LANELINE_LEFT"] = _dashed_lane_line(lane_color, CS.out.leftLaneLine, car) if left_seen or lane_color == 4 else LANE_LINE_UNSEEN  # orange stays
           else:
             values["LANELINE_LEFT"] = lane_color if hud_control.leftLaneVisible else 0
 
           lane_color = 6 if md is not None and md.meta.laneChangeAvailableRight else 2
+          if ev6_display:
+            lane_color = 6 if lat_active else 2
+            if CS.adrv_0x161["LANELINE_RIGHT"] == 4:
+              lane_color = 4
           if lane_line_check >= 1:
             lane_line_warn_right = CS.out.rightLaneLine % 10 not in (0, 5)
           else:
@@ -1478,6 +1645,8 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           lane_color = 4 if lane_line_warn_right or CS.out.rightBlindspot else lane_color
           if hud_control.rightLaneDepart:
             values["LANELINE_RIGHT"] = 4 if (frame // 50) % 2 == 0 else 1
+          elif stock_lane_lines is not None and stock_lane_lines[1] is not None and (lane_color == 2 or stock_lane_lines[1] == 4):
+            values["LANELINE_RIGHT"] = stock_lane_lines[1]
           elif lane_display:
             values["LANELINE_RIGHT"] = _dashed_lane_line(lane_color, CS.out.rightLaneLine, car) if right_seen or lane_color == 4 else LANE_LINE_UNSEEN
           else:
@@ -1496,6 +1665,10 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         values["LANE_LEFT"] = 0 if trailer_lane_change_blocked else 1 if desire in (1, 3) else 0
         values["LANE_RIGHT"] = 0 if trailer_lane_change_blocked else 1 if desire in (2, 4) else 0
 
+        if ev6_display:
+          # Preserve the OEM icon state, including standby and cancellation.
+          for key in ("NAV_ICON", "LCA_LEFT_ICON", "LCA_RIGHT_ICON", "LCA_LEFT_ARROW", "LCA_RIGHT_ARROW"):
+            values[key] = stock.get(key, 0)
         _apply_driver_monitoring_alert(values, hud_control, CS.adrv_0x161)
         if cluster_display:
           lat_hud = getattr(hud_control, "latHudState", 0)
@@ -1527,7 +1700,17 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         values['RIGHT_BLINK_HOLD'] = 1 if hold == 4 else 0
 
         _apply_cluster_lane_lines(values, CS, lat_active, desire)
+        if ev6_display:
+          parser = getattr(CS, "cp_cam", None)
+          if not (_fresh_ev6_cluster_rx(parser, "ADRV_0x1ea", 0x1ea) and
+                  0 <= now_nanos - parser.ts_nanos["ADRV_0x1ea"]["COUNTER"] <= 150_000_000):
+            for side in ("LF", "RF", "LR", "RR"):
+              values.update({f"{side}_DETECT": 0, f"{side}_DETECT_DISTANCE": 0, f"{side}_DETECT_LATERAL": 0})
         _normalize_cluster_corner_objects(values)
+        if ev6_display and enable_corner_radar > 0:
+          _add_ev6_corner_neighbors(values, getattr(CS, "cp_cam", None), now_nanos)
+          _add_ev6_front_neighbors(values, getattr(CS, "radarState", None), now_nanos)
+          _add_ev6_vision_neighbor(values, md, now_nanos)
 
         ret.append(packer.make_can_msg("ADRV_0x1ea", CAN.ECAN, values, rx_counter = rx_counter))
 
@@ -1537,19 +1720,57 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         # RX-paced Panda forwarding replaces it with the original RX counter.
         rx_counter = values.pop("COUNTER", None)
 
-        _normalize_cluster_corner_objects(values, ccnc=True)
-        _convert_ccnc_front_box_to_car(values)
-        _apply_ccnc_lead(values, getattr(CS, "radarState", None), CC.enabled, getattr(CS, "modelV2", None), hud_lateral)
+        if not ev6_display:
+          _normalize_cluster_corner_objects(values, ccnc=True)
+          _convert_ccnc_front_box_to_car(values)
+        radar = getattr(CS, "radarState", None)
+        if ev6_display:
+          parser = getattr(CS, "cp_cam", None)
+          stock = _fresh_ev6_cluster_rx(parser, "CCNC_0x162", 0x162)
+          fresh_stock = bool(stock and 0 <= now_nanos - parser.ts_nanos["CCNC_0x162"]["COUNTER"] <= 150_000_000)
+          if not fresh_stock:
+            for key in ("FF_DETECT_ALT", "FF_DISTANCE_ALT", "FF_LATERAL_ALT", "SIGNS", "SPEEDLIMIT", "SPEEDLIMIT_FLASH", "SPEEDLIMIT_WEATHER"):
+              values[key] = 0
+          for side in ("LF", "RF", "LR", "RR"):
+            if not fresh_stock or not values[f"{side}_DETECT"] or values[f"{side}_DETECT_DISTANCE"] <= 0:
+              values.update({f"{side}_DETECT": 0, f"{side}_DETECT_DISTANCE": 0, f"{side}_DETECT_LATERAL": 0})
+          if enable_corner_radar > 0:
+            neighbors = {}
+            if parser and 0 <= now_nanos - parser.ts_nanos.get("ADRV_0x1ea", {}).get("COUNTER", 0) <= 150_000_000:
+              neighbors.update(ev6_cluster_corners(parser))
+            _add_ev6_front_neighbors(neighbors, radar, now_nanos)
+            _add_ev6_vision_neighbor(neighbors, md, now_nanos)
+            for side in ("LF", "RF", "LR", "RR"):
+              if not values[f"{side}_DETECT"] and neighbors.get(f"{side}_DETECT"):
+                values[f"{side}_DETECT"] = 3  # gray car in the CCNC display format
+                for field in ("DISTANCE", "LATERAL"):
+                  key = f"{side}_DETECT_{field}"
+                  values[key] = neighbors[key]
+          if radar is not None:
+            errors = radar.radarErrors
+            if (not radar.mdMonoTime or not 0 <= now_nanos - radar.mdMonoTime <= 250_000_000 or
+                errors.canError or errors.radarFault or errors.wrongConfig or errors.radarUnavailableTemporary):
+              radar = None
+          if not (fresh_stock and values["FF_DETECT"] and 0 < values["FF_DISTANCE"] <= 204.5):
+            _apply_ccnc_lead(values, radar, CC.enabled, md, hud_lateral)
+          _add_ev6_vision_neighbor(values, md, now_nanos, center=True)
+        else:
+          _apply_ccnc_lead(values, radar, CC.enabled, md, hud_lateral)
 
         if (left_lane_warning and not CS.out.leftBlinker) or (right_lane_warning and not CS.out.rightBlinker):
           values["VIBRATE"] = 1
 
-        _hide_replaced_adas_service_warning(values)
+        if not ev6_display:
+          _hide_replaced_adas_service_warning(values)
+          if canfd_debug > 0:
+            values["FAULT_LSS"] = 0
+            values["FAULT_DAS"] = 0
 
-        if canfd_debug > 0:
-          values["FAULT_LSS"] = 0
-          values["FAULT_DAS"] = 0
-
+        parser = getattr(CS, "cp_cam", None)
+        stock = _fresh_ev6_cluster_rx(parser, "CCNC_0x162", 0x162) if show_stock_signs else {}
+        fresh_signs = stock and now_nanos is not None and 0 <= now_nanos - parser.ts_nanos["CCNC_0x162"]["COUNTER"] <= 150_000_000
+        for key in ("SIGNS", "SPEEDLIMIT", "SPEEDLIMIT_FLASH", "SPEEDLIMIT_WEATHER"):
+          values[key] = stock.get(key, 0) if fresh_signs else 0
         msg = packer.make_can_msg("CCNC_0x162", CAN.ECAN, values, rx_counter=rx_counter)
         # CcncClusterDisplay: HDP icon while cruise or steering is engaged; bit 188 has no DBC name: checked clusters only
         if cluster_display and car in NON_DBC_CLUSTER_VALUE_CARS and (CC.enabled or lat_active):

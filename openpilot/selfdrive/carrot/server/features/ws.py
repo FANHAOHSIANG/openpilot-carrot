@@ -1,4 +1,5 @@
 import json
+import time
 
 from aiohttp import WSMsgType, web
 
@@ -96,7 +97,39 @@ async def ws_camera(request: web.Request) -> web.WebSocketResponse:
   return await hub.ws_camera(request)
 
 
+async def planner_status(request: web.Request) -> web.Response:
+  from openpilot.cereal import messaging
+  from openpilot.common.forced_offroad import fresh
+
+  state = request.app["planner_status_reader"]
+  if not state:
+    state["sm"] = messaging.SubMaster(["longitudinalPlan", "controlsState", "carControl", "carState"])
+  sm = state["sm"]
+  sm.update(0)
+  now = time.monotonic()
+  result = {}
+  if fresh(sm, "longitudinalPlan", .5, now):
+    plan = sm["longitudinalPlan"]
+    result["profile"] = plan.plannerProfile
+    if plan.visionPlannerSetup:
+      result["setup"] = plan.visionPlannerSetup
+    if plan.speedConstraint == "stockLong":
+      result["speed"] = "stockLong"
+    elif fresh(sm, "carControl", .5, now):
+      result["speed"] = plan.speedConstraint if sm["carControl"].longActive else "inactive"
+  if fresh(sm, "carState", .5, now):
+    from openpilot.selfdrive.car.cruise import V_CRUISE_MAX, V_CRUISE_UNSET
+    ceiling = sm["carState"].vCruise
+    if 0 < ceiling < V_CRUISE_UNSET:
+      result["cruiseCeilingKph"] = round(min(ceiling, V_CRUISE_MAX), 1) if result.get("profile") in ("visionE2e", "upstream") else round(ceiling, 1)
+  if fresh(sm, "controlsState", .5, now):
+    result["steering"] = sm["controlsState"].steeringInfluence
+  return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
 def register(app: web.Application) -> None:
+  app["planner_status_reader"] = {}
+  app.router.add_get("/api/planner/status", planner_status)
   app.router.add_get("/ws/compact_state", ws_compact_state)
   app.router.add_get("/ws/raw_multiplex", ws_raw_multiplex)
   app.router.add_get("/ws/raw/{service}", ws_raw)

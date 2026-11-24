@@ -2560,6 +2560,134 @@ function bindSettingProfileSectionToggle(rendered, stateKey) {
   };
 }
 
+function parkedIndicatorButtons() {
+  const [historyLabel, copyLabel, copied, manualCopy, empty] = ({
+    "zh-tw": ["錯誤紀錄", "複製紀錄", "已複製", "請長按紀錄並選擇複製", "目前沒有錯誤紀錄"],
+    zh: ["错误记录", "复制记录", "已复制", "请长按记录并选择复制", "暂无错误记录"],
+    ko: ["오류 기록", "기록 복사", "복사됨", "기록을 길게 눌러 복사하세요", "오류 기록 없음"],
+  })[LANG] || ["Error history", "Copy log", "Copied", "Select the log and copy it", "No errors recorded"];
+  const labels = ({
+    "zh-tw": ["停車測試方向燈", "左燈 7 秒", "右燈 7 秒", "已接受請求，請查看實體方向燈。", "未能確認。需要相容 SPAS、P 檔靜止且輔助已解除。"],
+    zh: ["驻车转向灯测试", "左灯 7 秒", "右灯 7 秒", "已接受请求，请查看实际灯光。", "未能确认。需要兼容 SPAS、P 挡静止且辅助已解除。"],
+    ko: ["주차 중 방향지시등 테스트", "왼쪽 7초", "오른쪽 7초", "요청이 접수되었습니다. 실제 램프를 확인하세요.", "요청을 확인할 수 없습니다. 호환 SPAS, P단 정차 및 보조 해제가 필요합니다."],
+  })[LANG] || ["Parked indicator test", "Left · 7 s", "Right · 7 s", "Request accepted. Check the vehicle lamps.", "Unconfirmed. Requires compatible SPAS, Park, standstill and disengaged assistance."];
+  const card = document.createElement("section");
+  card.className = "setting";
+  const title = document.createElement("strong");
+  title.textContent = labels[0];
+  const actions = document.createElement("div");
+  actions.className = "setting-actions";
+  const feedback = document.createElement("output");
+  feedback.setAttribute("aria-live", "polite");
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const log = document.createElement("textarea");
+  log.readOnly = true;
+  log.rows = 4;
+  log.style.width = "100%";
+  log.style.boxSizing = "border-box";
+  log.setAttribute("aria-label", historyLabel);
+  log.placeholder = empty;
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.textContent = copyLabel;
+  const copyStatus = document.createElement("output");
+  copyStatus.setAttribute("aria-live", "polite");
+  details.append(summary, log, copy, copyStatus);
+  const key = "parkedIndicatorErrors";
+  let entries = [];
+  let storageWritable = true;
+  function refreshLog() {
+    if (storageWritable) try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (Array.isArray(saved)) entries = saved.filter(line => typeof line === "string").slice(0, 20);
+    } catch { /* Storage may be unavailable in a WebView. */ }
+    renderLog();
+  }
+  function renderLog() {
+    summary.textContent = `${historyLabel} (${entries.length})`;
+    log.value = entries.join("\n");
+    copy.disabled = !entries.length;
+  }
+  refreshLog();
+  details.ontoggle = () => { if (details.open) refreshLog(); };
+  function recordError(side, reason) {
+    refreshLog();
+    entries.unshift(`${new Date().toISOString()} | ${side} | ${reason}`);
+    entries = entries.slice(0, 20);
+    try { localStorage.setItem(key, JSON.stringify(entries)); } catch { storageWritable = false; }
+    renderLog();
+    copyStatus.textContent = "";
+    const messages = {
+      busy: "兩次請求相隔不到一秒，這次未送出。",
+      another_test_selected: "其他方向燈測試已選取或仍在執行。",
+      not_in_park: "車機讀到的檔位不是 P 檔。",
+      standstill_unconfirmed: "尚未確認車輛已完全靜止。",
+      assistance_active: "駕駛輔助仍啟用中。",
+      controller_or_can_not_ready: "控制器初始化或 CAN 狀態尚未就緒。",
+      stalk_data_not_ready: "尚未收到足夠且即時的方向燈撥桿資料。",
+      control_state_not_ready: "控制狀態資料尚未就緒。",
+      panda_not_ready_or_controls_allowed: "Panda 狀態尚未就緒，或仍允許行車控制。",
+      spas_session_busy: "SPAS 通道正在使用中。",
+      control_loop_not_continuous: "控制器尚未連續更新。",
+      driver_override: "偵測到駕駛操作。",
+      stock_spas_not_ready: "尚未確認原車 SPAS 訊號就緒。",
+      indicator_active: "原車方向燈正在使用中。",
+      test_cooldown: "測試仍在冷卻時間內。",
+      offroad: "車機目前在非行駛或唯讀模式。",
+      passive: "車機目前僅記錄，控制器未啟用。",
+      spas_test_unavailable: "目前車型配置未使用這個 SPAS 測試通道。",
+      controller_state_unavailable: "尚未取得本次啟動的車型設定。",
+      spas_setting_off: "啟動設定中的 CAN-FD SPAS indicators (trial) 已關閉。",
+      spas_not_active: "設定已開啟，本次啟動尚未辨識到可測試的 SPAS 通道。",
+      unconfirmed: "車機未在期限內回覆，方向燈狀態未知。",
+    };
+    feedback.textContent = (LANG === "zh-tw" && messages[reason.split(" | ")[1]]) || labels[4];
+  }
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(log.value);
+      copyStatus.textContent = copied;
+    } catch {
+      log.focus();
+      log.select();
+      copyStatus.textContent = manualCopy;
+      try { if (document.execCommand("copy")) copyStatus.textContent = copied; } catch { /* Keep selection for manual copy. */ }
+    }
+  };
+  for (const [index, side] of ["left", "right"].entries()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = labels[index + 1];
+    button.onclick = async () => {
+      for (const action of actions.children) action.disabled = true;
+      feedback.textContent = "";
+      const started = performance.now();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch("/api/hyundai/parked-indicator/" + side, {
+          method: "POST", headers: {"Content-Type": "application/json"}, body: "{}", signal: controller.signal,
+        });
+        const result = await response.json().catch(() => null);
+        if (response.ok && result?.ok === true) feedback.textContent = labels[3];
+        else recordError(labels[index + 1], `HTTP ${response.status} | ${result?.reason || (result?.ok === false ? "controller_rejected" : "unexpected_response")}`);
+      } catch (error) {
+        recordError(labels[index + 1], controller.signal.aborted ? "request_timeout" : `network_error | ${error.message}`);
+      } finally {
+        clearTimeout(timeout);
+        // Both sides share the server's one-second request interval.
+        const remaining = 1100 - (performance.now() - started);
+        if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+        for (const action of actions.children) action.disabled = false;
+      }
+    };
+    actions.append(button);
+  }
+  card.append(title, actions, feedback, details);
+  return card;
+}
+
 async function renderItems(group, options = {}) {
   if (!isCarrotSettingTabActive()) return;
   const meta = document.getElementById("groupMeta");
@@ -2882,6 +3010,7 @@ async function renderItems(group, options = {}) {
     el.appendChild(actions);
 
     currentItemContainer.appendChild(el);
+    if (name === "HyundaiShowStockSigns" && !options.container) currentItemContainer.appendChild(parkedIndicatorButtons());
     if (contextPanel) {
       // The setting control and its supplementary information are independent
       // surfaces. Keep the context panel outside the setting card so the DOM

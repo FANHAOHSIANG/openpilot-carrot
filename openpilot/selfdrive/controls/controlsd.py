@@ -6,6 +6,7 @@ from numbers import Number
 from openpilot.cereal import car, log
 import openpilot.cereal.messaging as messaging
 from openpilot.common.constants import CV
+from openpilot.common.driving_planner import active_planner_mode, camera_only
 from openpilot.common.params import Params
 from openpilot.common.pid import MultiplicativeUnwindPID
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper
@@ -65,6 +66,7 @@ class Controls:
     self.CP = messaging.log_from_bytes(self.params.get("CarParams", block=True), car.CarParams)
     cloudlog.info("controlsd got CarParams")
 
+    self.vision_profile_requested = camera_only(active_planner_mode(self.CP, self.params))
     self.CI = interfaces[self.CP.carFingerprint](self.CP)
     self.physical_blinker_hold = HoldReader(self.CP, self.params)
 
@@ -168,6 +170,11 @@ class Controls:
     # Wait only for the first readiness confirmation, including AlwaysLateral.
     CC.latActive = CC.latActive and lateral_ready
     CC.longActive = CC.enabled and not any(e.overrideLongitudinal for e in self.sm['onroadEvents']) and self.CP.openpilotLongitudinalControl
+    if self.vision_profile_requested or long_plan.plannerProfile == 'visionE2e':
+      fresh_plan = (long_plan.plannerProfile == 'visionE2e' and self.sm.all_checks(['longitudinalPlan', 'modelV2'])
+                    and 0 <= time.monotonic() - self.sm.recv_time['longitudinalPlan'] <= .25)
+      CC.latActive &= fresh_plan and math.isfinite(model_v2.action.desiredCurvature)
+      CC.longActive &= fresh_plan and math.isfinite(long_plan.aTarget)
     inhibit_faulted_controls(CC, self.sm['onroadEvents'])
 
     # AlwaysLateral must also stop while manager drains workers for this reboot.
@@ -189,7 +196,9 @@ class Controls:
     # accel PID loop
     pid_accel_limits = self.CI.get_pid_accel_limits(self.CP, CS.vEgo, CS.vCruise * CV.KPH_TO_MS)
     t_since_plan = (self.sm.frame - self.sm.recv_frame['longitudinalPlan']) * DT_CTRL
-    accel, aTarget, jerk = self.LoC.update(CC.longActive, CS, long_plan, pid_accel_limits, t_since_plan, self.sm['radarState'])
+    vision_only = long_plan.plannerProfile == 'visionE2e'
+    control_leads = long_plan.cameraLeadState if vision_only else self.sm['radarState']
+    accel, aTarget, jerk = self.LoC.update(CC.longActive, CS, long_plan, pid_accel_limits, t_since_plan, control_leads)
     actuators.longControlState = self.LoC.long_control_state
     actuators.accel = float(accel)
     actuators.aTarget = float(aTarget)
@@ -198,7 +207,8 @@ class Controls:
     # Steering PID loop and lateral MPC
     lat_plan = self.sm['lateralPlan']
     curve_speed_abs = abs(self.sm['carrotMan'].vTurnSpeed)
-    self.lanefull_mode_enabled = (lat_plan.useLaneLines and curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
+    upstream = vision_only or long_plan.plannerProfile == 'upstream'
+    self.lanefull_mode_enabled = (not upstream and lat_plan.useLaneLines and curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
     if CC.latActive and len(lat_plan.curvatures) > 0 and (lat_plan.useLaneLines if self.is_vw_meb else self.lanefull_mode_enabled):
       lat_smooth_seconds = self.params.get_float("LatSmoothSec") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
@@ -217,19 +227,25 @@ class Controls:
       alpha = 1 - np.exp(-DT_CTRL / tau) if tau > 0 else 1
       return alpha * val + (1 - alpha) * prev_val
 
+    self.steering_influence = 'model'
     if not CC.latActive:
+      self.steering_influence = 'inactive'
       new_desired_curvature = self.curvature
+    elif upstream:
+      new_desired_curvature = float(model_v2.action.desiredCurvature)
     elif self.is_vw_meb:
       # VW MEB(ID.4/ID.5): 기본은 레인리스(raw 모델곡률 = infiniteCable2 동일).
       # carrot 횡플래너가 레인모드 활성(lat_plan.useLaneLines, UseLaneLineSpeed>0 & 차선감지)일 때만
       # 차선기반 lateralPlan 경로를 쓴다(opt-in). 모델 경로 출렁임(차선넘나듦)을 차선 지오메트리로 보완.
       if getattr(lat_plan, 'useLaneLines', False) and len(lat_plan.curvatures) > 0:
+        self.steering_influence = 'laneLines'
         curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures,
                                                steer_actuator_delay + lat_smooth_seconds, lat_plan.distances)
         new_desired_curvature = smooth_value(curvature, self.desired_curvature, lat_smooth_seconds)
       else:
         new_desired_curvature = float(model_v2.action.desiredCurvature)  # raw 모델곡률 (if2 기본과 동일)
     elif self.lanefull_mode_enabled:
+      self.steering_influence = 'laneLines' if len(lat_plan.curvatures) else 'holdCurvature'
       if len(lat_plan.curvatures) == 0:
         new_desired_curvature = self.curvature
       else:
@@ -238,12 +254,15 @@ class Controls:
     else:
       # Preserve custom lane-planner filter and its delay compensation. Only
       # the model-target branch uses faster low-speed same-direction turn-in.
+      self.steering_influence = 'hkgFilter' if hkg_assist_active else 'modelFilter'
       tau = low_speed_response_tau(model_v2.action.desiredCurvature, self.desired_curvature, CS.vEgo, .1) if hkg_assist_active else .1
       new_desired_curvature = smooth_value(model_v2.action.desiredCurvature, self.desired_curvature, tau)
 
     # Both response changes stay upstream of the original physical limits.
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
 
+    if CC.latActive and (curvature_limited or abs(self.desired_curvature - new_desired_curvature) > 1e-8):
+      self.steering_influence += '+limit'
     actuators.curvature = float(self.desired_curvature)
 
     # VW MEB 폐루프 곡률 보정 = infiniteCable2 LatControlCurvature.update() 정확 복제.
@@ -386,7 +405,11 @@ class Controls:
       hudControl.naviEventSpeed = navi_event_speed
 
     lp = self.sm['longitudinalPlan']
-    if self.CP.pcmCruise:
+    if lp.plannerProfile == 'visionE2e':
+      hudControl.setSpeed = float(CS.vCruiseCluster * CV.KPH_TO_MS)
+      if self.CP.openpilotLongitudinalControl:
+        CC.cruiseControl.resume = bool(CC.longActive and CS.cruiseState.standstill and not lp.shouldStop and lp.aTarget > 0)
+    elif self.CP.pcmCruise:
       speed_from_pcm = self.params.get_int("SpeedFromPCM")
       if speed_from_pcm == 1: #toyota
         hudControl.setSpeed = float(CS.vCruiseCluster * CV.KPH_TO_MS)
@@ -412,7 +435,7 @@ class Controls:
     hudControl.alertType = self.sm['selfdriveState'].alertType
 
     radarState = self.sm['radarState']
-    leadOne = radarState.leadOne
+    leadOne = lp.cameraLeadState.leadOne if lp.plannerProfile == 'visionE2e' else radarState.leadOne
     hudControl.leadDistance = leadOne.dRel if leadOne.status else 0
     hudControl.leadRelSpeed = leadOne.vRel if leadOne.status else 0
     hudControl.leadRadar = 1 if leadOne.radar else 0
@@ -477,6 +500,7 @@ class Controls:
     cs.curvature = self.curvature
     cs.longitudinalPlanMonoTime = self.sm.logMonoTime['longitudinalPlan']
     cs.lateralPlanMonoTime = self.sm.logMonoTime['modelV2']
+    cs.steeringInfluence = self.steering_influence
     cs.desiredCurvature = self.desired_curvature
     cs.longControlState = self.LoC.long_control_state
     cs.upAccelCmd = float(self.LoC.pid.p)

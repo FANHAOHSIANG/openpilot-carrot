@@ -418,6 +418,7 @@
               "en": "Follow Gap",
               "zh": "车距",
               "params": [
+                "DrivingPlannerMode",
                 "CruiseGapLevels",
                 "TFollowGap1",
                 "TFollowGap2",
@@ -466,6 +467,7 @@
           "zh": "现代·起亚",
           "params": [
             "HyundaiCameraSCC",
+            "HyundaiShowStockSigns",
             "IsLdwsCar",
             "HapticFeedbackWhenSpeedCamera"
           ],
@@ -3681,6 +3683,26 @@
     },
     {
       "group": "시작",
+      "name": "HyundaiShowStockSigns",
+      "title": "순정 교통 표지 및 제한 속도 표시",
+      "descr": "지원되는 CCNC 계기판에 순정 ISLA 인식 결과를 표시합니다.",
+      "egroup": "START",
+      "etitle": "Show OEM traffic signs and speed limits",
+      "edescr": "Show fresh OEM sign and speed limit results on supported CCNC cluster output. Enable recognition in the original vehicle settings.",
+      "cgroup": "启动设置",
+      "ctitle": "显示原车交通标志与限速",
+      "cdescr": "在支持的 CCNC 仪表显示原车识别结果。请在原车设置开启识别。",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "unit": 1,
+      "control": "toggle",
+      "tgroup": "啟動設定",
+      "ttitle": "顯示原車交通標誌與速限（ISLA）",
+      "tdescr": "在支援的 CCNC 儀表輸出上顯示原車辨識結果。辨識功能須先在原車設定開啟。"
+    },
+    {
+      "group": "시작",
       "name": "HyundaiCameraSCC",
       "title": "HYUNDAI: CAMERA SCC",
       "descr": "1:롱컨차량\n 2:크루즈 상태 동기화\n 3:순정크루즈(CANFD롱컨배선)\n꺼짐 상태에서 카메라 버스 SCC가 감지되면 CAN 오류 시 설정 활성화를 안내합니다. 이미 카메라 SCC가 적용된 차종은 제외합니다.\nCAN-FD CameraSCC에서 캐럿 롱컨과 코너레이더가 켜져 있으면, 정상 CAN·D단·브레이크 해제·시속 10.8km 초과 조건에서 꺼진 순정 SCC MAIN을 주기적으로 켜도록 요청합니다. AutoEngage와 캐럿 크루즈 활성 여부에 관계없이 적용하며, MAIN이 이미 켜져 있으면 이 경로의 추가 요청은 끝납니다. SET·재출발 요청에는 기존 캐럿 크루즈 활성 조건이 적용됩니다.\nCAN-FD CameraSCC에서 캐럿 롱컨을 사용하는 경우 계기판용 순정 SCC MAIN 상태와 캐럿의 활성 선택을 분리해 처리합니다. 조향 활성은 AutoEngage 초기 설정과 기존 운전자 버튼 설정을 따릅니다.",
@@ -4009,6 +4031,52 @@
       "tgroup": "啟動設定",
       "ttitle": "音量調節，啟用音量 (10%)",
       "tdescr": ""
+    },
+    {
+      "group": "차량간격",
+      "name": "DrivingPlannerMode",
+      "title": "주행 플래너",
+      "descr": "다음 주행부터 적용. 자동 설정은 지원 차량에서 Alpha 종방향 제어를 켤 수 있으며 일부 차량은 순정 AEB 또는 레이더가 비활성화됩니다.",
+      "egroup": "FDIST",
+      "etitle": "Driving planner",
+      "edescr": "Applies on the next drive. Automatic setup may enable Alpha longitudinal, which disables stock AEB or radar on some vehicles. Other vehicles retain stock cruise.",
+      "cgroup": "跟车距离",
+      "ctitle": "驾驶规划器",
+      "cdescr": "下次行程生效。自动适配可能启用 Alpha，部分车型会停用原厂 AEB 或雷达。",
+      "tgroup": "跟車距離",
+      "ttitle": "駕駛規劃器",
+      "tdescr": "下次行程生效。車型自動適配會優先使用車型原本支援的縱向，符合條件時會啟用 Alpha（部分車款會停用原廠 AEB 或雷達），其餘沿用原廠巡航。上游模式使用視覺、跟車與巡航上限決定加速度，並跟隨模型轉向。純視覺模式以鏡頭模型和視覺前車規劃，保留巡航上限；使用原廠巡航時僅提供視覺橫向。",
+      "min": 0,
+      "max": 3,
+      "default": 0,
+      "unit": 1,
+      "control": "select",
+      "options": {
+        "ko": [
+          "CarrotPlanner",
+          "openpilot Autospeed",
+          "순수 비전 E2E (실험)",
+          "순수 비전 (차량 자동 설정)"
+        ],
+        "en": [
+          "CarrotPlanner",
+          "openpilot Autospeed",
+          "Vision-only E2E (experimental)",
+          "Vision E2E (automatic vehicle setup)"
+        ],
+        "zh": [
+          "CarrotPlanner",
+          "openpilot Autospeed",
+          "纯视觉端到端（实验）",
+          "纯视觉端到端（车型自动适配）"
+        ],
+        "zh-tw": [
+          "CarrotPlanner",
+          "openpilot Autospeed",
+          "純視覺端到端（實驗）",
+          "純視覺端到端（車型自動適配）"
+        ]
+      }
     },
     {
       "group": "차량간격",

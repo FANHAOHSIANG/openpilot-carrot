@@ -225,6 +225,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 
 ##### 차간거리
 
+- [주행 플래너](https://github.com/ajouatom/openpilot/wiki/KO-%EC%A3%BC%ED%96%89-%ED%94%8C%EB%9E%98%EB%84%88) — `DrivingPlannerMode`
 - [갭 단계 수](https://github.com/ajouatom/openpilot/wiki/KO-%EA%B0%AD-%EB%8B%A8%EA%B3%84-%EC%88%98) — `CruiseGapLevels`
 - [TF(1): 차량간격시간1x0.01s(110)](https://github.com/ajouatom/openpilot/wiki/KO-TF%281%29-%EC%B0%A8%EB%9F%89%EA%B0%84%EA%B2%A9%EC%8B%9C%EA%B0%841x0.01s%28110%29) — `TFollowGap1`
 - [TF(2): 차량간격시간2x0.01s(120)](https://github.com/ajouatom/openpilot/wiki/KO-TF%282%29-%EC%B0%A8%EB%9F%89%EA%B0%84%EA%B2%A9%EC%8B%9C%EA%B0%842x0.01s%28120%29) — `TFollowGap2`
@@ -251,6 +252,7 @@ Generated from `openpilot/selfdrive/carrot_settings.json`.
 #### 현대·기아
 
 - [핸들햅틱기능사용(0)](https://github.com/ajouatom/openpilot/wiki/KO-%ED%95%B8%EB%93%A4%ED%96%85%ED%8B%B1%EA%B8%B0%EB%8A%A5%EC%82%AC%EC%9A%A9%280%29) — `HapticFeedbackWhenSpeedCamera`
+- [순정 교통 표지 및 제한 속도 표시](https://github.com/ajouatom/openpilot/wiki/KO-%EC%88%9C%EC%A0%95-%EA%B5%90%ED%86%B5-%ED%91%9C%EC%A7%80-%EB%B0%8F-%EC%A0%9C%ED%95%9C-%EC%86%8D%EB%8F%84-%ED%91%9C%EC%8B%9C) — `HyundaiShowStockSigns`
 - [HYUNDAI: CAMERA SCC](https://github.com/ajouatom/openpilot/wiki/KO-HYUNDAI-CAMERA-SCC) — `HyundaiCameraSCC`
 - [HYUNDAI: LDWS ONLY CAR(0)](https://github.com/ajouatom/openpilot/wiki/KO-HYUNDAI-LDWS-ONLY-CAR%280%29) — `IsLdwsCar`
 
@@ -623,6 +625,7 @@ Per-setting pages generated from the current settings catalog.
 
 ##### Follow Gap
 
+- [Driving planner](https://github.com/ajouatom/openpilot/wiki/EN-Driving-planner) — `DrivingPlannerMode`
 - [Gap cycle levels](https://github.com/ajouatom/openpilot/wiki/EN-Gap-cycle-levels) — `CruiseGapLevels`
 - [TF(1): TimeFollow1x0.01s(110)](https://github.com/ajouatom/openpilot/wiki/EN-TF%281%29-TimeFollow1x0.01s%28110%29) — `TFollowGap1`
 - [TF(2): TimeFollow2x0.01s(120)](https://github.com/ajouatom/openpilot/wiki/EN-TF%282%29-TimeFollow2x0.01s%28120%29) — `TFollowGap2`
@@ -649,6 +652,7 @@ Per-setting pages generated from the current settings catalog.
 #### Hyundai·Kia
 
 - [HapticFeedbackSpeedCamera(0)](https://github.com/ajouatom/openpilot/wiki/EN-HapticFeedbackSpeedCamera%280%29) — `HapticFeedbackWhenSpeedCamera`
+- [Show OEM traffic signs and speed limits](https://github.com/ajouatom/openpilot/wiki/EN-Show-OEM-traffic-signs-and-speed-limits) — `HyundaiShowStockSigns`
 - [HYUNDAI: CAMERA SCC(0)](https://github.com/ajouatom/openpilot/wiki/EN-HYUNDAI-CAMERA-SCC%280%29) — `HyundaiCameraSCC`
 - [HYUNDAI: LDWS ONLY CAR(0)](https://github.com/ajouatom/openpilot/wiki/EN-HYUNDAI-LDWS-ONLY-CAR%280%29) — `IsLdwsCar`
 
@@ -1021,6 +1025,7 @@ Per-setting pages generated from the current settings catalog.
 
 ##### 车距
 
+- [驾驶规划器](https://github.com/ajouatom/openpilot/wiki/ZH-%E9%A9%BE%E9%A9%B6%E8%A7%84%E5%88%92%E5%99%A8) — `DrivingPlannerMode`
 - [车距循环级数](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%BD%A6%E8%B7%9D%E5%BE%AA%E7%8E%AF%E7%BA%A7%E6%95%B0) — `CruiseGapLevels`
 - [跟车时间(1): TimeFollow1x0.01s(110)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%B7%9F%E8%BD%A6%E6%97%B6%E9%97%B4%281%29-TimeFollow1x0.01s%28110%29) — `TFollowGap1`
 - [跟车时间(2): TimeFollow2x0.01s(120)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%B7%9F%E8%BD%A6%E6%97%B6%E9%97%B4%282%29-TimeFollow2x0.01s%28120%29) — `TFollowGap2`
@@ -1047,6 +1052,7 @@ Per-setting pages generated from the current settings catalog.
 #### 现代·起亚
 
 - [超速照相触感反馈 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E8%B6%85%E9%80%9F%E7%85%A7%E7%9B%B8%E8%A7%A6%E6%84%9F%E5%8F%8D%E9%A6%88-%280%29) — `HapticFeedbackWhenSpeedCamera`
+- [显示原车交通标志与限速](https://github.com/ajouatom/openpilot/wiki/ZH-%E6%98%BE%E7%A4%BA%E5%8E%9F%E8%BD%A6%E4%BA%A4%E9%80%9A%E6%A0%87%E5%BF%97%E4%B8%8E%E9%99%90%E9%80%9F) — `HyundaiShowStockSigns`
 - [现代: 摄像头 SCC (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E7%8E%B0%E4%BB%A3-%E6%91%84%E5%83%8F%E5%A4%B4-SCC-%280%29) — `HyundaiCameraSCC`
 - [现代: 仅配备 LDWS 的车辆 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-%E7%8E%B0%E4%BB%A3-%E4%BB%85%E9%85%8D%E5%A4%87-LDWS-%E7%9A%84%E8%BD%A6%E8%BE%86-%280%29) — `IsLdwsCar`
 
@@ -1419,6 +1425,7 @@ Per-setting pages generated from the current settings catalog.
 
 ##### 車距
 
+- [駕駛規劃器](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E9%A7%95%E9%A7%9B%E8%A6%8F%E5%8A%83%E5%99%A8) — `DrivingPlannerMode`
 - [車距迴圈級數](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%BB%8A%E8%B7%9D%E8%BF%B4%E5%9C%88%E7%B4%9A%E6%95%B8) — `CruiseGapLevels`
 - [跟車時間(1): TimeFollow1x0.01s(110)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%B7%9F%E8%BB%8A%E6%99%82%E9%96%93%281%29-TimeFollow1x0.01s%28110%29) — `TFollowGap1`
 - [跟車時間(2): TimeFollow2x0.01s(120)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%B7%9F%E8%BB%8A%E6%99%82%E9%96%93%282%29-TimeFollow2x0.01s%28120%29) — `TFollowGap2`
@@ -1445,6 +1452,7 @@ Per-setting pages generated from the current settings catalog.
 #### 現代·起亞
 
 - [超速照相觸感反饋 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E8%B6%85%E9%80%9F%E7%85%A7%E7%9B%B8%E8%A7%B8%E6%84%9F%E5%8F%8D%E9%A5%8B-%280%29) — `HapticFeedbackWhenSpeedCamera`
+- [顯示原車交通標誌與速限（ISLA）](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E9%A1%AF%E7%A4%BA%E5%8E%9F%E8%BB%8A%E4%BA%A4%E9%80%9A%E6%A8%99%E8%AA%8C%E8%88%87%E9%80%9F%E9%99%90%28ISLA%29) — `HyundaiShowStockSigns`
 - [現代: 攝影機 SCC (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E7%8F%BE%E4%BB%A3-%E6%94%9D%E5%BD%B1%E6%A9%9F-SCC-%280%29) — `HyundaiCameraSCC`
 - [現代: 僅配備 LDWS 的車輛 (0)](https://github.com/ajouatom/openpilot/wiki/ZH-TW-%E7%8F%BE%E4%BB%A3-%E5%83%85%E9%85%8D%E5%82%99-LDWS-%E7%9A%84%E8%BB%8A%E8%BC%9B-%280%29) — `IsLdwsCar`
 

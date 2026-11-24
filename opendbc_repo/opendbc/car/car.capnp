@@ -305,6 +305,18 @@ struct CarState {
   lowBeamOn @121 :Bool;
   highBeamOn @122 :Bool;
   speedLimitClusterKph @123 :UInt8; # display-only instrument sign; zero when unknown
+  turnLampState @124 :TurnLampState; # instantaneous rear indicator lamps for display
+  displayRearLeftDistance @125 :Float32;
+  displayRearLeftLateral @126 :Float32;
+  displayRearRightDistance @127 :Float32;
+  displayRearRightLateral @128 :Float32;
+  enum TurnLampState {
+    unknown @0;
+    dark @1;
+    left @2;
+    right @3;
+    both @4;
+  }
 
   struct TeslaTrafficControl {
     available @0 :Bool;
@@ -656,6 +668,8 @@ struct CarOutput {
 # ****** car param ******
 
 struct CarParams {
+  drivingPlannerMode @80 :Int8 = -1; # profile sampled at fingerprinting, absent in older logs
+  visionPlannerSetup @79 :Text; # per-ignition longitudinal provider for automatic camera-only mode
   brand @0 :Text;  # Designates which group a platform falls under. Each folder in opendbc/car is assigned one brand string
   carFingerprint @1 :Text;
   fuzzyFingerprint @55 :Bool;

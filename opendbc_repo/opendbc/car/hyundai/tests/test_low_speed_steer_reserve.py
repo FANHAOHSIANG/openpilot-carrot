@@ -72,7 +72,8 @@ def torque_fixture(monkeypatch, enabled=True, cp=None):
   controller.reserve_supported = True
   settings['LowSpeedSteerReserve'] = int(enabled)
   monkeypatch.setattr(carcontroller, 'Params',
-                      lambda: NS(get_int=lambda k: settings.get(k, 0), get_bool=lambda k: bool(settings.get(k, 0))))
+                      lambda: NS(get_int=lambda k: settings.get(k, 0), get_bool=lambda k: bool(settings.get(k, 0)),
+                                 get=lambda k, return_default=False: settings.get(k, True if return_default else None)))
   cs.out = state()
   cc.actuators.torque = 1.5
   return controller, cs, cc, settings
