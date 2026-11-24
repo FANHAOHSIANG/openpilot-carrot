@@ -230,6 +230,10 @@ SERVICE_SCHEMAS: dict[str, tuple[int, tuple[tuple[Any, ...], ...]]] = {
     ("canTimeout", "bool"),
     ("steeringPressed", "bool"),
     ("laneLineInfoMonoTime", "u64"),
+    ("displayRearLeftDistance", "f32"),
+    ("displayRearLeftLateral", "f32"),
+    ("displayRearRightDistance", "f32"),
+    ("displayRearRightLateral", "f32"),
   )),
   "controlsState": (2, (
     ("enabled", "bool", ("deprecated", "enabled")),
@@ -657,6 +661,8 @@ def _pack_schema(out: bytearray, value: Any, schema: Sequence[tuple[Any, ...]]) 
 
 def encode_carrot_state_frame(service: str, value: Any, sequence: int, *, valid: bool = True) -> bytes:
   service_id, schema = SERVICE_SCHEMAS[service]
+  if service == "radarState":
+    valid = valid and not any(_field_path(value, ("radarErrors", key)) for key in ("canError", "radarFault", "wrongConfig", "radarUnavailableTemporary"))
   out = bytearray(struct.pack("<4sBBH", FRAME_MAGIC, service_id, int(not valid), sequence & 0xffff))
   _pack_schema(out, value, schema)
   return bytes(out)

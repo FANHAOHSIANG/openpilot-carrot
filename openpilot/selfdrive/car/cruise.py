@@ -156,6 +156,7 @@ class VCruiseHelper:
 
 
 
+from openpilot.common.driving_planner import active_planner_mode, camera_only
 from openpilot.common.params import Params
 #from openpilot.selfdrive.selfdrived.events import Events
 #EventName = log.OnroadEvent.EventName
@@ -171,6 +172,7 @@ class VCruiseCarrot:
     self.frame = 0
     self.params_memory = Params("/dev/shm/params")
     self.params = Params()
+    self.vision_only = camera_only(active_planner_mode(CP, self.params))
     self.periodic_settings = None
     self.cruise_stage_ms = {}
     if cached_settings:
@@ -371,8 +373,15 @@ class VCruiseCarrot:
       self.xState = lp.xState
       self.trafficState = lp.trafficState
       self.aTarget = lp.aTarget
-    if sm.alive['radarState']:
-      lead = sm['radarState'].leadOne
+    if self.vision_only:
+      # Never carry a stale lead into resume or automatic cruise-speed logic.
+      self.d_rel = self.v_rel = self.v_lead_kph = 0.
+      use_lead = (sm.alive['longitudinalPlan'] and sm.valid['longitudinalPlan']
+                  and lp.plannerProfile == 'visionE2e')
+    else:
+      use_lead = sm.alive['radarState']
+    if use_lead:
+      lead = lp.cameraLeadState.leadOne if self.vision_only else sm['radarState'].leadOne
       self.d_rel = lead.dRel if lead.status else 0
       self.v_rel = lead.vRel if lead.status else 0
       self.v_lead_kph = lead.vLeadK * CV.MS_TO_KPH if lead.status else 0
@@ -862,6 +871,8 @@ class VCruiseCarrot:
 
   def _auto_speed_up(self, v_cruise_kph, *, explicit=False):
     selected_speed = v_cruise_kph
+    if getattr(self, 'vision_only', False):
+      return v_cruise_kph
     # Automatic road/model policies may reduce, but never raise the driver's
     # selection. Explicit SPEED UP still uses the requested increase policy.
     if not self._pause_auto_speed_up and self.applyModelSpeed != 0.0:

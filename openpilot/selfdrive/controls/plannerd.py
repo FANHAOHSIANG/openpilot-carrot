@@ -2,12 +2,12 @@
 import time
 
 from openpilot.cereal import car
+from openpilot.common.driving_planner import active_planner_mode, camera_only
 from openpilot.common.params import Params
 from openpilot.common.realtime import Priority, config_realtime_process
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.runtime_diagnostics import RuntimeDiagnostics
 from openpilot.selfdrive.controls.lib.ldw import LaneDepartureWarning
-from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner
 from openpilot.selfdrive.controls.lib.longitudinal_fast_radar import (
   FastRadarOverlay,
   RadarStateOverride,
@@ -22,6 +22,15 @@ from openpilot.selfdrive.carrot.radar_motion.timing import front_radar_distance_
 
 LIVE_TRACKS_FALLBACK_TIMEOUT_S = 0.10
 MIN_LONGITUDINAL_PLAN_INTERVAL_NS = 25_000_000
+
+
+def make_longitudinal_planner(CP, mode):
+  if mode == 1 or camera_only(mode):
+    from openpilot.selfdrive.controls.lib.upstream_planner import LongitudinalPlanner
+    return LongitudinalPlanner(CP, vision_only=camera_only(mode))
+  else:
+    from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner
+  return LongitudinalPlanner(CP)
 
 
 def main():
@@ -43,10 +52,12 @@ def main():
     CP.radarUnavailable,
     params.get_int("EnableRadarTracks"),
   )
-  live_tracks_longitudinal = CP.brand == "hyundai" and radar_track_mode >= 1
+  mode = active_planner_mode(CP, params)
+  upstream = mode == 1 or camera_only(mode)
+  live_tracks_longitudinal = not upstream and CP.brand == "hyundai" and radar_track_mode >= 1
 
   ldw = LaneDepartureWarning()
-  longitudinal_planner = LongitudinalPlanner(CP)
+  longitudinal_planner = make_longitudinal_planner(CP, mode)
   lateral_planner = LateralPlanner(CP, debug=False)
   fast_radar = FastRadarOverlay(
     front_radar_delay_s=front_radar_distance_delay_s(CP),
@@ -73,7 +84,7 @@ def main():
     loop_start, cpu_start = time.monotonic(), time.thread_time()
     timings = {'poll_ms': (loop_start - wait_start) * 1000}
 
-    if sm.updated['radarState']:
+    if not upstream and sm.updated['radarState']:
       fast_radar.observe_radar_state(
         sm['radarState'],
         sm.logMonoTime['radarState'],
@@ -104,7 +115,11 @@ def main():
     )
     run_longitudinal = sm.updated[planning_trigger] and trigger_interval_ok
 
-    if run_longitudinal and sm.seen['modelV2']:
+    if upstream and run_longitudinal and sm.seen['modelV2']:
+      last_longitudinal_trigger_mono_ns = trigger_mono_ns
+      longitudinal_planner.update(sm)
+      longitudinal_planner.publish(sm, pm)
+    elif run_longitudinal and sm.seen['modelV2']:
       # Bound unexpected replay/recovery bursts without filtering either
       # service's normal 20 Hz cadence.
       last_longitudinal_trigger_mono_ns = trigger_mono_ns

@@ -1,5 +1,16 @@
 # Repository memory
 
+- 2026-11-23: Preserve fresh original camera 0x161 lane display states only on
+  real PV5. Keep departure/BSD/boundary, green availability and trailer policy;
+  stock orange beats availability. Accept DBC 0/1/2/4/6 plus observed8, with
+  per-side legacy fallback. Use controller time for250ms expiry even with no
+  CAN traffic; reject wrong-source/template, invalid, ambiguous or older data.
+  No lane-control/paint-color inference, geometry, schema or other-car change.
+  Local729 checks pass,2native skips. Recorded-input sender comparison covers
+  21602 packets across10 segments with display0/1:19204 non-PV5 packets exactly
+  match baseline. PV5 preserves125 dashed packets per setting, retaining706
+  higher-priority sides. No live vehicle writes or physical display validation.
+
 - 2026-11-18 Road scene research uses independent per-owner/device opt-in and signed sparse scene uploads. Preserve source frame/EOF, calibration, GNSS quality, and OEM paint time. Never turn image-only boxes or OSM into observed geometry, moving tracks into static landmarks, or research data into a control input. Taiwan PBF/index, raw captures, and research weights stay outside git. See docs/ROAD_SCENE_RESEARCH.zh-TW.md for collection and the held-out KITTI results.
 
 - 2026-11-18 Lane-change notices: display-only forecasts use existing meta

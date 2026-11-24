@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from openpilot.cereal import car, log
+from openpilot.common.driving_planner import active_planner_mode, camera_only
 from openpilot.common.runtime_diagnostics import RuntimeDiagnostics
 from openpilot.selfdrive.carrot.radar import effective_radar_track_mode
 from openpilot.selfdrive.carrot.radar_motion.timing import front_radar_distance_delay_s
@@ -16,7 +17,7 @@ class EndOfInputs(Exception):
   pass
 
 
-def run_planner_events(mocker, brand, configured_mode, radar_period_ms, *, stopping=False, gas_pressed=False):
+def run_planner_events(mocker, brand, configured_mode, radar_period_ms, *, stopping=False, gas_pressed=False, upstream=False):
   model_times = list(range(0, 1000, 50))
   radar_times = list(range(20, 1000, radar_period_ms))
   events = iter(sorted(set(model_times + radar_times)))
@@ -69,7 +70,7 @@ def run_planner_events(mocker, brand, configured_mode, radar_period_ms, *, stopp
   sub_master_factory = mocker.Mock(return_value=sm)
   cp = SimpleNamespace(brand=brand, flags=0, radarUnavailable=False, radarDelay=0.8, openpilotLongitudinalControl=True)
   params = mocker.Mock()
-  params.get_int.return_value = configured_mode
+  params.get_int.side_effect = lambda key: int(upstream) if key == "DrivingPlannerMode" else configured_mode
   fast_radar = mocker.Mock()
   fast_radar.lead_one_ready.return_value = True
   fast_radar.build.return_value = SimpleNamespace(
@@ -81,6 +82,8 @@ def run_planner_events(mocker, brand, configured_mode, radar_period_ms, *, stopp
   namespace = {
     'time': SimpleNamespace(monotonic=lambda: sm.now, thread_time=lambda: sm.now),
     'car': car,
+    'active_planner_mode': active_planner_mode,
+    'camera_only': camera_only,
     'Params': lambda: params,
     'Priority': SimpleNamespace(CTRL_LOW=0),
     'config_realtime_process': mocker.Mock(),
@@ -108,6 +111,7 @@ def run_planner_events(mocker, brand, configured_mode, radar_period_ms, *, stopp
   tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
   tree.body = [node for node in tree.body if isinstance(node, (ast.Assign, ast.FunctionDef))]
   exec(compile(tree, str(path), 'exec'), namespace)
+  namespace['make_longitudinal_planner'] = lambda cp, selected: planner if selected == upstream else None
   with pytest.raises(EndOfInputs):
     namespace['main']()
   assert planner.update.call_count == len(calls)
@@ -162,3 +166,14 @@ def test_stopping_conditions_final_planner_input_on_model_and_fast_radar_clocks(
 def test_driver_gas_override_bypasses_stopping_input_filter(mocker):
   _, _, _, planner = run_planner_events(mocker, 'hyundai', 1, 50, stopping=True, gas_pressed=True)
   assert all(call.args[0]['radarState'].leadOne.vLead == pytest.approx(0.217) for call in planner.update.call_args_list)
+
+
+@pytest.mark.parametrize("mode", [1, 2, 3])
+def test_upstream_planner_uses_raw_radar_at_model_rate(mocker, mode):
+  calls, poll, fast_radar, planner = run_planner_events(mocker, 'hyundai', 1, 50, stopping=True, upstream=mode)
+  assert poll == 'modelV2'
+  assert len(calls) == 20
+  fast_radar.build.assert_not_called()
+  for call in planner.update.call_args_list:
+    sm, = call.args
+    assert sm['radarState'].leadOne.vLead == pytest.approx(.217)
