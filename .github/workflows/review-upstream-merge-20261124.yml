@@ -31,6 +31,7 @@ jobs:
           git merge-base --is-ancestor "$FUSION_BASE" HEAD || {
             echo "Unexpected fusion base; refusing merge"; exit 1;
           }
+          REVIEW_HEAD="$(git rev-parse HEAD)"
           git remote add carrot-official https://github.com/ajouatom/openpilot.git
           git remote add tony-original https://github.com/TonyBinheWu/sunnypilot.git
           git fetch --no-tags carrot-official carrot-wip
@@ -136,5 +137,26 @@ jobs:
           echo "Review candidate $(git rev-parse HEAD)"
           echo "Changed file summary relative to existing fusion:"
           git diff --stat "$FUSION_BASE"..HEAD
+
+          # The checkout token cannot push commits touching any workflow file.
+          # Export the reviewed merged tree as a single source-content commit
+          # rooted on the isolated review head; do not touch existing workflows.
+          # Pinned upstream identities remain in its provenance trailers.
+          git diff --binary "$REVIEW_HEAD" HEAD -- . ':(exclude).github/workflows/**' \
+            > /tmp/review-merged-source.patch
+          test -s /tmp/review-merged-source.patch
+          git reset --hard "$REVIEW_HEAD"
+          git apply --index --binary /tmp/review-merged-source.patch
+          git diff --cached --check
+          if git diff --cached --name-only | grep '^.github/workflows/'; then
+            echo "::error::A workflow file was included; refusing push."
+            exit 31
+          fi
+          git commit -m "Review integration: official 6a9225b5 and Tony f8517762 source (safe isolated candidate)" \
+            -m "Content integration via reviewed three-way git-ort conflict resolutions. Upstream workflow updates omitted due to Actions token permissions; CI source unchanged." \
+            -m "Upstream-Official-SHA: $OFFICIAL_SHA" \
+            -m "Upstream-Tony-SHA: $TONY_SHA" \
+            -m "Base-Fusion-SHA: $FUSION_BASE"
+          echo "Source content candidate: $(git rev-parse HEAD)"
           git push origin "HEAD:refs/heads/$BRANCH"
-          echo "Both upstream commits merged on the isolated review branch only."
+          echo "Official and Tony source changes integrated on review branch; workflow changes intentionally not imported."
