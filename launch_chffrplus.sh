@@ -687,6 +687,11 @@ function launch {
 
   # hardware specific init
   if [ -f /AGNOS ]; then
+    # The AGNOS update UI imports TiciLPA before full runtime bootstrap.
+    # Check the actual serial API and repair from the pinned offline wheel.
+    if ! run_startup_command ensure_python_package "serial; assert callable(serial.Serial); assert callable(serial.VTIMESerial)" "pyserial==3.5" 1; then
+      show_startup_failure "AGNOS startup dependency pyserial is unavailable"
+    fi
     if ! agnos_init; then
       flock -u 9
       while true; do sleep 1; done
