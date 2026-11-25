@@ -28,14 +28,12 @@ def pre_adjust_payload(record: dict, now_ns: int) -> tuple[int, int]:
 
 
 def pre_adjust_candidate(navi, enabled: bool, now_ns: int) -> float:
-  if not enabled or navi is None or not navi.guidance_active or navi.off_route:
-    return NO_LIMIT_KPH
-  speed = navi.speed
-  target = speed.pre_adjust_kph
-  remaining = speed.pre_adjust_deadline_ns - now_ns
-  if not speed.present or not valid_target(target) or not 0 < remaining <= MAX_AGE_MS * 1_000_000:
-    return NO_LIMIT_KPH
-  return float(target)
+  # Legacy Amap native advisory carries no maneuver identity, location or
+  # completion evidence. A freshly recomputed target may describe a passed ramp.
+  # Quarantine this optional advisory until a maneuver-bound protocol is verified.
+  # Shared turn pre-adjust and all existing ATC/route/vision/camera constraints
+  # remain independent. Do not change this to a time-only or road-name heuristic.
+  return NO_LIMIT_KPH
 
 
 SOURCES = frozenset(("amap_auto", "amap_phone", "google_noo"))
