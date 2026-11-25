@@ -190,7 +190,8 @@ def test_angle_can_protocol_and_authority_identical_for_same_requests(monkeypatc
     cp = platform(fingerprint, 'angle', camera)
     controller, cs, cc, saved = setup_controller(monkeypatch, angle=True, camera=camera, cp_override=cp)
     saved['HkgPhase1Assist'] = int(enabled)
-    params = NS(get_int=lambda k, values=saved: values.get(k, 0), get_bool=lambda k, values=saved: bool(values.get(k, 0)))
+    params = NS(get_int=lambda k, values=saved: values.get(k, 0), get_bool=lambda k, values=saved: bool(values.get(k, 0)),
+                get=lambda k, return_default=False, values=saved: values.get(k, True if return_default and k == 'HyundaiShowStockSigns' else None))
     from opendbc.car.hyundai import carcontroller, hyundaicanfd
     monkeypatch.setattr(carcontroller, 'Params', lambda *args, values=params: values)
     monkeypatch.setattr(hyundaicanfd, 'Params', lambda *args, values=params: values)

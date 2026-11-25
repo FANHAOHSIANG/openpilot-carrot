@@ -869,6 +869,8 @@ struct ControlsState @0x97ff69c53601abf1 {
 
   steeringInfluence @68 :Text;
   activeLaneLine @67 : Bool;
+  modelCurveCenteringDelta @70 :Float32;  # additive model-target curvature before smoothing and limiting (1/m)
+  modelCurveCenteringEnabled @69 :Bool;   # user setting active on a supported platform
 
   lateralControlState :union {
     pidState @53 :LateralPIDState;
