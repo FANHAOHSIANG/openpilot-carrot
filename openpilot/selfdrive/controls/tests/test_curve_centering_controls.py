@@ -113,14 +113,32 @@ def test_veto_on_intermediate_control_tick_drops_held_correction(drive, veto):
   assert control.curve_centering_delta == 0
 
 
-@pytest.mark.parametrize('profile', ['upstream', 'visionE2e'])
-def test_raw_model_profile_clears_held_trim(drive, profile):
+@pytest.mark.parametrize('enabled', [False, True])
+def test_autospeed_uses_only_the_opt_in_lateral_trim(drive, enabled):
+  control, tick = drive
+  control.sm['longitudinalPlan'].plannerProfile = 'upstream'
+  target = control.sm['modelV2'].action.desiredCurvature
+  control.desired_curvature = target
+  control.curve_centering_enabled = enabled
+  # A recognizable longitudinal output must pass through identically with either switch value.
+  control.LoC.update = lambda *args: (0.42, 0.42, 0.2)
+  for _ in range(6):
+    cc = tick()
+  delta = control.curve_centering_delta
+  assert cc.latActive
+  assert (delta < 0.0) == enabled
+  assert cc.actuators.curvature == pytest.approx(target + delta)
+  assert cc.actuators.accel == pytest.approx(0.42)
+  assert control.steering_influence == ('model+curveCentering' if enabled else 'model')
+
+
+def test_vision_profile_clears_held_trim(drive):
   control, tick = drive
   for _ in range(5):
     tick()
   assert control.curve_centering_delta < 0
   sm = control.sm
-  sm['longitudinalPlan'] = log.LongitudinalPlan.new_message(plannerProfile=profile)
+  sm['longitudinalPlan'] = log.LongitudinalPlan.new_message(plannerProfile='visionE2e')
   sm.recv_time['longitudinalPlan'] = time.monotonic()
   sm.valid['longitudinalPlan'] = sm.alive['longitudinalPlan'] = sm.freq_ok['longitudinalPlan'] = True
   cc = tick(camera=False)

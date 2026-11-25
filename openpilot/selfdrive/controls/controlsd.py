@@ -130,10 +130,10 @@ class Controls:
       device_pose = Pose.from_live_pose(self.sm['livePose'])
       self.calibrated_pose = self.pose_calibrator.build_calibrated_pose(device_pose)
 
-  def _update_curve_centering(self, CS, CC, model, upstream):
+  def _update_curve_centering(self, CS, CC, model, profile):
     if self.curve_centering is None:
       return
-    if (not self.curve_centering_enabled or upstream or not CC.latActive or self.lanefull_mode_enabled or
+    if (not self.curve_centering_enabled or profile not in ('carrot', 'upstream') or not CC.latActive or self.lanefull_mode_enabled or
         not (math.isfinite(CS.vEgo) and CS.vEgo >= CURVE_CENTERING_MIN_SPEED) or
         CS.gearShifter != car.CarState.GearShifter.drive or CS.steeringPressed or CS.leftBlinker or CS.rightBlinker or
         not CS.canValid or CS.canTimeout or CS.steerFaultTemporary or CS.steerFaultPermanent or
@@ -254,7 +254,7 @@ class Controls:
     curve_speed_abs = abs(self.sm['carrotMan'].vTurnSpeed)
     upstream = vision_only or long_plan.plannerProfile == 'upstream'
     self.lanefull_mode_enabled = (not upstream and lat_plan.useLaneLines and curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
-    self._update_curve_centering(CS, CC, model_v2, upstream)
+    self._update_curve_centering(CS, CC, model_v2, long_plan.plannerProfile)
     if CC.latActive and len(lat_plan.curvatures) > 0 and (lat_plan.useLaneLines if self.is_vw_meb else self.lanefull_mode_enabled):
       lat_smooth_seconds = self.params.get_float("LatSmoothSec") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
@@ -279,6 +279,9 @@ class Controls:
       new_desired_curvature = self.curvature
     elif upstream:
       new_desired_curvature = float(model_v2.action.desiredCurvature)
+      if self.curve_centering_delta:
+        new_desired_curvature += self.curve_centering_delta
+        self.steering_influence = 'model+curveCentering'
     elif self.is_vw_meb:
       # VW MEB(ID.4/ID.5): 기본은 레인리스(raw 모델곡률 = infiniteCable2 동일).
       # carrot 횡플래너가 레인모드 활성(lat_plan.useLaneLines, UseLaneLineSpeed>0 & 차선감지)일 때만
