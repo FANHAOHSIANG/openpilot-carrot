@@ -32,7 +32,7 @@ def test_pipeline_preserves_road_limit_and_camera_and_expires_without_new_messag
   assert navi.speed.road_limit_kph == 100
   assert navi.speed.sdi_speed_limit_kph == 50
   assert navi.speed.sdi_distance_m == 350
-  assert pre_adjust_candidate(navi, True, 10_100_000_000) == 60
+  assert pre_adjust_candidate(navi, True, 10_100_000_000) == 250
   assert pre_adjust_candidate(navi, True, 11_500_000_000) == 250
   expired = build_carrot_navi_payload(s, publish_mono_ns=11_500_000_000)
   assert not expired["speed"]["preAdjustValid"]
@@ -103,7 +103,7 @@ def select_with_production_code(navi, **values):
 
 def test_actual_selection_never_overrides_lower_camera_turn_or_road_speed():
   navi = parse_carrot_navi_control(build_carrot_navi_payload(snapshot(), 10_100_000_000))
-  assert select_with_production_code(navi) == (60, 'pre')
+  assert select_with_production_code(navi) == (100, 'road')
   assert select_with_production_code(navi, sdi_speed=40) == (40, 'cam')
   assert select_with_production_code(navi, atc_desired=30) == (30, 'atc')
   assert select_with_production_code(navi, limit_speed=50) == (50, 'road')
@@ -119,7 +119,7 @@ def test_actual_cereal_roundtrip():
   with schema.CarrotNaviState.from_bytes(message.to_bytes()) as reader:
     navi = parse_carrot_navi_control(reader)
     assert navi.speed.road_limit_kph == 100
-    assert pre_adjust_candidate(navi, True, 10_100_000_000) == 60
+    assert pre_adjust_candidate(navi, True, 10_100_000_000) == 250
     assert pre_adjust_candidate(navi, True, 11_500_000_000) == 250
 
 
@@ -154,9 +154,20 @@ def test_full_service_publication_and_cached_item_expiry(monkeypatch):
   pm = SimpleNamespace(send=lambda name, message: sent.update({name: message}))
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
   result = sent['carrotMan'].carrotMan
-  assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('pre', 60, 100)
+  assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('road', 100, 100)
   sm.updated['carrotNavi'] = False
   monkeypatch.setattr(carrot_serv.time, 'monotonic_ns', lambda: 11_500_000_000)
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
   result = sent['carrotMan'].carrotMan
   assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('road', 100, 100)
+
+
+@pytest.mark.parametrize("target", [30, 60, 100, 120])
+def test_fresh_recomputed_unbound_native_advisory_is_quarantined(target):
+  for i in range(20):
+    now = 10_000_000_000 + i * 1_000_000_000
+    s = snapshot(target=target, generated=10000+i*1000, sent=10000+i*1000, received=now)
+    navi = parse_carrot_navi_control(build_carrot_navi_payload(s, now))
+    assert navi.speed.pre_adjust_kph == target  # fresh received value remains observable
+    assert pre_adjust_candidate(navi, True, now) == 250
+    assert select_with_production_code(navi, sdi_speed=40) == (40, 'cam')
