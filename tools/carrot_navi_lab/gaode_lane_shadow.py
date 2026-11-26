@@ -33,10 +33,10 @@ def interpolate(points, x):
 def visual(model, mono_ns):
   out = {"schema":1,"source":"c4_modelV2","mono_ns":int(mono_ns),
          "frame":"c4_model_local","control_usable":False,"center":[],"reason":"unavailable"}
-  lines,probs = model.laneLines,model.laneLineProbs
+  lines,probs = list(model.laneLines),list(model.laneLineProbs)
   out["lane_lines"] = [{"x":list(l.x),"y":list(l.y)} for l in lines[:4]]
   out["lane_probs"] = [float(p) if finite(p) else None for p in probs[:4]]
-  out["road_edges"] = [{"x":list(l.x),"y":list(l.y)} for l in model.roadEdges[:2]]
+  out["road_edges"] = [{"x":list(l.x),"y":list(l.y)} for l in list(model.roadEdges)[:2]]
   out["model_path"] = {"x":list(model.position.x),"y":list(model.position.y)}
   if len(lines)!=4 or len(probs)!=4 or any(not finite(probs[i]) or probs[i]<.65 for i in (1,2)):
     out["reason"]="inner_lane_confidence"; return out
