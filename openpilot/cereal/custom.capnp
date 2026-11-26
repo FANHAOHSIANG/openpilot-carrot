@@ -72,6 +72,13 @@ struct CarrotNaviState @0xaedffd8f31e7b55d {
 	crossroad @12 :Crossroad;
 	route @13 :Route;
 	navigationStatus @14 :NavigationStatus;
+	amapExitInfo @15 :AmapExitInfo; # display-only raw navigation metadata; never used for vehicle control
+
+	struct AmapExitInfo {
+		valid @0 :Bool;
+		deadlineMonoTimeNanos @1 :UInt64;
+		fieldsJson @2 :Text;
+	}
 
 	struct ItemMeta {
 		present @0 :Bool;
