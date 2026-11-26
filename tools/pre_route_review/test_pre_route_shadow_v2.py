@@ -44,6 +44,32 @@ class AuditTests(unittest.TestCase):
     self.assertEqual(a.observe(replace(C, session='next'), E), 'not_current_route')
   def test_non_ramp(self):
     self.assertEqual(RouteAudit().observe(C, replace(E, kind='straight')), 'not_ramp')
+  def test_old_session_cannot_return(self):
+    a = RouteAudit()
+    a.observe(C, E)
+    self.assertEqual(a.observe(replace(C, session='next'), replace(E, session='next')), 'before_entry')
+    self.assertEqual(a.observe(C, E), 'old_session')
+  def test_stopped_context_cannot_revive(self):
+    a = RouteAudit()
+    a.observe(C, E)
+    self.assertEqual(a.observe(replace(C, active=False), None), 'no_guidance')
+    self.assertEqual(a.observe(C, E), 'old_context')
+    self.assertEqual(a.observe(replace(C, revision=2), replace(E, revision=2)), 'before_entry')
+  def test_changed_geometry_rejected(self):
+    a = RouteAudit()
+    a.observe(C, E)
+    self.assertEqual(a.observe(C, replace(E, sequence=2, end=300)), 'changed_event_geometry')
+  def test_truthy_strings_rejected(self):
+    self.assertEqual(RouteAudit().observe(replace(C, active='false'), E), 'invalid_context')
+    self.assertEqual(RouteAudit().observe(C, replace(E, matched='false')), 'unverified_position')
+    self.assertEqual(RouteAudit().observe(C, replace(E, completed='false')), 'inconsistent_geometry')
+  def test_retired_session_capacity_fails_closed(self):
+    a = RouteAudit()
+    a.observe(C, E)
+    for i in range(256):
+      sid = str(i)
+      self.assertEqual(a.observe(replace(C, session=sid), replace(E, session=sid)), 'before_entry')
+    self.assertEqual(a.observe(replace(C, session='overflow'), replace(E, session='overflow')), 'session_capacity_exceeded')
 
 if __name__ == '__main__':
   unittest.main()
