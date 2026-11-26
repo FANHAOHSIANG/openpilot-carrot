@@ -38,6 +38,19 @@ class DisplayInfoTests(unittest.TestCase):
             elif change=='expired': now=11_500_000_000
             elif change=='status_expired': st['source_timestamp_ms']=8000
             with self.subTest(change=change): self.assertFalse(amap_exit_display_payload(s,now)['valid'])
+    def test_route_context_is_optional_display_data(self):
+        s=sample()
+        f=s['items']['guidance_current']['value']['amap_exit_info']['fields']
+        f.update(ROUTE_REMAIN_DIS=12000, ROUTE_ALL_DIS=15000, NEW_ICON=12, ROUTE_REMAIN_TIME=600)
+        result=build_carrot_navi_payload(s,NOW)
+        out=json.loads(result['amapExitInfo']['fieldsJson'])
+        self.assertEqual((out['ROUTE_REMAIN_DIS'],out['ROUTE_ALL_DIS'],out['NEW_ICON'],out['ROUTE_REMAIN_TIME']),(12000,15000,12,600))
+        original=copy.deepcopy(s)
+        for k in ('ROUTE_REMAIN_DIS','ROUTE_ALL_DIS','NEW_ICON','ROUTE_REMAIN_TIME'): original['items']['guidance_current']['value']['amap_exit_info']['fields'].pop(k)
+        self.assertEqual({k:v for k,v in result.items() if k!='amapExitInfo'},{k:v for k,v in build_carrot_navi_payload(original,NOW).items() if k!='amapExitInfo'})
+        f.update(ROUTE_REMAIN_DIS=-1,ROUTE_ALL_DIS=True,NEW_ICON='12',ROUTE_REMAIN_TIME=2000001)
+        out=json.loads(amap_exit_display_payload(s,NOW)['fieldsJson'])
+        self.assertTrue(all(k not in out for k in ('ROUTE_REMAIN_DIS','ROUTE_ALL_DIS','NEW_ICON','ROUTE_REMAIN_TIME')))
     def test_unknown_and_invalid_fields_removed(self):
         s=sample(); f=s['items']['guidance_current']['value']['amap_exit_info']['fields']; f.update(CUR_SEG_NUM=True,CUR_POINT_NUM=-1,EXIT_NAME_INFO='bad\nname',EXTRA_DRIVE_WAY=[True],target_kph=10)
         self.assertEqual(json.loads(amap_exit_display_payload(s,NOW)['fieldsJson']),{'SEG_REMAIN_DIS':800})
