@@ -194,7 +194,8 @@
                 "LatMpcInputOffset",
                 "UseLaneLineSpeed",
                 "UseLaneLineCurveSpeed",
-                "AdjustLaneOffset"
+                "AdjustLaneOffset",
+                "ModelCurveCentering"
               ]
             },
             {
@@ -2827,6 +2828,30 @@
       "default": 0,
       "unit": 10,
       "display_unit": "distanceCm"
+    },
+    {
+      "group": "레인모드",
+      "name": "ModelCurveCentering",
+      "title": "모델 커브 중앙 보정",
+      "descr": "CAN-FD 아이오닉 5의 모델 조향 모드에서 양쪽 차선이 뚜렷하고 예측 경로가 커브 안쪽으로 치우칠 때 차로 중앙 쪽으로 조향 목표를 보정합니다. 기본값은 꺼짐입니다.",
+      "egroup": "LANE",
+      "etitle": "Model curve centering",
+      "edescr": "On the CAN-FD IONIQ 5, gently correct the steering target toward lane center when laneless model steering predicts a path too close to the inside of a curve and both lane lines are reliable. Off by default.",
+      "cgroup": "转向",
+      "ctitle": "模型弯道居中修正",
+      "cdescr": "仅适用于 CAN-FD IONIQ 5。使用模型转向时，若两侧车道线可靠且预测路径偏向弯道内侧，便朝车道中央微调转向目标。默认关闭。",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1,
+      "tgroup": "轉向",
+      "ttitle": "模型彎道置中修正",
+      "tdescr": "僅適用於 CAN-FD IONIQ 5。使用純模型轉向時，若兩側車道線可信且預測路徑偏向彎道內側，就朝車道中央微調轉向目標。預設關閉。",
+      "control": "toggle",
+      "risk": "high",
+      "brands": [
+        "hyundai"
+      ]
     },
     {
       "group": "조향일반",
