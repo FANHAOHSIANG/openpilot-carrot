@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import time
 from dataclasses import replace
 from typing import Any
@@ -332,6 +333,7 @@ def parse_carrot_navi(
 
     # Optional Amap display metadata. All existing guidance and lane semantics remain unchanged.
     exit_name, exit_deadline = "", 0.0
+    exit_direction, route_remaining = "", ""
     exit_info = _get(data, "amapExitInfo")
     if status is not None and status.guidance_active and not status.off_route and bool(_get(exit_info, "valid", False)):
         deadline = _int(exit_info, "deadlineMonoTimeNanos") / 1e9
@@ -344,6 +346,17 @@ def parse_carrot_navi(
                     ord(c) >= 32 and ord(c) != 127 and not 0xd800 <= ord(c) <= 0xdfff for c in candidate
                 ):
                     exit_name, exit_deadline = candidate.strip(), deadline
+                    # Only show explicit provider text; unknown numeric codes are not directions.
+                    direction = fields.get("EXIT_DIRECTION_INFO")
+                    if direction in ("左側", "左侧", "左側出口", "左侧出口"):
+                        exit_direction = "左側"
+                    elif direction in ("右側", "右侧", "右側出口", "右侧出口"):
+                        exit_direction = "右側"
+                    remaining = fields.get("ROUTE_REMAIN_DIS_AUTO")
+                    if isinstance(remaining, str) and len(remaining) <= 24 and re.fullmatch(
+                        r"[0-9]{1,7}(?:\.[0-9]{1,3})?\s*(?:km|m|公里|米|公尺)", remaining.strip(), re.I
+                    ):
+                        route_remaining = remaining.strip()
             except (ValueError, TypeError, RecursionError):
                 pass
 
@@ -374,6 +387,8 @@ def parse_carrot_navi(
         status=status,
         amap_exit_name=exit_name,
         amap_exit_deadline_s=exit_deadline,
+        amap_exit_direction=exit_direction,
+        amap_route_remaining_text=route_remaining,
     )
     return fresh_carrot_navi(state, now)[0]
 
@@ -427,5 +442,7 @@ def fresh_carrot_navi(state: NaviLiveState | None, now: float | None = None) -> 
         status=status,
         amap_exit_name=state.amap_exit_name if show_exit else "",
         amap_exit_deadline_s=state.amap_exit_deadline_s if show_exit else 0.0,
+        amap_exit_direction=state.amap_exit_direction if show_exit else "",
+        amap_route_remaining_text=state.amap_route_remaining_text if show_exit else "",
     )
     return effective, min(deadlines, default=math.inf)
