@@ -204,6 +204,8 @@ class NaviLiveState:
     crossroad: NaviCrossroadInfo | None = None
     route: NaviRouteInfo | None = None
     status: NaviStatusInfo | None = None
+    amap_exit_name: str = ""
+    amap_exit_deadline_s: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
