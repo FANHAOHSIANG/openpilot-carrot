@@ -28,17 +28,17 @@ def pre_adjust_payload(record: dict, now_ns: int) -> tuple[int, int]:
 
 
 def pre_adjust_candidate(navi, enabled: bool, now_ns: int) -> float:
-  if not enabled or navi is None or not navi.guidance_active or navi.off_route:
-    return NO_LIMIT_KPH
-  speed = navi.speed
-  target = speed.pre_adjust_kph
-  remaining = speed.pre_adjust_deadline_ns - now_ns
-  if not speed.present or not valid_target(target) or not 0 < remaining <= MAX_AGE_MS * 1_000_000:
-    return NO_LIMIT_KPH
-  return float(target)
+  # Legacy Amap native advisory carries no maneuver identity, location or
+  # completion evidence. A freshly recomputed target may describe a passed ramp.
+  # Quarantine this optional advisory until a maneuver-bound protocol is verified.
+  # Shared turn pre-adjust and all existing ATC/route/vision/camera constraints
+  # remain independent. Do not change this to a time-only or road-name heuristic.
+  return NO_LIMIT_KPH
 
 
 SOURCES = frozenset(("amap_auto", "amap_phone", "google_noo"))
+SHARED_PRE_PROTOCOL_VERSION = 2
+SHARED_PRE_SCOPE = "turn_only"
 
 
 def _expiry(record, generated, now_ns):
@@ -60,6 +60,13 @@ def shared_pre_adjust_payload(status_record, current_record, now_ns):
       or control.get("enabled") is not True or value.get("guidance_active") is not True
       or value.get("off_route", False)):
     return "", 0
+  # During a rolling update, legacy shared permissions remain turn-only.
+  # Explicit versions must match this contract; a version flag never grants
+  # native ramp control or supplies missing event identity.
+  if "protocol_version" in control or "scope" in control:
+    version = control.get("protocol_version")
+    if type(version) is not int or version != SHARED_PRE_PROTOCOL_VERSION or control.get("scope") != SHARED_PRE_SCOPE:
+      return "", 0
   # A fresh permission cannot extend an old maneuver. Both input ages count.
   status_deadline = _expiry(status_record, control.get("generated_at_ms"), now_ns)
   turn_deadline = _expiry(current_record, current_record.get("source_timestamp_ms"), now_ns)
