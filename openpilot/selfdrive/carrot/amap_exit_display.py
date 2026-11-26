@@ -1,5 +1,6 @@
 """Untrusted Amap Auto metadata for display consumers only; not control input."""
 import json
+import re
 
 MAX_AGE_MS = 2000
 MATCH_MS = 500
@@ -62,6 +63,12 @@ def amap_exit_display_payload(snapshot, now):
   for key in (*NUMERIC, "EXIT_DIRECTION_INFO"):
     if _number(raw.get(key)):
       fields[key] = raw[key]
+  # Observation-only IDs are not route identities or control authorization.
+  version, session, sequence = (raw.get(k) for k in ("BRIDGE_OBS_VERSION", "BRIDGE_OBS_SESSION", "BRIDGE_OBS_SEQUENCE"))
+  if (type(version) is int and version == 1 and type(session) is str
+      and re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", session)
+      and _number(sequence) and sequence > 0):
+    fields.update(BRIDGE_OBS_VERSION=version, BRIDGE_OBS_SESSION=session, BRIDGE_OBS_SEQUENCE=sequence)
   lane = raw.get("EXTRA_DRIVE_WAY")
   if _text(lane, 256) is not None:
     fields["EXTRA_DRIVE_WAY"] = lane
