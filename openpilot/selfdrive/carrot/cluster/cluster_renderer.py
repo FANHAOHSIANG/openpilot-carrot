@@ -5930,6 +5930,10 @@ class ClusterUiRenderer:
         nav_heading = self._text("navigation")
         if navi is not None and getattr(navi, "amap_exit_name", "") and 0 < getattr(navi, "amap_exit_deadline_s", 0.0) - time.monotonic() <= 2.0:
             nav_heading += " · " + navi.amap_exit_name
+            if navi.amap_exit_direction:
+                nav_heading += " · " + navi.amap_exit_direction
+            if navi.amap_route_remaining_text:
+                nav_heading += " · " + self._text("route") + " " + navi.amap_route_remaining_text
         self._draw_text(self._ellipsize_text(nav_heading, 16.0, width), x, 14.0, 16.0, theme.muted)
         if current is not None:
             current_text = self._readable_navi_text(current.main_text, current.road_name, current.near_direction)
