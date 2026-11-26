@@ -80,6 +80,16 @@ class DisplayInfoTests(unittest.TestCase):
         n=parse_carrot_navi(build_carrot_navi_payload(s,NOW),NOW/1e9)
         self.assertEqual((n.amap_exit_direction,n.amap_route_remaining_text),("",""))
         self.assertEqual(n.current.distance_m,800)
+    def test_wide85_observation_identity_is_atomic_and_optional(self):
+        s=sample()
+        f=s['items']['guidance_current']['value']['amap_exit_info']['fields']
+        f.update(BRIDGE_OBS_VERSION=1,BRIDGE_OBS_SESSION="12345678-1234-1234-1234-123456789abc",BRIDGE_OBS_SEQUENCE=42)
+        out=json.loads(build_carrot_navi_payload(s,NOW)['amapExitInfo']['fieldsJson'])
+        self.assertEqual(out['BRIDGE_OBS_SEQUENCE'],42)
+        self.assertEqual(out['BRIDGE_OBS_SESSION'],f['BRIDGE_OBS_SESSION'])
+        f['BRIDGE_OBS_SEQUENCE']=True
+        out=json.loads(amap_exit_display_payload(s,NOW)['fieldsJson'])
+        self.assertFalse(any(k.startswith('BRIDGE_OBS_') for k in out))
     def test_capnp_roundtrip(self):
         import capnp
         root=ROOT/'openpilot/cereal'
