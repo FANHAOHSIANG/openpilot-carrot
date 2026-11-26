@@ -67,6 +67,19 @@ class DisplayInfoTests(unittest.TestCase):
         self.assertEqual(n.current.turn_type,51)
         self.assertEqual(fresh_carrot_navi(n,11.5)[0].amap_exit_name,'')
         self.assertEqual(parse_carrot_navi(old,NOW/1e9).amap_exit_name,'')
+    def test_heading_optional_fields(self):
+        s=sample()
+        f=s['items']['guidance_current']['value']['amap_exit_info']['fields']
+        f.update(EXIT_DIRECTION_INFO="右侧出口",ROUTE_REMAIN_DIS_AUTO="12.3 km")
+        n=parse_carrot_navi(build_carrot_navi_payload(s,NOW),NOW/1e9)
+        self.assertEqual(n.amap_exit_direction,"右側")
+        self.assertEqual(n.amap_route_remaining_text,"12.3 km")
+        expired=fresh_carrot_navi(n,11.5)[0]
+        self.assertEqual((expired.amap_exit_direction,expired.amap_route_remaining_text),("",""))
+        f.update(EXIT_DIRECTION_INFO=2,ROUTE_REMAIN_DIS_AUTO="turn now")
+        n=parse_carrot_navi(build_carrot_navi_payload(s,NOW),NOW/1e9)
+        self.assertEqual((n.amap_exit_direction,n.amap_route_remaining_text),("",""))
+        self.assertEqual(n.current.distance_m,800)
     def test_capnp_roundtrip(self):
         import capnp
         root=ROOT/'openpilot/cereal'
