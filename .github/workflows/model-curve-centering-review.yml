@@ -1,0 +1,35 @@
+name: Model curve centering offline review
+on:
+  pull_request:
+    branches: [test/carrot-wip-upstream-20261104]
+    paths:
+      - 'openpilot/selfdrive/controls/**'
+      - 'openpilot/cereal/log.capnp'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - '.github/workflows/model-curve-centering-review.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Build existing offline native prerequisites
+        run: scons -f tools/native_cpu/SConstruct -j2
+      - name: Run model geometry, complete controls fixtures and readiness with no live IPC
+        run: |
+          python tools/signal_validation/run.py \
+            openpilot/selfdrive/controls/tests/test_curve_centering.py \
+            openpilot/selfdrive/controls/tests/test_curve_centering_controls.py \
+            openpilot/selfdrive/controls/tests/test_lateral_startup_control.py \
+            openpilot/selfdrive/controls/tests/test_controlsd_publish.py \
+            openpilot/selfdrive/controls/tests/test_lateral_readiness.py

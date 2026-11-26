@@ -868,6 +868,9 @@ struct ControlsState @0x97ff69c53601abf1 {
   forceDecel @51 :Bool;
 
   activeLaneLine @67 : Bool;
+  steeringInfluence @68 :Text;  # Reserved for wire compatibility with fusion; not populated by this port.
+  modelCurveCenteringEnabled @69 :Bool;
+  modelCurveCenteringDelta @70 :Float32;
 
   lateralControlState :union {
     pidState @53 :LateralPIDState;

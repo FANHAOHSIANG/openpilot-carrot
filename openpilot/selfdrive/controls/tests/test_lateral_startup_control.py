@@ -1,5 +1,6 @@
 import ast
 import math
+import time
 from functools import partial
 from numbers import Number
 from pathlib import Path
@@ -12,6 +13,8 @@ from openpilot.cereal import car, log
 from openpilot.common.realtime import DT_CTRL
 from openpilot.common.constants import CV
 from openpilot.selfdrive.car.voice_indicator import set_lane_change_blinkers
+from openpilot.selfdrive.carrot.carrot_man_input import get_carrot_man
+from openpilot.selfdrive.controls.lib.curve_centering import CurveCentering, MIN_SPEED as CURVE_CENTERING_MIN_SPEED
 from openpilot.selfdrive.selfdrived.vehicle_faults import inhibit_faulted_controls
 from opendbc.car.vehicle_model import VehicleModel
 from opendbc.car.interfaces import CarInterfaceBase
@@ -23,15 +26,15 @@ from openpilot.selfdrive.controls.lib.steer_ratio import resolve_vehicle_model_s
 from openpilot.selfdrive.controls.tests.test_lateral_readiness import Messages
 
 
-def control_fixture():
+def control_fixture(fingerprint=''):
   # Execute the complete production state_control and actual torque controller,
   # replacing only IPC/settings, the longitudinal loop and hardware construction.
   path = Path(__file__).parents[1] / 'controlsd.py'
   tree = ast.parse(path.read_text(encoding='utf8'))
   cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Controls')
-  names = {'lateral_control_allowed', 'state_control'}
+  names = {'lateral_control_allowed', 'update', '_update_curve_centering', 'state_control'}
   nodes = [n for n in tree.body + cls.body if isinstance(n, ast.FunctionDef) and n.name in names]
-  ns = {'math': math, 'np': np, 'Number': Number, 'car': car, 'DT_CTRL': DT_CTRL, 'CV': CV,
+  ns = {'time': time, 'log': log, 'get_carrot_man': get_carrot_man, 'CURVE_CENTERING_MIN_SPEED': CURVE_CENTERING_MIN_SPEED, 'math': math, 'np': np, 'Number': Number, 'car': car, 'DT_CTRL': DT_CTRL, 'CV': CV,
         'MIN_LATERAL_CONTROL_SPEED': MIN_LATERAL_CONTROL_SPEED, 'LaneChangeState': log.LaneChangeState,
         'LaneChangeDirection': log.LaneChangeDirection, 'ACTUATOR_FIELDS': tuple(car.CarControl.Actuators.schema.fields),
         'clip_curvature': clip_curvature, 'get_lag_adjusted_curvature': get_lag_adjusted_curvature,
@@ -51,6 +54,7 @@ def control_fixture():
   torque.latAccelFactor = 2.963873863
   torque.friction = 0.07813665
   torque.useSteeringAngle = True
+  cp.carFingerprint = fingerprint
   cp = cp.as_reader()
   ci = NS(use_nnff=False, use_nnff_lite=False,
           torque_from_lateral_accel=lambda: partial(CarInterfaceBase.torque_from_lateral_accel_linear, None),
@@ -69,6 +73,13 @@ def control_fixture():
                carrot_controls=NS(lat_suspend_control=lambda cs, active: active), is_vw_meb=False,
                desired_curvature=0.0, lateral_startup=LateralStartupGate(), lateral_started=False,
                steer_limited_by_safety=False)
+  control.curve_centering = CurveCentering() if fingerprint == 'HYUNDAI_IONIQ_5' else None
+  control.curve_centering_enabled = False
+  control.curve_centering_delta = 0.0
+  control.curve_centering_eof = 0
+  control.curve_centering_frame = -1
+  control._update_curve_centering = partial(ns['_update_curve_centering'], control)
+  control.update = partial(ns['update'], control)
   return control, lambda: ns['state_control'](control)
 
 
