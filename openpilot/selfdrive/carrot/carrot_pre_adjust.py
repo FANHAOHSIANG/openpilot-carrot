@@ -37,6 +37,8 @@ def pre_adjust_candidate(navi, enabled: bool, now_ns: int) -> float:
 
 
 SOURCES = frozenset(("amap_auto", "amap_phone", "google_noo"))
+SHARED_PRE_PROTOCOL_VERSION = 2
+SHARED_PRE_SCOPE = "turn_only"
 
 
 def _expiry(record, generated, now_ns):
@@ -58,6 +60,13 @@ def shared_pre_adjust_payload(status_record, current_record, now_ns):
       or control.get("enabled") is not True or value.get("guidance_active") is not True
       or value.get("off_route", False)):
     return "", 0
+  # During a rolling update, legacy shared permissions remain turn-only.
+  # Explicit versions must match this contract; a version flag never grants
+  # native ramp control or supplies missing event identity.
+  if "protocol_version" in control or "scope" in control:
+    version = control.get("protocol_version")
+    if type(version) is not int or version != SHARED_PRE_PROTOCOL_VERSION or control.get("scope") != SHARED_PRE_SCOPE:
+      return "", 0
   # A fresh permission cannot extend an old maneuver. Both input ages count.
   status_deadline = _expiry(status_record, control.get("generated_at_ms"), now_ns)
   turn_deadline = _expiry(current_record, current_record.get("source_timestamp_ms"), now_ns)
