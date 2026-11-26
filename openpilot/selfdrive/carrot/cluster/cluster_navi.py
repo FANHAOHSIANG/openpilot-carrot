@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import time
 from dataclasses import replace
@@ -329,6 +330,23 @@ def parse_carrot_navi(
                 route_present=bool(_get(status_item, "routePresent", False)),
             )
 
+    # Optional Amap display metadata. All existing guidance and lane semantics remain unchanged.
+    exit_name, exit_deadline = "", 0.0
+    exit_info = _get(data, "amapExitInfo")
+    if status is not None and status.guidance_active and not status.off_route and bool(_get(exit_info, "valid", False)):
+        deadline = _int(exit_info, "deadlineMonoTimeNanos") / 1e9
+        raw = _text(exit_info, "fieldsJson")
+        if 0 < deadline - now <= 2.0 and 0 < len(raw) <= 16000:
+            try:
+                fields = json.loads(raw)
+                candidate = fields.get("EXIT_NAME_INFO") if isinstance(fields, dict) else None
+                if isinstance(candidate, str) and candidate.strip() and len(candidate) <= 160 and all(
+                    ord(c) >= 32 and ord(c) != 127 and not 0xd800 <= ord(c) <= 0xdfff for c in candidate
+                ):
+                    exit_name, exit_deadline = candidate.strip(), deadline
+            except (ValueError, TypeError, RecursionError):
+                pass
+
     state = NaviLiveState(
         generation=max(0, _int(data, "generation")),
         session_id=session_id,
@@ -354,6 +372,8 @@ def parse_carrot_navi(
         crossroad=crossroad,
         route=route,
         status=status,
+        amap_exit_name=exit_name,
+        amap_exit_deadline_s=exit_deadline,
     )
     return fresh_carrot_navi(state, now)[0]
 
@@ -386,6 +406,10 @@ def fresh_carrot_navi(state: NaviLiveState | None, now: float | None = None) -> 
     crossroad = fresh(state.crossroad, LIVE_TTL_S)
     route = fresh(state.route, ROUTE_TTL_S)
     status = fresh(state.status, STATUS_TTL_S)
+    show_exit = bool(state.amap_exit_name and current is not None and status is not None and
+                     status.guidance_active and not status.off_route and 0 < state.amap_exit_deadline_s - now <= 2.0)
+    if show_exit:
+        deadlines.append(state.amap_exit_deadline_s)
 
     if not any((vehicle, current, next_guidance, lane_current, lane_ahead, speed, traffic, crossroad, route, status)):
         return None, math.inf
@@ -401,5 +425,7 @@ def fresh_carrot_navi(state: NaviLiveState | None, now: float | None = None) -> 
         crossroad=crossroad,
         route=route,
         status=status,
+        amap_exit_name=state.amap_exit_name if show_exit else "",
+        amap_exit_deadline_s=state.amap_exit_deadline_s if show_exit else 0.0,
     )
     return effective, min(deadlines, default=math.inf)
