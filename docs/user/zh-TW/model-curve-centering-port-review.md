@@ -4,3 +4,5 @@
 只移植 IONIQ 5 的選用模型曲率修正、設定與診斷。預設關閉。保留獨立 Test 的 CarrotPlanner、既有模型 0.1 秒平滑與 clip_curvature；不改縱向控制、車控限制、CAN/Panda 或 HKG 扭力。獨立 Test schema 尚無 plannerProfile，因此不宣稱 Autospeed 相容。
 開關、車道線模式、接管、方向燈、變道、導航轉彎、資料新鮮度、標定等拒絕條件沿用融合版。新增 schema 欄位使用融合版相同 ordinal；@68 為保留相容欄位。
 本候選未執行完整 native CI、實車或離線真實路線回放；僅可作離線審查，不可部署。
+
+首輪候選驗證：本地 33 項模型幾何單元測試通過（helper 與原測試 Git blob SHA 皆核對一致；使用固定 Test 的模型距離格點，並非完整執行環境）；GitHub 原有 native CAN-FD/Panda 與控制發佈回歸 316 pass、route curve 153 pass、B1/indicator 通過。文件計數 221→222 已調整。既有 official sync gate 的 custom.capnp pin 失敗，移植前後 custom.capnp blob 均為 7aa688efb490715057f1d1b05df51d5d5c30cf9e；保持原門檻不變，獨立處理。新增專用離線 CI 尚待結果。
