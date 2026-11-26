@@ -206,6 +206,8 @@ class NaviLiveState:
     status: NaviStatusInfo | None = None
     amap_exit_name: str = ""
     amap_exit_deadline_s: float = 0.0
+    amap_exit_direction: str = ""
+    amap_route_remaining_text: str = ""
 
 
 @dataclass(frozen=True, slots=True)
