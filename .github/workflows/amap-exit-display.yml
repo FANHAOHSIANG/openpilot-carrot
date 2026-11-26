@@ -1,0 +1,27 @@
+name: Amap exit display compatibility
+on:
+  pull_request:
+    paths:
+      - 'openpilot/cereal/custom.capnp'
+      - 'openpilot/selfdrive/carrot/amap_exit_display.py'
+      - 'openpilot/selfdrive/carrot/carrot_navi_cereal.py'
+      - 'openpilot/selfdrive/carrot/cluster/cluster_*.py'
+      - 'tools/amap_exit_display/**'
+      - '.github/workflows/amap-exit-display.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  display:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pycapnp==2.1.0
+      - run: python tools/amap_exit_display/check.py
+      - run: python -m py_compile openpilot/selfdrive/carrot/cluster/cluster_renderer.py
