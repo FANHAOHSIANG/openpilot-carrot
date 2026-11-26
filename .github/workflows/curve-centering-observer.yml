@@ -1,0 +1,37 @@
+name: Curve centering observer
+on:
+  pull_request:
+    paths:
+      - "openpilot/tools/curve_centering/**"
+      - ".github/workflows/curve-centering-observer.yml"
+  push:
+    branches: ["research/curve-centering-observer-*"]
+    paths:
+      - "openpilot/tools/curve_centering/**"
+      - ".github/workflows/curve-centering-observer.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  observation-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            openpilot/tools/curve_centering
+            openpilot/cereal
+            openpilot/selfdrive/controls
+            opendbc_repo/opendbc/car
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pycapnp==2.1.0 zstandard pytest numpy ruff==0.17.5
+      - run: python -m pytest -o addopts='' --confcutdir=openpilot/tools/curve_centering openpilot/tools/curve_centering/tests -q
+      - run: python -m ruff check openpilot/tools/curve_centering
+      - name: Synthetic closed-loop falsification
+        run: python -m openpilot.tools.curve_centering.simulation --output curve-simulation.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: curve-synthetic-falsification
+          path: curve-simulation.json
