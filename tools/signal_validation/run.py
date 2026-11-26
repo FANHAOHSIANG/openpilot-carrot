@@ -19,6 +19,14 @@ class IsolatedParams:
     assert key == "LanguageSetting", key
     return "en-US"
 
+  def get_int(self, key):
+    assert key == "LateralTorqueCustom", key
+    return 0  # pinned Params default; never a persisted device value
+
+  def get_float(self, key):
+    assert key == "SteerActuatorDelay", key
+    return 0.0  # pinned Params default
+
   def put_int(self, key, value):
     assert (key, value) == ('LongitudinalPersonalityMax', 3)
 
