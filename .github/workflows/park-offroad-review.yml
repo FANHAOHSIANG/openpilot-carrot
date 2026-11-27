@@ -1,0 +1,38 @@
+name: Park-only forced offroad review
+on:
+  pull_request:
+    branches: [test/carrot-wip-upstream-20261104]
+    paths:
+      - 'openpilot/common/*forced_offroad*'
+      - 'openpilot/common/tests/test_forced_offroad.py'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/car/card.py'
+      - 'openpilot/system/hardware/hardwared.py'
+      - 'openpilot/system/manager/**'
+      - 'openpilot/selfdrive/ui/**'
+      - 'openpilot/selfdrive/carrot/**'
+      - '.github/workflows/park-offroad-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install pytest aiohttp
+      - name: Syntax and offline interlock regressions
+        env:
+          PYTHONPATH: .:opendbc_repo
+        run: |
+          python -m compileall -q openpilot/common/forced_offroad.py openpilot/selfdrive/car/card.py openpilot/system/hardware/hardwared.py openpilot/system/manager/manager.py openpilot/system/manager/process_config.py openpilot/selfdrive/ui/widgets/forced_offroad.py openpilot/selfdrive/ui/layouts/settings/device.py openpilot/selfdrive/ui/mici/layouts/settings/device.py openpilot/selfdrive/carrot/server/features/forced_offroad.py
+          python -m pytest -c /dev/null --rootdir=. --noconftest -q openpilot/common/tests/test_forced_offroad.py
+          cd openpilot/selfdrive/carrot/web
+          node --test tests/forced_offroad.test.mjs
