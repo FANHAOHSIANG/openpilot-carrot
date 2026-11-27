@@ -111,3 +111,7 @@ The optional IONIQ 5 model curve-centering trim does not change driver-monitorin
 ### Park-only forced offroad
 
 The normal offroad lifecycle stops driving assistance and its driving-monitoring processes when forced offroad is active. This mode cannot be requested while assistance is engaged or outside a valid stationary Park state. It cancels on leaving Park, motion, invalid vehicle data or ignition off; normal onroad initialization is required again. It does not change the driver-monitoring policy or disable monitoring during normal driving. See [settings](settings.md#force-offroad-park-only).
+
+### HKG Phase 1 and steering observations
+
+The scoped HKG Phase 1 option changes selected model-path and longitudinal planning behavior, not the driver-monitoring policy. Low-speed steering observations are passive diagnostics; they do not grant additional steering authority or replace driver monitoring. Keep driver monitoring enabled. This scoped test port is not the full low-speed steering reserve feature and does not establish road-use validation.
