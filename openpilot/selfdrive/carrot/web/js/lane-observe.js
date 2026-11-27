@@ -170,6 +170,7 @@ function boot(doc,win){
     }
     $("count").textContent=records.length+" 筆"+(dropped?"（上限停止）":"")+" · 解碼失敗 "+decodeErrors;
   }
+  const hudMode=$("mainHudMode");if(hudMode){try{hudMode.value=win.localStorage.getItem("carrot.laneHudObserve.v1")||"off";}catch(_){}hudMode.onchange=()=>{try{win.localStorage.setItem("carrot.laneHudObserve.v1",hudMode.value);}catch(_){status.textContent="無法儲存主 HUD 設定";}};}
   $("connect").onclick=()=>{enabled=!enabled;if(enabled){$("connect").textContent="停止連線";connect();}else{disconnect();$("connect").textContent="開始連線";status.textContent="已停止";}};
   $("displayMode").onchange=()=>update();
   $("record").onclick=()=>{if(records.length>=MAX_RECORDS)return;recording=!recording;$("record").textContent=recording?"停止紀錄":"開始紀錄";};
@@ -182,5 +183,5 @@ function boot(doc,win){
   win.setInterval(update,200);update();
 }
 root.CarrotLaneObserve={points,at,geometry,decodeWire,snapshot,ingest,presentation};
-if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>boot(document,window));
+if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>{if(document.getElementById("plot")&&document.getElementById("displayMode"))boot(document,window);});
 })(globalThis);

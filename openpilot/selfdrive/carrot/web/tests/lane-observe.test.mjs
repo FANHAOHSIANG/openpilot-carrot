@@ -56,3 +56,15 @@ test("actual snapshot expiration clears event overlay",()=>{
  ingest(c,event("carrotNavi",{...nav,laneCurrent:{...nav.laneCurrent,visible:false}},11e9),1900);
  assert.equal(globalThis.CarrotLaneObserve.presentation(snapshot(c,1900),"auto").visible,false);
 });
+
+import "../js/lane-hud-observe.js";
+test("main HUD observes only current valid lane and never suggests a maneuver",()=>{
+ const core=globalThis.CarrotLaneObserve,hud=globalThis.CarrotLaneHudObserve,c={};
+ ingest(c,event("carrotNavi",{connected:true,laneCurrent:{present:true,visible:true,count:4,distanceM:140,available:[0,1,1,0],meta:{receivedMonoTimeNanos:9e9}}}),100);
+ const p=hud.view(core,c,200,"auto",true);assert.equal(p.count,4);assert.equal(p.distance,140);assert.equal(p.control_usable,false);assert.equal(p.note,"導航車道資料 · 尚未匹配自車位置");
+ assert.equal(hud.view(core,c,200,"off",true),null);assert.equal(hud.view(core,c,200,"auto",false),null);
+ assert.equal(hud.view(core,c,1800,"auto",true),null);
+ assert.equal(hud.view(core,c,1800,"always",true).active,false);
+ ingest(c,event("carrotNavi",{connected:true,laneCurrent:{present:false,visible:false,count:4}},11e9),300);
+ assert.equal(hud.view(core,c,300,"auto",true),null);
+});

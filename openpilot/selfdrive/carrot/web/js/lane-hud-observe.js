@@ -1,0 +1,67 @@
+// Read-only optional live HUD event panel. It never changes the driven path.
+// Separate navigation-only raw subscription because compact lane messages
+// omit the original receipt timestamp. No media ownership or control writes.
+(function(root){
+"use strict";
+const KEY="carrot.laneHudObserve.v1";
+const mode=v=>["auto","always","off"].includes(v)?v:"off";
+function view(core,cache,now,displayMode,visible){
+  if(!visible||mode(displayMode)==="off")return null;
+  const s=core.snapshot(cache,now);
+  const p=core.presentation(s,displayMode);
+  if(!p.visible)return null;
+  return {count:p.count,distance:p.distance_m,
+    flags:p.raw_flags,active:p.event_active,
+    note:p.event_active?"導航車道資料 · 尚未匹配自車位置":"等待有效車道引導",
+    control_usable:false};
+}
+function boot(doc,win){
+  const core=win.CarrotLaneObserve,decoder=win.CarrotRawCapnp;
+  if(!core||!decoder)return;
+  let cache={},socket=null,panel=null,host=null,nextConnect=0,lastText="";
+  function setting(){try{return mode(win.localStorage.getItem(KEY));}catch(_){return "off";}}
+  function hide(){if(panel)panel.hidden=true;}
+  function close(){const s=socket;socket=null;cache={};if(s){try{s.close();}catch(_){}}hide();}
+  function connect(){
+    const url=new URL("/ws/raw_multiplex",win.location.href);
+    url.protocol=win.location.protocol==="https:"?"wss:":"ws:";
+    url.searchParams.set("services","carrotNavi");
+    const s=new win.WebSocket(url);socket=s;s.binaryType="arraybuffer";
+    s.onmessage=e=>{if(socket!==s||typeof e.data==="string")return;
+      try{const event=core.decodeWire(e.data,decoder);if(event?.service==="carrotNavi")core.ingest(cache,event,win.performance.now());}catch(_){cache={};hide();}};
+    s.onclose=()=>{if(socket!==s)return;socket=null;cache={};hide();nextConnect=win.performance.now()+2000;};
+    s.onerror=()=>{try{s.close();}catch(_){}};
+  }
+  function mount(target){
+    if(host===target&&panel?.isConnected)return;
+    panel?.remove();host=target;
+    panel=doc.createElement("div");panel.hidden=true;
+    panel.setAttribute("data-lane-guide-observe","true");
+    panel.setAttribute("aria-label","導航車道觀察，非變道指示");
+    Object.assign(panel.style,{position:"absolute",top:"19%",left:"50%",transform:"translateX(-50%)",
+      maxWidth:"52%",padding:"5px 9px",border:"1px solid #68849a",borderRadius:"7px",
+      background:"rgba(15,25,35,.88)",color:"#e7eef5",textAlign:"center",
+      font:"600 clamp(10px,1.5vw,14px)/1.35 system-ui",pointerEvents:"none",zIndex:"1"});
+    host.appendChild(panel);lastText="";
+  }
+  function tick(){
+    const m=setting(),overlay=win.CarrotHudOverlay;
+    const visible=m!=="off"&&!doc.hidden&&!win.CarrotVisionReplay?.isActive?.()&&
+      overlay?.status?.()?.visible===true&&overlay.root?.isConnected===true;
+    if(!visible){close();return;}
+    mount(overlay.root);
+    const now=win.performance.now();
+    if(!socket&&now>=nextConnect){try{connect();}catch(_){nextConnect=now+2000;}}
+    const p=view(core,cache,now,m,true);
+    if(!p){hide();return;}
+    const txt=p.active?("導航 "+p.count+" 車道"+(p.distance==null?"":" · "+p.distance+" m")+"\n"+p.note):p.note;
+    if(lastText!==txt){panel.textContent=txt;panel.style.whiteSpace="pre-line";lastText=txt;}
+    panel.hidden=false;
+  }
+  doc.addEventListener("visibilitychange",()=>{if(doc.hidden)close();else tick();});
+  win.addEventListener("pagehide",close);
+  win.setInterval(tick,200);
+}
+root.CarrotLaneHudObserve={KEY,mode,view};
+if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>boot(document,window));
+})(globalThis);
