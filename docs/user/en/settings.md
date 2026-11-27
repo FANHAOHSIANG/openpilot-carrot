@@ -589,3 +589,7 @@ Device Settings → Device and Carrot Web → Tools → User / System share a se
 ## HKG scoped Test port
 
 Optional HkgPhase1Assist adjusts only model-path filtering and the direct ACC curve speed ceiling. LowSpeedSteerObserveOnly records steering response without increasing torque or slew. Both default off. Full torque reserve remains blocked by CAN-FD safety review; no vehicle acceptance yet.
+
+### Offline steering guard staging
+
+The draft engineering branch stages a separate, default-off reserve parameter for offline validation only. HkgPhase1Assist remains model-only, and passive observation remains independent. No settings UI or road-use release is provided. Native controller/Panda parity and controlled hardware validation remain release requirements.
