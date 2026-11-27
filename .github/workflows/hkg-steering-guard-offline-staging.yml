@@ -1,0 +1,38 @@
+name: HKG steering guard offline staging
+on:
+  push:
+    branches: [test/hkg-steering-guard-port-20261127]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Build native offline safety hooks
+        run: |
+          scons -f tools/native_cpu/SConstruct -j2
+          python opendbc_repo/opendbc/dbc/generator/generator.py
+          cd opendbc_repo/opendbc/safety
+          gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -I. -Iboard tests/libsafety/safety.c -o tests/libsafety/libsafety.so
+      - name: Guard-only TX and forwarding regression (no controller integration)
+        run: |
+          python tools/signal_validation/run.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_steering_guard.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py \
+            -k 'not real_controller and not sorento and not four_families'
+      - name: Existing independent Test regressions
+        run: |
+          python tools/signal_validation/run.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
+            opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_alt_buttons.py \
+            openpilot/selfdrive/controls/tests/test_hkg_test_scoped.py
