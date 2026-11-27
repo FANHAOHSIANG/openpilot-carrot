@@ -17,4 +17,4 @@ jobs:
           node-version: '22'
       - run: |
           cd openpilot/selfdrive/carrot/web
-          node --test tests/lane-evidence.test.mjs tests/lane-observe.test.mjs tests/raw_capnp_carrot_navi.test.mjs
+          node --test tests/lane-candidate.test.mjs tests/lane-evidence.test.mjs tests/lane-observe.test.mjs tests/raw_capnp_carrot_navi.test.mjs

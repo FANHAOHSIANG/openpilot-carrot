@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import "../js/lane-candidate.js";
+const {parseLaneCandidate:p}=globalThis.CarrotLaneCandidate;
+const row=(i,a)=>({drive_way_number:i,drive_way_lane_Back_icon:"15",trafficLaneAdvised:a});
+const auto=rows=>({drive_way_enabled:true,drive_way_size:rows.length,drive_way_info:rows});
+test("explicit auto advice, ordering and string flag",()=>{const v=p("amap_auto_13012",auto([row(1,"true"),row(0,false)]));assert.equal(v.guide.lanes[1].advised,true);assert.equal(v.guide.lanes[0].advised,false);assert.equal(v.absoluteLaneIndex,null);assert.equal(v.controlUsable,false);});
+test("duplicate index and malformed count rejected",()=>{assert.equal(p("amap_auto_13012",auto([row(0,true),row(0,false)])).guide,null);assert.equal(p("amap_link_14",{laneCount:4,backLane:[0],frontLane:[0]}).guide,null);});
+test("missing/redacted is unknown, all false is not a recommendation",()=>{assert.equal(p("amap_auto_13012",auto([row(0,{_string_chars:4})])).guide.lanes[0].advised,null);assert.equal(p("amap_auto_13012",auto([row(0,false)])).status,"no_positive_advice");});
+test("withdrawal and invalid input",()=>{assert.equal(p("amap_auto_13012",{drive_way_enabled:false}).status,"withdrawn");assert.equal(p("amap_auto_13012","{").guide,null);assert.equal(p("amap_link_14",{laneCount:0}).status,"withdrawn");});
+test("Link front code 255 means not recommended candidate",()=>{const v=p("amap_link_14",{laneCount:4,backLane:[1,0,0,21],frontLane:[255,0,0,255]});assert.deepEqual(v.guide.lanes.map(x=>x.advised),[false,true,true,false]);assert.equal(v.controlUsable,false);assert.equal(v.guide.absoluteMappingVerified,false);});
