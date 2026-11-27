@@ -58,10 +58,11 @@ function snapshot(cache,now){
   if(nav&&nav.decoded?.connected===true){
     const a=nav.decoded.laneCurrent,meta=a?.meta;
     const age=meta&&finite(meta.receivedMonoTimeNanos)?(nav.logMonoTime-meta.receivedMonoTimeNanos)/1e6:null;
-    if(a?.present===true&&a.visible===true&&Number.isInteger(a.count)&&a.count>0&&a.count<=32&&age!==null&&age>=0&&age<=6000){
+    const elapsed=now-cache.carrotNavi.received;
+    if(a?.present===true&&a.visible===true&&Number.isInteger(a.count)&&a.count>0&&a.count<=32&&age!==null&&age>=0&&age+elapsed<=6000){
       lane={count:a.count,distance_m:bounded(a.distanceM,0,2000000)?a.distanceM:null,
         available_raw:Array.isArray(a.available)&&a.available.length===a.count&&a.available.every(v=>Number.isInteger(v)&&v>=-32768&&v<=32767)?a.available.slice():[],
-        receipt_age_ms:Math.round(age),source_wall_ms:meta.sourceTimestampMillis||null,received_mono_ns:meta.receivedMonoTimeNanos};
+        receipt_age_ms:Math.round(age+elapsed),source_wall_ms:meta.sourceTimestampMillis||null,received_mono_ns:meta.receivedMonoTimeNanos};
       navReason="lane_present";
     }else if(a?.present===true&&a.visible===true)navReason="invalid_or_expired_lane";
   }
@@ -82,6 +83,14 @@ function ingest(cache,event,received){
   if(!event||!finite(received))return;
   const old=cache[event.service];
   if(old&&event.logMonoTime<old.event.logMonoTime){for(const key of Object.keys(cache))delete cache[key];}
+  // Repeated envelopes must not extend the original browser arrival time.
+  // A same-timestamp withdrawal or invalid event is still allowed to clear the view.
+  if(old&&event.logMonoTime===old.event.logMonoTime){
+    const next=event.decoded?.laneCurrent;
+    const withdrawal=event.valid!==true||(event.service==="carrotNavi"&&(event.decoded?.connected!==true||next?.present!==true||next?.visible!==true));
+    if(withdrawal)cache[event.service]={event,received:old.received};
+    return;
+  }
   cache[event.service]={event,received};
 }
 
