@@ -88,3 +88,19 @@ test("source receipt age includes browser residence and withdrawal cannot be rev
  ingest(c,event("carrotNavi",nav),230);
  assert.equal(snapshot(c,230).lane,null);
 });
+
+
+test("main HUD co-observes live local geometry without assigning lane",()=>{
+ const core=globalThis.CarrotLaneObserve,hud=globalThis.CarrotLaneHudObserve,c={};
+ const nav={connected:true,laneCurrent:{present:true,visible:true,count:4,available:[],meta:{receivedMonoTimeNanos:9e9}}};
+ ingest(c,event("carrotNavi",nav),100);ingest(c,event("modelV2",model),100);
+ let p=hud.view(core,c,200,"auto",true);assert.equal(p.count,4);assert.equal(p.visualCount,3);assert.equal(p.synchronized,true);assert.equal(p.recommendedLane,null);assert.equal(p.control_usable,false);
+ p=hud.view(core,c,701,"auto",true);assert.equal(p.visualCount,null);assert.equal(p.synchronized,false);
+ assert.equal(hud.view(core,c,1601,"auto",true),null);
+});
+test("main HUD rejects temporal association when model and nav times diverge",()=>{
+ const core=globalThis.CarrotLaneObserve,hud=globalThis.CarrotLaneHudObserve,c={};
+ ingest(c,event("carrotNavi",{connected:true,laneCurrent:{present:true,visible:true,count:3,meta:{receivedMonoTimeNanos:9e9}}}),100);
+ ingest(c,event("modelV2",model,11e9),100);
+ const p=hud.view(core,c,200,"auto",true);assert.equal(p.visualCount,3);assert.equal(p.synchronized,false);assert.equal(p.recommendedLane,null);
+});

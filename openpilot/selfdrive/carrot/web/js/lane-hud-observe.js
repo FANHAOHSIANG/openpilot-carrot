@@ -1,5 +1,5 @@
 // Read-only optional live HUD event panel. It never changes the driven path.
-// Separate navigation-only raw subscription because compact lane messages
+// Optional dual-source raw subscription because compact lane messages
 // omit the original receipt timestamp. No media ownership or control writes.
 (function(root){
 "use strict";
@@ -12,6 +12,9 @@ function view(core,cache,now,displayMode,visible){
   if(!p.visible)return null;
   return {count:p.count,distance:p.distance_m,
     flags:p.raw_flags,active:p.event_active,
+    visualCount:p.visual_count,visualWidth:p.visual_width_m,
+    synchronized:p.event_active&&p.visual_count!==null&&Number.isFinite(s.model_nav_message_delta_ms)&&Math.abs(s.model_nav_message_delta_ms)<=250,
+    recommendation_status:p.recommendation_status,recommendedLane:null,
     note:p.event_active?"導航車道資料 · 尚未匹配自車位置":"等待有效車道引導",
     control_usable:false};
 }
@@ -25,10 +28,10 @@ function boot(doc,win){
   function connect(){
     const url=new URL("/ws/raw_multiplex",win.location.href);
     url.protocol=win.location.protocol==="https:"?"wss:":"ws:";
-    url.searchParams.set("services","carrotNavi");
+    url.searchParams.set("services","carrotNavi,modelV2");
     const s=new win.WebSocket(url);socket=s;s.binaryType="arraybuffer";
     s.onmessage=e=>{if(socket!==s||typeof e.data==="string")return;
-      try{const event=core.decodeWire(e.data,decoder);if(event?.service==="carrotNavi")core.ingest(cache,event,win.performance.now());}catch(_){cache={};hide();}};
+      try{const event=core.decodeWire(e.data,decoder);if(["carrotNavi","modelV2"].includes(event?.service))core.ingest(cache,event,win.performance.now());}catch(_){cache={};hide();}};
     s.onclose=()=>{if(socket!==s)return;socket=null;cache={};hide();nextConnect=win.performance.now()+2000;};
     s.onerror=()=>{try{s.close();}catch(_){}};
   }
@@ -54,7 +57,8 @@ function boot(doc,win){
     if(!socket&&now>=nextConnect){try{connect();}catch(_){nextConnect=now+2000;}}
     const p=view(core,cache,now,m,true);
     if(!p){hide();return;}
-    const txt=p.active?("導航 "+p.count+" 車道"+(p.distance==null?"":" · "+p.distance+" m")+"\n"+p.note):p.note;
+    const vision=p.visualCount==null?"視覺車道資料不足":("視覺 "+p.visualCount+" 條局部候選"+(p.synchronized?" · 時間接近":" · 時間未對齊"));
+    const txt=p.active?("導航 "+p.count+" 車道"+(p.distance==null?"":" · "+p.distance+" m")+"\n"+vision+"\n"+p.note):p.note;
     if(lastText!==txt){panel.textContent=txt;panel.style.whiteSpace="pre-line";lastText=txt;}
     panel.hidden=false;
   }
