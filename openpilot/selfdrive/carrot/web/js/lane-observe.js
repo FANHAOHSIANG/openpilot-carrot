@@ -89,6 +89,8 @@ function ingest(cache,event,received){
     const next=event.decoded?.laneCurrent;
     const withdrawal=event.valid!==true||(event.service==="carrotNavi"&&(event.decoded?.connected!==true||next?.present!==true||next?.visible!==true));
     if(withdrawal)cache[event.service]={event,received:old.received};
+    else if(event.service==="carrotNavi"&&JSON.stringify(event.decoded?.laneCurrent)!==JSON.stringify(old.event.decoded?.laneCurrent))
+      cache[event.service]={event:{...event,valid:false},received:old.received};
     return;
   }
   cache[event.service]={event,received};
