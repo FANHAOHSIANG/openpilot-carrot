@@ -68,3 +68,23 @@ test("main HUD observes only current valid lane and never suggests a maneuver",(
  ingest(c,event("carrotNavi",{connected:true,laneCurrent:{present:false,visible:false,count:4}},11e9),300);
  assert.equal(hud.view(core,c,300,"auto",true),null);
 });
+
+
+test("duplicate envelopes cannot refresh browser freshness",()=>{
+ const c={},nav={connected:true,laneCurrent:{present:true,visible:true,count:3,meta:{receivedMonoTimeNanos:9e9}}};
+ ingest(c,event("carrotNavi",nav),100);
+ ingest(c,event("carrotNavi",nav),1400);
+ assert.equal(snapshot(c,1601).lane,null);
+ ingest(c,event("modelV2",model),100);
+ ingest(c,event("modelV2",model),500);
+ assert.equal(snapshot(c,701).geometry,null);
+});
+test("source receipt age includes browser residence and withdrawal cannot be revived by duplicate",()=>{
+ const c={},nav={connected:true,laneCurrent:{present:true,visible:true,count:3,meta:{receivedMonoTimeNanos:4.1e9}}};
+ ingest(c,event("carrotNavi",nav),100);
+ assert.equal(snapshot(c,150).lane.receipt_age_ms,5950);
+ assert.equal(snapshot(c,201).lane,null);
+ ingest(c,event("carrotNavi",{...nav,laneCurrent:{...nav.laneCurrent,visible:false}}),220);
+ ingest(c,event("carrotNavi",nav),230);
+ assert.equal(snapshot(c,230).lane,null);
+});
