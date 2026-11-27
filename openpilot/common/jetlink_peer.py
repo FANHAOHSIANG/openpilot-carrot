@@ -1,7 +1,7 @@
 """Conservative peer classification; HELLO is descriptive, not authentication."""
 import re
 
-MAC_DEVICE = re.compile(r'(?:coreml|ane(?:-whole)?)-Apple[ _-]M[1-9][0-9]*(?:[ _-](?:Pro|Max|Ultra))?', re.I)
+MAC_DEVICE = re.compile(r'(?:coreml|ane(?:-whole|-both)?)-Apple[ _-]M[1-9][0-9]*(?:[ _-](?:Pro|Max|Ultra))?', re.I)
 IOS_DEVICE = re.compile(r'(?:coreml|ane(?:-whole)?)-Apple[ _-][AM][1-9][0-9]*(?:[ _-](?:Pro|Max|Ultra))?', re.I)
 ANDROID_DEVICE = re.compile(r'(?:htp(?:-whole)?|gpu|npu)-[A-Za-z0-9_.-]+', re.I)
 
