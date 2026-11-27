@@ -374,18 +374,14 @@ def test_sorento_changing_torque_under_camera_clock_drift(monkeypatch, sign, cam
   assert all(b - a <= 2 for a, b in zip(physical, physical[1:]))
 
 
-def controller_stream(monkeypatch, camera, sign, *, fingerprint=None, phase1=None):
+def controller_stream(monkeypatch, camera, sign, *, fingerprint=None, enabled=True):
   from opendbc.car.hyundai.tests.test_low_speed_steer_reserve import torque_fixture
   from opendbc.car.hyundai.tests.test_steering_handover_controller import step
-  from opendbc.car.hyundai.values import HyundaiFlags
-  controller,cs,cc,settings=torque_fixture(monkeypatch, enabled=phase1 is None)
-  if fingerprint is not None:
-    controller.CP.brand = 'hyundai'
-    controller.CP.carFingerprint = fingerprint
-    controller.CP.steerControlType = 'torque'
-    settings['HkgPhase1Assist'] = int(phase1)
+  from opendbc.car.hyundai.values import CAR
+  model = getattr(CAR, fingerprint) if fingerprint is not None else CAR.KIA_EV6
+  controller,cs,cc,settings=torque_fixture(monkeypatch, enabled=enabled, fingerprint=model, camera=camera)
+  # Staging contract: the independent reserve switch is explicit, not Phase 1.
   trace = []
-  if camera:controller.CP.flags |= int(HyundaiFlags.CAMERA_SCC)
   g=Guard(int(F.CANFD_ALWAYS_LATERAL|(F.CAMERA_SCC if camera else 0)))
   prior=0
   for n in range(750):
@@ -418,7 +414,7 @@ def controller_stream(monkeypatch, camera, sign, *, fingerprint=None, phase1=Non
 @pytest.mark.parametrize('camera', [False, True])
 @pytest.mark.parametrize('sign', [-1, 1])
 def test_four_families_switch_stream_retains_panda_and_forwarding_guards(monkeypatch, fingerprint, enabled, camera, sign):
-  trace = controller_stream(monkeypatch, camera, sign, fingerprint=fingerprint, phase1=enabled)
+  trace = controller_stream(monkeypatch, camera, sign, fingerprint=fingerprint, enabled=enabled)
   assert max(map(abs, trace)) <= (409 if enabled else 270)
   assert (max(map(abs, trace[80:250])) > 270) == enabled
   # A synthetic 35->40 km/h one-frame jump must unwind the old torque under
