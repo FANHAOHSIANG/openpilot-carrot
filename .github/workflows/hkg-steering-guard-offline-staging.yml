@@ -2,11 +2,14 @@ name: HKG steering guard offline staging
 on:
   push:
     branches: [test/hkg-steering-guard-port-20261127]
+  pull_request:
+    branches: [test/carrot-wip-upstream-20261104]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   native-guard:
+    if: github.event_name != 'pull_request' || github.head_ref == 'test/hkg-steering-guard-port-20261127'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -23,15 +26,17 @@ jobs:
           python opendbc_repo/opendbc/dbc/generator/generator.py
           cd opendbc_repo/opendbc/safety
           gcc -shared -fPIC -Wall -Werror -nostdlib -fno-builtin -std=gnu11 -Wfatal-errors -Wno-pointer-to-int-cast -I. -Iboard tests/libsafety/safety.c -o tests/libsafety/libsafety.so
-      - name: Guard-only TX and forwarding regression (no controller integration)
+      - name: Native TX and forwarding regression (including controller stream)
         run: |
           python tools/signal_validation/run.py \
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_steering_guard.py \
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py \
-            -k 'not real_controller and not sorento and not four_families'
+            -k 'not sorento and not four_families'
       - name: Existing independent Test regressions
         run: |
           python tools/signal_validation/run.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_low_speed_steer_reserve.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_steering_handover_controller.py \
             opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py \
             opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_alt_buttons.py \
