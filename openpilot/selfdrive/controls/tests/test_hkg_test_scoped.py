@@ -74,7 +74,7 @@ def test_actual_planner_requires_fresh_engaged_acc(admitted):
   assert fn(p,sm,30.,False)==30.
   assert p.hkg_curve_ceiling is None
 
-def test_switches_are_default_off_and_no_reserve_is_registered():
+def test_scoped_switches_remain_default_off_and_reserve_is_not_implicitly_enabled():
   import json
   data=json.loads((ROOT/"openpilot/selfdrive/carrot_settings.json").read_text())
   by={p["name"]:p for p in data["params"]}
@@ -82,5 +82,14 @@ def test_switches_are_default_off_and_no_reserve_is_registered():
     assert by[name]["default"]==0 and by[name]["control"]=="toggle"
   assert "LowSpeedSteerReserve" not in by
   source=(ROOT/"opendbc_repo/opendbc/car/hyundai/carcontroller.py").read_text()
-  assert "ceiling=self.params.STEER_MAX" in source
-  assert "LowSpeedSteerReserve" not in source
+  # The separate staging parameter is not exposed in the settings UI.
+  keys=(ROOT/"openpilot/common/params_keys.h").read_text()
+  assert '{"LowSpeedSteerReserve", {PERSISTENT, BOOL, "0"}}' in keys
+  tree=ast.parse(source)
+  assignments=[n for n in ast.walk(tree) if isinstance(n, ast.Assign)
+               and any(ast.unparse(t)=="self.reserve_enabled" for t in n.targets)]
+  assert {ast.unparse(n.value) for n in assignments} == {
+    "False", "self.reserve_supported and params.get_bool('LowSpeedSteerReserve')"}
+  # A runtime regression in test_low_speed_steer_reserve separately verifies
+  # that HkgPhase1Assist alone never activates additional torque.
+
