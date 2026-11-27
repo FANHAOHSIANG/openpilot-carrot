@@ -1,0 +1,5 @@
+# Tony HKG steering port — offline review only
+Source: Tony/carrot-wip 66e9ed4fc2924008ff3d4518e1f5ab0bf6d2c27c; target Test base 9526ef4b3828e5a35a83d255ce1f9f998487ccd0.
+This draft imports exact helper modules and a subset of upstream offline policy tests only. Neither helper is called by the production controller. No UI or parameter registration, CAN transmission, lateral/longitudinal controller, Panda safety, EPS limits, firmware or startup behavior is modified. Not an installable feature or road release.
+
+Before functional integration: independently review controller, lateral filtering, longitudinal preview, and CAN-FD safety compatibility; preserve Test navigation/OSM, Jetlink, SPAS, manual cruise ceiling; test disabled-path equivalence, controller regression, native build, Panda safety and offline replay. Do not relax existing safety limits to pass tests. Any increased steering authority requires separate engineering review and controlled validation. No device installation or road use. Tests not executed in this review environment.
