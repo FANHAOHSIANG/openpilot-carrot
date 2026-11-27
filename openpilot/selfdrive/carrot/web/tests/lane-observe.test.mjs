@@ -34,3 +34,25 @@ test("car and controls timestamps, resets, no default speed",()=>{
  ingest(c,event("modelV2",model,1e9),200);assert.equal(snapshot(c,200).nav_connected,false);assert.equal(snapshot(c,200).speed_kph,null);
 });
 test("malformed wire fails closed",()=>assert.throws(()=>decodeWire(new ArrayBuffer(5),globalThis.CarrotRawCapnp)));
+
+test("event presentation hides absent and withdrawn guide, always and off override",()=>{
+ const {presentation}=globalThis.CarrotLaneObserve;
+ const state={lane:{count:4,distance_m:140,available_raw:[]},geometry:geometry(model)};
+ const p=presentation(state,"auto");assert.equal(p.visible,true);assert.equal(p.count,4);assert.equal(p.recommended_lane,null);assert.equal(p.recommendation_status,"no_recommendation_data");assert.equal(p.control_usable,false);
+ assert.equal(presentation({lane:null},"auto").visible,false);
+ assert.equal(presentation(state,"off").visible,false);
+ assert.equal(presentation({lane:null},"always").visible,true);
+ assert.equal(presentation(state,"invalid").visible,false);
+});
+test("raw flags never become verified recommendation or ego lane",()=>{
+ const p=globalThis.CarrotLaneObserve.presentation({lane:{count:3,distance_m:20,available_raw:[0,1,0]}},"auto");
+ assert.deepEqual(p.raw_flags,[0,1,0]);assert.equal(p.recommended_lane,null);assert.equal(p.absolute_lane_index,null);assert.equal(p.recommendation_status,"raw_flags_unverified");
+});
+test("actual snapshot expiration clears event overlay",()=>{
+ const c={},nav={connected:true,laneCurrent:{present:true,visible:true,count:4,distanceM:140,available:[],meta:{receivedMonoTimeNanos:9e9}}};
+ ingest(c,event("carrotNavi",nav),100);
+ assert.equal(globalThis.CarrotLaneObserve.presentation(snapshot(c,200),"auto").visible,true);
+ assert.equal(globalThis.CarrotLaneObserve.presentation(snapshot(c,1800),"auto").visible,false);
+ ingest(c,event("carrotNavi",{...nav,laneCurrent:{...nav.laneCurrent,visible:false}},11e9),1900);
+ assert.equal(globalThis.CarrotLaneObserve.presentation(snapshot(c,1900),"auto").visible,false);
+});

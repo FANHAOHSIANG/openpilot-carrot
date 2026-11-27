@@ -84,11 +84,28 @@ function ingest(cache,event,received){
   if(old&&event.logMonoTime<old.event.logMonoTime){for(const key of Object.keys(cache))delete cache[key];}
   cache[event.service]={event,received};
 }
+
+function presentation(s,mode){
+  const lane=s?.lane;
+  const valid=lane!=null&&Number.isInteger(lane.count)&&lane.count>=1&&lane.count<=32;
+  const modeValue=["off","auto","always"].includes(mode)?mode:"off";
+  const near=s?.geometry?.samples?.[0];
+  return {visible:modeValue==="always"||(modeValue==="auto"&&valid),
+    event_active:valid, mode:modeValue, count:valid?lane.count:null,
+    distance_m:valid?lane.distance_m:null,
+    raw_flags:valid&&Array.isArray(lane.available_raw)&&lane.available_raw.length===lane.count?lane.available_raw.slice():[],
+    visual_count:near?.visible_lane_candidates??null,
+    visual_width_m:near?.width_m??null,
+    // Source semantics and absolute lane association are not verified.
+    recommended_lane:null,absolute_lane_index:null,control_usable:false,
+    recommendation_status:valid?(lane.available_raw?.length===lane.count?"raw_flags_unverified":"no_recommendation_data"):"no_active_guidance"};
+}
+
 function boot(doc,win){
   const $=id=>doc.getElementById(id);
   const cache={};let socket=null,enabled=false,recording=false,records=[],dropped=0,lastRecord=null,retry=0,decodeErrors=0;
   const status=$("status"),canvas=$("plot"),ctx=canvas.getContext("2d");
-  function clear(){for(const k of Object.keys(cache))delete cache[k];}
+  function clear(){for(const k of Object.keys(cache))delete cache[k];$("guidePanel").hidden=$("displayMode").value!=="always";$("lanes").replaceChildren();$("nav").textContent="—";$("distance").textContent="—";$("guideStatus").textContent="無有效車道引導";$("guideNote").textContent="等待引導";$("matchStatus").textContent="等待雙來源";}
   function disconnect(){win.clearTimeout(retry);retry=0;const s=socket;socket=null;if(s)s.close();clear();}
   function connect(){
     if(!enabled||doc.hidden||socket)return;
@@ -122,7 +139,11 @@ function boot(doc,win){
   }
   const fmt=(v,d=1)=>finite(v)?v.toFixed(d):"—";
   function update(){
-    const t=win.performance.now(),s=snapshot(cache,t);
+    const t=win.performance.now(),s=snapshot(cache,t),p=presentation(s,$("displayMode").value);
+    $("guidePanel").hidden=!p.visible;
+    $("guideStatus").textContent=p.event_active?"導航車道引導":"無有效車道引導";
+    $("guideNote").textContent=p.recommendation_status==="no_recommendation_data"?"推薦車道尚未傳入 C4":p.recommendation_status==="raw_flags_unverified"?"車道旗標語意未驗證":"等待引導";
+    $("matchStatus").textContent=p.event_active&&p.visual_count!==null?"地圖與視覺同時可見 · 尚未空間匹配":"等待雙來源";
     if(socket?.readyState===1)status.textContent=s.geometry?"即時 C4 視覺 · 只讀":"等待有效 C4 視覺";
     $("nav").textContent=s.lane?s.lane.count+" 車道":s.nav_connected?"暫無有效車道引導":"導航未連線";
     $("distance").textContent=s.lane&&s.lane.distance_m!==null?s.lane.distance_m+" m":"—";
@@ -144,12 +165,13 @@ function boot(doc,win){
     if(recording&&s.model_mono_ns!==null&&s.model_mono_ns!==lastRecord){
       lastRecord=s.model_mono_ns;
       if(records.length<MAX_RECORDS){
-        records.push({schema:1,wall_ms:Date.now(),...s,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
+        records.push({schema:2,wall_ms:Date.now(),...s,presentation:p,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
       }else{dropped++;recording=false;$("record").textContent="紀錄已滿";}
     }
     $("count").textContent=records.length+" 筆"+(dropped?"（上限停止）":"")+" · 解碼失敗 "+decodeErrors;
   }
   $("connect").onclick=()=>{enabled=!enabled;if(enabled){$("connect").textContent="停止連線";connect();}else{disconnect();$("connect").textContent="開始連線";status.textContent="已停止";}};
+  $("displayMode").onchange=()=>update();
   $("record").onclick=()=>{if(records.length>=MAX_RECORDS)return;recording=!recording;$("record").textContent=recording?"停止紀錄":"開始紀錄";};
   $("export").onclick=()=>{
     if(!records.length)return;const blob=new Blob([records.map(r=>JSON.stringify(r)).join("\n")+"\n"],{type:"application/x-ndjson"});
@@ -159,6 +181,6 @@ function boot(doc,win){
   win.addEventListener("pagehide",()=>{enabled=false;disconnect();});
   win.setInterval(update,200);update();
 }
-root.CarrotLaneObserve={points,at,geometry,decodeWire,snapshot,ingest};
+root.CarrotLaneObserve={points,at,geometry,decodeWire,snapshot,ingest,presentation};
 if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>boot(document,window));
 })(globalThis);
