@@ -278,10 +278,9 @@ class CarController(CarControllerBase):
     self.steerDeltaDownOrg = self.steerDeltaDown = self.steerDeltaDownLC = self.params.STEER_DELTA_DOWN
     self.steer_observe_enabled = False
     self.steer_observer = None
-    if (CP.brand == 'hyundai' and CP.flags & HyundaiFlags.CANFD
-        and not CP.flags & HyundaiFlags.ANGLE_CONTROL and CP.steerControlType == 'torque'
-        and CP.lateralTuning.which() == 'torque' and not CP.dashcamOnly and not CP.notCar):
-      self.steer_observer = SteeringObservations(CP.carFingerprint, Params(), Params('/dev/shm/params'))
+    self.steer_observe_supported = (CP.brand == 'hyundai' and bool(CP.flags & HyundaiFlags.CANFD)
+                                    and not CP.flags & HyundaiFlags.ANGLE_CONTROL and CP.steerControlType == 'torque'
+                                    and CP.lateralTuning.which() == 'torque' and not CP.dashcamOnly and not CP.notCar)
 
   def aprk_blinkers(self, CS):
     ret = []
@@ -365,7 +364,12 @@ class CarController(CarControllerBase):
     if self.frame % 50 == 0:
       params = Params()
       self.max_angle_frames = params.get_int("MaxAngleFrames")
-      self.steer_observe_enabled = self.steer_observer is not None and params.get_bool("LowSpeedSteerObserveOnly")
+      self.steer_observe_enabled = self.steer_observe_supported and params.get_bool("LowSpeedSteerObserveOnly")
+      if self.steer_observe_enabled and self.steer_observer is None:
+        try:
+          self.steer_observer = SteeringObservations(self.CP.carFingerprint, params, Params('/dev/shm/params'))
+        except Exception:
+          self.steer_observe_enabled = False
       steerMax = params.get_int("CustomSteerMax")
       steerDeltaUp = params.get_int("CustomSteerDeltaUp")
       steerDeltaDown = params.get_int("CustomSteerDeltaDown")
@@ -809,12 +813,18 @@ class CarController(CarControllerBase):
 
     # Passive observation only: do not change PID, steering scale or sent CAN.
     if self.steer_observer is not None:
-      self.steer_observer.update(
-        now=now_nanos * 1e-9, enabled=self.steer_observe_enabled, active=CC.latActive, cs=CS.out,
-        requested=new_torque, command=apply_torque, target_angle=actuators.steeringAngleDeg,
-        base=self.params.STEER_MAX, ceiling=self.params.STEER_MAX,
-        up=self.params.STEER_DELTA_UP, down=self.params.STEER_DELTA_DOWN,
-        reason='demand' if self.steer_observe_enabled else 'off')
+      try:
+        self.steer_observer.update(
+          now=now_nanos * 1e-9, enabled=self.steer_observe_enabled, active=CC.latActive, cs=CS.out,
+          requested=new_torque, command=apply_torque, target_angle=actuators.steeringAngleDeg,
+          base=self.params.STEER_MAX, ceiling=self.params.STEER_MAX,
+          up=self.params.STEER_DELTA_UP, down=self.params.STEER_DELTA_DOWN,
+          reason='demand' if self.steer_observe_enabled else 'off')
+      except Exception:
+        # Optional diagnostics must never interrupt the existing controller.
+        self.steer_observer = None
+      if not self.steer_observe_enabled:
+        self.steer_observer = None
 
     self.frame += 1
     return new_actuators, can_sends

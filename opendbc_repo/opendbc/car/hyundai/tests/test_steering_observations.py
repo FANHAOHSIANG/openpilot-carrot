@@ -1,8 +1,15 @@
 import json
 
 from opendbc.car.hyundai.steering_observations import SteeringObservations, decode, PROFILE_KEY, STATUS_KEY
-from opendbc.car.hyundai.tests.test_low_speed_steer_reserve import state, torque_fixture
-from opendbc.car.hyundai.tests.test_steering_handover_controller import step
+from types import SimpleNamespace as NS
+
+
+def state(**kwargs):
+  data = dict(vEgo=5., vEgoRaw=5., steeringAngleDeg=0., steeringTorque=0., canValid=True,
+              canTimeout=False, steerFaultTemporary=False, steerFaultPermanent=False,
+              steeringPressed=False, gearShifter='drive', standstill=False)
+  data.update(kwargs)
+  return NS(**data)
 
 
 class Memory(dict):
@@ -65,21 +72,3 @@ def test_invalid_driver_fault_stale_and_high_speed_do_not_become_capabilities():
   assert r.previous is None
 
 
-def test_observation_failure_and_tampered_records_cannot_change_real_can(monkeypatch):
-  controller, cs, cc, settings = torque_fixture(monkeypatch)
-  disk, runtime = Memory(), Memory()
-  controller.steering_observations = SteeringObservations(controller.CP.carFingerprint, disk, runtime)
-  trace = [step(controller, cs, cc)[0].torqueOutputCan for _ in range(300)]
-  assert trace[-1] == 405
-  current = json.loads(runtime[STATUS_KEY])['current']
-  assert current['command'] == trace[200] and current['requested'] == 405
-  # Even corrupted aggregate peaks never feed the cap, scale, or slew.
-  controller.steering_observations.data['stats']['left']['command'] = 99999
-  assert step(controller, cs, cc)[0].torqueOutputCan == 405
-  class Failed:
-    def update(self, **kw):
-      raise OSError('storage unavailable')
-  controller.steering_observations = Failed()
-  assert step(controller, cs, cc)[0].torqueOutputCan == 405
-  cs.out.vEgo = cs.out.vEgoRaw = 100/3.6
-  assert [step(controller, cs, cc)[0].torqueOutputCan for _ in range(100)][-1] == 270

@@ -12,7 +12,7 @@ class IsolatedParams:
   """Only the documented defaults used by vehicle fixtures; never device IO."""
   def get_bool(self, key):
     assert key in {'TeslaAutoTurnSignals', 'TeslaManualLaneSignals', 'TeslaModelDesireSignals', 'TeslaModelPathSignals',
-                   'TeslaCanTrafficStop', 'NNFF', 'NNFFLite', 'DisableMinSteerSpeed'}, key
+                   'TeslaCanTrafficStop', 'NNFF', 'NNFFLite', 'DisableMinSteerSpeed', 'HkgPhase1Assist', 'LowSpeedSteerObserveOnly'}, key
     return False
 
   def get(self, key):
