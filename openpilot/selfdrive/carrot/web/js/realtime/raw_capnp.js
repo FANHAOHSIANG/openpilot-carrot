@@ -468,6 +468,9 @@ carrotRawCapnpGlobal.CarrotRawCapnp = (() => {
   const NAVI_ITEM_META_SCHEMA = {
     fields: {
       present: { kind: "bool", offset: 0 },
+      sequence: { kind: "uint64", offset: 1 },
+      sourceTimestampMillis: { kind: "uint64", offset: 2 },
+      receivedMonoTimeNanos: { kind: "uint64", offset: 3 },
     },
   };
 
@@ -1010,7 +1013,7 @@ carrotRawCapnpGlobal.CarrotRawCapnp = (() => {
     return decoded;
   }
 
-  function decodeReplayEvent(data, expectedService = "", excludedService = "", includedServices = null) {
+  function decodeReplayEvent(data, expectedService = "", excludedService = "", includedServices = null, keepNaviMeta = false) {
     const message = parseMessage(data);
     const eventRef = readStructPointer(message, 0, 0);
     if (!eventRef) return null;
@@ -1044,7 +1047,7 @@ carrotRawCapnpGlobal.CarrotRawCapnp = (() => {
         const value = decoded?.[key];
         if (!value || typeof value !== "object") continue;
         value.present = value.meta?.present === true;
-        delete value.meta;
+        if (!keepNaviMeta) delete value.meta;
       }
     }
     return { service, logMonoTime, valid, decoded };

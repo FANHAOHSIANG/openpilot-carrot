@@ -1,0 +1,31 @@
+name: Lane observe browser checks
+on:
+  push:
+    branches: [test/carrot-wip-upstream-20261104,test/tony-carrot-wip-integrated-20261117]
+    paths: ['openpilot/selfdrive/carrot/web/lane-observe.html','openpilot/selfdrive/carrot/web/js/lane-observe.js','openpilot/selfdrive/carrot/web/js/realtime/raw_capnp.js','openpilot/selfdrive/carrot/web/tests/lane-observe.test.mjs','.github/workflows/lane-observe.yml']
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: openpilot/selfdrive/carrot/web
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          cd openpilot/selfdrive/carrot/web
+          node --check js/lane-observe.js
+          node --test tests/lane-observe.test.mjs tests/raw_capnp_carrot_navi.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lane-observe-browser
+          path: |
+            openpilot/selfdrive/carrot/web/lane-observe.html
+            openpilot/selfdrive/carrot/web/js/lane-observe.js
+            openpilot/selfdrive/carrot/web/js/realtime/raw_capnp.js
+            openpilot/selfdrive/carrot/web/tests/lane-observe.test.mjs
+          retention-days: 7
