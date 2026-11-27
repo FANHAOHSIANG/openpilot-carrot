@@ -1,0 +1,29 @@
+name: Package offline C4 replay dependencies
+on:
+  push:
+    branches: [test/gaode-offline-replay-tools]
+    paths: ['.github/workflows/gaode-replay-dependencies.yml']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: |
+          mkdir -p /tmp/replay/wheels
+          python -m pip download --only-binary=:all: --dest /tmp/replay/wheels pycapnp zstandard
+          cp -r openpilot/cereal /tmp/replay/cereal
+          cp -r opendbc_repo/opendbc /tmp/replay/opendbc
+          cp tools/carrot_navi_lab/gaode*py /tmp/replay/
+          find /tmp/replay -type f ! -name '*.capnp' ! -name '*.whl' ! -name 'gaode*py' -delete
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replay-dependencies
+          path: /tmp/replay/
+          retention-days: 1
