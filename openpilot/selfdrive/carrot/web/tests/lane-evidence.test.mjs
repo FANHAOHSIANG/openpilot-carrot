@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import "../js/lane-evidence.js";
+const make=()=>({sessionId:"s",routeId:"r",routeEpoch:1,seq:0,monoMs:0,kind:"bind"});
+const setup=()=>{const f=make(),e=globalThis.CarrotLaneEvidence.createLaneEvidence();assert.equal(e.ingest(f,0),true);const snap={...f,kind:"snapshot",seq:1,monoMs:10,guide:{count:3,flags:[0,1,0],ageMs:0},hd:{egoIndexRaw:1,physicalCount:4,laneId:"x",ageMs:0}};assert.equal(e.ingest(snap,10),true);return {e,f,snap};};
+test("guide count is not physical count; no inferred recommendation",()=>{const {e}=setup();const v=e.observe(20,{ageMs:10,visibleCount:3});assert.equal(v.association,"co_observed_not_matched");assert.equal(v.guide.count,3);assert.equal(v.hd.physicalCount,4);assert.equal(v.hd.egoBase,"unknown");assert.equal(v.recommendedLane,null);assert.equal(v.controlUsable,false);});
+test("duplicate cannot refresh TTL",()=>{const {e,snap}=setup();assert.equal(e.ingest(snap,900),false);assert.equal(e.observe(1011,null).hd,null);assert.equal(e.observe(1511,null).guide,null);});
+test("hide removes both evidence streams",()=>{const {e,f}=setup();assert.equal(e.ingest({...f,kind:"hide",seq:2,monoMs:20},1100),true);assert.equal(e.observe(1100,null).guide,null);});
+test("route switch and end reject late packets",()=>{const {e,f,snap}=setup();const next={...f,routeId:"r2",routeEpoch:2};assert.equal(e.ingest(next,1200),true);assert.equal(e.ingest({...snap,seq:3},1201),false);assert.equal(e.ingest({...next,kind:"end",seq:1,monoMs:2},1202),true);assert.equal(e.ingest({...next,kind:"snapshot",seq:2,monoMs:3},1203),false);});
+test("invalid fields and stale vision do not form association",()=>{const {e,f,snap}=setup();e.ingest({...snap,seq:2,monoMs:20,guide:{count:3,flags:[1],ageMs:0}},20);const v=e.observe(21,{ageMs:601,visibleCount:3});assert.equal(v.guide,null);assert.equal(v.visualCount,null);assert.equal(v.association,"insufficient_evidence");});

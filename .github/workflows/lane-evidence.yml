@@ -1,0 +1,20 @@
+name: Lane evidence offline checks
+on:
+  push:
+    branches: [test/c4-vision-ar-hud]
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: openpilot/selfdrive/carrot/web
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          cd openpilot/selfdrive/carrot/web
+          node --test tests/lane-evidence.test.mjs tests/lane-observe.test.mjs tests/raw_capnp_carrot_navi.test.mjs
