@@ -250,3 +250,28 @@ def test_native_registry_resets_every_offroad_flag_at_manager_start(tmp_path):
     params.put_bool(key, True)
   params.clear_all(ParamKeyFlag.CLEAR_ON_MANAGER_START)
   assert not any(params.get_bool(key) for key in (REQUEST_KEY, ACTIVE_KEY, OBSERVER_KEY))
+
+
+def test_standalone_tesla_cancel_sender_obeys_all_observer_flags():
+  path = ROOT / "openpilot/selfdrive/car/card.py"
+  cls = next(node for node in ast.parse(path.read_text()).body if isinstance(node, ast.ClassDef) and node.name == "Car")
+  state = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "state_update")
+  guards = [node for node in ast.walk(state) if isinstance(node, ast.If)
+            and "urgent_sends = self.tesla_signals.take_sends" in ast.unparse(node)]
+  guard = next(node for node in guards if isinstance(node.test, ast.UnaryOp) and isinstance(node.test.op, ast.Not))
+  ns = {}
+  exec(compile(ast.fix_missing_locations(ast.Module(body=[ast.FunctionDef(name="send", args=ast.arguments(posonlyargs=[], args=[ast.arg(arg="self"), ast.arg(arg="signal_now")], kwonlyargs=[], kw_defaults=[], defaults=[]), body=[guard], decorator_list=[])], type_ignores=[])), str(path), "exec"), ns)
+  calls, params = [], Params()
+  obj = NS(params=params, forced_offroad_observer=False, tesla_signals=NS(take_sends=lambda *a, **k: [1]),
+           can_callbacks=[None, lambda sends: calls.extend(sends)])
+  ns["send"](obj, 0)
+  assert calls == [1]
+  for flag in (REQUEST_KEY, ACTIVE_KEY, OBSERVER_KEY):
+    calls.clear()
+    params.values = {flag: True}
+    ns["send"](obj, 0)
+    assert calls == []
+  params.values.clear()
+  obj.forced_offroad_observer = True
+  ns["send"](obj, 0)
+  assert calls == []

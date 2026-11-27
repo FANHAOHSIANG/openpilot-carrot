@@ -266,9 +266,13 @@ class Car:
       signal_now = can_list[-1][0] if REPLAY and can_list else time.clock_gettime_ns(getattr(time, "CLOCK_BOOTTIME", time.CLOCK_MONOTONIC))
       self.tesla_signals.observe_driver(CS, signal_now)
       self.tesla_signals.observe(can_list, signal_now)
-      urgent_sends = self.tesla_signals.take_sends(signal_now, cancel_only=True)
-      if urgent_sends:
-        self.can_callbacks[1](urgent_sends)
+      # Standalone Test also has a direct Tesla cancel sender in state_update.
+      # It must not run during the sticky read-only observer session.
+      if not (self.forced_offroad_observer or self.params.get_bool("ForceOffroad")
+              or self.params.get_bool("ForceOffroadActive") or self.params.get_bool("ForceOffroadObserver")):
+        urgent_sends = self.tesla_signals.take_sends(signal_now, cancel_only=True)
+        if urgent_sends:
+          self.can_callbacks[1](urgent_sends)
       CS.autoTurnSignalDirection = self.tesla_signals.owned_direction
       CS.autoTurnSignalReadyRequestId = self.tesla_signals.ready_request_id(signal_now)
       CS.autoTurnSignalStatus = self.tesla_signals.status if self.CP.brand == "tesla" else ""
