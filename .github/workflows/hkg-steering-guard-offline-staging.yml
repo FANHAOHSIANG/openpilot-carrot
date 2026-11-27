@@ -31,7 +31,7 @@ jobs:
           python tools/signal_validation/run.py \
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_steering_guard.py \
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py \
-            -k 'not sorento and not four_families'
+            -k 'not sorento'
       - name: Existing independent Test regressions
         if: success() || failure()
         run: |
@@ -41,4 +41,5 @@ jobs:
             opendbc_repo/opendbc/car/hyundai/tests/test_stopping.py \
             opendbc_repo/opendbc/car/hyundai/tests/test_stop_object.py \
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_alt_buttons.py \
-            openpilot/selfdrive/controls/tests/test_hkg_test_scoped.py
+            openpilot/selfdrive/controls/tests/test_hkg_test_scoped.py \
+            openpilot/selfdrive/car/tests/test_canfd_steering_safety_config.py
