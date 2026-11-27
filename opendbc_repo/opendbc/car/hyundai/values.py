@@ -75,6 +75,8 @@ class CarControllerParams:
 
 
 class HyundaiSafetyFlags(IntFlag):
+  CANFD_ANGLE_CONTROL = 512  # CAN-FD only; classic CAN uses this bit for ALT_LIMITS_2.
+  CANFD_ALWAYS_LATERAL = 1024
   EV_GAS = 1
   HYBRID_GAS = 2
   LONG = 4
