@@ -11,6 +11,7 @@ from opendbc.car.hyundai.carstate import CarState
 from opendbc.car.hyundai.stopping import CanfdStopping
 from opendbc.car.hyundai.steering_handover import SteeringHandover
 from opendbc.car.hyundai.steering_observations import SteeringObservations
+from opendbc.car.hyundai.low_speed_steer_reserve import LowSpeedSteerReserve, supports_reserve
 from opendbc.car.carlog import carlog
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, Buttons, CarControllerParams, CAR, CAN_GEARS, HyundaiExtFlags, HyundaiSafetyFlags
@@ -276,6 +277,10 @@ class CarController(CarControllerBase):
 
     self.steerDeltaUpOrg = self.steerDeltaUp = self.steerDeltaUpLC = self.params.STEER_DELTA_UP
     self.steerDeltaDownOrg = self.steerDeltaDown = self.steerDeltaDownLC = self.params.STEER_DELTA_DOWN
+    self.default_steer_max = self.params.STEER_MAX
+    self.low_speed_steer_reserve = LowSpeedSteerReserve()
+    self.reserve_supported = supports_reserve(CP) and not (CP.dashcamOnly or CP.notCar or CP.passive)
+    self.reserve_enabled = False
     self.steer_observe_enabled = False
     self.steer_observer = None
     self.steer_observe_supported = (CP.brand == 'hyundai' and bool(CP.flags & HyundaiFlags.CANFD)
@@ -363,20 +368,28 @@ class CarController(CarControllerBase):
 
     if self.frame % 50 == 0:
       params = Params()
-      self.max_angle_frames = params.get_int("MaxAngleFrames")
+      max_angle_frames = params.get_int("MaxAngleFrames")
+      if 80 <= max_angle_frames <= 100:
+        self.max_angle_frames = max(MAX_ANGLE_FRAMES, min(max_angle_frames, 100))
       self.steer_observe_enabled = self.steer_observe_supported and params.get_bool("LowSpeedSteerObserveOnly")
       if self.steer_observe_enabled and self.steer_observer is None:
         try:
           self.steer_observer = SteeringObservations(self.CP.carFingerprint, params, Params('/dev/shm/params'))
         except Exception:
           self.steer_observe_enabled = False
+      # Separate explicit opt-in; existing HkgPhase1Assist remains model-only.
+      self.reserve_enabled = self.reserve_supported and params.get_bool("LowSpeedSteerReserve")
       steerMax = params.get_int("CustomSteerMax")
       steerDeltaUp = params.get_int("CustomSteerDeltaUp")
       steerDeltaDown = params.get_int("CustomSteerDeltaDown")
       steerDeltaUpLC = params.get_int("CustomSteerDeltaUpLC")
       steerDeltaDownLC = params.get_int("CustomSteerDeltaDownLC")
+      if self.reserve_enabled:
+        steerMax = steerDeltaUp = steerDeltaDown = steerDeltaUpLC = steerDeltaDownLC = 0
       if steerMax > 0:
         self.params.STEER_MAX = steerMax
+      else:
+        self.params.STEER_MAX = self.default_steer_max
       if steerDeltaUp > 0:
         self.steerDeltaUp = steerDeltaUp
         #self.params.ANGLE_TORQUE_UP_RATE = steerDeltaUp
@@ -429,7 +442,17 @@ class CarController(CarControllerBase):
 
     # steering torque
     new_torque = int(round(actuators.torque * self.params.STEER_MAX))
-    apply_torque = apply_driver_steer_torque_limits(new_torque, self.apply_torque_last, CS.out.steeringTorque, self.params)
+    reserve_max = self.params.STEER_MAX
+    if self.reserve_supported:
+      reserve_max = self.low_speed_steer_reserve.update(
+        enabled=self.reserve_enabled, active=CC.latActive, cs=CS.out, base=self.params.STEER_MAX,
+        model_frame=CS.modelV2.frameId if CS.modelV2 is not None else None, demand=actuators.torque)
+    if self.reserve_enabled:
+      self.params.STEER_DELTA_UP, self.params.STEER_DELTA_DOWN = self.low_speed_steer_reserve.rates(
+        requested=max(-reserve_max, min(new_torque, reserve_max)), previous=self.apply_torque_last,
+        base=self.params.STEER_MAX, up=self.steerDeltaUpOrg, down=self.steerDeltaDownOrg)
+    apply_torque = apply_driver_steer_torque_limits(new_torque, self.apply_torque_last, CS.out.steeringTorque,
+                                                   self.params, steer_max=reserve_max)
 
     # >90 degree steering fault prevention
     self.angle_limit_counter, apply_steer_req = common_fault_avoidance(abs(CS.out.steeringAngleDeg) >= MAX_ANGLE, CC.latActive,
@@ -817,7 +840,7 @@ class CarController(CarControllerBase):
         self.steer_observer.update(
           now=now_nanos * 1e-9, enabled=self.steer_observe_enabled, active=CC.latActive, cs=CS.out,
           requested=new_torque, command=apply_torque, target_angle=actuators.steeringAngleDeg,
-          base=self.params.STEER_MAX, ceiling=self.params.STEER_MAX,
+          base=self.params.STEER_MAX, ceiling=reserve_max,
           up=self.params.STEER_DELTA_UP, down=self.params.STEER_DELTA_DOWN,
           reason='demand' if self.steer_observe_enabled else 'off')
       except Exception:
