@@ -66,10 +66,14 @@ def test_filtered_speed_cannot_hide_fast_raw_speed():
   assert set(warm(LowSpeedSteerReserve(), cs)) == {270}
 
 
-def torque_fixture(monkeypatch, enabled=True):
-  controller, cs, cc, settings = setup_controller(monkeypatch, angle=False, camera=False)
-  # Fixture CP is generic: this test explicitly selects supported Hyundai torque control.
-  controller.reserve_supported = True
+def torque_fixture(monkeypatch, enabled=True, fingerprint=CAR.KIA_EV6, camera=False):
+  flags = HyundaiFlags.CANFD | (HyundaiFlags.CAMERA_SCC if camera else 0)
+  cp = structs.CarParams(brand='hyundai', carFingerprint=fingerprint, flags=int(flags),
+                         steerControlType='torque', wheelbase=3.0, steerRatio=14.26)
+  cp.lateralTuning.init('torque')
+  controller, cs, cc, settings = setup_controller(monkeypatch, angle=False, camera=camera, cp_override=cp)
+  # Exercise production admission; never force reserve_supported.
+  assert controller.reserve_supported
   settings['LowSpeedSteerReserve'] = int(enabled)
   monkeypatch.setattr(carcontroller, 'Params',
                       lambda: NS(get_int=lambda k: settings.get(k, 0), get_bool=lambda k: bool(settings.get(k, 0)),
