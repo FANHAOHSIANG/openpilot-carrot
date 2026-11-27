@@ -19,6 +19,10 @@ CARROT_WEB_EXTERNAL = os.getenv("CARROT_WEB_EXTERNAL") == "1"
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
 
+def car_state_observer(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return started or params.get_bool("ForceOffroad") or params.get_bool("ForceOffroadActive")
+
+
 def notcar(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started and CP.notCar
 
@@ -147,7 +151,7 @@ procs = [
   PythonProcess("controlsd", "openpilot.selfdrive.controls.controlsd", and_(not_joystick, iscar)),
   PythonProcess("joystickd", "openpilot.tools.joystick.joystickd", or_(joystick, notcar)),
   PythonProcess("selfdrived", "openpilot.selfdrive.selfdrived.selfdrived", only_onroad),
-  PythonProcess("card", "openpilot.selfdrive.car.card", only_onroad),
+  PythonProcess("card", "openpilot.selfdrive.car.card", car_state_observer),
   PythonProcess("deleter", "openpilot.system.loggerd.deleter", always_run),
   PythonProcess("dmonitoringd", "openpilot.selfdrive.monitoring.dm2d", enable_dm, enabled=(WEBCAM or not PC)),
   # Restart GPS without forking the running manager's IPC state.
