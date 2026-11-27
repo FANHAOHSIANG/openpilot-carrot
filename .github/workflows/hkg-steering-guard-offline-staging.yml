@@ -33,6 +33,7 @@ jobs:
             opendbc_repo/opendbc/safety/tests/test_hyundai_canfd_integrated_flags.py \
             -k 'not sorento and not four_families'
       - name: Existing independent Test regressions
+        if: success() || failure()
         run: |
           python tools/signal_validation/run.py \
             opendbc_repo/opendbc/car/hyundai/tests/test_low_speed_steer_reserve.py \
