@@ -107,3 +107,7 @@ The camera continues running; accumulated warnings and lockout are not cleared. 
 ## Model curve centering interaction
 
 The optional IONIQ 5 model curve-centering trim does not change driver-monitoring configuration, alert timing, lockout or driver-monitoring force deceleration. Driver steering vetoes the trim; it does not waive monitoring.
+
+### Park-only forced offroad
+
+The normal offroad lifecycle stops driving assistance and its driving-monitoring processes when forced offroad is active. This mode cannot be requested while assistance is engaged or outside a valid stationary Park state. It cancels on leaving Park, motion, invalid vehicle data or ignition off; normal onroad initialization is required again. It does not change the driver-monitoring policy or disable monitoring during normal driving. See [settings](settings.md#force-offroad-park-only).
