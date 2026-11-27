@@ -104,3 +104,23 @@ test("main HUD rejects temporal association when model and nav times diverge",()
  ingest(c,event("modelV2",model,11e9),100);
  const p=hud.view(core,c,200,"auto",true);assert.equal(p.visualCount,3);assert.equal(p.synchronized,false);assert.equal(p.recommendedLane,null);
 });
+
+const relative=globalThis.CarrotLaneObserve.relativePosition;
+test("local origin offset uses near geometry, not 10m lookahead",()=>{
+ const shifted={...model,laneLines:[line(-5.7),line(-2.1),line(1.5),line(5.1)]};
+ const p=relative(geometry(shifted));assert.equal(p.status,"local_candidate");assert.ok(Math.abs(p.offset_m-.3)<1e-9);assert.equal(p.left_m,2.1);assert.equal(p.right_m,1.5);assert.equal(p.absolute_lane_index,null);assert.equal(p.control_usable,false);
+});
+test("no extrapolation if x0 is absent",()=>{
+ const far=y=>({x:[10,20,30,40,60],y:Array(5).fill(y)});
+ assert.equal(relative(geometry({...model,laneLines:[far(-5.4),far(-1.8),far(1.8),far(5.4)]})).status,"near_geometry_missing");
+});
+test("near-boundary, reversed lines, low confidence and edge conflicts are unavailable",()=>{
+ const m={...model,laneLines:[line(-5),line(-.05),line(3.55),line(7)]};
+ assert.equal(relative(geometry(m)).status,"origin_near_or_outside_boundary");
+ assert.equal(relative(geometry({...model,laneLines:[line(5),line(2),line(-2),line(-5)]})).status,"invalid_width_or_order");
+ assert.equal(relative(geometry({...model,laneLineProbs:[.9,.1,.9,.9]})).status,"low_line_confidence");
+ assert.equal(relative(geometry({...model,roadEdges:[line(0),line(7)]})).status,"edge_conflict");
+});
+test("local position works without navigation and expires with model",()=>{
+ const c={};ingest(c,event("modelV2",model),100);assert.equal(snapshot(c,200).relative_position.status,"local_candidate");assert.equal(snapshot(c,701).relative_position.status,"no_fresh_model");assert.equal(snapshot(c,701).relative_position.offset_m,null);
+});

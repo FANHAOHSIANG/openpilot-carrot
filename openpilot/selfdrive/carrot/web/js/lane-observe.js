@@ -39,6 +39,27 @@ function geometry(m){
   });
   return {lines,edges,probs,stds,path,samples,control_usable:false};
 }
+// Diagnostic only: the model-frame origin is not a calibrated vehicle reference point.
+// Never extrapolate a look-ahead center back to the origin.
+function relativePosition(g){
+  const unavailable=reason=>({status:reason,reference:"model_origin_x0",offset_m:null,left_m:null,right_m:null,width_m:null,absolute_lane_index:null,control_usable:false});
+  if(!g)return unavailable("no_fresh_model");
+  if(!g.probs.slice(1,3).every(p=>bounded(p,.65,1)))return unavailable("low_line_confidence");
+  const samples=[0,2,5].map(x=>{
+    const l=at(g.lines[1],x),r=at(g.lines[2],x);
+    if(!finite(l)||!finite(r))return {reason:"near_geometry_missing"};
+    if(!bounded(r-l,2.2,5))return {reason:"invalid_width_or_order"};
+    const e=g.edges.map(p=>at(p,x));
+    if((bounded(g.stds[0],0,.5)&&g.stds[0]>0&&finite(e[0])&&e[0]>l+.3)||(bounded(g.stds[1],0,.5)&&g.stds[1]>0&&finite(e[1])&&e[1]<r-.3))return {reason:"edge_conflict"};
+    return {l,r};
+  });
+  const bad=samples.find(s=>s.reason);if(bad)return unavailable(bad.reason);
+  const {l,r}=samples[0];
+  if(l>-.15||r<.15)return unavailable("origin_near_or_outside_boundary");
+  const w=r-l;
+  if(samples.some(s=>Math.abs((s.r-s.l)-w)>.75))return unavailable("near_width_inconsistent");
+  return {status:"local_candidate",reference:"model_origin_x0",offset_m:-(l+r)/2,left_m:-l,right_m:r,width_m:w,absolute_lane_index:null,control_usable:false};
+}
 function decodeWire(buffer,decoder){
   const bytes=new Uint8Array(buffer);
   if(bytes.length<12||bytes.length>1024*1024)throw new Error("invalid frame size");
@@ -70,7 +91,7 @@ function snapshot(cache,now){
   const laneGap=model&&lane?(model.logMonoTime-lane.received_mono_ns)/1e6:null;
   const carGap=model&&car?Math.abs(model.logMonoTime-car.logMonoTime)/1e6:null;
   const ctrlGap=model&&ctrl?Math.abs(model.logMonoTime-ctrl.logMonoTime)/1e6:null;
-  return {geometry:geom,lane,nav_reason:navReason,nav_connected:nav?.decoded?.connected===true,
+  return {geometry:geom,relative_position:relativePosition(geom),lane,nav_reason:navReason,nav_connected:nav?.decoded?.connected===true,
     model_mono_ns:model?.logMonoTime??null,nav_mono_ns:nav?.logMonoTime??null,
     model_nav_message_delta_ms:gap===null?null:Math.round(gap),
     model_lane_receipt_delta_ms:laneGap===null?null:Math.round(laneGap),
@@ -165,6 +186,9 @@ function boot(doc,win){
     }}
     const near=s.geometry?.samples[0];$("vision").textContent=near?.visible_lane_candidates==null?"—":near.visible_lane_candidates+" 條候選";
     $("width").textContent=fmt(near?.width_m,2)+" m";
+    const rel=s.relative_position; $("relativeOffset").textContent=finite(rel.offset_m)?fmt(rel.offset_m,2)+" m（+右 / −左）":"—";
+    $("relativeClearance").textContent=finite(rel.left_m)&&finite(rel.right_m)?fmt(rel.left_m,2)+" / "+fmt(rel.right_m,2)+" m":"—";
+    $("relativeStatus").textContent=({local_candidate:"局部候選，未校正車身參考點",no_fresh_model:"等待新鮮模型",low_line_confidence:"車道線可信度不足",near_geometry_missing:"近端幾何不足",invalid_width_or_order:"車道寬度或順序異常",edge_conflict:"道路邊界衝突",origin_near_or_outside_boundary:"原點接近或超出邊界",near_width_inconsistent:"近端寬度不一致"})[rel.status]||"不可用";
     $("probs").textContent=s.geometry?s.geometry.probs.map(p=>fmt(p,2)).join(" / "):"—";
     $("edges").textContent=s.geometry?s.geometry.stds.map(p=>fmt(p,2)).join(" / "):"—";
     $("delta").textContent=fmt(s.model_nav_message_delta_ms,0)+" ms";
@@ -176,7 +200,7 @@ function boot(doc,win){
     if(recording&&s.model_mono_ns!==null&&s.model_mono_ns!==lastRecord){
       lastRecord=s.model_mono_ns;
       if(records.length<MAX_RECORDS){
-        records.push({schema:2,wall_ms:Date.now(),...s,presentation:p,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
+        records.push({schema:3,wall_ms:Date.now(),...s,presentation:p,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
       }else{dropped++;recording=false;$("record").textContent="紀錄已滿";}
     }
     $("count").textContent=records.length+" 筆"+(dropped?"（上限停止）":"")+" · 解碼失敗 "+decodeErrors;
@@ -193,6 +217,6 @@ function boot(doc,win){
   win.addEventListener("pagehide",()=>{enabled=false;disconnect();});
   win.setInterval(update,200);update();
 }
-root.CarrotLaneObserve={points,at,geometry,decodeWire,snapshot,ingest,presentation};
+root.CarrotLaneObserve={points,at,geometry,relativePosition,decodeWire,snapshot,ingest,presentation};
 if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>{if(document.getElementById("plot")&&document.getElementById("displayMode"))boot(document,window);});
 })(globalThis);
