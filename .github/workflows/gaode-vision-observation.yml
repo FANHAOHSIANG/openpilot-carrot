@@ -8,6 +8,8 @@ on:
       - 'tools/carrot_navi_lab/gaode_vision_export.py'
       - 'tools/carrot_navi_lab/test_gaode_vision_export.py'
       - 'tools/carrot_navi_lab/gaode_lane_shadow.py'
+      - 'tools/carrot_navi_lab/gaode_fallback_replay.py'
+      - 'tools/carrot_navi_lab/test_gaode_fallback_replay.py'
       - '.github/workflows/gaode-vision-observation.yml'
 permissions:
   contents: read
@@ -25,5 +27,5 @@ jobs:
       - name: Compile and run offline synthetic regression
         run: |
           cd tools/carrot_navi_lab
-          python -m py_compile gaode_vision_export.py
-          python -m unittest -v test_gaode_lane_shadow test_gaode_vision_export
+          python -m py_compile gaode_vision_export.py gaode_fallback_replay.py
+          python -m unittest -v test_gaode_lane_shadow test_gaode_vision_export test_gaode_fallback_replay
