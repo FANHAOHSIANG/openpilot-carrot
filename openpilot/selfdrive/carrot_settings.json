@@ -195,7 +195,9 @@
                 "UseLaneLineSpeed",
                 "UseLaneLineCurveSpeed",
                 "AdjustLaneOffset",
-                "ModelCurveCentering"
+                "ModelCurveCentering",
+                "HkgPhase1Assist",
+                "LowSpeedSteerObserveOnly"
               ]
             },
             {
@@ -2847,6 +2849,54 @@
       "tgroup": "轉向",
       "ttitle": "模型彎道置中修正",
       "tdescr": "僅適用於 CAN-FD IONIQ 5。使用純模型轉向時，若兩側車道線可信且預測路徑偏向彎道內側，就朝車道中央微調轉向目標。預設關閉。",
+      "control": "toggle",
+      "risk": "high",
+      "brands": [
+        "hyundai"
+      ]
+    },
+    {
+      "group": "조향일반",
+      "name": "HkgPhase1Assist",
+      "title": "현대 기아 모델 조향·커브 보조 (토크 변경 없음)",
+      "descr": "지원 차종의 모델 조향 필터와 ACC 커브 속도 상한만 변경. 기존 토크 한계 유지. 기본 꺼짐.",
+      "egroup": "LAT",
+      "etitle": "Hyundai Kia model steering and curve assist (no added torque)",
+      "edescr": "Registered platforms: model-path filtering and ACC curve speed ceiling only. Existing torque authority is unchanged. Off by default.",
+      "cgroup": "转向",
+      "ctitle": "现代起亚模型转向与弯道辅助（不增加扭矩）",
+      "cdescr": "支持车型的模型转向滤波及 ACC 弯道限速；不增加扭矩，默认关闭。",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1,
+      "tgroup": "轉向",
+      "ttitle": "現代起亞模型轉向與彎道輔助（不增加扭力）",
+      "tdescr": "支援車型的模型轉向濾波及 ACC 彎道速度上限；不增加扭力，預設關閉。",
+      "control": "toggle",
+      "risk": "high",
+      "brands": [
+        "hyundai"
+      ]
+    },
+    {
+      "group": "조향일반",
+      "name": "LowSpeedSteerObserveOnly",
+      "title": "저속 조향 응답 기록 전용",
+      "descr": "CAN-FD 토크 차종의 조향 응답만 기록. 토크 및 변화율 한계를 변경하지 않음. 기본 꺼짐.",
+      "egroup": "LAT",
+      "etitle": "Low-speed steering response recording only",
+      "edescr": "CAN-FD torque variants: passive response records only. No additional steering authority or slew. Off by default.",
+      "cgroup": "转向",
+      "ctitle": "低速转向反应记录（仅记录）",
+      "cdescr": "仅记录 CAN-FD 扭矩车型的反应，不增加扭矩及变化速率。默认关闭。",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1,
+      "tgroup": "轉向",
+      "ttitle": "低速轉向反應紀錄（僅紀錄）",
+      "tdescr": "只紀錄 CAN-FD 扭力車型的轉向反應，不增加扭力或變化速率。預設關閉。",
       "control": "toggle",
       "risk": "high",
       "brands": [

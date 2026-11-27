@@ -17,6 +17,8 @@ from openpilot.selfdrive.carrot.carrot_man_input import get_carrot_man
 from openpilot.selfdrive.controls.lib.curve_centering import CurveCentering, MIN_SPEED as CURVE_CENTERING_MIN_SPEED
 from openpilot.selfdrive.selfdrived.vehicle_faults import inhibit_faulted_controls
 from opendbc.car.vehicle_model import VehicleModel
+from opendbc.car.hyundai.phase1 import phase1_enabled
+from openpilot.selfdrive.controls.lib.hkg_phase1 import low_speed_response_tau, smooth_curvature
 from opendbc.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature
 from openpilot.selfdrive.controls.lib.latcontrol import MIN_LATERAL_CONTROL_SPEED
@@ -37,6 +39,7 @@ def control_fixture(fingerprint=''):
   ns = {'time': time, 'log': log, 'get_carrot_man': get_carrot_man, 'CURVE_CENTERING_MIN_SPEED': CURVE_CENTERING_MIN_SPEED, 'math': math, 'np': np, 'Number': Number, 'car': car, 'DT_CTRL': DT_CTRL, 'CV': CV,
         'MIN_LATERAL_CONTROL_SPEED': MIN_LATERAL_CONTROL_SPEED, 'LaneChangeState': log.LaneChangeState,
         'LaneChangeDirection': log.LaneChangeDirection, 'ACTUATOR_FIELDS': tuple(car.CarControl.Actuators.schema.fields),
+        'phase1_enabled': phase1_enabled, 'low_speed_response_tau': low_speed_response_tau, 'smooth_curvature': smooth_curvature,
         'clip_curvature': clip_curvature, 'get_lag_adjusted_curvature': get_lag_adjusted_curvature,
         'resolve_vehicle_model_steer_ratio': resolve_vehicle_model_steer_ratio,
         'lateral_vehicle_parameters': lateral_vehicle_parameters,
@@ -74,6 +77,7 @@ def control_fixture(fingerprint=''):
                desired_curvature=0.0, lateral_startup=LateralStartupGate(), lateral_started=False,
                steer_limited_by_safety=False)
   control.curve_centering = CurveCentering() if fingerprint == 'HYUNDAI_IONIQ_5' else None
+  control.hkg_phase1_enabled = False
   control.curve_centering_enabled = False
   control.curve_centering_delta = 0.0
   control.curve_centering_eof = 0

@@ -584,3 +584,8 @@ The external USB-GPU and Jetlink model selection, including N16, remains a separ
 ## Force offroad (Park only)
 
 Device Settings → Device and Carrot Web → Tools → User / System share a session-scoped switch. Park, stop, and disengage steering and cruise assistance before switching. Fresh, valid vehicle data is required; leaving Park, moving, losing vehicle data or switching ignition off cancels the mode. Normal driving processes and recordings stop; a read-only car observer remains. Manager restarts the car process before normal control can initialize again. The request resets on manager restart. Existing Panda safety and actuator limits are unchanged. [Traditional Chinese guide](../../FORCED_OFFROAD.zh-TW.md).
+
+
+## HKG scoped Test port
+
+Optional HkgPhase1Assist adjusts only model-path filtering and the direct ACC curve speed ceiling. LowSpeedSteerObserveOnly records steering response without increasing torque or slew. Both default off. Full torque reserve remains blocked by CAN-FD safety review; no vehicle acceptance yet.

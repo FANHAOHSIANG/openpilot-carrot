@@ -1,0 +1,41 @@
+name: HKG scoped offline review
+on:
+  pull_request:
+    branches: [test/carrot-wip-upstream-20261104]
+    paths:
+      - 'openpilot/selfdrive/controls/**'
+      - 'opendbc_repo/opendbc/car/hyundai/**'
+      - 'openpilot/common/params_keys.h'
+      - 'openpilot/selfdrive/carrot_settings.json'
+      - '.github/workflows/hkg-test-scoped-review.yml'
+permissions:
+  contents: read
+jobs:
+  scoped:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .:opendbc_repo:tools/jetlink
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Cython==3.2.9 setuptools scons pytest pytest-subtests numpy pycapnp cffi setproctitle requests pycryptodome zstandard pyserial parameterized
+      - name: Native offline prerequisites
+        run: scons -f tools/native_cpu/SConstruct -j2
+      - name: Scoped HKG integration, observation and existing control checks
+        run: |
+          python tools/signal_validation/run.py \
+            openpilot/selfdrive/controls/tests/test_hkg_test_scoped.py \
+            opendbc_repo/opendbc/car/hyundai/tests/test_steering_observations.py \
+            openpilot/selfdrive/controls/tests/test_lateral_startup_control.py \
+            openpilot/selfdrive/controls/tests/test_curve_centering_controls.py \
+            openpilot/selfdrive/controls/tests/test_turn_accel.py
+      - name: Executable modes and unchanged Panda source
+        run: |
+          git diff --summary "${{ github.event.pull_request.base.sha }}" HEAD
+          test -z "$(git diff --summary "${{ github.event.pull_request.base.sha }}" HEAD | grep 'mode change' || true)"
+          git diff --exit-code "${{ github.event.pull_request.base.sha }}" HEAD -- opendbc_repo/opendbc/safety

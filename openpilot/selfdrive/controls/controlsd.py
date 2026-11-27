@@ -20,6 +20,8 @@ from opendbc.car.volkswagen.values import MEB_CURVATURE_PID_KP, MEB_CURVATURE_PI
 
 from openpilot.selfdrive.car.voice_indicator import set_lane_change_blinkers
 from openpilot.selfdrive.controls.lib.curve_centering import CurveCentering, MIN_SPEED as CURVE_CENTERING_MIN_SPEED
+from opendbc.car.hyundai.phase1 import phase1_enabled
+from openpilot.selfdrive.controls.lib.hkg_phase1 import low_speed_response_tau, smooth_curvature
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature, is_volkswagen_meb
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -78,6 +80,7 @@ class Controls:
     self.desired_curvature = 0.0
     self.curve_centering = (CurveCentering() if self.CP.brand == 'hyundai' and self.CP.carFingerprint == 'HYUNDAI_IONIQ_5'
                             and not (self.CP.dashcamOnly or self.CP.notCar or self.CP.passive) else None)
+    self.hkg_phase1_enabled = False
     self.curve_centering_enabled = False
     self.curve_centering_delta = 0.0
     self.curve_centering_eof = 0
@@ -117,6 +120,7 @@ class Controls:
   def update(self):
     self.sm.update(15)
     if self.sm.frame % 50 == 0:
+      self.hkg_phase1_enabled = phase1_enabled(self.CP, self.params)
       self.curve_centering_enabled = self.curve_centering is not None and self.params.get_bool("ModelCurveCentering")
     if self.sm.updated["liveCalibration"]:
       self.pose_calibrator.feed_live_calib(self.sm['liveCalibration'])
@@ -273,7 +277,17 @@ class Controls:
       model_target = model_v2.action.desiredCurvature
       if self.curve_centering_delta:
         model_target += self.curve_centering_delta
-      new_desired_curvature = smooth_value(model_target, self.desired_curvature, 0.1)
+      # Model branch only. Preserve lane planner delay, actuator and Panda limits.
+      assist = (getattr(self, 'hkg_phase1_enabled', False) and CS.canValid and not CS.canTimeout
+                and CS.gearShifter == 'drive' and not CS.standstill
+                and not CS.steeringPressed and not CS.steerFaultTemporary and not CS.steerFaultPermanent
+                and self.sm.all_checks(['carState', 'modelV2', 'liveParameters'])
+                and 0. <= time.monotonic() - self.sm.recv_time['modelV2'] <= .25)
+      if assist:
+        tau = low_speed_response_tau(model_target, self.desired_curvature, CS.vEgo, .1)
+        new_desired_curvature = smooth_curvature(model_target, self.desired_curvature, CS.vEgo, DT_CTRL, tau)
+      else:
+        new_desired_curvature = smooth_value(model_target, self.desired_curvature, 0.1)
 
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
 
