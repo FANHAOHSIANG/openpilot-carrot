@@ -580,3 +580,7 @@ This test branch caps automatic road/model increases at the selected cruise spee
 The official internal model runtime now uses **Cheddar** for the built-in model on a compatible, newly built installation. This is a change to model execution and model output, **not** a new driving setting and **not** a claim that an existing device has been upgraded. The model-library status labels the internal model `Cheddar`.
 
 The external USB-GPU and Jetlink model selection, including N16, remains a separate path. If an external model is unavailable or errors, modeld can fall back to the internal runtime. Switching the underlying internal model may affect prediction and steering/longitudinal behavior, so platform build, performance and vehicle-safety verification are required before using it on a car. A successful source merge or offline CPU test is **not** permission to deploy it or evidence of road safety.
+
+## Force offroad (Park only)
+
+Device Settings → Device and Carrot Web → Tools → User / System share a session-scoped switch. Park, stop, and disengage steering and cruise assistance before switching. Fresh, valid vehicle data is required; leaving Park, moving, losing vehicle data or switching ignition off cancels the mode. Normal driving processes and recordings stop; a read-only car observer remains. Manager restarts the car process before normal control can initialize again. The request resets on manager restart. Existing Panda safety and actuator limits are unchanged. [Traditional Chinese guide](../../FORCED_OFFROAD.zh-TW.md).
