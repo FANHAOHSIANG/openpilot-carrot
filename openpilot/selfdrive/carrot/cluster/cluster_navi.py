@@ -362,7 +362,7 @@ def parse_carrot_navi(
 
     lane_text, lane_deadline = "", 0.0
     lane_info = _get(data, "amapLaneCandidate")
-    if current is not None and status is not None and status.guidance_active and not status.off_route and bool(_get(lane_info, "valid", False)):
+    if status is not None and status.guidance_active and not status.off_route and bool(_get(lane_info, "valid", False)):
         deadline = _int(lane_info, "deadlineMonoTimeNanos") / 1e9
         raw = _text(lane_info, "fieldsJson")
         if 0 < deadline - now <= 2.0 and 0 < len(raw) <= 8192:
