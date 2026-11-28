@@ -22,6 +22,7 @@ from openpilot.common.gps import get_gps_location_service
 from openpilot.selfdrive.carrot.gps_sources import GPSSources
 from openpilot.selfdrive.carrot.carrot_navi_control import CarrotNaviControl, parse_carrot_navi_control
 from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate, shared_pre_adjust_candidate
+from openpilot.selfdrive.carrot.pre_advisory_guard import PreAdvisoryGuard, PreTransitionPreview
 
 nav_type_mapping = {
   12: ("turn", "left", 1),
@@ -220,6 +221,8 @@ class CarrotServ:
     self.carrot_navi_off_route = False
     self.carrot_navi_traffic_active = False
     self.carrot_navi_control = None
+    self.pre_advisory_guard = PreAdvisoryGuard()
+    self.pre_transition_preview = PreTransitionPreview()
 
     self.debugText = ""
 
@@ -1524,9 +1527,26 @@ class CarrotServ:
       self.carrot_navi_control if self.carrot_navi_active else None,
       self.external_navigation_active and self.autoNaviSpeedCtrlMode > 0, time.monotonic_ns(),
     )
-    pre_speed = min(pre_speed, shared_pre_speed)
+    pre_raw = min(pre_speed, shared_pre_speed)
+    pre_navi = self.carrot_navi_control if self.carrot_navi_active else None
+    pre_session = pre_navi.session_id if pre_navi is not None else ""
+    pre_ego = v_ego_kph if CS is not None and sm.valid['carState'] else None
+    # No selected-exit identity is available yet: all PRE suggestions remain
+    # unverified. Reject a large ego-relative gap for the connection session.
+    pre_speed = self.pre_advisory_guard.admit(pre_session, pre_ego, pre_raw)
     if pre_speed < 250:
+      other_cap = min(speed for speed, _ in speed_n_sources)
+      preview_key = (pre_session, pre_navi.current.turn_type, pre_navi.current.main_text)
+      preview = self.pre_transition_preview.step(preview_key, time.monotonic_ns(),
+                                                 pre_ego, pre_speed, other_cap)
+      # Preview is diagnostic only; never delay a tighter cap with it.
+      if preview is not None:
+        self.debugText += f" pre_preview={preview:.1f}"
       speed_n_sources.append((pre_speed, "pre"))
+    else:
+      self.pre_transition_preview.reset()
+    if pre_raw < 250:
+      self.debugText += f" pre_raw={pre_raw:.1f} pre_gate={self.pre_advisory_guard.reason}"
 
     desired_speed, source = min(speed_n_sources, key=lambda x: x[0])
 
