@@ -49,7 +49,18 @@ def lane_display_payload(snapshot, now):
     elif not _int(front,255) or advice is not (front != 255):
       return dict(EMPTY)
     out.append({"index":i,"back_code":back,"front_code":front,"advised":advice})
+  age=info.get("observation_age_ms")
+  observed=info.get("observed_at_ms")
+  if age is not None or observed is not None:
+    max_age=180000 if source=="amap_auto_13012" else 2000
+    if not _int(age,max_age-1) or type(observed) is not int or observed<=0:
+      return dict(EMPTY)
+    if not -1000 <= generated-observed < max_age or abs((generated-observed)-age)>2500:
+      return dict(EMPTY)
+    deadline=min(deadline, now+(max_age-age)*1000000)
   fields={"source":source,"count":n,"lanes":out,"absolute_mapping_verified":False,"control_input":False}
+  if age is not None:
+    fields["observation_age_ms"]=age
   return {"valid":True,"deadlineMonoTimeNanos":deadline,"fieldsJson":json.dumps(fields,separators=(",",":"))}
 
 def candidate_count(raw):

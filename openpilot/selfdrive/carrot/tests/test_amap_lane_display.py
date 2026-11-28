@@ -18,4 +18,14 @@ class Checks(unittest.TestCase):
   def test_semantics(self):
     s=sample();s["items"]["guidance_current"]["value"]["amap_lane_candidate"]["candidate"]["lanes"][0]["advised"]=True
     self.assertFalse(lane_display_payload(s,10_100_000_000)["valid"])
+  def test_original_event_age_separate_from_lease(self):
+    s=sample();info=s["items"]["guidance_current"]["value"]["amap_lane_candidate"]; c=info["candidate"]
+    c.update(source="amap_auto_13012")
+    for row in c["lanes"]:row["front_code"]=None
+    # source wall values are deliberately synthetic
+    g=s["items"]["guidance_current"]; g.update(source_timestamp_ms=152000,sent_at_ms=152100)
+    info.update(generated_at_ms=152000,observed_at_ms=1000,observation_age_ms=151100)
+    self.assertTrue(lane_display_payload(s,10_100_000_000)["valid"])
+    info["observation_age_ms"]=180000
+    self.assertFalse(lane_display_payload(s,10_100_000_000)["valid"])
 if __name__=="__main__":unittest.main()

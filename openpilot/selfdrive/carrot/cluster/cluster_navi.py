@@ -361,6 +361,7 @@ def parse_carrot_navi(
                 pass
 
     lane_text, lane_deadline = "", 0.0
+    lane_codes = ()
     lane_info = _get(data, "amapLaneCandidate")
     if status is not None and status.guidance_active and not status.off_route and bool(_get(lane_info, "valid", False)):
         deadline = _int(lane_info, "deadlineMonoTimeNanos") / 1e9
@@ -377,6 +378,8 @@ def parse_carrot_navi(
                         positive = sum(r["advised"] is True for r in rows)
                         lane_text = f"車道候選 {positive}/{count} 未配對"
                         lane_deadline = deadline
+                        if count <= 8 and all(type(r.get("back_code")) is int and 0 <= r["back_code"] <= 65535 for r in rows):
+                            lane_codes = tuple(str(r["back_code"]) + ("*" if r["advised"] is True else "?" if r["advised"] is None else "") for r in rows)
             except (ValueError, TypeError, RecursionError):
                 pass
     state = NaviLiveState(
@@ -409,6 +412,7 @@ def parse_carrot_navi(
         amap_exit_direction=exit_direction,
         amap_route_remaining_text=route_remaining,
         amap_lane_candidate_text=lane_text,
+        amap_lane_candidate_codes=lane_codes,
         amap_lane_candidate_deadline_s=lane_deadline,
     )
     return fresh_carrot_navi(state, now)[0]
@@ -469,6 +473,7 @@ def fresh_carrot_navi(state: NaviLiveState | None, now: float | None = None) -> 
         amap_exit_direction=state.amap_exit_direction if show_exit else "",
         amap_route_remaining_text=state.amap_route_remaining_text if show_exit else "",
         amap_lane_candidate_text=state.amap_lane_candidate_text if show_lane_candidate else "",
+        amap_lane_candidate_codes=state.amap_lane_candidate_codes if show_lane_candidate else (),
         amap_lane_candidate_deadline_s=state.amap_lane_candidate_deadline_s if show_lane_candidate else 0.0,
     )
     return effective, min(deadlines, default=math.inf)

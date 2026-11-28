@@ -5364,8 +5364,24 @@ class ClusterUiRenderer:
             profile_stage = self._profile_start()
             self._draw_center_clock(state, center_x=self._center_clock_x(screen_mode))
             self._profile_add("hud.center_clock", profile_stage)
+            self._draw_amap_lane_observation(state, screen_mode)
         finally:
             rl.rl_pop_matrix()
+
+    def _draw_amap_lane_observation(self, state: ClusterUiState, screen_mode: int) -> None:
+        # Neutral provider codes, not arrows or spatial lane assignments.
+        navi = getattr(state, "navi_live", None)
+        if navi is None or not getattr(navi, "amap_lane_candidate_text", ""):
+            return
+        if not 0 < getattr(navi, "amap_lane_candidate_deadline_s", 0.0) - time.monotonic() <= 2.0:
+            return
+        codes = getattr(navi, "amap_lane_candidate_codes", ())
+        if not codes or len(codes) > 8:
+            return
+        center = (DESIGN_WIDTH if screen_mode == CLUSTER_SCREEN_MODE_FULLSCREEN_3D else CAMERA_BACKGROUND_W) * 0.5
+        label = "MAP OBS  " + " | ".join(codes)
+        # Small neutral strip below top widgets. No direction or lane-selection color.
+        self._draw_text_with_stroke(label, center, 98.0, 19.0, self._current_theme().muted, (10, 13, 16), 2, anchor="center")
 
     def _effective_screen_mode(self, state: ClusterUiState) -> int:
         requested_screen_mode = getattr(self, "screen_mode", CLUSTER_SCREEN_MODE_DEFAULT)
@@ -5935,7 +5951,7 @@ class ClusterUiRenderer:
             if navi.amap_route_remaining_text:
                 nav_heading += " · " + self._text("route") + " " + navi.amap_route_remaining_text
         if navi is not None and getattr(navi, "amap_lane_candidate_text", "") and 0 < getattr(navi, "amap_lane_candidate_deadline_s", 0.0) - time.monotonic() <= 2.0:
-            nav_heading += " · " + navi.amap_lane_candidate_text
+            nav_heading += " · MAP OBS " + " | ".join(getattr(navi, "amap_lane_candidate_codes", ())) if getattr(navi, "amap_lane_candidate_codes", ()) else " · " + navi.amap_lane_candidate_text
         self._draw_text(self._ellipsize_text(nav_heading, 16.0, width), x, 14.0, 16.0, theme.muted)
         if current is not None:
             current_text = self._readable_navi_text(current.main_text, current.road_name, current.near_direction)
