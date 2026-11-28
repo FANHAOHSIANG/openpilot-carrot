@@ -1,0 +1,8 @@
+# Lane live replay — 2026-11-28
+Read-only change: independent AMap recommendation may arrive without a legacy lane; identical duplicate envelopes must not invalidate it or extend its lifetime. Both legacy and candidate observations clear on inactive/off-route/disconnected navigation. Auto display recognizes independent candidates. Disconnect immediately clears candidate UI.
+Offline replay used the Dot package Carrot-NOO-2026-11-28-seg02-20, decoded data from f7cbad34f5e38a7efa8cdce30d328126f715d3a3. The archived lane-observe blob matched b76c288 (629e21be33d4a8f1721b513991d182d439f0e3a3). The local copy was patched with the same ingest, snapshot and presentation logic; not a full browser or raw-wire test.
+Results: 19 segments, 22,798 modelV2, 4,877 navigation envelopes, 11,917 local geometry candidates, 423 legacy lane observations, 45 independent candidates, 5 without legacy lane, 10 positive samples (not 10 distinct events), 44 co-observed with valid local geometry, 114 inactive/off-route/disconnected navigation envelopes cleared, 45 synthetic expiry checks on recorded candidates. Identical replay duplicates did not renew the receipt time. No physical lane ground truth or native route geometry. No raw data or coordinates committed.
+Reproduce using the decoded folder from the private archive:
+node tools/carrot_navi_lab/lane_live_replay.mjs /path/to/decoded
+node --test openpilot/selfdrive/carrot/web/tests/lane-live-replay.test.mjs
+The newly added Node test file and full browser integration have not been run against the final GitHub tree in this session. No actuation, C4 access or APK release.

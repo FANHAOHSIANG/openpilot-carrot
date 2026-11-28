@@ -113,7 +113,7 @@ function snapshot(cache,now){
   const model=fresh("modelV2",600),nav=fresh("carrotNavi",1500),car=fresh("carState",600),ctrl=fresh("controlsState",600);
   const geom=model?geometry(model.decoded):null;
   let lane=null,navReason=nav?"no_lane":"stale_or_disconnected";
-  if(nav&&nav.decoded?.connected===true){
+  if(nav&&nav.decoded?.connected===true&&nav.decoded?.navigationStatus?.guidanceActive===true&&nav.decoded?.navigationStatus?.offRoute===false){
     const a=nav.decoded.laneCurrent,meta=a?.meta;
     const age=meta&&finite(meta.receivedMonoTimeNanos)?(nav.logMonoTime-meta.receivedMonoTimeNanos)/1e6:null;
     const elapsed=now-cache.carrotNavi.received;
@@ -141,14 +141,10 @@ function ingest(cache,event,received){
   if(!event||!finite(received))return;
   const old=cache[event.service];
   if(old&&event.logMonoTime<old.event.logMonoTime){for(const key of Object.keys(cache))delete cache[key];}
-  // Repeated envelopes must not extend the original browser arrival time.
-  // A same-timestamp withdrawal or invalid event is still allowed to clear the view.
+  // A missing legacy lane does not invalidate an independent AMap candidate.
+  // Equal timestamps never refresh receipt time; conflicting payloads invalidate.
   if(old&&event.logMonoTime===old.event.logMonoTime){
-    const next=event.decoded?.laneCurrent;
-    const withdrawal=event.valid!==true||(event.service==="carrotNavi"&&(event.decoded?.connected!==true||next?.present!==true||next?.visible!==true));
-    if(withdrawal)cache[event.service]={event:{...event,valid:false},received:old.received};
-    else if(duplicateNavInvalid(old.event,event))
-      cache[event.service]={event:{...event,valid:false},received:old.received};
+    if(event.valid!==true||duplicateNavInvalid(old.event,event))cache[event.service]={event:{...event,valid:false},received:old.received};
     return;
   }
   cache[event.service]={event,received};
@@ -159,7 +155,7 @@ function presentation(s,mode){
   const valid=lane!=null&&Number.isInteger(lane.count)&&lane.count>=1&&lane.count<=32;
   const modeValue=["off","auto","always"].includes(mode)?mode:"off";
   const near=s?.geometry?.samples?.[0];
-  return {visible:modeValue==="always"||(modeValue==="auto"&&valid),
+  return {visible:modeValue==="always"||(modeValue==="auto"&&(valid||s?.map_candidate!=null)),
     event_active:valid, mode:modeValue, count:valid?lane.count:null,
     distance_m:valid?lane.distance_m:null,
     raw_flags:valid&&Array.isArray(lane.available_raw)&&lane.available_raw.length===lane.count?lane.available_raw.slice():[],
@@ -174,7 +170,7 @@ function boot(doc,win){
   const $=id=>doc.getElementById(id);
   const cache={};let socket=null,enabled=false,recording=false,records=[],dropped=0,lastRecord=null,retry=0,decodeErrors=0;
   const status=$("status"),canvas=$("plot"),ctx=canvas.getContext("2d");
-  function clear(){for(const k of Object.keys(cache))delete cache[k];$("guidePanel").hidden=$("displayMode").value!=="always";$("lanes").replaceChildren();$("nav").textContent="—";$("distance").textContent="—";$("guideStatus").textContent="無有效車道引導";$("guideNote").textContent="等待引導";$("matchStatus").textContent="等待雙來源";}
+  function clear(){for(const k of Object.keys(cache))delete cache[k];$("guidePanel").hidden=$("displayMode").value!=="always";$("lanes").replaceChildren();$("nav").textContent="—";$("distance").textContent="—";$("guideStatus").textContent="無有效車道引導";$("guideNote").textContent="等待引導";$("matchStatus").textContent="等待雙來源";$("mapCandidate").textContent="—";$("candidateIcons").replaceChildren();$("pairStatus").textContent="無有效推薦圖示資料";}
   function disconnect(){win.clearTimeout(retry);retry=0;const s=socket;socket=null;if(s)s.close();clear();}
   function connect(){
     if(!enabled||doc.hidden||socket)return;

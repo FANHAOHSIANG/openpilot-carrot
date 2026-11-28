@@ -16,7 +16,7 @@ function view(core,cache,now,displayMode,visible){
     visualCount:p.visual_count,visualWidth:p.visual_width_m,
     synchronized:p.event_active&&p.visual_count!==null&&Number.isFinite(s.model_nav_message_delta_ms)&&Math.abs(s.model_nav_message_delta_ms)<=250,
     recommendation_status:p.recommendation_status,recommendedLane:null,
-    note:p.event_active?"導航車道資料 · 尚未匹配自車位置":"等待有效車道引導",
+    note:p.event_active?"導航車道資料 · 尚未匹配自車位置":s.map_candidate?"獨立推薦圖示 · 尚未匹配自車位置":"等待有效車道引導",
     control_usable:false};
 }
 function boot(doc,win){

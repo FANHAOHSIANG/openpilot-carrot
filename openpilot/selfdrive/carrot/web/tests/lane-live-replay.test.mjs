@@ -1,0 +1,8 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import "../js/lane-observe.js";
+const core=globalThis.CarrotLaneObserve;
+const nav=(legacy=false)=>({service:"carrotNavi",valid:true,logMonoTime:1e9,decoded:{connected:true,sessionId:"a",generation:1,navigationStatus:{guidanceActive:true,offRoute:false},laneCurrent:{present:true,visible:legacy,count:2,meta:{receivedMonoTimeNanos:9e8}},amapLaneCandidate:{valid:true,deadlineMonoTimeNanos:2e9,fieldsJson:JSON.stringify({source:"amap_auto_13012",count:2,control_input:false,absolute_mapping_verified:false,lanes:[{index:0,advised:true},{index:1,advised:false}]})}}});
+test("independent map candidate survives identical duplicate without legacy lane",()=>{const c={},e=nav();core.ingest(c,e,0);core.ingest(c,e,5);assert.equal(c.carrotNavi.received,0);const s=core.snapshot(c,5);assert.equal(s.lane,null);assert(s.map_candidate);assert(core.presentation(s,"auto").visible);assert(!core.presentation(s,"off").visible);assert.equal(core.snapshot(c,1001).map_candidate,null);});
+test("guidance disabled suppresses both legacy lane and candidate",()=>{const c={},e=nav(true);e.decoded.navigationStatus.guidanceActive=false;core.ingest(c,e,0);const s=core.snapshot(c,0);assert.equal(s.lane,null);assert.equal(s.map_candidate,null);});
+test("same timestamp contradictory candidate clears view",()=>{const c={},e=nav();core.ingest(c,e,0);const b=structuredClone(e);b.decoded.amapLaneCandidate.valid=false;core.ingest(c,b,5);assert.equal(core.snapshot(c,5).map_candidate,null);core.ingest(c,e,6);assert.equal(core.snapshot(c,6).map_candidate,null);});
