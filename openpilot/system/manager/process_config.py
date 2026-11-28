@@ -97,6 +97,10 @@ def signal_color_observer(started: bool, params: Params, CP: car.CarParams) -> b
   return started and requested()
 
 
+def low_speed_oscillation_observer(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return started and not CP.notCar and params.get_bool("LowSpeedOscillationShadow")
+
+
 def only_offroad(started: bool, params: Params, CP: car.CarParams) -> bool:
   return not started
 
@@ -165,6 +169,7 @@ procs = [
 
   PythonProcess("modeld", "openpilot.selfdrive.modeld.modeld", only_onroad),
   PythonProcess("signalcolord", "openpilot.selfdrive.modeld.signal_color_shadow", signal_color_observer, spawn=True),
+  PythonProcess("low_speed_oscillation_shadow", "openpilot.selfdrive.carrot.low_speed_oscillation_shadow", low_speed_oscillation_observer, spawn=True),
   PythonProcess("jetlinkd", "openpilot.selfdrive.modeld.jetlink.daemon", always_run, enabled=TICI, restart_if_crash=True),
   PythonProcess("dmonitoringmodeld", "openpilot.selfdrive.modeld.dmonitoringmodeld", enable_dm_model, enabled=(WEBCAM or not PC)),
   PythonProcess("sensord", "openpilot.system.sensord.sensord", only_onroad, enabled=not PC),

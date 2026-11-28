@@ -414,6 +414,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"CustomSteerMax", {PERSISTENT, INT, "0"}},
     {"LowSpeedSteerReserve", {PERSISTENT, BOOL, "0"}},
     {"HkgPhase1Assist", {PERSISTENT, BOOL, "0"}},
+    {"LowSpeedOscillationShadow", {PERSISTENT, BOOL, "0"}},
     {"LowSpeedSteerObservations", {PERSISTENT | DONT_LOG, STRING}},
     {"LowSpeedSteerStatus", {CLEAR_ON_MANAGER_START | DONT_LOG, STRING}},
     {"CustomSteerDeltaUp", {PERSISTENT, INT, "0"}},

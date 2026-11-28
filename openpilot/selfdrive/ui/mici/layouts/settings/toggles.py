@@ -28,7 +28,11 @@ class TogglesLayoutMici(NavScroller):
     record_mic = BigParamControl(tr("record & upload mic audio"), "RecordAudio", toggle_callback=restart_needed_callback)
     enable_openpilot = BigParamControl(tr("enable openpilot"), "OpenpilotEnabledToggle", toggle_callback=restart_needed_callback)
 
+    shadow_toggle = BigParamControl("低速防搖擺（僅紀錄）", "LowSpeedOscillationShadow")
+    shadow_toggle.set_enabled(lambda: not ui_state.started and not ui_state.engaged)
+
     self._scroller.add_widgets([
+      shadow_toggle,
       self._personality_toggle,
       self._experimental_btn,
       is_metric_toggle,
@@ -43,6 +47,7 @@ class TogglesLayoutMici(NavScroller):
 
     # Toggle lists
     self._refresh_toggles = (
+      ("LowSpeedOscillationShadow", shadow_toggle),
       ("ExperimentalMode", self._experimental_btn),
       ("IsMetric", is_metric_toggle),
       ("RainbowMode", rainbow_toggle),
