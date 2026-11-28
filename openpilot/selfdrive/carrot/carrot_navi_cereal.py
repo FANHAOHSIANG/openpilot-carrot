@@ -7,6 +7,7 @@ import time
 from typing import Any, TYPE_CHECKING
 
 from openpilot.selfdrive.carrot.amap_exit_display import amap_exit_display_payload
+from openpilot.selfdrive.carrot.amap_lane_display import lane_display_payload
 from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_payload, shared_pre_adjust_payload
 
 if TYPE_CHECKING:
@@ -223,6 +224,7 @@ def build_carrot_navi_payload(snapshot: dict[str, Any], publish_mono_ns: int | N
     "guidanceCurrent": _guidance(snapshot, "guidance_current"),
     "guidanceNext": _guidance(snapshot, "guidance_next"),
     "amapExitInfo": amap_exit_display_payload(snapshot, publish_mono_ns),
+    "amapLaneCandidate": lane_display_payload(snapshot, publish_mono_ns),
     "laneCurrent": _lane(lane_record, lane_value),
     "laneAhead": [
       _lane(ahead_record, value)

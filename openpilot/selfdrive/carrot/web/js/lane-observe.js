@@ -71,6 +71,20 @@ function decodeWire(buffer,decoder){
   const event=decoder.decodeReplayEvent(payload,service,"",null,true);
   return event&&event.service===service&&finite(event.logMonoTime)&&event.logMonoTime>0?event:null;
 }
+function mapCandidate(nav,elapsed){
+  const x=nav?.decoded?.amapLaneCandidate,st=nav?.decoded?.navigationStatus;
+  if(nav?.decoded?.connected!==true||st?.guidanceActive!==true||st?.offRoute!==false||x?.valid!==true||
+    !finite(x.deadlineMonoTimeNanos)||!finite(nav.logMonoTime)||!finite(elapsed)||elapsed<0||
+    x.deadlineMonoTimeNanos<=nav.logMonoTime+elapsed*1e6||x.deadlineMonoTimeNanos-nav.logMonoTime>2e9||
+    typeof x.fieldsJson!=="string"||x.fieldsJson.length>8192)return null;
+  try{
+    const c=JSON.parse(x.fieldsJson),n=c?.count,rows=c?.lanes;
+    if(!["amap_auto_13012","amap_link_14"].includes(c?.source)||c.control_input!==false||c.absolute_mapping_verified!==false||
+      !Number.isInteger(n)||n<1||n>32||!Array.isArray(rows)||rows.length!==n||
+      rows.some((r,i)=>r?.index!==i||![true,false,null].includes(r.advised)))return null;
+    return {source:c.source,count:n,advised_count:rows.filter(r=>r.advised===true).length,unknown_count:rows.filter(r=>r.advised===null).length,lanes:rows,control_usable:false};
+  }catch(_){return null;}
+}
 function snapshot(cache,now){
   const fresh=(k,ttl)=>{const v=cache[k];return v&&v.event.valid===true&&now>=v.received&&now-v.received<=ttl?v.event:null};
   const model=fresh("modelV2",600),nav=fresh("carrotNavi",1500),car=fresh("carState",600),ctrl=fresh("controlsState",600);
@@ -91,7 +105,7 @@ function snapshot(cache,now){
   const laneGap=model&&lane?(model.logMonoTime-lane.received_mono_ns)/1e6:null;
   const carGap=model&&car?Math.abs(model.logMonoTime-car.logMonoTime)/1e6:null;
   const ctrlGap=model&&ctrl?Math.abs(model.logMonoTime-ctrl.logMonoTime)/1e6:null;
-  return {geometry:geom,relative_position:relativePosition(geom),lane,nav_reason:navReason,nav_connected:nav?.decoded?.connected===true,
+  return {geometry:geom,relative_position:relativePosition(geom),map_candidate:nav?mapCandidate(nav,now-cache.carrotNavi.received):null,lane,nav_reason:navReason,nav_connected:nav?.decoded?.connected===true,
     model_mono_ns:model?.logMonoTime??null,nav_mono_ns:nav?.logMonoTime??null,
     model_nav_message_delta_ms:gap===null?null:Math.round(gap),
     model_lane_receipt_delta_ms:laneGap===null?null:Math.round(laneGap),
@@ -176,6 +190,7 @@ function boot(doc,win){
     $("guideStatus").textContent=p.event_active?"導航車道引導":"無有效車道引導";
     $("guideNote").textContent=p.recommendation_status==="no_recommendation_data"?"推薦車道尚未傳入 C4":p.recommendation_status==="raw_flags_unverified"?"車道旗標語意未驗證":"等待引導";
     $("matchStatus").textContent=p.event_active&&p.visual_count!==null?"地圖與視覺同時可見 · 尚未空間匹配":"等待雙來源";
+    const mc=s.map_candidate; $("mapCandidate").textContent=mc?mc.source+" · 推薦候選 "+mc.advised_count+"/"+mc.count+" · 未知 "+mc.unknown_count+" · 尚未配對":"—";
     if(socket?.readyState===1)status.textContent=s.geometry?"即時 C4 視覺 · 只讀":"等待有效 C4 視覺";
     $("nav").textContent=s.lane?s.lane.count+" 車道":s.nav_connected?"暫無有效車道引導":"導航未連線";
     $("distance").textContent=s.lane&&s.lane.distance_m!==null?s.lane.distance_m+" m":"—";

@@ -72,6 +72,7 @@ struct CarrotNaviState @0xaedffd8f31e7b55d {
 	crossroad @12 :Crossroad;
 	route @13 :Route;
 	navigationStatus @14 :NavigationStatus;
+	amapLaneCandidate @16 :AmapExitInfo; # independent read-only lane candidate metadata
 	amapExitInfo @15 :AmapExitInfo; # display-only raw navigation metadata; never used for vehicle control
 
 	struct AmapExitInfo {

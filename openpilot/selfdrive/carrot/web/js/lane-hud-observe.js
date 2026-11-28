@@ -9,9 +9,9 @@ function view(core,cache,now,displayMode,visible){
   if(!visible||mode(displayMode)==="off")return null;
   const s=core.snapshot(cache,now);
   const p=core.presentation(s,displayMode);
-  if(!p.visible)return null;
+  if(!p.visible&&!s.map_candidate)return null;
   return {count:p.count,distance:p.distance_m,
-    flags:p.raw_flags,active:p.event_active,
+    flags:p.raw_flags,active:p.event_active,mapCandidate:s.map_candidate,
     visualCount:p.visual_count,visualWidth:p.visual_width_m,
     synchronized:p.event_active&&p.visual_count!==null&&Number.isFinite(s.model_nav_message_delta_ms)&&Math.abs(s.model_nav_message_delta_ms)<=250,
     recommendation_status:p.recommendation_status,recommendedLane:null,
@@ -58,7 +58,9 @@ function boot(doc,win){
     const p=view(core,cache,now,m,true);
     if(!p){hide();return;}
     const vision=p.visualCount==null?"視覺車道資料不足":("視覺 "+p.visualCount+" 條局部候選"+(p.synchronized?" · 時間接近":" · 時間未對齊"));
-    const txt=p.active?("導航 "+p.count+" 車道"+(p.distance==null?"":" · "+p.distance+" m")+"\n"+vision+"\n"+p.note):p.note;
+    const mc=p.mapCandidate;
+    const candidate=mc?"\n地圖候選 "+mc.advised_count+"/"+mc.count+" · 未配對":"";
+    const txt=(p.active?("導航 "+p.count+" 車道"+(p.distance==null?"":" · "+p.distance+" m")+"\n"+vision+"\n"+p.note):p.note)+candidate;
     if(lastText!==txt){panel.textContent=txt;panel.style.whiteSpace="pre-line";lastText=txt;}
     panel.hidden=false;
   }

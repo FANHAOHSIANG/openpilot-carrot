@@ -11,10 +11,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          sparse-checkout: openpilot/selfdrive/carrot/web
+          sparse-checkout: |
+            openpilot/selfdrive/carrot/web
+            openpilot/selfdrive/carrot/amap_lane_display.py
+            openpilot/selfdrive/carrot/amap_exit_display.py
+            openpilot/selfdrive/carrot/tests/test_amap_lane_display.py
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: |
           cd openpilot/selfdrive/carrot/web
           node --test tests/lane-candidate.test.mjs tests/lane-evidence.test.mjs tests/lane-observe.test.mjs tests/raw_capnp_carrot_navi.test.mjs
+      - run: python3 -m unittest discover -s openpilot/selfdrive/carrot/tests -p test_amap_lane_display.py

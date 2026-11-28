@@ -576,6 +576,13 @@ carrotRawCapnpGlobal.CarrotRawCapnp = (() => {
     },
   };
 
+  const NAVI_LANE_CANDIDATE_SCHEMA = {
+    fields: {
+      valid: { kind: "bool", offset: 0 },
+      deadlineMonoTimeNanos: { kind: "uint64", offset: 1 },
+      fieldsJson: { kind: "text", offset: 0 },
+    },
+  };
   const CARROT_NAVI_SCHEMA = {
     fields: {
       schemaVersion: { kind: "uint16", offset: 0 },
@@ -592,6 +599,7 @@ carrotRawCapnpGlobal.CarrotRawCapnp = (() => {
       crossroad: { kind: "struct", offset: 8, schema: NAVI_CROSSROAD_SCHEMA },
       route: { kind: "struct", offset: 9, schema: NAVI_ROUTE_SCHEMA },
       navigationStatus: { kind: "struct", offset: 10, schema: NAVI_STATUS_SCHEMA },
+      amapLaneCandidate: { kind: "struct", offset: 12, schema: NAVI_LANE_CANDIDATE_SCHEMA },
     },
   };
 

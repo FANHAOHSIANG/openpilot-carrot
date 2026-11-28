@@ -124,3 +124,13 @@ test("near-boundary, reversed lines, low confidence and edge conflicts are unava
 test("local position works without navigation and expires with model",()=>{
  const c={};ingest(c,event("modelV2",model),100);assert.equal(snapshot(c,200).relative_position.status,"local_candidate");assert.equal(snapshot(c,701).relative_position.status,"no_fresh_model");assert.equal(snapshot(c,701).relative_position.offset_m,null);
 });
+
+test("App live lane candidate expires independently and does not become a control lane",()=>{
+ const c={}; const raw=JSON.stringify({source:"amap_link_14",count:1,lanes:[{index:0,advised:true}],absolute_mapping_verified:false,control_input:false});
+ const n={connected:true,navigationStatus:{guidanceActive:true,offRoute:false},amapLaneCandidate:{valid:true,deadlineMonoTimeNanos:10.5e9,fieldsJson:raw}};
+ ingest(c,event("carrotNavi",n,10e9),100);
+ assert.equal(snapshot(c,200).map_candidate.advised_count,1);
+ assert.equal(snapshot(c,600).map_candidate,null);
+ assert.equal(snapshot(c,200).absolute_lane_index,null);
+ assert.equal(snapshot(c,200).control_usable,false);
+});
