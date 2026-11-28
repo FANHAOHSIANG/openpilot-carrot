@@ -123,6 +123,17 @@ class RemoteSubMaster:
         if reader.which() != name:
           raise ValueError('display service identity mismatch')
         self.data[name] = reader.as_builder()
+      if name == 'carrotNavi':
+        candidate = self.data[name].carrotNavi.amapLaneCandidate
+        if candidate.valid:
+          remaining = int(candidate.deadlineMonoTimeNanos) - int(value['sent'] * 1e9)
+          deadline = int(received * 1e9) + remaining - 250_000_000
+          if 0 < remaining <= 2_000_000_000 and 0 < deadline <= (1 << 64) - 1:
+            candidate.deadlineMonoTimeNanos = deadline
+          else:
+            candidate.valid = False
+            candidate.deadlineMonoTimeNanos = 0
+            candidate.fieldsJson = ''
       self.generations[name] = mono
       self.updated[name] = True
 

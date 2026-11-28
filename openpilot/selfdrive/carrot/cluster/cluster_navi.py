@@ -360,6 +360,25 @@ def parse_carrot_navi(
             except (ValueError, TypeError, RecursionError):
                 pass
 
+    lane_text, lane_deadline = "", 0.0
+    lane_info = _get(data, "amapLaneCandidate")
+    if current is not None and status is not None and status.guidance_active and not status.off_route and bool(_get(lane_info, "valid", False)):
+        deadline = _int(lane_info, "deadlineMonoTimeNanos") / 1e9
+        raw = _text(lane_info, "fieldsJson")
+        if 0 < deadline - now <= 2.0 and 0 < len(raw) <= 8192:
+            try:
+                c = json.loads(raw)
+                if isinstance(c, dict) and c.get("source") in ("amap_auto_13012", "amap_link_14") and c.get("control_input") is False and c.get("absolute_mapping_verified") is False:
+                    count, rows = c.get("count"), c.get("lanes")
+                    if type(count) is int and 1 <= count <= 32 and isinstance(rows, list) and len(rows) == count and all(
+                        isinstance(r, dict) and type(r.get("index")) is int and r["index"] == i and "advised" in r and (r["advised"] is None or type(r["advised"]) is bool)
+                        for i, r in enumerate(rows)
+                    ):
+                        positive = sum(r["advised"] is True for r in rows)
+                        lane_text = f"車道候選 {positive}/{count} 未配對"
+                        lane_deadline = deadline
+            except (ValueError, TypeError, RecursionError):
+                pass
     state = NaviLiveState(
         generation=max(0, _int(data, "generation")),
         session_id=session_id,
@@ -389,6 +408,8 @@ def parse_carrot_navi(
         amap_exit_deadline_s=exit_deadline,
         amap_exit_direction=exit_direction,
         amap_route_remaining_text=route_remaining,
+        amap_lane_candidate_text=lane_text,
+        amap_lane_candidate_deadline_s=lane_deadline,
     )
     return fresh_carrot_navi(state, now)[0]
 
@@ -425,6 +446,9 @@ def fresh_carrot_navi(state: NaviLiveState | None, now: float | None = None) -> 
                      status.guidance_active and not status.off_route and 0 < state.amap_exit_deadline_s - now <= 2.0)
     if show_exit:
         deadlines.append(state.amap_exit_deadline_s)
+    show_lane_candidate = bool(state.amap_lane_candidate_text and current is not None and status is not None and status.guidance_active and not status.off_route and 0 < state.amap_lane_candidate_deadline_s - now <= 2.0)
+    if show_lane_candidate:
+        deadlines.append(state.amap_lane_candidate_deadline_s)
 
     if not any((vehicle, current, next_guidance, lane_current, lane_ahead, speed, traffic, crossroad, route, status)):
         return None, math.inf
@@ -444,5 +468,7 @@ def fresh_carrot_navi(state: NaviLiveState | None, now: float | None = None) -> 
         amap_exit_deadline_s=state.amap_exit_deadline_s if show_exit else 0.0,
         amap_exit_direction=state.amap_exit_direction if show_exit else "",
         amap_route_remaining_text=state.amap_route_remaining_text if show_exit else "",
+        amap_lane_candidate_text=state.amap_lane_candidate_text if show_lane_candidate else "",
+        amap_lane_candidate_deadline_s=state.amap_lane_candidate_deadline_s if show_lane_candidate else 0.0,
     )
     return effective, min(deadlines, default=math.inf)

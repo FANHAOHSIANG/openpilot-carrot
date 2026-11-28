@@ -208,6 +208,8 @@ class NaviLiveState:
     amap_exit_deadline_s: float = 0.0
     amap_exit_direction: str = ""
     amap_route_remaining_text: str = ""
+    amap_lane_candidate_text: str = ""
+    amap_lane_candidate_deadline_s: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
