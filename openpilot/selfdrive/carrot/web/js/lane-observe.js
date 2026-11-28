@@ -204,7 +204,7 @@ function boot(doc,win){
     url.searchParams.set("services","modelV2,carrotNavi,carState,controlsState");
     const s=new WebSocket(url);socket=s;s.binaryType="arraybuffer";
     s.onopen=()=>{if(socket===s)status.textContent="已連線 · 等待資料";};
-    s.onmessage=e=>{if(socket!==s||typeof e.data==="string")return;try{const ev=decodeWire(e.data,win.CarrotRawCapnp);if(ev)ingest(cache,ev,win.performance.now());}catch(_){decodeErrors++;clear();}};
+    s.onmessage=e=>{if(socket!==s||typeof e.data==="string")return;try{const ev=decodeWire(e.data,win.CarrotRawCapnp);if(ev){if(cache[ev.service]&&ev.logMonoTime<cache[ev.service].event.logMonoTime)tracker.reset();if(ev.service==="modelV2"&&ev.valid!==true)tracker.reset();ingest(cache,ev,win.performance.now());}}catch(_){decodeErrors++;clear();}};
     s.onclose=()=>{if(socket!==s)return;socket=null;clear();status.textContent="連線中斷";if(enabled&&!doc.hidden)retry=win.setTimeout(connect,2000);};
     s.onerror=()=>s.close();
   }

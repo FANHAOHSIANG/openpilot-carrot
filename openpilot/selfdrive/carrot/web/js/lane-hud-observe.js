@@ -33,8 +33,8 @@ function boot(doc,win){
     url.searchParams.set("services","carrotNavi,modelV2");
     const s=new win.WebSocket(url);socket=s;s.binaryType="arraybuffer";
     s.onmessage=e=>{if(socket!==s||typeof e.data==="string")return;
-      try{const event=core.decodeWire(e.data,decoder);if(["carrotNavi","modelV2"].includes(event?.service))core.ingest(cache,event,win.performance.now());}catch(_){cache={};hide();}};
-    s.onclose=()=>{if(socket!==s)return;socket=null;cache={};hide();nextConnect=win.performance.now()+2000;};
+      try{const event=core.decodeWire(e.data,decoder);if(["carrotNavi","modelV2"].includes(event?.service)){if(cache[event.service]&&event.logMonoTime<cache[event.service].event.logMonoTime)tracker.reset();if(event.service==="modelV2"&&event.valid!==true)tracker.reset();core.ingest(cache,event,win.performance.now());}}catch(_){tracker.reset();cache={};hide();}};
+    s.onclose=()=>{if(socket!==s)return;tracker.reset();socket=null;cache={};hide();nextConnect=win.performance.now()+2000;};
     s.onerror=()=>{try{s.close();}catch(_){}};
   }
   function mount(target){
