@@ -115,3 +115,9 @@ def test_full_shared_service(monkeypatch, source):
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
   result = sent['carrotMan'].carrotMan
   assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('road', 100, 100)
+
+@pytest.mark.parametrize("source", SOURCES)
+def test_shared_pre_requires_route_context(source):
+  s = shared(source)
+  s["items"].pop("route")
+  assert shared_pre_adjust_candidate(parse(s), True, NOW, 45) == 250

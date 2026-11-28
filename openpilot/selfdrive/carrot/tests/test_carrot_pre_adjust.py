@@ -21,6 +21,9 @@ def snapshot(target=60, generated=10000, sent=10500, received=10_000_000_000):
                   "pre_adjust": {"source": "amap_auto", "target_kph": target, "generated_at_ms": generated},
                 }},
       "navigation_status": {"present": True, "value": {"guidance_active": True}},
+      "route": {"present": True, "sequence": 1, "value": {"remain_distance_m": 2000}},
+      "guidance_current": {"present": True, "sequence": 1,
+                           "value": {"turn_type": 101, "distance_m": 150}},
     },
   }
 
@@ -160,3 +163,40 @@ def test_full_service_publication_and_cached_item_expiry(monkeypatch):
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
   result = sent['carrotMan'].carrotMan
   assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('road', 100, 100)
+
+@pytest.mark.parametrize("case", ["missing_route", "missing_current", "no_session", "passed", "straight", "arrival"])
+def test_native_pre_requires_current_route_context(case):
+  s = snapshot()
+  if case == "missing_route": s["items"].pop("route")
+  if case == "missing_current": s["items"].pop("guidance_current")
+  if case == "no_session": s["session_id"] = ""
+  if case == "passed": s["items"]["guidance_current"]["value"]["distance_m"] = 0
+  if case == "straight": s["items"]["guidance_current"]["value"]["turn_type"] = 51
+  if case == "arrival": s["items"]["guidance_current"]["value"]["turn_type"] = 201
+  navi = parse_carrot_navi_control(build_carrot_navi_payload(s, 10_100_000_000))
+  assert pre_adjust_candidate(navi, True, 10_100_000_000) == 250
+  assert select_with_production_code(navi) == (100, "road")
+
+
+@pytest.mark.parametrize("connected,has_control,valid,limit,expected", [
+  (True, False, False, 30, 200),
+  (True, True, False, 30, 200),
+  (True, True, True, 100, 106),
+  (False, False, False, 100, 106),
+])
+def test_actual_road_arbitration_uses_connection_not_control_presence(connected, has_control, valid, limit, expected):
+  path = Path(__file__).parents[1] / "carrot_serv.py"
+  tree = ast.parse(path.read_text())
+  cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "CarrotServ")
+  method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "update_navi")
+  def assigns(n, name):
+    return isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == name for t in n.targets)
+  start = next(i for i, n in enumerate(method.body) if assigns(n, "limit_speed"))
+  block = ast.Module(body=method.body[start:start+3], type_ignores=[])
+  env = dict(carrot_navi_active=has_control,
+             self=SimpleNamespace(carrot_navi_active=connected, carrot_navi_road_limit_valid=valid,
+                                  nRoadLimitSpeed=limit, autoRoadSpeedLimitOffset=6,
+                                  active_carrot=2, is_metric=True),
+             CV=SimpleNamespace(KPH_TO_MPH=0.621371))
+  exec(compile(ast.fix_missing_locations(block), str(path), "exec"), env)
+  assert env["limit_speed"] == expected
