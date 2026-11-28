@@ -1387,7 +1387,10 @@ class CarrotServ:
       self.active_carrot = 0
 
     limit_speed = 200
-    road_limit_valid = not carrot_navi_active or self.carrot_navi_road_limit_valid
+    # _update_carrot_navi() reports usable control, not connection presence.
+    # A connected v2 sender without a valid limit must not authorize the
+    # cached/default road speed through the legacy fallback.
+    road_limit_valid = not self.carrot_navi_active or self.carrot_navi_road_limit_valid
     if self.autoRoadSpeedLimitOffset >= 0 and self.active_carrot>=2 and road_limit_valid:
       if self.nRoadLimitSpeed >= 30:
         road_speed_limit_offset = self.autoRoadSpeedLimitOffset

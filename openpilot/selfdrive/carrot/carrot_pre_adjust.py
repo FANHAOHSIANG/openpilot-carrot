@@ -30,6 +30,12 @@ def pre_adjust_payload(record: dict, now_ns: int) -> tuple[int, int]:
 def pre_adjust_candidate(navi, enabled: bool, now_ns: int) -> float:
   if not enabled or navi is None or not navi.guidance_active or navi.off_route:
     return NO_LIMIT_KPH
+  # Native advice alone is not proof of a current navigation maneuver.
+  # This is a necessary context check, not verified selected-exit identity.
+  if (not navi.session_id or not navi.route.present or not navi.current.present
+      or navi.current.distance_m <= 0
+      or navi.current.turn_type in (-1, 51, 52, 53, 54, 55, 201)):
+    return NO_LIMIT_KPH
   speed = navi.speed
   target = speed.pre_adjust_kph
   remaining = speed.pre_adjust_deadline_ns - now_ns
@@ -70,6 +76,7 @@ def shared_pre_adjust_payload(status_record, current_record, now_ns):
 def shared_pre_adjust_candidate(navi, enabled, now_ns, turn_proposal):
   import math
   if (not enabled or navi is None or not navi.guidance_active or navi.off_route
+      or not navi.session_id or not navi.route.present
       or navi.shared_pre_adjust_source not in SOURCES
       or not 0 < navi.shared_pre_adjust_deadline_ns - now_ns <= MAX_AGE_MS * 1_000_000
       or not navi.current.present or navi.current.distance_m <= 0
