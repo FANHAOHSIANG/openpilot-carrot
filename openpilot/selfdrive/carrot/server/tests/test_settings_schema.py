@@ -756,3 +756,27 @@ def test_declared_nonzero_min_and_zero_labels_are_well_formed(params):
       assert item['min'] == item['default'] == 0
       assert 0 < item['nonzero_min'] <= item['max']
       assert set(item['zero_label']) == {'ko', 'en', 'zh', 'zh-tw'}
+
+
+def test_low_speed_shadow_recording_catalog(settings, params):
+  setting = next(p for p in params if p["name"] == "LowSpeedOscillationShadow")
+  assert (setting["control"], setting["min"], setting["max"], setting["default"]) == ("toggle", 0, 1, 0)
+  steer = next(g for g in next(c for c in settings["menu"] if c["id"] == "DRIVING")["groups"] if g["id"] == "STEER")
+  assert "LowSpeedOscillationShadow" in next(g for g in steer["groups"] if g["id"] == "STEER_FEEL")["params"]
+  assert '{"LowSpeedOscillationShadow", {PERSISTENT, BOOL, "0"}}' in PARAMS_KEYS_PATH.read_text(encoding="utf-8")
+
+
+def test_low_speed_shadow_offroad_gate():
+  from openpilot.selfdrive.carrot.server.services.params import shadow_setting_writable
+  class FakeParams:
+    def __init__(self, onroad, forced=False):
+      self.onroad, self.forced = onroad, forced
+    def get(self, key):
+      return self.onroad
+    def get_bool(self, key):
+      return self.forced
+  assert shadow_setting_writable(FakeParams(False))
+  assert shadow_setting_writable(FakeParams(b"0"))
+  assert not shadow_setting_writable(FakeParams(True))
+  assert not shadow_setting_writable(FakeParams(None))
+  assert not shadow_setting_writable(FakeParams(False, True))

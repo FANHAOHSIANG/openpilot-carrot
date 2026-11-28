@@ -2902,6 +2902,31 @@ async function renderItems(group, options = {}) {
     el.appendChild(top);
     el.appendChild(d);
 
+    if (name === "LowSpeedOscillationShadow" && !profile) {
+      const status = document.createElement("div");
+      status.className = "muted mt-sm";
+      status.textContent = "紀錄狀態：讀取中";
+      el.appendChild(status);
+      const refreshShadowStatus = async () => {
+        if (!el.isConnected) return;
+        try {
+          const response = await fetch("/api/low_speed_shadow_status", { cache: "no-store" });
+          const info = await response.json();
+          if (!response.ok || !info.ok) throw new Error("status unavailable");
+          if (toggleInput) toggleInput.disabled = !info.writable;
+          status.textContent = !info.enabled ? "紀錄狀態：關閉" :
+            info.active ? "紀錄程序運作中｜已送出樣本 " + info.samples + "｜候選運算 " + info.applied :
+            "已啟用，等待紀錄程序或資料";
+          if (!info.writable) status.textContent += "（須停車並離開行車狀態才能修改）";
+        } catch (_) {
+          if (toggleInput) toggleInput.disabled = true;
+          status.textContent = "紀錄狀態：無法確認";
+        }
+        if (el.isConnected) setTimeout(refreshShadowStatus, 2000);
+      };
+      setTimeout(refreshShadowStatus, 0);
+    }
+
     const popularTopValues = Array.isArray(popularEntry?.top_values) ? popularEntry.top_values : [];
     let contextPanel = null;
     let popularDetail = null;

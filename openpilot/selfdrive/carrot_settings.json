@@ -166,6 +166,7 @@
               "en": "Steering Feel",
               "zh": "转向手感",
               "params": [
+                "LowSpeedOscillationShadow",
                 "HkgPhase1Assist",
                 "SteerActuatorDelay",
                 "CenterToFrontRatio",
@@ -781,6 +782,26 @@
     }
   ],
   "params": [
+    {
+      "group": "조향일반",
+      "name": "LowSpeedOscillationShadow",
+      "title": "저속 조향 진동 (기록 전용)",
+      "descr": "정차 후 설정. 제어 변경 없이 후보 곡률과 조향 데이터를 rlog에 기록. 기본 꺼짐.",
+      "egroup": "LAT",
+      "etitle": "Low-speed steering oscillation (recording only)",
+      "edescr": "Set while parked/offroad. Records shadow curvature and steering data in rlog without changing controls. Default off.",
+      "cgroup": "转向",
+      "ctitle": "低速防摇摆（仅记录）",
+      "cdescr": "停车后设置。仅记录候选曲率与转向数据，不改变实际控制。默认关闭。",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1,
+      "tgroup": "轉向",
+      "ttitle": "低速防搖擺（僅紀錄）",
+      "tdescr": "停車後設定。只記錄候選曲率與轉向資料，不改變實際控制。預設關閉。",
+      "control": "toggle"
+    },
     {
       "group": "조향일반",
       "name": "PathOffset",
