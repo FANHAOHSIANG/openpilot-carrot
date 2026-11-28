@@ -109,7 +109,8 @@ def test_full_shared_service(monkeypatch, source):
   pm = SimpleNamespace(send=lambda name, message: sent.update({name: message}))
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
   result = sent['carrotMan'].carrotMan
-  assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('pre', 45, 100)
+  # Missing actual carState cannot authorize shared PRE.
+  assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('road', 100, 100)
   sm.updated['carrotNavi'] = False
   monkeypatch.setattr(carrot_serv.time, 'monotonic_ns', lambda: 11_500_000_000)
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
