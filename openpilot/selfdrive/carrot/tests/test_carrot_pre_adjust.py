@@ -8,6 +8,7 @@ import pytest
 from openpilot.selfdrive.carrot.carrot_navi_cereal import build_carrot_navi_payload
 from openpilot.selfdrive.carrot.carrot_navi_control import parse_carrot_navi_control
 from openpilot.selfdrive.carrot.carrot_pre_adjust import pre_adjust_candidate, pre_adjust_payload
+from openpilot.selfdrive.carrot.pre_advisory_guard import PreAdvisoryGuard, PreTransitionPreview
 
 
 def snapshot(target=60, generated=10000, sent=10500, received=10_000_000_000):
@@ -95,10 +96,19 @@ def select_with_production_code(navi, **values):
              time=SimpleNamespace(monotonic_ns=lambda: 10_100_000_000),
              self=SimpleNamespace(carrot_navi_active=True, carrot_navi_control=navi,
                                   external_navigation_active=True, autoNaviSpeedCtrlMode=1,
-                                  turnSpeedControlMode=0, autoCurveSpeedLowerLimit=30),
+                                  turnSpeedControlMode=0, autoCurveSpeedLowerLimit=30,
+                                  debugText='', pre_advisory_guard=PreAdvisoryGuard(),
+                                  pre_transition_preview=PreTransitionPreview()),
+             CS=SimpleNamespace(), sm=SimpleNamespace(valid={'carState': True}),
+             v_ego_kph=60.,
              atc_desired=250, atc_desired_next=250, sdi_speed=250, sdi_source='cam',
              vehicle_camera_speed=250, vehicle_bump_speed=250, vehicle_school_zone_speed=250,
              vehicle_section_zone_speed=250, limit_speed=100, route_speed=250, vturn_speed=250)
+  # Most synthetic existing cases intentionally start close to the proposed PRE.
+  native = pre_adjust_candidate(navi, True, 10_100_000_000)
+  raw = min(native, values.get('shared_pre_speed', 250))
+  if raw < 250:
+    env['v_ego_kph'] = raw
   env.update(values)
   exec(compile(ast.fix_missing_locations(block), str(path), 'exec'), env)
   return env['desired_speed'], env['source']
@@ -157,7 +167,8 @@ def test_full_service_publication_and_cached_item_expiry(monkeypatch):
   pm = SimpleNamespace(send=lambda name, message: sent.update({name: message}))
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
   result = sent['carrotMan'].carrotMan
-  assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('pre', 60, 100)
+  # Missing actual carState cannot authorize PRE.
+  assert (result.desiredSource, result.desiredSpeed, result.nRoadLimitSpeed) == ('road', 100, 100)
   sm.updated['carrotNavi'] = False
   monkeypatch.setattr(carrot_serv.time, 'monotonic_ns', lambda: 11_500_000_000)
   serv.update_navi('', sm, pm, 250., [], [], 250., 'gpsLocationExternal')
@@ -200,3 +211,12 @@ def test_actual_road_arbitration_uses_connection_not_control_presence(connected,
              CV=SimpleNamespace(KPH_TO_MPH=0.621371))
   exec(compile(ast.fix_missing_locations(block), str(path), "exec"), env)
   assert env["limit_speed"] == expected
+
+def test_production_pre_gap_and_independent_caps():
+  navi = parse_carrot_navi_control(build_carrot_navi_payload(snapshot(), 10_100_000_000))
+  assert select_with_production_code(navi, v_ego_kph=100) == (100, "road")
+  assert select_with_production_code(navi, v_ego_kph=75) == (60, "pre")
+  assert select_with_production_code(navi, v_ego_kph=100, sdi_speed=40) == (40, "cam")
+  assert select_with_production_code(navi, v_ego_kph=100, atc_desired=30) == (30, "atc")
+  assert select_with_production_code(navi, v_ego_kph=100, limit_speed=36) == (36, "road")
+  assert select_with_production_code(navi, CS=None) == (100, "road")
