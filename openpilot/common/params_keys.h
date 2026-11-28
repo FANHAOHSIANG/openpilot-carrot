@@ -376,6 +376,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"AdjustLaneOffset", {PERSISTENT, INT, "0"}},
     {"ModelCurveCentering", {PERSISTENT, BOOL, "0"}},
     {"HkgPhase1Assist", {PERSISTENT, BOOL, "0"}},
+    {"LowSpeedOscillationShadow", {PERSISTENT, BOOL, "0"}},
     {"LowSpeedSteerObserveOnly", {PERSISTENT, BOOL, "0"}},
     {"LowSpeedSteerObservations", {PERSISTENT | DONT_LOG, JSON}},
     {"LowSpeedSteerStatus", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION | DONT_LOG, JSON}},

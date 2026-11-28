@@ -48,6 +48,12 @@ class TogglesLayout(Widget):
         "chffr_wheel.png",
         True,
       ),
+      "LowSpeedOscillationShadow": (
+        lambda: "低速防搖擺（僅紀錄）",
+        "影子運算與資料紀錄，不改變方向盤控制。請停車時設定。",
+        "warning.png",
+        False,
+      ),
       "ExperimentalMode": (
         lambda: tr("Experimental Mode"),
         "",
@@ -194,6 +200,7 @@ class TogglesLayout(Widget):
       self._toggles["ExperimentalMode"].set_description(e2e_description)
 
     self._update_experimental_mode_icon()
+    self._toggles["LowSpeedOscillationShadow"].action_item.set_enabled(not ui_state.started and not ui_state.engaged)
 
     # TODO: make a param control list item so we don't need to manage internal state as much here
     # refresh toggles from params to mirror external changes
@@ -233,6 +240,9 @@ class TogglesLayout(Widget):
       self._params.put_bool("ExperimentalMode", state)
 
   def _toggle_callback(self, state: bool, param: str):
+    if param == "LowSpeedOscillationShadow" and (ui_state.started or ui_state.engaged):
+      self._toggles[param].action_item.set_state(self._params.get_bool(param))
+      return
     if param == "ExperimentalMode":
       self._handle_experimental_mode_toggle(state)
       return
