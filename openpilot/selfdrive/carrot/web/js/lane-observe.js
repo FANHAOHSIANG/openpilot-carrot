@@ -85,6 +85,29 @@ function mapCandidate(nav,elapsed){
     return {source:c.source,count:n,advised_count:rows.filter(r=>r.advised===true).length,unknown_count:rows.filter(r=>r.advised===null).length,lanes:rows,control_usable:false};
   }catch(_){return null;}
 }
+function lanePairDisplay(s) {
+  const finite = x => typeof x==="number" && Number.isFinite(x);
+  const c=s?.map_candidate, r=s?.relative_position, near=s?.geometry?.samples?.[0];
+  const valid=c?.control_usable===false && ["amap_auto_13012","amap_link_14"].includes(c.source) &&
+    Number.isInteger(c.count)&&c.count>=1&&c.count<=32&&Array.isArray(c.lanes)&&c.lanes.length===c.count&&
+    c.lanes.every((x,i)=>x?.index===i&&[true,false,null].includes(x.advised));
+  const local=r?.status==="local_candidate"&&r.reference==="model_origin_x0"&&r.control_usable===false&&
+    finite(r.offset_m)&&finite(r.width_m)&&r.width_m>=2.2&&r.width_m<=5&&Math.abs(r.offset_m)<=r.width_m/2 &&
+    Number.isInteger(near?.visible_lane_candidates)&&near.visible_lane_candidates>=1&&near.visible_lane_candidates<=3&&near.reason==="dual_line_candidate";
+  const close=finite(s?.model_nav_message_delta_ms)&&Math.abs(s.model_nav_message_delta_ms)<=250;
+  const icons=valid?c.lanes.map(x=>({number:x.index+1,advised:x.advised})):[];
+  return {icons,source:valid?c.source:null,positive_icons:icons.filter(x=>x.advised===true).map(x=>x.number),
+    local_offset_m:local?r.offset_m:null,local_width_m:local?r.width_m:null,visible_count:local?near.visible_lane_candidates:null,
+    status:!valid?"no_candidate":!local?"no_local_geometry":!close?"time_mismatch":"co_observed_unmapped",
+    absolute_lane_index:null,mapped_target_lane:null,control_usable:false};
+}
+function duplicateNavInvalid(old,event) {
+  if(event?.service!=="carrotNavi")return false;
+  const a=old?.decoded,b=event?.decoded;
+  if(event.valid!==true||b?.connected!==true||b?.navigationStatus?.guidanceActive===false||b?.navigationStatus?.offRoute===true)return true;
+  const keys=["sessionId","generation","navigationStatus","laneCurrent","amapLaneCandidate"];
+  return keys.some(k=>JSON.stringify(a?.[k])!==JSON.stringify(b?.[k]));
+}
 function snapshot(cache,now){
   const fresh=(k,ttl)=>{const v=cache[k];return v&&v.event.valid===true&&now>=v.received&&now-v.received<=ttl?v.event:null};
   const model=fresh("modelV2",600),nav=fresh("carrotNavi",1500),car=fresh("carState",600),ctrl=fresh("controlsState",600);
@@ -123,8 +146,8 @@ function ingest(cache,event,received){
   if(old&&event.logMonoTime===old.event.logMonoTime){
     const next=event.decoded?.laneCurrent;
     const withdrawal=event.valid!==true||(event.service==="carrotNavi"&&(event.decoded?.connected!==true||next?.present!==true||next?.visible!==true));
-    if(withdrawal)cache[event.service]={event,received:old.received};
-    else if(event.service==="carrotNavi"&&JSON.stringify(event.decoded?.laneCurrent)!==JSON.stringify(old.event.decoded?.laneCurrent))
+    if(withdrawal)cache[event.service]={event:{...event,valid:false},received:old.received};
+    else if(duplicateNavInvalid(old.event,event))
       cache[event.service]={event:{...event,valid:false},received:old.received};
     return;
   }
@@ -190,7 +213,11 @@ function boot(doc,win){
     $("guideStatus").textContent=p.event_active?"導航車道引導":"無有效車道引導";
     $("guideNote").textContent=p.recommendation_status==="no_recommendation_data"?"推薦車道尚未傳入 C4":p.recommendation_status==="raw_flags_unverified"?"車道旗標語意未驗證":"等待引導";
     $("matchStatus").textContent=p.event_active&&p.visual_count!==null?"地圖與視覺同時可見 · 尚未空間匹配":"等待雙來源";
-    const mc=s.map_candidate; $("mapCandidate").textContent=mc?mc.source+" · 推薦候選 "+mc.advised_count+"/"+mc.count+" · 未知 "+mc.unknown_count+" · 尚未配對":"—";
+    const mc=s.map_candidate,pair=lanePairDisplay(s); $("mapCandidate").textContent=mc?mc.source+" · 推薦候選 "+mc.advised_count+"/"+mc.count+" · 未知 "+mc.unknown_count+" · 尚未配對":"—";
+    const icons=$("candidateIcons");icons.replaceChildren();
+    for(const item of pair.icons){const tile=doc.createElement("span");tile.className="tile";tile.textContent="圖示 "+item.number+" · "+(item.advised===true?"推薦":item.advised===false?"未推薦":"未知");tile.style.borderColor=item.advised===true?"#61dfae":"#65788c";icons.append(tile);}
+    $("pairStatus").textContent=({no_candidate:"無有效推薦圖示資料",no_local_geometry:"局部視覺幾何不足",time_mismatch:"導航與視覺時間未對齊",co_observed_unmapped:"雙來源時間接近 · 空間未配對"})[pair.status];
+    
     if(socket?.readyState===1)status.textContent=s.geometry?"即時 C4 視覺 · 只讀":"等待有效 C4 視覺";
     $("nav").textContent=s.lane?s.lane.count+" 車道":s.nav_connected?"暫無有效車道引導":"導航未連線";
     $("distance").textContent=s.lane&&s.lane.distance_m!==null?s.lane.distance_m+" m":"—";
@@ -215,7 +242,7 @@ function boot(doc,win){
     if(recording&&s.model_mono_ns!==null&&s.model_mono_ns!==lastRecord){
       lastRecord=s.model_mono_ns;
       if(records.length<MAX_RECORDS){
-        records.push({schema:3,wall_ms:Date.now(),...s,presentation:p,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
+        records.push({schema:3,wall_ms:Date.now(),...s,presentation:p,lane_pair:pair,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
       }else{dropped++;recording=false;$("record").textContent="紀錄已滿";}
     }
     $("count").textContent=records.length+" 筆"+(dropped?"（上限停止）":"")+" · 解碼失敗 "+decodeErrors;
@@ -232,6 +259,6 @@ function boot(doc,win){
   win.addEventListener("pagehide",()=>{enabled=false;disconnect();});
   win.setInterval(update,200);update();
 }
-root.CarrotLaneObserve={points,at,geometry,relativePosition,decodeWire,snapshot,ingest,presentation};
+root.CarrotLaneObserve={points,at,geometry,relativePosition,decodeWire,snapshot,ingest,presentation,lanePairDisplay,duplicateNavInvalid};
 if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>{if(document.getElementById("plot")&&document.getElementById("displayMode"))boot(document,window);});
 })(globalThis);
