@@ -4,24 +4,6 @@
 #include "safety_hyundai_common.h"
 #include "safety_hyundai_spas.h"
 
-const TorqueSteeringLimits HYUNDAI_CANFD_STEERING_LIMITS = {
-  .max_steer = 512, //270,
-  .max_rt_delta = 112,
-  .max_rt_interval = 250000,
-  .max_rate_up = 2,
-  .max_rate_down = 3,
-  .driver_torque_allowance = 250,
-  .driver_torque_multiplier = 2,
-  .type = TorqueDriverLimited,
-
-  // the EPS faults when the steering angle is above a certain threshold for too long. to prevent this,
-  // we allow setting torque actuation bit to 0 while maintaining the requested torque value for two consecutive frames
-  .min_valid_request_frames = 89,
-  .max_invalid_request_frames = 2,
-  .min_valid_request_rt_interval = 810000,  // 810ms; a ~10% buffer on cutting every 90 frames
-  .has_steer_req_tolerance = true,
-};
-
 const CanMsg HYUNDAI_CANFD_HDA2_TX_MSGS[] = {
   {0x50, 0, 16},  // LKAS
   {0x1CF, 1, 8},  // CRUISE_BUTTON
@@ -252,7 +234,7 @@ static uint32_t hyundai_canfd_get_checksum(const CANPacket_t* to_push) {
 
 typedef struct {
   int addr;
-  int bus;              // forwarding block ¥ÎªÛ tx bus: 0 or 2
+  int bus;              // forwarding block ÎåÄÏÉÅ tx bus: 0 or 2
   int hz;
   uint32_t timeout_us;
   uint32_t last_tx_us;
@@ -260,7 +242,7 @@ typedef struct {
   bool tx_active;
 } CanfdTxState;
 
-// forwarding blockøÎ: bus 0,2∏∏ ªÁøÎ
+// forwarding blockÏö©: bus 0,2Îßå ÏÇ¨Ïö©
 CanfdTxState canfd_tx_states[] = {
   {0x50,  0, 100, 0U, 0U, 0U, false}, // 80:  LKAS
   {0x51,  0, 100, 0U, 0U, 0U, false}, // 81:  ADRV_0x51
@@ -494,7 +476,7 @@ static bool canfd_bfwd_pop(CanfdBufferedFwd* st, CANPacket_t* pkt) {
   st->head = (st->head + 1U) % CANFD_BFWD_MAX_QUEUE;
   st->count--;
 
-  // ∏∂¡ˆ∏∑ ¡§ªÛ packet ¿˙¿Â
+  // ÎßàÏßÄÎßâ Ï†ïÏÉÅ packet Ï†ÄÏû•
   canfd_copy_packet(&st->last_pkt, pkt);
   st->has_last_pkt = true;
   st->reuse_left = CANFD_BFWD_REUSE_MAX;
@@ -523,7 +505,10 @@ static bool canfd_bfwd_reuse_last(CanfdBufferedFwd* st, CANPacket_t* pkt) {
 
 
 
+#include "safety_hyundai_canfd_steering.h"
+
 static void hyundai_canfd_rx_hook(const CANPacket_t *to_push) {
+  hyundai_canfd_stock_angle_rx(to_push);
   hyundai_spas_rx(to_push, microsecond_timer_get());
   int bus = GET_BUS(to_push);
   int addr = GET_ADDR(to_push);
@@ -577,6 +562,9 @@ static void hyundai_canfd_rx_hook(const CANPacket_t *to_push) {
       uint32_t fr = (GET_BYTES(to_push, 10, 2)) & 0x3FFFU;
       uint32_t rl = (GET_BYTES(to_push, 12, 2)) & 0x3FFFU;
       uint32_t rr = (GET_BYTES(to_push, 14, 2)) & 0x3FFFU;
+      hyundai_canfd_wheel_max = MAX(MAX(fl, fr), MAX(rl, rr));
+      hyundai_canfd_wheel_min = MIN(MIN(fl, fr), MIN(rl, rr));
+      hyundai_canfd_wheel_reverse = GET_BIT(to_push, 57U) || GET_BIT(to_push, 59U);
       vehicle_moving = (fl > HYUNDAI_STANDSTILL_THRSLD) || (fr > HYUNDAI_STANDSTILL_THRSLD) ||
                        (rl > HYUNDAI_STANDSTILL_THRSLD) || (rr > HYUNDAI_STANDSTILL_THRSLD);
 
@@ -609,24 +597,6 @@ static void hyundai_canfd_rx_hook(const CANPacket_t *to_push) {
 
 static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
   CANPacket_t* to_send = (CANPacket_t*)to_send_const;
-
-  const TorqueSteeringLimits HYUNDAI_CANFD_STEERING_LIMITS = {
-    .max_steer = 512,
-    .max_rt_delta = 112,
-    .max_rt_interval = 250000,
-    .max_rate_up = 10,
-    .max_rate_down = 10,
-    .driver_torque_allowance = 250,
-    .driver_torque_multiplier = 2,
-    .type = TorqueDriverLimited,
-
-    // the EPS faults when the steering angle is above a certain threshold for too long. to prevent this,
-    // we allow setting torque actuation bit to 0 while maintaining the requested torque value for two consecutive frames
-    .min_valid_request_frames = 89,
-    .max_invalid_request_frames = 2,
-    .min_valid_request_rt_interval = 810000,  // 810ms; a ~10% buffer on cutting every 90 frames
-    .has_steer_req_tolerance = true,
-  };
 
   bool tx = true;
   int addr = GET_ADDR(to_send);
@@ -664,16 +634,8 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
     }
   }
 
-  // steering
-  const int steer_addr = (hyundai_canfd_hda2 && !hyundai_longitudinal) ? hyundai_canfd_hda2_get_lkas_addr() : 0x12a;
-  if (addr == steer_addr) {
-    int desired_torque = (((GET_BYTE(to_send, 6) & 0xFU) << 7U) | (GET_BYTE(to_send, 5) >> 1U)) - 1024U;
-    bool steer_req = GET_BIT(to_send, 52U);
-
-    if (steer_torque_cmd_checks(desired_torque, steer_req, HYUNDAI_CANFD_STEERING_LIMITS)) {
-      //tx = false;
-    }
-  }
+  // Reject before a forwarding cache can retain a replacement command.
+  violation |= hyundai_canfd_steering_tx_check(to_send);
 
 #if 0
   // cruise buttons check
@@ -848,7 +810,7 @@ static int hyundai_canfd_fwd_hook(CANPacket_t* to_send) {
       CANPacket_t buffered_pkt;
       bool use_buffered = canfd_bfwd_pop(bfwd, &buffered_pkt);
 
-      // queue∞° ∫Òæ˙¿∏∏È ∏∂¡ˆ∏∑ ¡§ªÛ∞™¿ª 1~2»∏ ¿ÁªÁøÎ
+      // queueÍ∞Ä ÎπÑÏóàÏúºÎ©¥ ÎßàÏßÄÎßâ Ï†ïÏÉÅÍ∞íÏùÑ 1~2Ìöå Ïû¨ÏÇ¨Ïö©
       if (!use_buffered) {
         use_buffered = canfd_bfwd_reuse_last(bfwd, &buffered_pkt);
         if (use_buffered) {
@@ -885,6 +847,10 @@ static int hyundai_canfd_fwd_hook(CANPacket_t* to_send) {
       }
 
       if (use_buffered) {
+        if (((addr == 0x12A) || (addr == 0xCB)) && hyundai_canfd_steering_forward_check(&buffered_pkt)) {
+          canfd_bfwd_reset(bfwd);
+          return -1;
+        }
         uint8_t counter = hyundai_canfd_get_counter(to_send);
 
         canfd_copy_packet(to_send, &buffered_pkt);
@@ -928,7 +894,9 @@ static safety_config hyundai_canfd_init(uint16_t param) {
     hyundai_spas_pb[i] = (HyundaiSpasPiggyback){0};
   }
 
-  hyundai_common_init(param);
+  // Bit 512 selects angle protocol here; classic CAN retains ALT_LIMITS_2.
+  hyundai_common_init(param & ~512U);
+  hyundai_canfd_steer_reset(param);
   hyundai_spas_init(GET_FLAG(param, 4096), (hyundai_canfd_hda2 && !hyundai_camera_scc) ? 1 : 0);
   // Kick buses are the camera-SCC harness's; the CANFD_SPAS_BLINKERS lease owns the same ids when it is on
   hyundai_canfd_kick = GET_FLAG(param, HYUNDAI_PARAM_CANFD_BLINKER_KICK) && hyundai_camera_scc && !hyundai_spas_enabled;
