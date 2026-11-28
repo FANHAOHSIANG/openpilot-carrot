@@ -1,10 +1,12 @@
 """Passive low-speed oscillation research observer. Never publishes control messages."""
 import math
+import json
 import os
 import time
 
 KEY = "LowSpeedOscillationShadow"
 EVENT = "lowSpeedOscillationShadow"
+STATUS_PATH = "/dev/shm/low_speed_oscillation_shadow_status.json"
 SERVICES = ("modelV2", "carState", "carControl", "controlsState", "carOutput", "liveParameters")
 
 
@@ -45,6 +47,17 @@ def finite(value):
     return None
 
 
+def write_status(now, samples, applied):
+  """Best-effort diagnostics; errors must not stop the observer."""
+  tmp = STATUS_PATH + ".tmp"
+  try:
+    with open(tmp, "w", encoding="utf-8") as f:
+      json.dump({"updated": now, "samples": samples, "applied": applied}, f)
+    os.replace(tmp, STATUS_PATH)
+  except OSError:
+    pass
+
+
 def main():
   # Deliberately isolated from controlsd, with no actuator or CAN publisher.
   from openpilot.cereal import messaging
@@ -63,6 +76,8 @@ def main():
   last_log = 0.
   last_reason = None
   last_param = 0.
+  last_status = 0.
+  samples = applied = 0
   cloudlog.event(EVENT + "Start", version=1, mode="observe_only", tau_s=.1, max_gap_s=.075,
                  max_step=.004, speed_range_mps=[1, 5], deployment_approved=False)
   while True:
@@ -72,6 +87,9 @@ def main():
       last_param = now
       if not params.get_bool(KEY):
         return
+    if now - last_status >= 1.:
+      last_status = now
+      write_status(now, samples, applied)
     if not sm.updated["modelV2"]:
       if now - sm.recv_time["modelV2"] > .25:
         shadow.reset()
@@ -130,6 +148,8 @@ def main():
                      pid=pid, lane_y0=[finite(line.y[0]) if len(line.y) else None for line in md.laneLines],
                      lane_probs=[finite(p) for p in md.laneLineProbs],
                      deployment_approved=False)
+      samples += 1
+      applied += int(outcome == "shadow_applied")
     except (AttributeError, ValueError, TypeError, OverflowError, IndexError, RuntimeError) as e:
       shadow.reset()
       if now - last_log >= 1.:

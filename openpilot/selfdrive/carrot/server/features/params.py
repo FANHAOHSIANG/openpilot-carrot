@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 
 from aiohttp import web
 
@@ -30,6 +31,8 @@ from ..services.params import (
   restore_param_values_validated,
   restore_param_values_from_backup,
   set_param_value,
+  shadow_setting_writable,
+  Params,
 )
 from ..services.settings import get_settings_cached
 from .system import is_drive_engaged
@@ -118,6 +121,8 @@ async def api_param_set(request: web.Request) -> web.Response:
 
   try:
     set_param_value(name, value, p)
+  except PermissionError as e:
+    return web.json_response({"ok": False, "error": str(e)}, status=409)
   except Exception as e:
     return web.json_response({"ok": False, "error": str(e)}, status=500)
 
@@ -134,6 +139,29 @@ async def api_param_set(request: web.Request) -> web.Response:
     )
 
   return web.json_response({"ok": True, "name": name, "value": value, "has_params": HAS_PARAMS})
+
+
+async def api_low_speed_shadow_status(request: web.Request) -> web.Response:
+  from openpilot.selfdrive.carrot.low_speed_oscillation_shadow import STATUS_PATH
+  try:
+    if not HAS_PARAMS:
+      raise RuntimeError("Params unavailable")
+    params = Params()
+    enabled = params.get_bool("LowSpeedOscillationShadow")
+    writable = shadow_setting_writable(params)
+  except Exception:
+    return web.json_response({"ok": False, "error": "State unavailable"}, status=503)
+  status = {"enabled": enabled, "writable": writable, "active": False, "samples": None}
+  if enabled and not writable:
+    try:
+      with open(STATUS_PATH, encoding="utf-8") as f:
+        raw = json.load(f)
+      age = time.monotonic() - float(raw["updated"])
+      if 0 <= age <= 3:
+        status.update(active=True, samples=int(raw["samples"]), applied=int(raw["applied"]))
+    except (OSError, ValueError, TypeError, KeyError, OverflowError):
+      pass
+  return web.json_response({"ok": True, **status}, headers={"Cache-Control": "no-store"})
 
 
 async def api_param_changes(request: web.Request) -> web.Response:
@@ -310,6 +338,7 @@ async def api_params_restore_json(request: web.Request) -> web.Response:
 
 
 def register(app: web.Application) -> None:
+  app.router.add_get("/api/low_speed_shadow_status", api_low_speed_shadow_status)
   app.router.add_get("/api/params_bulk", api_params_bulk)
   app.router.add_post("/api/param_set", api_param_set)
   app.router.add_get("/api/param_changes", api_param_changes)

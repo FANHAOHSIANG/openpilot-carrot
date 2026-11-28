@@ -394,6 +394,16 @@ def read_param_backup_values(path: str) -> dict[str, Any]:
   return filter_param_backup_values(values)
 
 
+def shadow_setting_writable(params) -> bool:
+  """Fail closed while onroad or when forced offroad hides the real state."""
+  try:
+    state = params.get("IsOnroad")
+    return (state is False or state == b"0" or state == "0") and not any(
+      params.get_bool(k) for k in ("ForceOffroad", "ForceOffroadActive", "ForceOffroadObserver"))
+  except Exception:
+    return False
+
+
 def set_param_value(name: str, value: Any, p: Optional[Dict[str, Any]] = None) -> None:
   if name in INTERNAL_SESSION_PARAMS:
     raise ValueError(f"{name} is controlled internally")
@@ -401,6 +411,8 @@ def set_param_value(name: str, value: Any, p: Optional[Dict[str, Any]] = None) -
     _mem_store[name] = str(value)
     return
   params = Params()
+  if name == "LowSpeedOscillationShadow" and not shadow_setting_writable(params):
+    raise PermissionError("Park and go offroad before changing shadow recording")
   try:
     put_typed(params, name, value, p)
   except Exception as exc:
