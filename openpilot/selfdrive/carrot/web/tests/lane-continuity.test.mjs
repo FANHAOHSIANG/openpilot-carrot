@@ -1,0 +1,20 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import "../js/lane-observe.js";
+const {createLocalLaneTracker}=globalThis.CarrotLaneObserve;
+const sample=(t,o=0,w=3.6)=>({model_mono_ns:t,relative_position:{status:'local_candidate',reference:'model_origin_x0',offset_m:o,width_m:w,left_m:w/2+o,right_m:w/2-o,control_usable:false}});
+test("local continuity resets and never assigns physical lanes",()=>{
+const track=createLocalLaneTracker();
+assert.equal(track.observe(sample(1e9)).status,'acquiring');
+assert.equal(track.observe(sample(1.2e9)).frames,2);
+assert.equal(track.observe(sample(1.4e9)).status,'continuous');
+assert.equal(track.observe(sample(1.4e9)).frames,3);
+assert.equal(track.observe(sample(1.4e9,.2)).status,'duplicate_conflict');
+assert.equal(track.observe(sample(2e9)).frames,1);
+assert.equal(track.observe(sample(2.8e9)).status,'gap_reset');
+assert.equal(track.observe(sample(2.9e9,1)).status,'geometry_reset');
+assert.equal(track.observe(sample(2.7e9)).status,'clock_reset');
+assert.equal(track.observe(null).status,'unavailable');
+assert.equal(track.observe(sample(3e9)).frames,1);
+const x=track.observe(sample(3.1e9));assert.equal(x.absolute_lane_index,null);assert.equal(x.confirmed_lane_changes,null);assert.equal(x.control_usable,false);
+});

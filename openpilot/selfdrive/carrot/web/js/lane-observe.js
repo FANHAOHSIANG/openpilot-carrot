@@ -108,6 +108,31 @@ function duplicateNavInvalid(old,event) {
   const keys=["sessionId","generation","navigationStatus","laneCurrent","amapLaneCandidate"];
   return keys.some(k=>JSON.stringify(a?.[k])!==JSON.stringify(b?.[k]));
 }
+// Local observation continuity; never a physical lane or crossing estimate.
+function createLocalLaneTracker() {
+  let last=null, first=null, count=0;
+  const reset=()=>{last=null;first=null;count=0;};
+  const output=(status, extra={})=>({status,frames:count,span_ms:last&&first?(last.t-first.t)/1e6:0,
+    absolute_lane_index:null,confirmed_lane_changes:null,control_usable:false,...extra});
+  function observe(s) {
+    const t=s?.model_mono_ns,r=s?.relative_position;
+    if(!Number.isSafeInteger(t)||t<=0||r?.status!=="local_candidate"||r.reference!=="model_origin_x0"||r.control_usable!==false||
+      ![r.offset_m,r.width_m,r.left_m,r.right_m].every(Number.isFinite)||r.width_m<2.2||r.width_m>5||
+      r.left_m<.15||r.right_m<.15||Math.abs(r.left_m+r.right_m-r.width_m)>.05||Math.abs((r.left_m-r.right_m)/2-r.offset_m)>.05){reset();return output("unavailable");}
+    if(last&&t===last.t){if(r.offset_m!==last.offset||r.width_m!==last.width){reset();return output("duplicate_conflict");}return output(count>=3&&last.t-first.t>=400e6?"continuous":"acquiring",{offset_m:last.offset});}
+    const cur={t,offset:r.offset_m,width:r.width_m};
+    let reason="acquiring";
+    if(last){const dt=t-last.t;
+      if(dt<0){reset();reason="clock_reset";}
+      else if(dt>600e6){reset();reason="gap_reset";}
+      else if(Math.abs(cur.offset-last.offset)>.75||Math.abs(cur.width-last.width)>.75){reset();reason="geometry_reset";}
+    }
+    if(!last)first=cur;
+    last=cur;count=Math.min(count+1,1e6);
+    return output(count>=3&&last.t-first.t>=400e6?"continuous":reason,{offset_m:cur.offset});
+  }
+  return {observe,reset};
+}
 function snapshot(cache,now){
   const fresh=(k,ttl)=>{const v=cache[k];return v&&v.event.valid===true&&now>=v.received&&now-v.received<=ttl?v.event:null};
   const model=fresh("modelV2",600),nav=fresh("carrotNavi",1500),car=fresh("carState",600),ctrl=fresh("controlsState",600);
@@ -169,8 +194,8 @@ function presentation(s,mode){
 function boot(doc,win){
   const $=id=>doc.getElementById(id);
   const cache={};let socket=null,enabled=false,recording=false,records=[],dropped=0,lastRecord=null,retry=0,decodeErrors=0;
-  const status=$("status"),canvas=$("plot"),ctx=canvas.getContext("2d");
-  function clear(){for(const k of Object.keys(cache))delete cache[k];$("guidePanel").hidden=$("displayMode").value!=="always";$("lanes").replaceChildren();$("nav").textContent="—";$("distance").textContent="—";$("guideStatus").textContent="無有效車道引導";$("guideNote").textContent="等待引導";$("matchStatus").textContent="等待雙來源";$("mapCandidate").textContent="—";$("candidateIcons").replaceChildren();$("pairStatus").textContent="無有效推薦圖示資料";}
+  const status=$("status"),canvas=$("plot"),ctx=canvas.getContext("2d"),tracker=createLocalLaneTracker();
+  function clear(){tracker.reset();$("localContinuity").textContent="—";for(const k of Object.keys(cache))delete cache[k];$("guidePanel").hidden=$("displayMode").value!=="always";$("lanes").replaceChildren();$("nav").textContent="—";$("distance").textContent="—";$("guideStatus").textContent="無有效車道引導";$("guideNote").textContent="等待引導";$("matchStatus").textContent="等待雙來源";$("mapCandidate").textContent="—";$("candidateIcons").replaceChildren();$("pairStatus").textContent="無有效推薦圖示資料";}
   function disconnect(){win.clearTimeout(retry);retry=0;const s=socket;socket=null;if(s)s.close();clear();}
   function connect(){
     if(!enabled||doc.hidden||socket)return;
@@ -204,7 +229,8 @@ function boot(doc,win){
   }
   const fmt=(v,d=1)=>finite(v)?v.toFixed(d):"—";
   function update(){
-    const t=win.performance.now(),s=snapshot(cache,t),p=presentation(s,$("displayMode").value);
+    const t=win.performance.now(),s=snapshot(cache,t),p=presentation(s,$("displayMode").value),continuity=tracker.observe(s);
+    $("localContinuity").textContent=continuity.status==="continuous"?"局部連續 "+(continuity.span_ms/1000).toFixed(1)+" s":continuity.status==="unavailable"?"局部定位不可用":"重新建立局部觀察";
     $("guidePanel").hidden=!p.visible;
     $("guideStatus").textContent=p.event_active?"導航車道引導":"無有效車道引導";
     $("guideNote").textContent=p.recommendation_status==="no_recommendation_data"?"推薦車道尚未傳入 C4":p.recommendation_status==="raw_flags_unverified"?"車道旗標語意未驗證":"等待引導";
@@ -238,7 +264,7 @@ function boot(doc,win){
     if(recording&&s.model_mono_ns!==null&&s.model_mono_ns!==lastRecord){
       lastRecord=s.model_mono_ns;
       if(records.length<MAX_RECORDS){
-        records.push({schema:3,wall_ms:Date.now(),...s,presentation:p,lane_pair:pair,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
+        records.push({schema:3,wall_ms:Date.now(),...s,presentation:p,lane_pair:pair,local_continuity:continuity,geometry:s.geometry?{samples:s.geometry.samples,probs:s.geometry.probs,stds:s.geometry.stds}:null});
       }else{dropped++;recording=false;$("record").textContent="紀錄已滿";}
     }
     $("count").textContent=records.length+" 筆"+(dropped?"（上限停止）":"")+" · 解碼失敗 "+decodeErrors;
@@ -255,6 +281,6 @@ function boot(doc,win){
   win.addEventListener("pagehide",()=>{enabled=false;disconnect();});
   win.setInterval(update,200);update();
 }
-root.CarrotLaneObserve={points,at,geometry,relativePosition,decodeWire,snapshot,ingest,presentation,lanePairDisplay,duplicateNavInvalid};
+root.CarrotLaneObserve={points,at,geometry,relativePosition,decodeWire,snapshot,ingest,presentation,lanePairDisplay,duplicateNavInvalid,createLocalLaneTracker};
 if(typeof document!=="undefined")document.addEventListener("DOMContentLoaded",()=>{if(document.getElementById("plot")&&document.getElementById("displayMode"))boot(document,window);});
 })(globalThis);
